@@ -1,0 +1,128 @@
+# Componentes
+
+Este arquivo define o comportamento e a aparência padrão de cada tipo de componente do Evergreen. Para cada um, a regra geral é: **escolha sempre o componente mais simples que resolve o problema.** Uma lista resolve mais casos do que uma tabela; texto resolve mais casos do que um badge; um badge resolve mais casos do que um card.
+
+## Botões
+
+- **Hierarquia de botão**: primário (preenchido, cor de destaque, um único por contexto/tela), secundário (borda ou superfície neutra elevada, sem preenchimento colorido), terciário/texto (sem borda nem fundo, só texto — usado para ações de baixa prioridade, tipo "Cancelar").
+- Nunca mais de um botão primário visível ao mesmo tempo no mesmo contexto — isso força uma decisão editorial real sobre qual é *a* ação mais importante daquela tela.
+- Botões destrutivos (deletar, remover, descartar) usam a cor semântica de erro, mas ainda com moderação — normalmente como botão secundário/com borda em vez de preenchido, reservando o preenchimento vermelho sólido só para confirmações finais em modais de risco alto.
+- Tamanho padrão: altura 28–32px, padding horizontal 12–16px, radius 6–8px (ver `spacing.md`).
+- Ícone dentro de botão é opcional e só deve existir se adicionar clareza real — nunca ícone + texto redundantes só por preenchimento visual.
+- Estado disabled reduz opacidade (~40–50%) e remove qualquer sombra/elevação, deixando claro visualmente que a ação não está disponível agora.
+
+## Campos de busca
+
+O campo de busca é provavelmente o componente mais importante do Evergreen dado o DNA "Raycast/Maccy" do produto — deve parecer instantâneo e central à experiência, sem parecer um formulário de website.
+
+- Fundo levemente diferente da superfície ao redor (um degrau, não um contraste forte), borda sutil ou ausente em repouso, borda com cor de destaque ao ganhar foco.
+- Ícone de lupa à esquerda, discreto (cor `text/tertiary`), nunca colorido.
+- Placeholder claro e específico ao contexto (nunca genérico tipo "Buscar...", prefira algo como "Buscar tarefas, projetos ou tags"), sempre em `text/tertiary`.
+- Resultado aparece **enquanto a pessoa digita** (busca instantânea, sem botão "buscar" separado) sempre que tecnicamente viável — essa é uma expectativa herdada diretamente do Raycast e do Spotlight do próprio macOS.
+- Atalho de teclado para focar a busca deve estar sempre disponível e, quando fizer sentido, exibido discretamente dentro do próprio campo (ex: um badge pequeno de atalho alinhado à direita, tipo "⌘K"), seguindo o padrão de `ux.md`.
+
+## Sidebars
+
+- Largura fixa ou redimensionável dentro de um intervalo definido (ex: 200–320px), nunca fluida livremente sem limites.
+- Fundo levemente distinto da área de conteúdo principal (superfície elevada ou levemente translúcida com blur, ver `colors.md`), criando separação sem precisar de uma borda grossa.
+- Itens de navegação em lista vertical, densidade média (36–40px de altura por item), com ícone opcional à esquerda (só se ajudar reconhecimento rápido, não decoração) e label em `text/primary`.
+- Item ativo/selecionado usa a cor de destaque em baixa opacidade como fundo da linha inteira (não só sublinhado, não só o texto colorido) — ver `colors.md` para estados.
+- Seções dentro da sidebar são separadas por um label pequeno em caps (ver `typography.md`) e um espaçamento de grupo (16–24px), nunca por uma linha divisória grossa.
+- Sidebar deve poder ser recolhida/expandida via atalho de teclado, com uma transição curta de slide (ver `motion.md`).
+
+## Listas
+
+O componente mais usado no Evergreen — praticamente todo conteúdo real do app (tarefas, itens, resultados, histórico) vive dentro de uma lista.
+
+- Cada linha é uma unidade clicável inteira (não apenas o texto — ver `spacing.md` sobre área de clique), com hover sutil de superfície.
+- Estrutura padrão de linha: elemento à esquerda (ícone/checkbox/avatar, opcional), bloco de texto central (título em `text/primary`, metadado opcional em `text/secondary` abaixo ou ao lado), elementos à direita (badge de status, timestamp, ação contextual que só aparece no hover).
+- Ações secundárias por linha (editar, deletar, mais opções) só aparecem visualmente **no hover da linha**, mantendo a lista limpa em repouso — outro comportamento característico de listas macOS bem feitas (Mail, Finder, Things).
+- Divisores entre linhas são opcionais e, quando existem, extremamente sutis (`border/subtle`) — muitas vezes o próprio espaçamento e a mudança de superfície no hover já bastam para separar itens, sem precisar de linha alguma.
+- Listas longas devem suportar seleção múltipla (Shift/Cmd+clique) e navegação completa por teclado (setas para mover, Enter para abrir/confirmar, ver `ux.md`).
+- Agrupamento (ex: "Hoje", "Ontem", "Esta semana") usa o mesmo padrão de label pequeno em caps das sidebars, nunca um card ou fundo colorido para separar grupos.
+
+## Tabelas
+
+Use tabela apenas quando há genuinamente múltiplas colunas de dados comparáveis linha a linha (ex: uma visão de configurações avançadas, um histórico com várias propriedades). Se os dados têm essencialmente uma dimensão principal (título) e metadados secundários, use lista, não tabela — é mais comum precisar de lista do que de tabela no Evergreen.
+
+- Cabeçalho de coluna discreto (`text/secondary`, peso medium, tamanho pequeno), sem fundo colorido ou sombra separando do corpo.
+- Alinhamento de coluna consistente com o tipo de dado (texto à esquerda, números à direita ou centralizados com algarismos tabulares).
+- Linha em hover recebe leve mudança de superfície, igual ao padrão de listas.
+- Sem zebra-striping (linhas alternadas coloridas) por padrão — isso tende a ficar "carregado" em uma paleta já discreta; se a densidade de dados realmente exigir, use uma diferença extremamente sutil, quase imperceptível conscientemente.
+- Redimensionamento de coluna, quando suportado, deve ter feedback visual claro mas discreto (linha de arraste fina na cor de destaque).
+
+## Popups e menus de contexto
+
+- Aparecem ancorados ao elemento que os disparou (não centralizados na tela), com uma pequena seta/indicador de origem quando apropriado ao contexto.
+- Superfície `surface/overlay` com radius 8–10px e sombra funcional (a única categoria de sombra que deve ser proeminente no Evergreen, porque aqui a sombra comunica genuinamente "isso está flutuando por cima e vai desaparecer").
+- Itens de menu seguem o mesmo padrão de linha de lista, densidade alta (28–32px por item), com atalho de teclado alinhado à direita quando existir (ver `ux.md`).
+- Fecham instantaneamente ao clicar fora, pressionar Escape, ou selecionar uma opção — sem exigir um botão "fechar" explícito na maioria dos casos.
+- Aparecem/somem com fade + leve escala/translação mínima (ver `motion.md`), nunca com slide longo ou bounce.
+
+## Dropdowns / Selects
+
+- Visualmente equivalentes a um botão secundário em repouso, com um pequeno chevron indicando que abre opções.
+- Ao abrir, comporta-se como um popup ancorado (ver acima), com a opção atualmente selecionada visualmente destacada (fundo com a cor de destaque em baixa opacidade) dentro da lista de opções.
+- Suporta navegação completa por teclado (setas + Enter, digitar para pular para a opção correspondente).
+
+## Modais / Dialogs
+
+Modais no Evergreen são reservados para decisões que genuinamente interrompem o fluxo — confirmações destrutivas, formulários curtos que precisam de foco total, configurações que não cabem em um popup simples. Eles não são o padrão default para "mostrar mais informação"; um painel lateral de detalhe é geralmente preferível a um modal quando a informação é consultiva, não uma decisão.
+
+- Centralizado na janela (exceção legítima à regra geral de não centralizar, ver `spacing.md`), com um overlay de fundo escurecido sutilmente (não um blackout total).
+- Largura contida (raramente mais que ~480–560px para modais de conteúdo padrão; modais de confirmação são ainda menores, ~320–400px).
+- Estrutura: título curto e direto (sem ponto final, sem tom de marketing), corpo objetivo, ações no rodapé alinhadas à direita com o botão primário mais à direita e o secundário/cancelar à esquerda dele (convenção nativa macOS).
+- Modais de confirmação destrutiva devem deixar claro na cópia qual é a consequência irreversível (ex: "Esta ação não pode ser desfeita"), e o botão de confirmação usa a cor semântica de erro apenas se a ação for de fato irreversível/destrutiva.
+- Fecham com Escape sempre, exceto em casos raros onde isso seria genuinamente perigoso (ex: uma ação crítica em progresso).
+
+## Menus contextuais (clique direito)
+
+- Seguem exatamente o padrão de popups/menus descrito acima.
+- Agrupam ações relacionadas com um divisor sutil entre grupos (ex: ações de edição, depois um divisor, depois ações destrutivas no final da lista).
+- Ações destrutivas (deletar, remover) ficam sempre no fim da lista e usam a cor semântica de erro no texto/ícone, nunca fundo vermelho sólido no item inteiro (isso seria chamativo demais para um menu de contexto).
+
+## Badges e indicadores
+
+- Badges são pequenos, com radius 4–6px (ou totalmente arredondados quando forem numéricos/circulares, ex: contador de notificação), padding horizontal mínimo (6–8px), texto pequeno (10–11px) em peso medium.
+- Cor de badge segue estritamente o sistema semântico (`colors.md`) — nunca uma cor arbitrária "só para diferenciar visualmente" sem que ela represente um estado real (status, prioridade, categoria).
+- Prefira fundo em baixa opacidade da cor semântica com texto na cor semântica em versão mais saturada/escura, em vez de fundo sólido saturado com texto branco — o primeiro padrão é mais discreto e combina melhor com a paleta majoritariamente neutra do Evergreen.
+- Indicadores de status simples (ponto colorido, sem texto) são preferíveis a badges com texto sempre que o significado já for aprendido pelo usuário (ex: um ponto verde para "online/ativo" depois que o padrão foi estabelecido uma vez na interface).
+
+## Loading
+
+- Spinner pequeno (16–20px), monocromático (usando `text/secondary` ou a cor de destaque em versão discreta), nunca colorido de forma chamativa ou com múltiplas cores.
+- Aparece só depois de um pequeno atraso (ver `motion.md`) para operações que podem terminar rápido o suficiente para não precisar de indicador algum.
+- Para operações mais longas com progresso mensurável, uma barra de progresso fina (2–3px de altura) é preferível a um spinner indeterminado, porque comunica informação real (quanto falta) em vez de apenas "algo está acontecendo".
+- Nunca usar tela cheia de loading no meio do uso do app — se uma operação bloqueia a tela inteira por mais que um instante muito breve, repense a arquitetura antes de aceitar isso como "normal" e só estilizar o spinner.
+
+## Notificações / Toasts
+
+- Aparecem em uma posição consistente e previsível (geralmente canto superior direito ou próximo à barra de título, seguindo convenções nativas do macOS), nunca centralizadas na tela.
+- Curtas, objetivas, sem ícone decorativo além de um indicador semântico discreto quando aplicável (sucesso/erro/aviso).
+- Desaparecem automaticamente após poucos segundos (a menos que exijam uma ação da pessoa, caso em que se comportam mais como um popup persistente com botão de dispensar).
+- Nunca empilhar mais que 2–3 notificações simultâneas visíveis — se isso acontece com frequência, o problema é de frequência de eventos, não de estilo de notificação.
+
+## Empty states
+
+Devem ser raros no Evergreen (ver `philosophy.md`), mas quando existem:
+
+- Mensagem curta e funcional (o que fazer a seguir), nunca um parágrafo longo explicando o conceito do app.
+- Sem ilustração grande e colorida — no máximo um ícone discreto do próprio sistema de ícones do app, em `text/tertiary`, do mesmo tamanho que teria em qualquer outro contexto (nunca um ícone gigante centralizado, isso é padrão de app mobile/web consumer).
+- Nunca ocupar a tela inteira com espaço vazio ao redor de uma mensagem pequena — mesmo um empty state deve respeitar a densidade e a composição de regiões fixas da tela (ver `spacing.md`), aparecendo dentro da área de conteúdo normal, não como uma "tela especial" separada.
+- Se houver uma ação clara para resolver o estado vazio (ex: "criar o primeiro item"), essa ação é um botão secundário discreto, não um botão primário gigante e colorido — o vazio não é uma oportunidade de venda, é apenas um estado transitório do trabalho da pessoa.
+
+## Cards (usar apenas quando genuinamente necessário)
+
+Cards — um container com fundo, borda e/ou sombra ao redor de um bloco de conteúdo — são o componente mais fácil de abusar, e o Evergreen deve resistir ativamente a essa tentação. Prefira lista, tabela ou apenas agrupamento por espaçamento antes de recorrer a um card.
+
+Um card é apropriado quando:
+
+- O conteúdo é genuinamente um objeto autocontido que a pessoa vai comparar visualmente lado a lado com outros do mesmo tipo (ex: uma grade de opções de tema/aparência nas configurações).
+- Existe uma necessidade real de separação visual forte entre dois blocos de configuração muito diferentes na mesma tela.
+
+Quando um card for usado:
+
+- Borda sutil (`border/subtle`) é preferível a sombra como método de separação; use sombra apenas se o card também tiver alguma interatividade de "flutuar" (ex: arrastar).
+- Nunca aninhar cards dentro de cards — se um bloco de conteúdo dentro de um card parece precisar do mesmo tratamento visual do card pai, isso é sinal de que a hierarquia deveria ser resolvida com espaçamento e tipografia, não com mais um container.
+- Radius consistente com a escala definida em `spacing.md` (8px para cards de tamanho médio), nunca radius alto de app consumer.
+- Um grid de cards (quando genuinamente necessário) deve manter espaçamento consistente e denso o suficiente para não parecer uma vitrine de produtos — 12–16px de gap entre cards é geralmente suficiente, não 32px+.

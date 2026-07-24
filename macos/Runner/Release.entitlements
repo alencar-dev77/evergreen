@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- O App Sandbox fica desligado de propósito.
+	     Um gerenciador de área de transferência precisa registrar atalho global
+	     no sistema e escrever o LaunchAgent de "iniciar com o macOS" — ambos
+	     bloqueados dentro do sandbox. O Evergreen é distribuído fora da App
+	     Store e segue sem qualquer acesso à rede. -->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+#
+# run_build_copy — builda o Evergreen em release e instala em /Applications.
+#
+# Fluxo:
+#   1. Apaga o build anterior (build/macos/.../Release/Evergreen.app), se existir.
+#   2. Roda `flutter build macos --release`.
+#   3. Apaga a cópia antiga em /Applications, se existir.
+#   4. Copia o .app novo para /Applications.
+#
+# Uso: ./run_build_copy
+
+set -euo pipefail
+
+APP_NAME="Evergreen.app"
+BUILD_DIR="build/macos/Build/Products/Release"
+BUILT_APP="$BUILD_DIR/$APP_NAME"
+DEST_DIR="/Applications"
+DEST_APP="$DEST_DIR/$APP_NAME"
+
+# Garante que estamos na raiz do projeto (onde está o pubspec.yaml).
+cd "$(dirname "$0")"
+
+if [[ ! -f pubspec.yaml ]]; then
+  echo "❌ pubspec.yaml não encontrado — rode o script na raiz do projeto." >&2
+  exit 1
+fi
+
+echo "🧹 Limpando build anterior…"
+if [[ -d "$BUILT_APP" ]]; then
+  rm -rf "$BUILT_APP"
+  echo "   removido: $BUILT_APP"
+else
+  echo "   nada pra remover."
+fi
+
+echo "🔨 Buildando release…"
+flutter build macos --release
+
+if [[ ! -d "$BUILT_APP" ]]; then
+  echo "❌ Build não gerou $BUILT_APP" >&2
+  exit 1
+fi
+
+echo "🧹 Removendo cópia antiga em $DEST_DIR…"
+if [[ -d "$DEST_APP" ]]; then
+  rm -rf "$DEST_APP"
+  echo "   removido: $DEST_APP"
+else
+  echo "   nada pra remover."
+fi
+
+echo "📦 Copiando pra $DEST_DIR…"
+cp -R "$BUILT_APP" "$DEST_APP"
+
+echo "✅ Pronto! $DEST_APP atualizado."

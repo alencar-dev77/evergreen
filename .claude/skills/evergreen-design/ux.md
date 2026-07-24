@@ -1,0 +1,61 @@
+# UX: Interação e Fluxo
+
+## Princípio central
+
+O Evergreen é desenhado **primeiro para teclado, depois para mouse/trackpad**. Toda ação frequente precisa ter um caminho de teclado; o mouse existe para descoberta inicial, seleção livre e casos onde apontar é genuinamente mais rápido que lembrar um atalho (ex: clicar em um item específico numa lista longa e não ordenada).
+
+Isso é uma inversão consciente do padrão típico de design de produto (que costuma desenhar para mouse/toque primeiro e "adicionar atalhos depois"). No Evergreen, o atalho vem primeiro na concepção da tela — depois se desenha o alvo de clique correspondente.
+
+## Atalhos de teclado
+
+- Todo comando destrutivo, de navegação principal ou de ação primária tem um atalho global ou contextual — e esse atalho é **descoberto pela própria interface**, não escondido: exibido discretamente ao lado do item de menu correspondente, dentro de tooltips (quando existirem) e, quando fizer sentido, diretamente no componente (ex: badge de atalho dentro do campo de busca).
+- Convenções do macOS são respeitadas sempre: `Cmd` para ações primárias (não `Ctrl`), `Cmd+,` para preferências, `Cmd+W` para fechar janela/aba, `Cmd+N` para novo item, `Esc` para cancelar/fechar overlay, setas para navegar listas, `Enter`/`Return` para confirmar/abrir o item focado.
+- Atalhos de um único caractere sem modificador (ex: apenas "j"/"k" para navegar, como em apps inspirados em vim) são aceitáveis **apenas quando o foco estiver claramente em um contexto de navegação de lista** e nunca quando o foco estiver em um campo de texto — nesse caso o caractere deve ser digitado normalmente como texto.
+- A paleta de comandos (command palette, se o Evergreen tiver uma, no espírito Raycast/Linear) é o hub central de descobribilidade de atalhos: cada ação nela listada mostra seu atalho correspondente ao lado, ensinando o atalho organicamente pelo uso repetido.
+
+## Navegação por teclado dentro de listas e menus
+
+- Setas para cima/baixo movem a seleção item a item; `Enter` confirma/abre o item selecionado; `Esc` fecha o contexto (popup, busca, modal) sem executar ação.
+- Ao digitar em um campo de busca acoplado a uma lista de resultados, as setas devem continuar navegando a lista mesmo com o foco no campo de texto (padrão Spotlight/Raycast) — a pessoa não deve precisar clicar na lista para poder navegá-la.
+- `Tab`/`Shift+Tab` seguem a ordem lógica de leitura da tela (esquerda para direita, cima para baixo) para navegação geral entre campos/controles fora do contexto de uma lista específica.
+- Seleção múltipla via `Shift+clique` (intervalo) e `Cmd+clique` (itens individuais) sempre que a lista suportar ações em lote.
+
+## Mouse e trackpad
+
+- Embora o teclado seja prioridade de concepção, toda ação de teclado precisa ter um equivalente de mouse igualmente descobrível — nunca um recurso "só de atalho" sem nenhuma forma de acioná-lo visualmente (isso quebra descobribilidade para quem ainda não decorou os atalhos).
+- Gestos de trackpad nativos do macOS (scroll com inércia, swipe para voltar quando aplicável, pinça se houver zoom) devem se comportar exatamente como o sistema espera — nunca reimplementar física de scroll customizada que "sente diferente" do resto do macOS.
+- Hover é tratado como informação, não apenas como acionador de clique — hover revela ações secundárias contextuais (ver `components.md`, seção Listas) porque isso é como o mouse "pergunta" o que está disponível sem exigir clique.
+- Menu de clique direito (contexto) deve estar disponível em praticamente todo objeto de conteúdo relevante (item de lista, texto selecionado, elemento de configuração) como forma alternativa de descobrir ações menos frequentes.
+
+## Densidade de informação e velocidade de uso
+
+- Prefira mostrar mais informação relevante por tela a exigir mais navegação/cliques para chegar à mesma informação — isso é uma das razões centrais para a densidade alta descrita em `spacing.md`.
+- Toda tela deve ser pensada em termos de "quantos passos entre abrir o app e completar a tarefa mais comum daquela tela" — se esse número está alto, o problema é de arquitetura de informação antes de ser um problema visual.
+- Estado é preservado entre usos sempre que fizer sentido (última aba ativa, última posição de scroll, filtros aplicados) — a pessoa não deve reconfigurar o contexto toda vez que reabre o app, já que o Evergreen é reaberto dezenas de vezes ao dia.
+
+## Busca
+
+- A busca é tratada como um mecanismo de navegação primário, não como um recurso acessório — sempre que a quantidade de conteúdo justificar, um atalho global (tipicamente `Cmd+K` ou equivalente) deve abrir busca/paleta de comando de qualquer lugar do app.
+- Resultados de busca são ranqueados por relevância real (correspondência de texto, frequência/recência de uso), não apenas ordem alfabética ou de criação.
+- Buscar deve funcionar mesmo com termos parciais e fora de ordem (fuzzy matching) sempre que tecnicamente viável — a expectativa herdada do Spotlight/Raycast é que a pessoa não precisa digitar o termo exato desde o início.
+
+## Menus e organização de comandos
+
+- Menus (de barra de menu do sistema, contextuais ou dropdown) organizam comandos por frequência de uso e por agrupamento lógico, com os mais comuns no topo — nunca em ordem puramente alfabética se isso esconder o comando mais usado no meio de uma lista longa.
+- Comandos destrutivos ficam sempre visualmente separados (divisor) e no fim do menu, nunca misturados com comandos neutros no meio da lista.
+
+## Dialogs e interrupção de fluxo
+
+- Um dialog modal só deve interromper o fluxo quando a decisão for genuinamente bloqueante (confirmação destrutiva, erro que impede continuar, formulário curto que precisa de foco total) — ver `components.md` para a forma visual.
+- Sempre que possível, prefira **feedback inline** (mensagem de erro ao lado do campo, badge de status atualizado, notificação discreta) a um modal, porque modais custam mais atenção e mais cliques para dispensar do que a maioria das situações realmente exige.
+
+## Feedback visual
+
+- Toda ação do usuário produz uma resposta visual perceptível dentro de ~100ms, mesmo que a operação real (rede, disco) demore mais — um estado otimista (mostrar o resultado esperado imediatamente, com possibilidade de reverter caso a operação subjacente falhe) é preferível a fazer a pessoa esperar visualmente por uma confirmação de rede antes de ver qualquer mudança.
+- Erros são comunicados no contexto exato de onde a ação falhou (ao lado do campo, dentro do item de lista, em vez de um alerta genérico no topo da tela desconectado da causa), sempre que tecnicamente possível.
+- Confirmações de sucesso para ações rotineiras (salvar, marcar como concluído) são discretas e rápidas (mudança de estado visual do próprio item, ou uma notificação breve) — nunca uma celebração visual grande (confete, animação elaborada) para uma ação de trabalho cotidiano; isso quebraria o tom sóbrio e funcional do produto.
+
+## Onboarding e primeira execução
+
+- Onboarding, quando necessário, é mínimo — idealmente resolvido dentro do próprio fluxo real de uso (ex: um empty state com uma única sugestão de ação) em vez de um carrossel de telas explicativas antes de deixar a pessoa usar o app.
+- Se um passo de configuração inicial for genuinamente necessário (ex: conceder uma permissão do macOS), ele deve ser pontual, específico e sair do caminho assim que resolvido — nunca uma sequência longa de telas "de boas-vindas" com ilustrações.

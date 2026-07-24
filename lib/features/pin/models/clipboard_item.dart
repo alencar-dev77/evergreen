@@ -1,0 +1,92 @@
+import 'clipboard_item_type.dart';
+
+/// Um registro do histórico da área de transferência.
+///
+/// Imutável: alterações (fixar, atualizar timestamp) produzem uma nova
+/// instância via [copyWith], mantendo a camada de estado previsível.
+class ClipboardItem {
+  const ClipboardItem({
+    required this.id,
+    required this.content,
+    required this.type,
+    required this.isPinned,
+    required this.copiedAt,
+    this.pinnedAt,
+  });
+
+  /// Identificador no banco local. `null` enquanto o item não foi persistido.
+  final int? id;
+
+  /// Conteúdo integral copiado.
+  final String content;
+
+  final ClipboardItemType type;
+  final bool isPinned;
+
+  /// Momento da última vez que este conteúdo passou pela área de transferência.
+  final DateTime copiedAt;
+
+  /// Momento em que o item foi fixado; `null` quando não está fixado.
+  ///
+  /// É o que dá ordem estável aos fixados: recopiar um item fixado atualiza o
+  /// [copiedAt] mas não mexe na posição dele — nem, portanto, no atalho ⌥N.
+  final DateTime? pinnedAt;
+
+  /// Cria um item ainda não persistido a partir de um conteúdo capturado.
+  factory ClipboardItem.capture(String content, {DateTime? at}) {
+    return ClipboardItem(
+      id: null,
+      content: content,
+      type: ClipboardItemClassifier.classify(content),
+      isPinned: false,
+      copiedAt: at ?? DateTime.now(),
+    );
+  }
+
+  /// Texto exibido na lista: primeira linha não vazia, sem espaços nas pontas.
+  ///
+  /// A lista é de linha única com ellipsis, então quebras de linha só poluiriam
+  /// a medição de texto.
+  String get title {
+    final firstLine = content
+        .split('\n')
+        .map((line) => line.trim())
+        .firstWhere((line) => line.isNotEmpty, orElse: () => '');
+
+    return firstLine.isEmpty ? content.trim() : firstLine;
+  }
+
+  /// Verdadeiro quando o conteúdo tem mais do que a linha exibida na lista.
+  bool get hasMoreThanTitle => content.trim() != title;
+
+  ClipboardItem copyWith({
+    int? id,
+    String? content,
+    ClipboardItemType? type,
+    bool? isPinned,
+    DateTime? copiedAt,
+    DateTime? pinnedAt,
+  }) {
+    return ClipboardItem(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      type: type ?? this.type,
+      isPinned: isPinned ?? this.isPinned,
+      copiedAt: copiedAt ?? this.copiedAt,
+      pinnedAt: pinnedAt ?? this.pinnedAt,
+    );
+  }
+
+  /// Verdadeiro se [query] casa com o conteúdo, ignorando caixa.
+  bool matches(String query) {
+    if (query.isEmpty) return true;
+    return content.toLowerCase().contains(query.toLowerCase());
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ClipboardItem && other.id == id && other.isPinned == isPinned;
+
+  @override
+  int get hashCode => Object.hash(id, isPinned);
+}

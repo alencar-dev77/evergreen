@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#0B0B0B; }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-thumb { background:#262626; border-radius:3px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  * { box-sizing:border-box; font-family:'Inter','SF Pro Display',-apple-system,sans-serif; }
+</style>
+</helmet>
+
+<div style="background:#0B0B0B; min-height:100vh; padding:64px 56px 96px; color:#F5F5F5;">
+
+  <div style="max-width:1200px; margin:0 auto 72px;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+      <div style="width:28px; height:28px; border-radius:8px; background:linear-gradient(160deg,#22C55E,#4ADE80); flex-shrink:0;"></div>
+      <div style="font-size:14px; letter-spacing:0.06em; color:#9CA3AF; text-transform:uppercase; font-weight:600;">Evergreen</div>
+    </div>
+    <div style="font-size:40px; font-weight:700; letter-spacing:-0.02em;">Sistema de Design — Pin v0.1</div>
+    <div style="font-size:16px; color:#9CA3AF; margin-top:10px; max-width:640px; line-height:1.6;">Dark premium, minimalista, muito respiro. Tokens, componentes e as telas do módulo Pin — o gerenciador de área de transferência do Evergreen.</div>
+  </div>
+
+  <!-- COLORS -->
+  <div style="max-width:1200px; margin:0 auto 72px;">
+    <div style="font-size:13px; font-weight:600; color:#4ADE80; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:20px;">Paleta</div>
+    <div style="display:flex; flex-wrap:wrap; gap:16px;">
+      <sc-for list="{{ colors }}" as="c" hint-placeholder-count="10">
+        <div style="width:140px;">
+          <div style="height:88px; border-radius:12px; background:{{ c.hex }}; border:1px solid #262626;"></div>
+          <div style="margin-top:10px; font-size:13px; font-weight:600;">{{ c.name }}</div>
+          <div style="font-size:12px; color:#9CA3AF; font-family:monospace; margin-top:2px;">{{ c.hex }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <div style="max-width:1200px; margin:0 auto 72px;">
+    <div style="font-size:13px; font-weight:600; color:#4ADE80; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:20px;">Tipografia — Inter / SF Pro Display</div>
+    <div style="background:#141414; border:1px solid #262626; border-radius:16px; padding:36px 40px; display:flex; flex-direction:column; gap:22px;">
+      <div style="display:flex; align-items:baseline; gap:24px;"><div style="font-size:32px; font-weight:700; letter-spacing:-0.02em;">Título de tela</div><div style="font-size:12px; color:#9CA3AF; font-family:monospace;">700 / 32px</div></div>
+      <div style="display:flex; align-items:baseline; gap:24px;"><div style="font-size:20px; font-weight:600;">Cabeçalho de seção</div><div style="font-size:12px; color:#9CA3AF; font-family:monospace;">600 / 20px</div></div>
+      <div style="display:flex; align-items:baseline; gap:24px;"><div style="font-size:15px; font-weight:500;">Texto de item / label de UI</div><div style="font-size:12px; color:#9CA3AF; font-family:monospace;">500 / 15px</div></div>
+      <div style="display:flex; align-items:baseline; gap:24px;"><div style="font-size:13px; color:#9CA3AF;">Texto secundário, metadados, timestamps</div><div style="font-size:12px; color:#9CA3AF; font-family:monospace;">400 / 13px</div></div>
+    </div>
+  </div>
+
+  <!-- COMPONENTS -->
+  <div style="max-width:1200px; margin:0 auto 72px;">
+    <div style="font-size:13px; font-weight:600; color:#4ADE80; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:20px;">Componentes</div>
+    <div style="display:flex; flex-wrap:wrap; gap:16px;">
+
+      <div style="background:#141414; border:1px solid #262626; border-radius:16px; padding:28px; flex:1; min-width:280px;">
+        <div style="font-size:12px; color:#9CA3AF; margin-bottom:16px; font-weight:600;">Botões</div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+          <button style="background:#22C55E; color:#0B0B0B; border:none; padding:10px 18px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.15s;" style-hover="background:#4ADE80;">Primário</button>
+          <button style="background:#1A1A1A; color:#F5F5F5; border:1px solid #262626; padding:10px 18px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.15s;" style-hover="background:#232323;">Secundário</button>
+          <button style="background:transparent; color:#9CA3AF; border:none; width:36px; height:36px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s;" style-hover="background:#232323; color:#F5F5F5;">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 8h8M8 4v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div style="background:#141414; border:1px solid #262626; border-radius:16px; padding:28px; flex:1; min-width:280px;">
+        <div style="font-size:12px; color:#9CA3AF; margin-bottom:16px; font-weight:600;">Campo de busca</div>
+        <div style="background:#1A1A1A; border:1px solid #22C55E; border-radius:10px; padding:11px 14px; display:flex; align-items:center; gap:10px;">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="#9CA3AF" stroke-width="1.5"/><path d="M11 11l3.5 3.5" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <div style="font-size:14px; color:#F5F5F5;">Pesquisar...</div>
+        </div>
+      </div>
+
+      <div style="background:#141414; border:1px solid #262626; border-radius:16px; padding:28px; flex:1; min-width:280px;">
+        <div style="font-size:12px; color:#9CA3AF; margin-bottom:16px; font-weight:600;">Toggle</div>
+        <div style="display:flex; align-items:center; gap:24px;">
+          <div style="width:40px; height:24px; border-radius:12px; background:#22C55E; position:relative;"><div style="width:18px; height:18px; border-radius:50%; background:#0B0B0B; position:absolute; top:3px; right:3px;"></div></div>
+          <div style="width:40px; height:24px; border-radius:12px; background:#262626; position:relative;"><div style="width:18px; height:18px; border-radius:50%; background:#9CA3AF; position:absolute; top:3px; left:3px;"></div></div>
+        </div>
+      </div>
+
+      <div style="background:#141414; border:1px solid #262626; border-radius:16px; padding:28px; flex:1; min-width:280px;">
+        <div style="font-size:12px; color:#9CA3AF; margin-bottom:16px; font-weight:600;">List item / Card</div>
+        <div style="background:#1A1A1A; border:1px solid #262626; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
+          <div style="width:26px; height:26px; border-radius:7px; background:#232323; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="3" y="2" width="10" height="12" rx="1.5" stroke="#9CA3AF" stroke-width="1.3"/><path d="M5.5 6h5M5.5 9h5" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:14px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Flutter</div>
+            <div style="font-size:12px; color:#9CA3AF;">Texto · agora</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SCREENS -->
+  <div style="max-width:100%; margin:0 auto;">
+    <div style="max-width:1200px; margin:0 auto 20px;">
+      <div style="font-size:13px; font-weight:600; color:#4ADE80; letter-spacing:0.08em; text-transform:uppercase;">Telas — Pin v0.1</div>
+    </div>
+
+    <div style="display:flex; gap:32px; overflow-x:auto; padding:4px 56px 24px;">
+
+      <!-- Screen 1: Main panel -->
+      <div style="flex-shrink:0;">
+        <div style="width:420px; height:600px; border-radius:14px; background:radial-gradient(circle at 30% 20%, #14181a, #0B0B0B 70%); position:relative; overflow:hidden; border:1px solid #1a1a1a;">
+          <div style="position:absolute; top:130px; left:24px; right:24px; background:#141414; border:1px solid #262626; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.55); overflow:hidden;">
+            <div style="padding:14px 16px; border-bottom:1px solid #262626; display:flex; align-items:center; gap:10px;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="#9CA3AF" stroke-width="1.5"/><path d="M11 11l3.5 3.5" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div style="font-size:14px; color:#F5F5F5;">{{ searchText }}</div>
+            </div>
+            <div style="padding:10px 8px 14px; max-height:400px; overflow:hidden;">
+              <div style="font-size:11px; color:#9CA3AF; letter-spacing:0.06em; text-transform:uppercase; padding:6px 10px 4px; font-weight:600;">Fixados</div>
+              <sc-for list="{{ pinnedItems }}" as="item" hint-placeholder-count="2">
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; background:{{ item.bg }};">
+                  <sc-if value="{{ item.isText }}"><div style="width:24px; height:24px; border-radius:6px; background:#232323; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="3" y="2" width="10" height="12" rx="1.5" stroke="#9CA3AF" stroke-width="1.3"/><path d="M5.5 6h5M5.5 9h5" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg></div></sc-if>
+                  <sc-if value="{{ item.isLink }}"><div style="width:24px; height:24px; border-radius:6px; background:#232323; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6.5 9.5l3-3" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/><path d="M8.2 5.3l1-1a2.3 2.3 0 013.2 3.2l-1 1M7.8 10.7l-1 1a2.3 2.3 0 01-3.2-3.2l1-1" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg></div></sc-if>
+                  <sc-if value="{{ item.isCommand }}"><div style="width:24px; height:24px; border-radius:6px; background:#232323; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4l4 4-4 4" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 12h4.5" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg></div></sc-if>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:13.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ item.title }}</div>
+                  </div>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;"><path d="M8 2l1.8 3.7 4 .6-3 2.9.7 4-3.5-1.9-3.5 1.9.7-4-3-2.9 4-.6z" fill="#22C55E"/></svg>
+                </div>
+              </sc-for>
+              <div style="font-size:11px; color:#9CA3AF; letter-spacing:0.06em; text-transform:uppercase; padding:12px 10px 4px; font-weight:600;">Recentes</div>
+              <sc-for list="{{ recentItems }}" as="item" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; background:{{ item.bg }};">
+                  <sc-if value="{{ item.isText }}"><div style="width:24px; height:24px; border-radius:6px; background:#232323; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="3" y="2" width="10" height="12" rx="1.5" stroke="#9CA3AF" stroke-width="1.3"/><path d="M5.5 6h5M5.5 9h5" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg></div></sc-if>
+                  <sc-if value="{{ item.isLink }}"><div style="width:24px; height:24px; border-radius:6px; background:#232323; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6.5 9.5l3-3" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/><path d="M8.2 5.3l1-1a2.3 2.3 0 013.2 3.2l-1 1M7.8 10.7l-1 1a2.3 2.3 0 01-3.2-3.2l1-1" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg></div></sc-if>
+                  <sc-if value="{{ item.isCommand }}"><div style="width:24px; height:24px; border-radius:6px; background:#232323; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4l4 4-4 4" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 12h4.5" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg></div></sc-if>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:13.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ item.title }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:14px; font-size:13px; color:#9CA3AF;">Painel principal — overlay estilo Spotlight</div>
+      </div>
+
+      <!-- Screen 2: Selected + preview -->
+      <div style="flex-shrink:0;">
+        <div style="width:560px; height:600px; border-radius:14px; background:radial-gradient(circle at 30% 20%, #14181a, #0B0B0B 70%); position:relative; overflow:hidden; border:1px solid #1a1a1a;">
+          <div style="position:absolute; top:130px; left:24px; right:24px; background:#141414; border:1px solid #262626; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.55); overflow:hidden; display:flex; height:340px;">
+            <div style="width:210px; border-right:1px solid #262626; padding:10px 6px; overflow:hidden;">
+              <sc-for list="{{ recentItems }}" as="item" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:8px; background:{{ item.selBg }};">
+                  <div style="width:20px; height:20px; border-radius:5px; background:#232323; flex-shrink:0;"></div>
+                  <div style="font-size:12.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ item.title }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:1; padding:20px; display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+                <div style="width:28px; height:28px; border-radius:7px; background:#232323; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6.5 9.5l3-3" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/><path d="M8.2 5.3l1-1a2.3 2.3 0 013.2 3.2l-1 1M7.8 10.7l-1 1a2.3 2.3 0 01-3.2-3.2l1-1" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg></div>
+                <div style="font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">Link · copiado há 2 min</div>
+              </div>
+              <div style="background:#1A1A1A; border:1px solid #262626; border-radius:10px; padding:16px; font-size:13.5px; color:#F5F5F5; word-break:break-all; line-height:1.6; flex:1;">https://pub.dev/packages/isar</div>
+              <div style="display:flex; gap:10px; margin-top:16px;">
+                <button style="flex:1; background:#22C55E; color:#0B0B0B; border:none; padding:10px; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer;">Colar novamente</button>
+                <button style="background:#1A1A1A; color:#9CA3AF; border:1px solid #262626; padding:10px 14px; border-radius:9px; font-size:13.5px; cursor:pointer;">Excluir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:14px; font-size:13px; color:#9CA3AF;">Item selecionado — preview expandido</div>
+      </div>
+
+      <!-- Screen 3: Empty state -->
+      <div style="flex-shrink:0;">
+        <div style="width:420px; height:600px; border-radius:14px; background:radial-gradient(circle at 30% 20%, #14181a, #0B0B0B 70%); position:relative; overflow:hidden; border:1px solid #1a1a1a;">
+          <div style="position:absolute; top:130px; left:24px; right:24px; background:#141414; border:1px solid #262626; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.55); overflow:hidden; padding:56px 24px; display:flex; flex-direction:column; align-items:center; text-align:center;">
+            <div style="width:52px; height:52px; border-radius:14px; background:#1A1A1A; border:1px solid #262626; display:flex; align-items:center; justify-content:center; margin-bottom:20px;">
+              <svg width="24" height="24" viewBox="0 0 16 16" fill="none"><rect x="3" y="2" width="10" height="12" rx="1.5" stroke="#9CA3AF" stroke-width="1.3"/><path d="M5.5 6h5M5.5 9h5" stroke="#9CA3AF" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </div>
+            <div style="font-size:15px; font-weight:600;">Nenhum item ainda</div>
+            <div style="font-size:13px; color:#9CA3AF; margin-top:8px; line-height:1.6;">Tudo que você copiar aparecerá aqui automaticamente.</div>
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:14px; font-size:13px; color:#9CA3AF;">Estado vazio</div>
+      </div>
+
+      <!-- Screen 4: Menu bar dropdown -->
+      <div style="flex-shrink:0;">
+        <div style="width:420px; height:600px; border-radius:14px; background:radial-gradient(circle at 30% 20%, #14181a, #0B0B0B 70%); position:relative; overflow:hidden; border:1px solid #1a1a1a;">
+          <div style="height:26px; background:rgba(20,20,20,0.85); border-bottom:1px solid #1a1a1a; display:flex; align-items:center; justify-content:flex-end; padding:0 14px;">
+            <div style="width:14px; height:14px; border-radius:4px; background:#22C55E;"></div>
+          </div>
+          <div style="position:absolute; top:30px; right:14px; width:220px; background:#141414; border:1px solid #262626; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,0.55); overflow:hidden; padding:6px;">
+            <div style="padding:10px 12px; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">Pin</div>
+            <div style="padding:9px 12px; border-radius:7px; font-size:13.5px; font-weight:500;">Abrir painel</div>
+            <div style="padding:9px 12px; border-radius:7px; font-size:13.5px; font-weight:500;">Configurações</div>
+            <div style="height:1px; background:#262626; margin:6px 4px;"></div>
+            <div style="padding:9px 12px; border-radius:7px; font-size:13.5px; font-weight:500; color:#EF4444;">Encerrar Evergreen</div>
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:14px; font-size:13px; color:#9CA3AF;">Menu bar dropdown</div>
+      </div>
+
+      <!-- Screen 5: Settings -->
+      <div style="flex-shrink:0;">
+        <div style="width:420px; height:600px; border-radius:14px; background:radial-gradient(circle at 30% 20%, #14181a, #0B0B0B 70%); position:relative; overflow:hidden; border:1px solid #1a1a1a;">
+          <div style="position:absolute; top:70px; left:24px; right:24px; bottom:70px; background:#141414; border:1px solid #262626; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.55); overflow:hidden; padding:24px;">
+            <div style="font-size:16px; font-weight:700; margin-bottom:20px;">Configurações</div>
+            <div style="font-size:11px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; margin-bottom:10px;">Geral</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #262626;">
+              <div style="font-size:13.5px;">Iniciar com o macOS</div>
+              <div style="width:36px; height:21px; border-radius:11px; background:#22C55E; position:relative;"><div style="width:15px; height:15px; border-radius:50%; background:#0B0B0B; position:absolute; top:3px; right:3px;"></div></div>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0;">
+              <div style="font-size:13.5px;">Abrir minimizado</div>
+              <div style="width:36px; height:21px; border-radius:11px; background:#22C55E; position:relative;"><div style="width:15px; height:15px; border-radius:50%; background:#0B0B0B; position:absolute; top:3px; right:3px;"></div></div>
+            </div>
+            <div style="font-size:11px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; margin:20px 0 10px;">Atalho global</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0;">
+              <div style="font-size:13.5px;">Abrir Pin</div>
+              <div style="display:flex; gap:4px;">
+                <div style="background:#1A1A1A; border:1px solid #262626; border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;">⌘</div>
+                <div style="background:#1A1A1A; border:1px solid #262626; border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;">⇧</div>
+                <div style="background:#1A1A1A; border:1px solid #262626; border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;">V</div>
+              </div>
+            </div>
+            <div style="font-size:11px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; margin:20px 0 6px;">Sobre</div>
+            <div style="font-size:12.5px; color:#9CA3AF;">Evergreen v0.1.0 · Pin</div>
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:14px; font-size:13px; color:#9CA3AF;">Configurações</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const colors = [
+      { name: 'Fundo', hex: '#0B0B0B' },
+      { name: 'Superfície', hex: '#141414' },
+      { name: 'Cards', hex: '#1A1A1A' },
+      { name: 'Hover', hex: '#232323' },
+      { name: 'Borda', hex: '#262626' },
+      { name: 'Verde Principal', hex: '#22C55E' },
+      { name: 'Verde Claro', hex: '#4ADE80' },
+      { name: 'Texto Principal', hex: '#F5F5F5' },
+      { name: 'Texto Secundário', hex: '#9CA3AF' },
+      { name: 'Erro', hex: '#EF4444' },
+      { name: 'Warning', hex: '#F59E0B' },
+    ];
+
+    const rawPinned = [
+      { type: 'text', title: 'Flutter' },
+      { type: 'command', title: 'git pull origin develop' },
+    ];
+    const rawRecent = [
+      { type: 'link', title: 'https://pub.dev/packages/isar' },
+      { type: 'text', title: 'Senha temporária: xK9#mPz2' },
+      { type: 'command', title: 'flutter pub get' },
+      { type: 'link', title: 'https://github.com/evergreen/pin' },
+    ];
+
+    const decorate = (arr, selectedTitle) => arr.map(it => ({
+      ...it,
+      isText: it.type === 'text',
+      isLink: it.type === 'link',
+      isCommand: it.type === 'command',
+      bg: 'transparent',
+      selBg: it.title === selectedTitle ? '#232323' : 'transparent',
+    }));
+
+    return {
+      colors,
+      searchText: 'flutter',
+      pinnedItems: decorate(rawPinned),
+      recentItems: decorate(rawRecent, 'https://pub.dev/packages/isar'),
+    };
+  }
+}
+</script>
+</body>
+</html>

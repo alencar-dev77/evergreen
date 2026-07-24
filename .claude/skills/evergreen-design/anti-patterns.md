@@ -1,0 +1,53 @@
+# Anti-Padrões: o que o Evergreen NUNCA faz
+
+Use este arquivo como checklist final antes de considerar qualquer tela, componente ou fluxo "pronto". Se qualquer item abaixo estiver presente, volte e corrija antes de entregar.
+
+## Estrutura e layout
+
+- ❌ **Não centralizar conteúdo de trabalho.** Listas, formulários, painéis de configuração e áreas de conteúdo principal nunca são centralizados na largura da janela — isso é vocabulário de site/documento, não de ferramenta desktop. Ver `spacing.md` para a exceção legítima (modais pequenos).
+- ❌ **Não criar layouts de landing page.** Nada de seção "hero", CTA gigante, texto de marketing ("Transforme sua produtividade!"), carrossel de destaques, ou qualquer estrutura pensada para "converter visitante", porque não existe visitante — existe usuário que já decidiu usar o app.
+- ❌ **Não deixar telas vazias com espaço em excesso.** Se uma tela parece "vazia demais", o problema quase sempre é falta de conteúdo/hierarquia real ali, não falta de padding decorativo ao redor de pouco conteúdo. Ver `components.md` (Empty states) para o padrão correto.
+- ❌ **Não empilhar cards dentro de cards.** Se um bloco de conteúdo dentro de um card parece precisar do mesmo tratamento de container do pai, resolva com espaçamento e tipografia, não com mais uma camada de card. Ver `components.md`.
+- ❌ **Não usar grid de 12 colunas típico de web design.** O Evergreen é composto por regiões fixas/redimensionáveis (sidebar, conteúdo, painel de detalhe), não por um sistema de colunas fluidas de site responsivo.
+
+## Cor
+
+- ❌ **Não usar gradientes chamativos.** Nada de gradiente multi-hue, diagonal, ou "roxo-para-azul genérico de app de IA" em botões, fundos ou ícones. O único gradiente aceitável é sutilíssimo, para evitar banding em superfícies grandes, imperceptível como "gradiente".
+- ❌ **Não criar interfaces coloridas demais.** A paleta é 90%+ neutra; cor de destaque e cores semânticas aparecem em contextos pontuais de ação e estado, nunca espalhadas pela tela "para dar vida".
+- ❌ **Não usar cor sem significado.** Toda cor fora do neutro precisa representar algo real (ação primária, estado, seleção) — nunca decoração pura.
+- ❌ **Não usar mais de uma cor de destaque (accent) no mesmo app.** Varie opacidade/peso da mesma cor antes de introduzir uma segunda.
+
+## Profundidade e superfície
+
+- ❌ **Não usar glassmorphism excessivo.** Blur/vidro fosco é reservado para elementos temporários (popups, barras que ficam sobre conteúdo que rola) — nunca aplicado indiscriminadamente em toda superfície grande e permanente só por estética, tanto por custo de performance quanto por poluição visual.
+- ❌ **Não usar sombra decorativa em conteúdo estático.** Sombra é reservada a elementos que genuinamente flutuam e podem ser dispensados (popup, modal, tooltip, dropdown). Cards de conteúdo permanente na tela não precisam de sombra — uma borda sutil ou diferença de superfície já basta.
+- ❌ **Não exagerar no border-radius.** Nada de cantos muito arredondados (16px+) em componentes retangulares — isso empurra a estética para "app mobile consumer" em vez de ferramenta desktop profissional. Ver escala em `spacing.md`.
+
+## Ícones e elementos visuais
+
+- ❌ **Não usar muitos ícones.** Um ícone só existe se substituir texto com ganho real de reconhecimento rápido — nunca ícone "para preencher espaço" ao lado de um label que já é autoexplicativo, e nunca um ícone que precisa de tooltip para ser entendido (se precisa, o ícone falhou e deveria ser texto).
+- ❌ **Não usar ilustrações grandes e coloridas** em empty states, onboarding ou qualquer tela funcional — isso é linguagem de app consumer/marketing, incompatível com o tom sóbrio do Evergreen.
+- ❌ **Não usar emoji como substituto de ícone de sistema** na interface funcional do app (emoji pode aparecer em conteúdo gerado pelo próprio usuário, mas não como parte do chrome/UI do Evergreen).
+
+## Motion
+
+- ❌ **Não usar animações chamativas.** Sem parallax, sem stagger dramático de elementos entrando em cascata, sem bounce/spring exagerado como padrão geral, sem ícones "com vida própria" pulsando/flutuando sem representar um estado real. Ver `motion.md` para as durações e curvas corretas.
+- ❌ **Não animar escala em hover/click de botões** ("cresce ao passar o mouse", "encolhe ao clicar") — isso é linguagem de site/app mobile consumer.
+- ❌ **Não usar telas de loading dramáticas** com logo animado ou splash screen no meio do uso normal do app.
+- ❌ **Não celebrar visualmente ações rotineiras** (confete, animação elaborada de sucesso) para tarefas cotidianas como marcar algo como concluído.
+
+## Tipografia e conteúdo
+
+- ❌ **Não misturar múltiplas famílias de fonte** sem propósito além do par principal + monoespaçada.
+- ❌ **Não usar textos de marketing/tom de venda** em nenhuma parte da interface funcional ("Desbloqueie todo o potencial!", "Comece sua jornada!") — a cópia do Evergreen é direta, funcional e nunca performática.
+- ❌ **Não usar títulos grandes e decorativos** espalhados pelas telas de trabalho — títulos grandes são raros e reservados a contextos muito específicos (ver `typography.md`).
+
+## Padrões genéricos a evitar deliberadamente
+
+- ❌ **Não seguir "padrões genéricos de IA"** reconhecíveis por: simetria performática sem hierarquia real por trás, redundância de affordance (ícone + texto + cor + sombra para uma ação simples que precisaria só de um desses), espaço em branco sem propósito de agrupamento, falta de opinião editorial visível (tudo com o mesmo peso visual, nada deliberadamente discreto ao lado de algo deliberadamente forte).
+- ❌ **Não copiar interfaces de referência ao pé da letra.** Raycast, Linear, Arc, Things, Craft, CleanShot e Maccy (ver `references.md`) são fontes de **princípio**, nunca de pixel a ser reproduzido diretamente — o Evergreen precisa ter identidade própria, não ser uma colagem reconhecível de outros produtos.
+- ❌ **Não tratar o dark mode como modo secundário.** Ambos os modos são desenhados com o mesmo nível de cuidado (ver `colors.md`) — nunca um "dark mode de inversão mecânica" mal calibrado.
+
+## Teste final antes de entregar
+
+Antes de considerar qualquer entrega de UI concluída, faça esta pergunta sobre cada decisão visual não trivial: **"eu consigo justificar isso com uma razão funcional, ou a única razão é 'fica bonito'/'é o padrão'?"** Se a única razão for estética pura ou convenção genérica, volte, repense, e prefira a opção mais simples, mais neutra e mais rápida de usar.

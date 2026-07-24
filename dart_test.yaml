@@ -1,0 +1,9 @@
+# Os goldens de `preview_golden_test.dart` são uma conferência visual do design,
+# não uma trava de regressão: dependem das fontes do sistema e da versão do
+# Flutter, então ficam fora da suíte padrão.
+#
+# Para regerar e revisar as imagens em test/goldens/:
+#   flutter test --run-skipped -t preview --update-goldens
+tags:
+  preview:
+    skip: "golden de conferência visual — veja dart_test.yaml"
