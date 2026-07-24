@@ -8,6 +8,7 @@
 #   3. Apaga a cópia antiga em /Applications, se existir.
 #   4. Roda `flutter build macos --release`.
 #   5. Copia o .app novo para /Applications.
+#   6. Abre o app instalado.
 #
 # Uso: ./run_build_copy
 
@@ -44,7 +45,7 @@ else
   echo "   nada pra remover."
 fi
 
-echo "🧹 Removendo cópia antiga em $DEST_DIR…"
+echo "🧹 Removendo cópia antiga em ${DEST_DIR}…"
 if [[ -d "$DEST_APP" ]]; then
   rm -rf "$DEST_APP"
   echo "   removido: $DEST_APP"
@@ -60,7 +61,10 @@ if [[ ! -d "$BUILT_APP" ]]; then
   exit 1
 fi
 
-echo "📦 Copiando pra $DEST_DIR…"
+echo "📦 Copiando pra ${DEST_DIR}…"
 cp -R "$BUILT_APP" "$DEST_APP"
 
 echo "✅ Pronto! $DEST_APP atualizado."
+
+echo "🚀 Abrindo o app…"
+open -a "$DEST_APP"
