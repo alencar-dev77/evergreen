@@ -114,6 +114,14 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     togglePin(item);
   }
 
+  /// Apaga o item selecionado (`⌘⌫`).
+  void deleteSelected() {
+    final item = state.selectedItem;
+    if (item == null) return;
+
+    delete(item);
+  }
+
   /// Diz se o item selecionado deve ser colado automaticamente no app anterior.
   ///
   /// Relê as preferências do disco antes de responder: o toggle vive no Hub,

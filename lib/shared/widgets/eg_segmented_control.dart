@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_colors.dart';
@@ -9,7 +10,11 @@ import 'eg_hoverable.dart';
 ///
 /// Usado onde um toggle não basta mas um dropdown seria pesado demais — por
 /// exemplo, o tamanho do histórico do Pin.
-class EgSegmentedControl<T> extends StatelessWidget {
+///
+/// O foco vive no controle inteiro, não em cada segmento: quando ele está
+/// focado, ← e → trocam a opção. É como um segmented control nativo se comporta
+/// e evita que o Tab pare em cada pílula.
+class EgSegmentedControl<T> extends StatefulWidget {
   const EgSegmentedControl({
     super.key,
     required this.value,
@@ -24,24 +29,62 @@ class EgSegmentedControl<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
 
   @override
+  State<EgSegmentedControl<T>> createState() => _EgSegmentedControlState<T>();
+}
+
+class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
+  bool _isFocused = false;
+
+  void _setFocused(bool value) {
+    if (_isFocused == value) return;
+    setState(() => _isFocused = value);
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final delta = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => -1,
+      LogicalKeyboardKey.arrowRight => 1,
+      _ => 0,
+    };
+    if (delta == 0) return KeyEventResult.ignored;
+
+    final current = widget.options.indexOf(widget.value);
+    if (current < 0) return KeyEventResult.ignored;
+
+    final next = (current + delta).clamp(0, widget.options.length - 1);
+    if (next != current) widget.onChanged(widget.options[next]);
+
+    return KeyEventResult.handled;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.badgeAll,
-        border: AppBorders.all,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final option in options)
-            _Segment(
-              label: labelOf(option),
-              isSelected: option == value,
-              onTap: () => onChanged(option),
-            ),
-        ],
+    return Focus(
+      onFocusChange: _setFocused,
+      onKeyEvent: _handleKey,
+      child: AnimatedContainer(
+        duration: AppDurations.instant,
+        curve: AppDurations.curve,
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: AppRadii.badgeAll,
+          border: AppBorders.all,
+          boxShadow: _isFocused ? AppShadows.focusRing : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final option in widget.options)
+              _Segment(
+                label: widget.labelOf(option),
+                isSelected: option == widget.value,
+                onTap: () => widget.onChanged(option),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -62,21 +105,22 @@ class _Segment extends StatelessWidget {
   Widget build(BuildContext context) {
     return EgHoverable(
       onTap: onTap,
-      builder: (context, isHovered) => AnimatedContainer(
-        duration: AppDurations.fast,
+      builder: (context, state) => AnimatedContainer(
+        duration: state.isPressed ? Duration.zero : AppDurations.instant,
         curve: AppDurations.curve,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xxs,
         ),
         decoration: BoxDecoration(
-          color: _background(isHovered),
-          borderRadius: const BorderRadius.all(Radius.circular(5)),
+          color: _background(state),
+          // Concêntrico com o container: 6px do pai menos os 2px de padding.
+          borderRadius: AppRadii.badgeSmallAll,
         ),
         child: Text(
           label,
           style: AppTypography.captionSmall.copyWith(
-            color: isSelected ? AppColors.background : AppColors.textSecondary,
+            color: isSelected ? AppColors.greenLight : AppColors.textSecondary,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
           ),
         ),
@@ -84,8 +128,12 @@ class _Segment extends StatelessWidget {
     );
   }
 
-  Color _background(bool isHovered) {
-    if (isSelected) return AppColors.greenPrimary;
-    return isHovered ? AppColors.hover : const Color(0x00000000);
+  /// A opção escolhida usa accent em baixa opacidade — o mesmo tratamento de
+  /// seleção da lista e da sidebar. Preenchimento verde sólido puxaria o olho
+  /// para uma preferência que não é a ação principal de tela nenhuma.
+  Color _background(EgInteraction state) {
+    if (isSelected) return AppColors.selection;
+    if (state.isPressed) return AppColors.pressed;
+    return state.isHovered ? AppColors.hover : AppColors.transparent;
   }
 }

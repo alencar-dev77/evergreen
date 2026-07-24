@@ -48,13 +48,13 @@ class _HubViewState extends State<HubView> {
         AppSpacing.huge,
         AppSpacing.huge,
         AppSpacing.huge,
-        48,
+        AppSpacing.giant,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _header(),
-          const SizedBox(height: AppSpacing.huge),
+          const SizedBox(height: AppSpacing.xxxl),
           if (_selected.isAvailable)
             _settingsFor(_selected)
           else
@@ -64,12 +64,14 @@ class _HubViewState extends State<HubView> {
     );
   }
 
+  /// Cabeçalho de painel, não hero: título no maior estilo do app (17px) com a
+  /// tagline logo abaixo, colada nele — os dois são um bloco só.
   Widget _header() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(_selected.name, style: AppTypography.screenTitle),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xxs),
         Text(_selected.tagline, style: AppTypography.caption),
       ],
     );

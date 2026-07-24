@@ -129,8 +129,9 @@ class _ModuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return EgHoverable(
       onTap: onTap,
-      builder: (context, isHovered) => AnimatedContainer(
-        duration: AppDurations.fast,
+      focusable: true,
+      builder: (context, state) => AnimatedContainer(
+        duration: AppDurations.instant,
         curve: AppDurations.curve,
         margin: const EdgeInsets.only(bottom: AppSpacing.xxs),
         padding: const EdgeInsets.symmetric(
@@ -138,10 +139,9 @@ class _ModuleTile extends StatelessWidget {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: isSelected || isHovered
-              ? AppColors.hover
-              : const Color(0x00000000),
+          color: _background(state),
           borderRadius: AppRadii.listItemAll,
+          boxShadow: state.isFocused ? AppShadows.focusRing : null,
         ),
         child: Opacity(
           opacity: module.isAvailable ? 1 : 0.55,
@@ -164,7 +164,14 @@ class _ModuleTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(module.name, style: AppTypography.bodyCompact),
+                    Text(
+                      module.name,
+                      style: AppTypography.bodyCompactEmphasis.copyWith(
+                        color: isSelected
+                            ? AppColors.greenLight
+                            : AppColors.textPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 1),
                     Text(
                       module.isAvailable
@@ -172,7 +179,7 @@ class _ModuleTile extends StatelessWidget {
                           : 'Previsto para ${module.plannedFor}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.captionSmall.copyWith(fontSize: 11),
+                      style: AppTypography.captionXS,
                     ),
                   ],
                 ),
@@ -182,5 +189,15 @@ class _ModuleTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Selecionado usa accent em baixa opacidade; hover fica no neutro. Antes os
+  /// dois estados eram a mesma cor, e o módulo aberto se perdia assim que o
+  /// mouse passava por outro.
+  Color _background(EgInteraction state) {
+    if (isSelected) return AppColors.selection;
+    if (state.isPressed) return AppColors.pressed;
+    if (state.isHovered || state.isFocused) return AppColors.hover;
+    return AppColors.transparent;
   }
 }

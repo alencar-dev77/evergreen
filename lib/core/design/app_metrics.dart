@@ -3,24 +3,28 @@ import 'package:flutter/widgets.dart';
 import 'app_colors.dart';
 
 /// Raios de canto padronizados.
+///
+/// A escala é deliberadamente baixa (12 no máximo): radius alto empurra a
+/// estética para "app mobile consumer" em vez de ferramenta desktop — ver
+/// `spacing.md`, seção "Border-radius".
 abstract final class AppRadii {
-  /// Painéis e cards grandes — 16px.
-  static const panel = Radius.circular(16);
+  /// Superfícies flutuantes — painel do overlay, dropdown, modal — 12px.
+  static const panel = Radius.circular(12);
 
-  /// Cards e superfícies internas — 14px.
-  static const card = Radius.circular(14);
+  /// Cards e superfícies internas — 8px.
+  static const card = Radius.circular(8);
 
-  /// Botões — 10px.
-  static const button = Radius.circular(10);
+  /// Botões e campos — 8px.
+  static const button = Radius.circular(8);
 
-  /// List items e botões compactos — 9px.
-  static const listItem = Radius.circular(9);
+  /// List items e botões compactos — 6px.
+  static const listItem = Radius.circular(6);
 
-  /// Badges de ícone — 7px.
-  static const badge = Radius.circular(7);
+  /// Badges de ícone — 6px.
+  static const badge = Radius.circular(6);
 
-  /// Badges pequenos dentro do overlay — 6px.
-  static const badgeSmall = Radius.circular(6);
+  /// Badges pequenos dentro do overlay — 4px.
+  static const badgeSmall = Radius.circular(4);
 
   static const panelAll = BorderRadius.all(panel);
   static const cardAll = BorderRadius.all(card);
@@ -42,6 +46,10 @@ abstract final class AppSpacing {
   static const xxl = 20.0;
   static const xxxl = 24.0;
   static const huge = 32.0;
+
+  /// Margem externa máxima — rodapé de janela, respiro final de scroll.
+  /// Usada com parcimônia: é o topo da escala, não um preenchimento genérico.
+  static const giant = 48.0;
 }
 
 /// Bordas e sombras compartilhadas.
@@ -72,12 +80,29 @@ abstract final class AppShadows {
       offset: Offset(0, 20),
     ),
   ];
+
+  /// Anel de foco de teclado: 2px ao redor do componente.
+  ///
+  /// É uma sombra sem blur em vez de uma borda para não empurrar o layout — o
+  /// componente não muda de tamanho ao receber foco. Exige que o componente
+  /// tenha fundo opaco, senão o retângulo inflado aparece por inteiro.
+  static const focusRing = <BoxShadow>[
+    BoxShadow(color: AppColors.focusRing, spreadRadius: 2),
+  ];
 }
 
 /// Durações de animação. Tudo curto e suave — nada de transições longas.
 abstract final class AppDurations {
-  /// Feedback de hover / cor.
+  /// Micro-feedback: hover, pressed, anel de foco. Precisa ser imperceptível
+  /// como animação — a interface só não pode "piscar" (`motion.md`: 80–120ms).
+  static const instant = Duration(milliseconds: 90);
+
+  /// Transições de estado pequenas — badge que muda, seleção que se move.
   static const fast = Duration(milliseconds: 150);
+
+  /// Entrada de superfície flutuante (overlay do Pin, diálogo). A saída não tem
+  /// duração: fechar é instantâneo, sempre (`motion.md`).
+  static const entrance = Duration(milliseconds: 120);
 
   /// Transições de layout.
   static const medium = Duration(milliseconds: 220);

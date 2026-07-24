@@ -2,6 +2,46 @@
 
 Este arquivo define o comportamento e a aparência padrão de cada tipo de componente do Evergreen. Para cada um, a regra geral é: **escolha sempre o componente mais simples que resolve o problema.** Uma lista resolve mais casos do que uma tabela; texto resolve mais casos do que um badge; um badge resolve mais casos do que um card.
 
+## Inventário `Eg*` (o que já existe)
+
+Antes de desenhar um componente novo, procure aqui. Módulos futuros (Focus, Shelf) devem **reusar** esta gramática em vez de recriar uma paralela — é o que faz os três módulos parecerem o mesmo aplicativo. Todos vivem em `lib/shared/widgets/`.
+
+| Componente | Arquivo | Papel | Estados cobertos |
+|---|---|---|---|
+| `EgHoverable` | `eg_hoverable.dart` | primitiva de interação: entrega `EgInteraction` (hover/pressed/focus) ao builder | é a fonte dos estados dos demais |
+| `EgButton` | `eg_button.dart` | botão em 3 variantes (`primary`, `secondary`, `destructive`) | default · hover · pressed · focus · disabled |
+| `EgIconButton` | `eg_button.dart` | botão só de ícone, 36×36, com `tooltip` opcional | default · hover · pressed · focus · disabled |
+| `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · focus · disabled · on/off |
+| `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado | default · hover · pressed · focus · selected |
+| `EgSearchField` | `eg_search_field.dart` | campo de busca (`bare` para a linha do topo do overlay) | default · focus (borda accent) · placeholder |
+| `EgPanel` | `eg_panel.dart` | superfície flutuante com borda, radius e sombra | `elevated` on/off |
+| `EgIconBadge` | `eg_panel.dart` | quadrado arredondado que abriga um ícone | — |
+| `EgConfirmDialog` | `eg_confirm_dialog.dart` | confirmação de ação irreversível (360px, ações à direita, Esc = cancelar) | — |
+| `EgSettingsSection` | `eg_settings_section.dart` | agrupa linhas de configuração sob um label em caps | — |
+| `EgSettingsRow` | `eg_settings_row.dart` | linha de configuração: rótulo + descrição + controle | `showDivider` on/off |
+| `EgSectionLabel` | `eg_section_label.dart` | label de grupo em caixa alta | — |
+| `EgKeyCap` / `EgShortcutDisplay` | `eg_key_cap.dart` | tecla e sequência de teclas | — |
+| `EgEmptyState` | `eg_empty_state.dart` | estado vazio discreto (ícone pequeno + título + mensagem) | — |
+| `EgIcon` | `eg_icon.dart` | ícone de path customizado (não Material Icons) | — |
+| `EgBackground` | `eg_background.dart` | fundo de janela com vinheta + brilho verde | — |
+
+Regras de manutenção deste inventário:
+
+- Componente novo compartilhado nasce com prefixo `Eg`, em `lib/shared/widgets/`, e entra nesta tabela junto do commit que o cria.
+- Estado de interação vem do `EgHoverable`, nunca de um `MouseRegion` próprio — é o que garante que hover, pressed e foco se comportem igual em todo o app.
+- Componente específico de um módulo (por exemplo `PinListItem`) **não** ganha prefixo `Eg` e não entra aqui; se um segundo módulo precisar dele, aí sim ele é promovido a `Eg*`.
+
+## Padrões de tela já estabelecidos (reusar, não reinventar)
+
+Estas decisões foram tomadas no v0.1 e valem como padrão do produto. Um módulo novo que precise da mesma coisa usa o mesmo arranjo:
+
+- **Hub = sidebar de módulos + painel de detalhe.** A sidebar lista todos os módulos (inclusive os não lançados, esmaecidos, com a versão prevista no lugar da tagline); o detalhe abre com um cabeçalho compacto (nome + tagline) e as configurações abaixo.
+- **Preferências são `EgSettingsSection` + `EgSettingsRow`.** Seção com label em caps, linhas com rótulo à esquerda e controle à direita, divisor sutil entre linhas e nenhum na última. Módulo novo herda a mesma densidade e alinhamento de graça.
+- **Configuração é escrita na hora.** Não existe botão "Salvar" em tela de preferência: mexer no controle já persiste. Também não existe confirmação de "salvo com sucesso" — a mudança visível no controle já é o feedback.
+- **Registro de módulo é o enum `EvergreenModule` + `_settingsFor`.** Adicionar um módulo é adicionar um valor ao enum e ligar sua tela de configuração no `switch`; nada de lista paralela de navegação.
+- **Lista longa se agrupa com `EgSectionLabel`,** não com card nem fundo colorido (no Pin: "FIXADOS" e "RECENTES").
+- **Painel operado por teclado leva uma barra de dicas no rodapé** com os atalhos daquele contexto (`EgShortcutDisplay` + rótulo curto), variando conforme o estado da tela. É documentação embutida no lugar onde a dúvida aparece.
+
 ## Botões
 
 - **Hierarquia de botão**: primário (preenchido, cor de destaque, um único por contexto/tela), secundário (borda ou superfície neutra elevada, sem preenchimento colorido), terciário/texto (sem borda nem fundo, só texto — usado para ações de baixa prioridade, tipo "Cancelar").

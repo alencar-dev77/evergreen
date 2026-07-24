@@ -3,10 +3,11 @@
 # run_build_copy — builda o Evergreen em release e instala em /Applications.
 #
 # Fluxo:
-#   1. Apaga o build anterior (build/macos/.../Release/Evergreen.app), se existir.
-#   2. Roda `flutter build macos --release`.
+#   1. Encerra o app, se estiver em execução.
+#   2. Apaga o build anterior (build/macos/.../Release/Evergreen.app), se existir.
 #   3. Apaga a cópia antiga em /Applications, se existir.
-#   4. Copia o .app novo para /Applications.
+#   4. Roda `flutter build macos --release`.
+#   5. Copia o .app novo para /Applications.
 #
 # Uso: ./run_build_copy
 
@@ -26,10 +27,27 @@ if [[ ! -f pubspec.yaml ]]; then
   exit 1
 fi
 
+echo "🛑 Encerrando o app, se estiver rodando…"
+if pgrep -x "Evergreen" > /dev/null; then
+  osascript -e 'quit app "Evergreen"' 2>/dev/null || pkill -x "Evergreen"
+  sleep 1
+  echo "   encerrado."
+else
+  echo "   não estava rodando."
+fi
+
 echo "🧹 Limpando build anterior…"
 if [[ -d "$BUILT_APP" ]]; then
   rm -rf "$BUILT_APP"
   echo "   removido: $BUILT_APP"
+else
+  echo "   nada pra remover."
+fi
+
+echo "🧹 Removendo cópia antiga em $DEST_DIR…"
+if [[ -d "$DEST_APP" ]]; then
+  rm -rf "$DEST_APP"
+  echo "   removido: $DEST_APP"
 else
   echo "   nada pra remover."
 fi
@@ -40,14 +58,6 @@ flutter build macos --release
 if [[ ! -d "$BUILT_APP" ]]; then
   echo "❌ Build não gerou $BUILT_APP" >&2
   exit 1
-fi
-
-echo "🧹 Removendo cópia antiga em $DEST_DIR…"
-if [[ -d "$DEST_APP" ]]; then
-  rm -rf "$DEST_APP"
-  echo "   removido: $DEST_APP"
-else
-  echo "   nada pra remover."
 fi
 
 echo "📦 Copiando pra $DEST_DIR…"

@@ -46,8 +46,12 @@ class PinHintBar extends StatelessWidget {
                   const _Hint(keys: ['⌘P'], label: 'fixar'),
                   // Com o preview aberto, o Esc já é o caminho de volta —
                   // anunciar o Tab também só ofereceria duas formas de fazer a
-                  // mesma coisa.
-                  if (!isPreviewOpen) const _Hint(keys: ['tab'], label: 'ver'),
+                  // mesma coisa. A largura que ele libera é o que permite
+                  // anunciar o ⌘⌫, que ninguém descobre por conta própria.
+                  if (isPreviewOpen)
+                    const _Hint(keys: ['⌘⌫'], label: 'excluir')
+                  else
+                    const _Hint(keys: ['tab'], label: 'ver'),
                 ],
               ),
             ),
@@ -91,7 +95,7 @@ class _Hint extends StatelessWidget {
               label!,
               maxLines: 1,
               softWrap: false,
-              style: AppTypography.captionSmall.copyWith(fontSize: 11),
+              style: AppTypography.captionXS,
             ),
           ],
         ],

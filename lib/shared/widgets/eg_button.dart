@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Tooltip;
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_colors.dart';
@@ -20,8 +21,9 @@ enum EgButtonVariant {
 
 /// Botão padrão do Evergreen.
 ///
-/// As três variantes compartilham geometria (padding 10x18, radius 10) e só
-/// divergem nas cores, mantendo o padrão único pedido no design.
+/// As três variantes compartilham geometria (padding 16x8, radius 8) e só
+/// divergem nas cores, mantendo o padrão único pedido no design. Todas cobrem
+/// os cinco estados obrigatórios: repouso, hover, pressed, foco e disabled.
 class EgButton extends StatelessWidget {
   const EgButton({
     super.key,
@@ -30,6 +32,7 @@ class EgButton extends StatelessWidget {
     this.variant = EgButtonVariant.primary,
     this.icon,
     this.expand = false,
+    this.autofocus = false,
   });
 
   const EgButton.secondary({
@@ -38,6 +41,7 @@ class EgButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.expand = false,
+    this.autofocus = false,
   }) : variant = EgButtonVariant.secondary;
 
   const EgButton.destructive({
@@ -46,6 +50,7 @@ class EgButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.expand = false,
+    this.autofocus = false,
   }) : variant = EgButtonVariant.destructive;
 
   final String label;
@@ -53,8 +58,11 @@ class EgButton extends StatelessWidget {
   final EgButtonVariant variant;
   final EgIconData? icon;
 
-  /// Ocupa toda a largura disponível — usado no botão "Colar novamente".
+  /// Ocupa toda a largura disponível — usado no botão "Copiar" do preview.
   final bool expand;
+
+  /// Recebe o foco ao aparecer. Só faz sentido no botão seguro de um diálogo.
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -64,19 +72,27 @@ class EgButton extends StatelessWidget {
     final button = EgHoverable(
       onTap: onPressed,
       enabled: isEnabled,
-      builder: (context, isHovered) {
-        final active = isHovered && isEnabled;
+      focusable: true,
+      autofocus: autofocus,
+      builder: (context, state) {
+        final isPressed = state.isPressed && isEnabled;
 
         return AnimatedContainer(
-          duration: AppDurations.fast,
+          // Pressed entra sem transição: o feedback de "registrei seu clique"
+          // precisa ser instantâneo. A volta ao repouso é que ganha o easing.
+          duration: isPressed ? Duration.zero : AppDurations.instant,
           curve: AppDurations.curve,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl,
+            vertical: AppSpacing.sm,
+          ),
           decoration: BoxDecoration(
-            color: active ? palette.hoverBackground : palette.background,
+            color: palette.backgroundFor(state, isEnabled: isEnabled),
             borderRadius: AppRadii.buttonAll,
             border: palette.borderColor == null
                 ? null
                 : Border.all(color: palette.borderColor!),
+            boxShadow: state.isFocused && isEnabled ? AppShadows.focusRing : null,
           ),
           child: Opacity(
             opacity: isEnabled ? 1 : 0.4,
@@ -116,30 +132,44 @@ class _EgButtonPalette {
   const _EgButtonPalette({
     required this.background,
     required this.hoverBackground,
+    required this.pressedBackground,
     required this.foreground,
     this.borderColor,
   });
 
   final Color background;
   final Color hoverBackground;
+  final Color pressedBackground;
   final Color foreground;
   final Color? borderColor;
+
+  /// Pressed vence hover; foco reaproveita a superfície de hover para que o
+  /// anel tenha o que contornar.
+  Color backgroundFor(EgInteraction state, {required bool isEnabled}) {
+    if (!isEnabled) return background;
+    if (state.isPressed) return pressedBackground;
+    if (state.isHovered || state.isFocused) return hoverBackground;
+    return background;
+  }
 
   static _EgButtonPalette of(EgButtonVariant variant) => switch (variant) {
         EgButtonVariant.primary => const _EgButtonPalette(
             background: AppColors.greenPrimary,
             hoverBackground: AppColors.greenLight,
+            pressedBackground: AppColors.greenDeep,
             foreground: AppColors.background,
           ),
         EgButtonVariant.secondary => const _EgButtonPalette(
             background: AppColors.card,
             hoverBackground: AppColors.hover,
+            pressedBackground: AppColors.pressed,
             foreground: AppColors.textPrimary,
             borderColor: AppColors.border,
           ),
         EgButtonVariant.destructive => const _EgButtonPalette(
             background: AppColors.card,
             hoverBackground: AppColors.hover,
+            pressedBackground: AppColors.pressed,
             foreground: AppColors.error,
             borderColor: AppColors.border,
           ),
@@ -161,7 +191,11 @@ class EgIconButton extends StatelessWidget {
 
   final EgIconData icon;
   final VoidCallback? onPressed;
+
+  /// Legenda de ajuda ao repousar o mouse. Um botão só de ícone sem rótulo
+  /// visível depende dela para ser descoberto.
   final String? tooltip;
+
   final double size;
   final double iconSize;
   final Color color;
@@ -169,27 +203,64 @@ class EgIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EgHoverable(
+    final isEnabled = onPressed != null;
+
+    final button = EgHoverable(
       onTap: onPressed,
-      enabled: onPressed != null,
-      builder: (context, isHovered) => AnimatedContainer(
-        duration: AppDurations.fast,
-        curve: AppDurations.curve,
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: isHovered ? AppColors.hover : const Color(0x00000000),
-          borderRadius: AppRadii.listItemAll,
-        ),
-        child: Center(
-          child: EgIcon(
-            icon,
-            size: iconSize,
-            color: isHovered ? hoverColor : color,
-            strokeWidth: 1.6,
+      enabled: isEnabled,
+      focusable: true,
+      builder: (context, state) {
+        final isActive = (state.isHovered || state.isFocused) && isEnabled;
+
+        return AnimatedContainer(
+          duration: state.isPressed ? Duration.zero : AppDurations.instant,
+          curve: AppDurations.curve,
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: _background(state, isEnabled: isEnabled),
+            borderRadius: AppRadii.listItemAll,
+            boxShadow: state.isFocused && isEnabled ? AppShadows.focusRing : null,
           ),
-        ),
-      ),
+          child: Center(
+            child: EgIcon(
+              icon,
+              size: iconSize,
+              color: isActive ? hoverColor : color,
+              strokeWidth: 1.6,
+            ),
+          ),
+        );
+      },
     );
+
+    if (tooltip == null) return button;
+
+    return Tooltip(
+      message: tooltip!,
+      waitDuration: const Duration(milliseconds: 500),
+      verticalOffset: size / 2 + AppSpacing.xxs,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        borderRadius: AppRadii.badgeAll,
+        border: AppBorders.all,
+        boxShadow: AppShadows.dropdown,
+      ),
+      textStyle: AppTypography.captionXS,
+      child: button,
+    );
+  }
+
+  /// O foco precisa de superfície opaca sob o anel — um botão de ícone em
+  /// repouso é transparente, então focar já revela o fundo de hover.
+  Color _background(EgInteraction state, {required bool isEnabled}) {
+    if (!isEnabled) return AppColors.transparent;
+    if (state.isPressed) return AppColors.pressed;
+    if (state.isHovered || state.isFocused) return AppColors.hover;
+    return AppColors.transparent;
   }
 }

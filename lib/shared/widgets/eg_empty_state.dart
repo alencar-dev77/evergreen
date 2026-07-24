@@ -41,7 +41,7 @@ class EgEmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: AppTypography.bodyCompact.copyWith(fontWeight: FontWeight.w600),
+            style: AppTypography.bodyCompactEmphasis,
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(

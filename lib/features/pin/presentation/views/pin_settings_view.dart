@@ -6,6 +6,7 @@ import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/widgets/eg_button.dart';
+import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
@@ -96,37 +97,19 @@ class PinSettingsView extends ConsumerWidget {
     );
   }
 
+  /// Apagar o histórico é irreversível — a única ação do Pin que pede
+  /// confirmação.
   Future<void> _clearHistory(BuildContext context, WidgetRef ref) async {
-    final confirmed = await _confirmClear(context);
+    final confirmed = await EgConfirmDialog.show(
+      context,
+      title: 'Limpar histórico?',
+      message:
+          'Todos os itens não fixados serão removidos. Não dá para desfazer.',
+      confirmLabel: 'Limpar',
+    );
     if (!confirmed) return;
 
     ref.read(clipboardRepositoryProvider).clearAll();
-  }
-
-  /// Apagar o histórico é irreversível — a única ação do Pin que pede
-  /// confirmação.
-  Future<bool> _confirmClear(BuildContext context) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Limpar histórico?'),
-        content: const Text(
-          'Todos os itens não fixados serão removidos. Não dá para desfazer.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Limpar'),
-          ),
-        ],
-      ),
-    );
-
-    return result ?? false;
   }
 }
 

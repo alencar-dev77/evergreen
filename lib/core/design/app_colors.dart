@@ -4,6 +4,10 @@ import 'package:flutter/widgets.dart';
 ///
 /// Fonte da verdade: `docs/design_handoff_pin/README.md`. Nenhuma cor literal
 /// deve ser escrita fora deste arquivo — sempre referencie um token daqui.
+///
+/// O Evergreen é dark-only até (pelo menos) a v0.2: light mode é dívida
+/// assumida, não esquecida (decisão registrada em `colors.md`). Por isso os
+/// tokens aqui são cores diretas, e não um par claro/escuro.
 abstract final class AppColors {
   /// Fundo da janela / overlay.
   static const background = Color(0xFF0B0B0B);
@@ -28,8 +32,12 @@ abstract final class AppColors {
   /// Campos, cards internos e badges.
   static const card = Color(0xFF1A1A1A);
 
-  /// Estado de hover / seleção de list item.
+  /// Estado de hover neutro — o mouse só passando por cima.
   static const hover = Color(0xFF232323);
+
+  /// Estado pressed: um degrau acima do [hover], aplicado sem transição de
+  /// entrada para o clique parecer registrado na hora.
+  static const pressed = Color(0xFF2E2E2E);
 
   /// Bordas sutis de 1px.
   static const border = Color(0xFF262626);
@@ -40,11 +48,27 @@ abstract final class AppColors {
   /// Hover do botão primário e acentos.
   static const greenLight = Color(0xFF4ADE80);
 
+  /// Pressed do botão primário — um degrau abaixo do [greenPrimary].
+  static const greenDeep = Color(0xFF16A34A);
+
+  /// Item selecionado (linha de lista, item de sidebar) — [greenPrimary] a 14%.
+  ///
+  /// Seleção usa accent em baixa opacidade, nunca a cor sólida cobrindo a
+  /// linha: é o que distingue "onde o teclado está" de "onde o mouse passou".
+  static const selection = Color(0x2422C55E);
+
+  /// Anel de foco de teclado — [greenPrimary] a 60%.
+  static const focusRing = Color(0x9922C55E);
+
   /// Texto principal.
   static const textPrimary = Color(0xFFF5F5F5);
 
-  /// Metadados, labels e placeholders.
+  /// Metadados e labels de apoio.
   static const textSecondary = Color(0xFF9CA3AF);
+
+  /// Placeholders, timestamps e texto de terceiro nível — presente, mas
+  /// claramente atrás do conteúdo.
+  static const textTertiary = Color(0xFF6B7280);
 
   /// Ações destrutivas.
   static const error = Color(0xFFEF4444);
@@ -54,4 +78,11 @@ abstract final class AppColors {
 
   /// Sombra do painel flutuante: `0 24px 60px rgba(0,0,0,0.55)`.
   static const shadow = Color(0x8C000000);
+
+  /// Véu do modal: escurece o fundo sem apagá-lo.
+  static const scrim = Color(0x99000000);
+
+  /// Ausência de cor. Existe como token para que nenhum arquivo fora daqui
+  /// precise escrever `Color(0x00000000)` à mão.
+  static const transparent = Color(0x00000000);
 }

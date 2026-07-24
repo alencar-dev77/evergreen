@@ -20,6 +20,26 @@ Trabalhe com uma escala pequena de durações, quase sempre entre 100–300ms �
 
 Regra prática: **animações de saída são sempre iguais ou mais rápidas que as de entrada**. A pessoa quer voltar ao trabalho mais rápido do que quer "admirar" a chegada de um elemento.
 
+### Tokens implementados (`AppDurations`)
+
+| Token | Valor | Uso |
+|---|---|---|
+| `instant` | 90ms | hover, pressed, anel de foco, rolagem que revela a seleção |
+| `entrance` | 120ms | fade de entrada de superfície flutuante (overlay do Pin) |
+| `fast` | 150ms | transição de estado pequena (badge que muda de cor) |
+| `medium` | 220ms | transição de layout (painel do overlay que alarga com o preview) |
+| `curve` | `easeOutCubic` | curva padrão de tudo que entra ou muda de estado |
+
+Não existe token de saída porque **saída não anima**: fechar é instantâneo.
+
+### Decisão do produto: entrada e saída do overlay do Pin
+
+O painel do Pin **entra** com um fade de 120ms (`easeOut`) e **sai instantaneamente** — a janela simplesmente se esconde, sem animação de volta.
+
+Por quê: o Pin é invocado dezenas de vezes por dia e usado por segundos. Um fade curto na chegada evita o "pop" seco de um painel aparecendo do nada sobre outro app (e cobre o instante em que o macOS ainda está trocando o foco); qualquer animação na saída, por outra, seria tempo entre a pessoa escolher o item e voltar a digitar no app de origem. É a aplicação literal de "instantâneo antes de suave".
+
+Sem movimento de posição/escala junto do fade: o painel nasce onde vai ficar. Deslizar de cima competiria com a lista, que é o que a pessoa está lendo assim que o painel aparece.
+
 ## Easing
 
 - Use easing do tipo "ease-out" (rápido no início, desacelerando suavemente no fim) para elementos que **entram** na tela — isso comunica "chegou com intenção e se acomodou".
@@ -54,6 +74,7 @@ Regra prática: **animações de saída são sempre iguais ou mais rápidas que 
 
 ## Loading e estados assíncronos
 
+- No produto, o atraso implementado é de **200ms** (`_Loading`, no overlay do Pin): o banco é local, então o spinner quase nunca chega a aparecer — que é exatamente o objetivo. O bloco reserva a altura desde o início, para o painel não mudar de tamanho quando o indicador aparecer.
 - Prefira **não mostrar nada por um breve instante** (até ~150–200ms) antes de mostrar qualquer indicador de carregamento — a maioria das operações do Evergreen deve ser rápida o suficiente para que um spinner nunca chegue a aparecer; mostrar um spinner que pisca por 50ms e some é pior do que não mostrar nada.
 - Quando o carregamento realmente demora, use indicadores discretos e nativos (um spinner pequeno, uma barra de progresso fina) — nunca skeletons elaborados e coloridos ou telas de loading "de marca" com logo animado. Esse tipo de loading grandioso é característico de apps consumer/web, não de ferramentas desktop utilitárias.
 - Ver `components.md` para a especificação visual completa de indicadores de loading.

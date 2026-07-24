@@ -53,7 +53,8 @@ Consequências diretas dessa natureza:
 
 ## Stack e restrições técnicas relevantes ao design
 
-- **Flutter para macOS**, não Flutter para web/mobile. Isso significa: usar as convenções de teclado do macOS (Cmd em vez de Ctrl), respeitar `NSVisualEffectView`/blur nativo com moderação, considerar múltiplas densidades de tela Retina, e testar em light mode e dark mode simultaneamente — o Evergreen deve funcionar perfeitamente nos dois, sem "dark mode de segunda classe".
+- **Flutter para macOS**, não Flutter para web/mobile. Isso significa: usar as convenções de teclado do macOS (Cmd em vez de Ctrl), respeitar `NSVisualEffectView`/blur nativo com moderação e considerar múltiplas densidades de tela Retina.
+- **O app é dark-only até (pelo menos) a v0.2**, por decisão explícita — light mode é dívida assumida, não esquecida. Não introduza tokens claro/escuro nem `ThemeMode` "já preparando" o terreno; ver `colors.md`, seção "Decisão do produto: dark-only".
 - Componentes devem ser pensados em termos de **estados explícitos** (`default`, `hover`, `active/pressed`, `focus`, `disabled`, `selected`, `loading`, `error`) porque é assim que se implementa consistência em Flutter (widgets com builders de estado), e porque é assim que apps macOS nativos realmente se comportam.
 - Performance visual é parte do design, não um detalhe técnico posterior: uma sombra cara, um blur em excesso ou uma animação com muitos widgets rebuildando destroem a sensação de "app nativo rápido" que é a razão de existir do Evergreen.
 

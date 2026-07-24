@@ -49,7 +49,15 @@ void main() {
     item(30, 'const AppColors.greenPrimary = Color(0xFF22C55E);'),
   ]);
 
-  Future<void> pump(WidgetTester tester, Widget home, Size size) async {
+  /// [beforeSettle] roda entre a montagem e o `pumpAndSettle` — é onde o
+  /// histórico entra. Antes disso o overlay mostra o indicador de carregamento,
+  /// que é indeterminado e nunca deixaria o `pumpAndSettle` terminar.
+  Future<void> pump(
+    WidgetTester tester,
+    Widget home,
+    Size size, {
+    VoidCallback? beforeSettle,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
@@ -68,13 +76,17 @@ void main() {
       ),
     );
 
+    beforeSettle?.call();
     await tester.pumpAndSettle();
   }
 
   testWidgets('overlay do Pin — lista', (tester) async {
-    await pump(tester, const PinOverlayView(), const Size(1120, 1000));
-    _loadHistory(tester);
-    await tester.pumpAndSettle();
+    await pump(
+      tester,
+      const PinOverlayView(),
+      const Size(1120, 1000),
+      beforeSettle: () => _loadHistory(tester),
+    );
 
     await expectLater(
       find.byType(PinOverlayView),
@@ -83,9 +95,12 @@ void main() {
   });
 
   testWidgets('overlay do Pin — preview aberto', (tester) async {
-    await pump(tester, const PinOverlayView(), const Size(1120, 1000));
-    _loadHistory(tester);
-    await tester.pumpAndSettle();
+    await pump(
+      tester,
+      const PinOverlayView(),
+      const Size(1120, 1000),
+      beforeSettle: () => _loadHistory(tester),
+    );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);

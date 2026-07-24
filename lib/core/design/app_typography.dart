@@ -7,6 +7,10 @@ import 'app_colors.dart';
 /// Fonte: Inter, com fallback para SF Pro Display / sistema. Como o app é
 /// macOS-first, o fallback nativo já entrega a leitura correta mesmo sem o
 /// arquivo da Inter empacotado.
+///
+/// A escala é curta e desktop: corpo em 13–14px, nada de título heroico. O
+/// maior estilo do app (17px) é o cabeçalho do Hub — em um utilitário de
+/// produtividade não existe "hero" (ver `typography.md`).
 abstract final class AppTypography {
   static const fontFamily = 'Inter';
 
@@ -24,38 +28,55 @@ abstract final class AppTypography {
     decoration: TextDecoration.none,
   );
 
-  /// Título de tela — 700 / 32px.
+  /// Título de tela — 600 / 17px. É o cabeçalho funcional de um painel, não um
+  /// hero: o maior texto do app fica a um degrau do corpo, não a três.
   static final screenTitle = _base.copyWith(
-    fontSize: 32,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.64,
-    height: 1.2,
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    height: 1.3,
   );
 
-  /// Cabeçalho de seção — 600 / 20px.
+  /// Cabeçalho de seção — 600 / 15px.
   static final sectionTitle = _base.copyWith(
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: FontWeight.w600,
     height: 1.3,
   );
 
-  /// Título de painel compacto — 700 / 16px.
+  /// Título de painel compacto — 600 / 15px.
   static final panelTitle = _base.copyWith(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
     height: 1.3,
   );
 
-  /// Texto de item / label de UI — 500 / 15px.
+  /// Corpo padrão — 400 / 14px.
   static final body = _base.copyWith(
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+  );
+
+  /// Corpo enfatizado — 500 / 14px. Título dentro de uma linha, valor em vez de
+  /// rótulo: hierarquia por peso, sem gastar altura extra.
+  static final bodyEmphasis = _base.copyWith(
+    fontSize: 14,
     fontWeight: FontWeight.w500,
     height: 1.4,
   );
 
-  /// Variante compacta usada dentro do overlay — 500 / 13.5px.
+  /// Variante compacta usada dentro do overlay — 400 / 13px.
   static final bodyCompact = _base.copyWith(
-    fontSize: 13.5,
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+  );
+
+  /// Compacto enfatizado — 500 / 13px. Título de linha de lista e rótulo de
+  /// configuração.
+  static final bodyCompactEmphasis = _base.copyWith(
+    fontSize: 13,
     fontWeight: FontWeight.w500,
     height: 1.4,
   );
@@ -71,6 +92,15 @@ abstract final class AppTypography {
   /// Metadado menor dentro de list items — 400 / 12px.
   static final captionSmall = _base.copyWith(
     fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 1.4,
+  );
+
+  /// Menor metadado da interface — 400 / 11px. Timestamp de linha, rótulo de
+  /// dica de atalho, subtítulo de item de sidebar.
+  static final captionXS = _base.copyWith(
+    fontSize: 11,
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondary,
     height: 1.4,
@@ -100,4 +130,7 @@ abstract final class AppTypography {
     color: AppColors.textPrimary,
     decoration: TextDecoration.none,
   );
+
+  /// Mono no tamanho de key-cap e de badge de atalho — 11px.
+  static final monoSmall = mono.copyWith(fontSize: 11);
 }
