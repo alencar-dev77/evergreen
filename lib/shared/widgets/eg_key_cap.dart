@@ -22,7 +22,7 @@ class EgKeyCap extends StatelessWidget {
         borderRadius: AppRadii.badgeSmallAll,
         border: AppBorders.all,
       ),
-      child: Text(label, style: AppTypography.mono.copyWith(fontSize: 11)),
+      child: Text(label, style: AppTypography.monoSmall),
     );
   }
 }

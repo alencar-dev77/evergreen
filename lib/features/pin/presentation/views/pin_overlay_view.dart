@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
+import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/pin_overlay_window.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_icon.dart';
@@ -32,9 +34,21 @@ class PinOverlayView extends ConsumerStatefulWidget {
 }
 
 class _PinOverlayViewState extends ConsumerState<PinOverlayView>
-    with WindowListener {
+    with WindowListener, SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
+
+  /// Fade de entrada do painel. Nasce em 1 para que a primeira construção (e os
+  /// testes, que não têm janela) já mostrem o painel pronto — quem rebobina a
+  /// animação é o `onWindowFocus`, uma vez por abertura.
+  late final _entrance = AnimationController(
+    vsync: this,
+    duration: AppDurations.entrance,
+    value: 1,
+  );
+
+  late final _entranceOpacity =
+      CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
 
   bool _isPreviewOpen = false;
 
@@ -59,6 +73,8 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   @override
   void dispose() {
     windowManager.removeListener(this);
+    _entranceOpacity.dispose();
+    _entrance.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -68,6 +84,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   void onWindowFocus() {
     _searchController.clear();
     _searchFocusNode.requestFocus();
+    _entrance.forward(from: 0);
     setState(() => _isPreviewOpen = false);
   }
 
@@ -125,6 +142,12 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
     setState(() => _isPreviewOpen = !_isPreviewOpen);
   }
 
+  /// `⌘,`: leva às preferências do Pin no Hub e sai de cena.
+  Future<void> _openSettings() async {
+    await HubWindow.instance.open();
+    await _close();
+  }
+
   /// Esc é hierárquico: recolhe o preview primeiro e só fecha o overlay quando
   /// não há mais nada aberto dentro dele. Assim ninguém perde a busca digitada
   /// por ter apertado Esc só para sair do preview.
@@ -154,6 +177,8 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
             onTogglePreview: _togglePreview,
             onQuickCopy: _quickCopy,
             onTogglePin: _viewModel.togglePinSelected,
+            onDelete: _viewModel.deleteSelected,
+            onOpenSettings: _openSettings,
           ),
           // A janela é maior que o painel para caber a sombra e o painel
           // expandido. O resto dela é transparente, mas ainda captura cliques —
@@ -168,20 +193,27 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {},
-                  child: AnimatedContainer(
-                    duration: AppDurations.medium,
-                    curve: AppDurations.curve,
-                    width: showPreview ? _withPreviewWidth : _listOnlyWidth,
-                    constraints: const BoxConstraints(maxHeight: _maxPanelHeight),
-                    child: EgPanel(
-                      gradient: AppGradients.panelSurface,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _searchBar(),
-                          Flexible(child: _content(showPreview)),
-                          PinHintBar(isPreviewOpen: showPreview),
-                        ],
+                  // Fade curto na chegada; a saída não anima — a janela
+                  // simplesmente se esconde, porque voltar ao trabalho é mais
+                  // urgente que assistir o painel sair.
+                  child: FadeTransition(
+                    opacity: _entranceOpacity,
+                    child: AnimatedContainer(
+                      duration: AppDurations.medium,
+                      curve: AppDurations.curve,
+                      width: showPreview ? _withPreviewWidth : _listOnlyWidth,
+                      constraints:
+                          const BoxConstraints(maxHeight: _maxPanelHeight),
+                      child: EgPanel(
+                        gradient: AppGradients.panelSurface,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _searchBar(),
+                            Flexible(child: _content(showPreview)),
+                            PinHintBar(isPreviewOpen: showPreview),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -211,6 +243,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   Widget _content(bool showPreview) {
     final state = ref.watch(pinOverlayViewModelProvider);
 
+    if (state.isLoading && state.results.isEmpty) return const _Loading();
     if (state.isEmpty) return _emptyState(fromSearch: state.isEmptyBecauseOfSearch);
 
     final list = PinResultList(
@@ -255,4 +288,59 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
           : 'Tudo que você copiar aparecerá aqui automaticamente.',
     );
   }
+}
+
+/// Espera pela primeira carga do histórico.
+///
+/// O banco é local, então isso termina em poucos milissegundos e o spinner
+/// nunca chega a aparecer — é exatamente o objetivo do atraso. Um indicador que
+/// pisca por 40ms e some é pior que indicador nenhum.
+class _Loading extends StatefulWidget {
+  const _Loading();
+
+  @override
+  State<_Loading> createState() => _LoadingState();
+}
+
+class _LoadingState extends State<_Loading> {
+  static const _delay = Duration(milliseconds: 200);
+
+  Timer? _timer;
+  bool _isVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_delay, () {
+      if (mounted) setState(() => _isVisible = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _spinnerBoxHeight,
+      child: Center(
+        child: _isVisible
+            ? const SizedBox.square(
+                dimension: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.textSecondary,
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  /// Reserva a altura do bloco antes e depois do spinner aparecer, para o painel
+  /// não mudar de tamanho no meio da espera.
+  static const _spinnerBoxHeight = 96.0;
 }

@@ -23,6 +23,23 @@ Papéis sugeridos:
 
 Nunca aplique um espaçamento grande (32px+) só para "a tela não parecer cheia" — se a tela está com muito espaço vazio, o problema normalmente é falta de conteúdo relevante ali (ver `anti-patterns.md`), não falta de padding.
 
+### Escala implementada (`AppSpacing`)
+
+A escala do produto tem nomes, não números soltos. Nenhum valor de espaçamento deve aparecer como literal em um widget — se falta um degrau, adicione o token.
+
+| Token | Valor | Papel |
+|---|---|---|
+| `xxs` | 4 | ícone e seu label, título e subtítulo colados |
+| `xs` | 6 | padding de key-cap, respiro mínimo de grupo |
+| `sm` | 8 | gap padrão dentro de um grupo, padding vertical de botão |
+| `md` | 10 | padding horizontal de linha de lista, gap de ícone→texto |
+| `lg` | 14 | padding da barra de dicas, rodapé de lista |
+| `xl` | 16 | padding horizontal de botão, padding de card interno |
+| `xxl` | 20 | padding de painel (preview, diálogo), margem da sidebar |
+| `xxxl` | 24 | separação entre cabeçalho e conteúdo |
+| `huge` | 32 | margem externa da área de conteúdo do Hub, fim de seção de configuração |
+| `giant` | 48 | rodapé de scroll da janela — o topo da escala, usado com parcimônia |
+
 ## Grid e alinhamento
 
 - Trabalhe com um grid de colunas implícito baseado em múltiplos consistentes de largura para sidebars, painéis e listas — não é necessário (nem apropriado) usar uma grade de 12 colunas típica de web design; um layout de app desktop normalmente é composto por **regiões fixas ou redimensionáveis** (sidebar + conteúdo + painel de detalhe opcional), não por colunas fluidas de conteúdo.
@@ -49,6 +66,19 @@ Radius no Evergreen é sutil e consistente, nunca "arredondado como app de mobil
 - **10–12px** — superfícies flutuantes maiores: popups, dropdowns, modais.
 - **Nunca** use radius muito alto (16px+) em componentes retangulares de conteúdo — isso empurra a estética para "app de mobile consumer" em vez de "ferramenta desktop profissional". A exceção genuína é elementos circulares de propósito (avatar, indicador de ponto/dot), que naturalmente usam radius total (círculo), mas isso não é uma decisão de "radius alto", é geometria de círculo.
 - Mantenha o radius consistente entre elementos aninhados: se um popup tem radius de 10px e contém um botão internamente encostado na borda, o radius do botão deve respeitar a curvatura do container pai (radius menor ou concêntrico), nunca dois raios visualmente conflitantes.
+
+### Escala implementada (`AppRadii`) — valores oficiais do produto
+
+| Token | Valor | Aplicação |
+|---|---|---|
+| `panel` | 12 | superfície flutuante: painel do overlay, `EgConfirmDialog`, dropdown da menu bar |
+| `card` | 8 | card interno, superfície de conteúdo dentro de um painel |
+| `button` | 8 | botão, campo de busca, card de preview |
+| `listItem` | 6 | linha de lista, item de sidebar, botão de ícone |
+| `badge` | 6 | badge de ícone, container do segmented control, tooltip |
+| `badgeSmall` | 4 | key-cap, segmento interno do segmented control |
+
+12px é o teto do app: nenhuma superfície do Evergreen passa disso. Aninhamento é concêntrico — o segmento interno usa `badgeSmall` (4) exatamente porque o container usa `badge` (6) com 2px de padding.
 
 ## Alvos de clique e área de interação
 

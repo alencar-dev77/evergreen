@@ -14,6 +14,14 @@ Use a fonte de sistema nativa do macOS (a família San Francisco, acessível via
 
 Nunca misture mais de uma família de fonte para texto de interface (fora do par principal + monoespaçada). Múltiplas famílias sem propósito é um sinal clássico de falta de decisão editorial.
 
+### Decisão do produto: Inter com fallback para SF
+
+O Evergreen declara **Inter** como família de interface, com fallback em cascata para a fonte do sistema — `SF Pro Display` → `SF Pro Text` → `.AppleSystemUIFont` → `Helvetica Neue`. A mono é **SF Mono**, com fallback para `Menlo`.
+
+Por quê: a Inter foi desenhada para UI em tamanho pequeno e é quase indistinguível da SF nas métricas que importam aqui (altura-x, largura de dígito, terminações), então o app tem identidade própria **sem** parecer estrangeiro ao lado das janelas do sistema. E como o fallback nativo entrega a leitura correta, o arquivo da Inter não precisa estar empacotado para o app parecer certo — a decisão não custa peso de bundle nem risco de renderização.
+
+Não troque a família sem um motivo de legibilidade. "Ficaria mais moderno" não é motivo.
+
 ## Escala tipográfica
 
 Trabalhe com uma escala pequena e disciplinada — poucos tamanhos, usados de forma consistente, é mais importante que uma escala "completa". Uma referência de estrutura (ajuste valores exatos no design system real do projeto, mas mantenha a lógica de papéis):
@@ -28,6 +36,29 @@ Trabalhe com uma escala pequena e disciplinada — poucos tamanhos, usados de fo
 | Monoespaçada | 12–13px | Regular | Atalhos de teclado, valores técnicos, código |
 
 Evite tamanhos grandes e decorativos (24px+) exceto em contextos muito específicos e raros, como o título de uma tela de boas-vindas/onboarding inicial (que deve ser mínima) ou um número de destaque isolado (ex: contador grande em um dashboard interno simples). Um app de produtividade não tem "títulos heroicos" espalhados pelas telas.
+
+### Escala implementada (`AppTypography`) — valores oficiais do produto
+
+Nada de `copyWith(fontSize: ...)` em widget: se falta um degrau, ele entra aqui como token nomeado.
+
+| Token | Tamanho / peso | Uso |
+|---|---|---|
+| `screenTitle` | 17 / 600, tracking -0.2 | maior texto do app — cabeçalho de painel do Hub |
+| `sectionTitle` | 15 / 600 | cabeçalho de seção |
+| `panelTitle` | 15 / 600 | título de painel compacto e de diálogo |
+| `body` | 14 / 400 | corpo padrão, texto digitado no campo de busca |
+| `bodyEmphasis` | 14 / 500 | título dentro de uma linha, valor em vez de rótulo |
+| `bodyCompact` | 13 / 400 | corpo dentro do overlay, conteúdo do preview |
+| `bodyCompactEmphasis` | 13 / 500 | título de linha de lista, rótulo de configuração, título de empty state |
+| `caption` | 13 / 400, secundário | tagline de módulo, texto de apoio |
+| `captionSmall` | 12 / 400, secundário | descrição de linha de configuração, texto de empty state |
+| `captionXS` | 11 / 400, secundário | timestamp de linha, rótulo de dica de atalho, subtítulo de sidebar |
+| `overline` | 11 / 600, caps, tracking +0.66 | label de seção ("FIXADOS", "GERAL") |
+| `button` | 14 / 600 | rótulo de botão |
+| `mono` | 12 | conteúdo técnico monoespaçado |
+| `monoSmall` | 11 | key-cap, badge de atalho na linha |
+
+O topo da escala (17) fica a **um** degrau do corpo (14), não a três: é o que impede o "título heroico" de voltar por acidente. Hierarquia dentro de um mesmo bloco se faz por **peso** (400 → 500 → 600), não por tamanho — daí os pares `body`/`bodyEmphasis` e `bodyCompact`/`bodyCompactEmphasis`. Peso 700 não existe mais na escala.
 
 ## Peso e hierarquia
 
@@ -56,8 +87,10 @@ Em uma interface densa, texto que não cabe é constante — trate isso com inte
 
 ## Cor de texto conforme papel (referência cruzada com `colors.md`)
 
-- Título/corpo principal → `text/primary`.
-- Metadado/apoio → `text/secondary`.
-- Placeholder, desabilitado, timestamp discreto → `text/tertiary`.
+- Título/corpo principal → `text/primary` (`AppColors.textPrimary`).
+- Metadado/apoio → `text/secondary` (`AppColors.textSecondary`).
+- Placeholder, desabilitado, timestamp discreto → `text/tertiary` (`AppColors.textTertiary`).
+
+Os tokens de `caption*` já nascem em `textSecondary`; para o terceiro nível, componha (`captionXS.copyWith(color: AppColors.textTertiary)`), como faz o timestamp da linha do Pin.
 
 Nunca use a cor de destaque (accent) em texto corrido apenas para chamar atenção — reserve accent em texto para links/referências clicáveis reais, mantendo o princípio de "cor como significado" também na tipografia.

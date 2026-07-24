@@ -8,6 +8,11 @@ import 'eg_hoverable.dart';
 ///
 /// Ligado: trilho verde com bolinha escura à direita.
 /// Desligado: trilho `border` com bolinha `textSecondary` à esquerda.
+///
+/// É a única exceção deliberada à regra de "accent em baixa opacidade, nunca
+/// preenchimento sólido": switch de macOS é verde chapado, e o usuário lê o
+/// estado ligado/desligado por essa convenção antes de ler qualquer outra
+/// pista. Registrada em `colors.md`.
 class EgToggle extends StatelessWidget {
   const EgToggle({
     super.key,
@@ -29,20 +34,25 @@ class EgToggle extends StatelessWidget {
 
     return EgHoverable(
       enabled: isEnabled,
+      focusable: true,
       onTap: isEnabled ? () => onChanged!(!value) : null,
-      builder: (context, isHovered) => Opacity(
+      builder: (context, state) => Opacity(
         opacity: isEnabled ? 1 : 0.5,
         child: AnimatedContainer(
-          duration: AppDurations.fast,
+          duration: AppDurations.instant,
           curve: AppDurations.curve,
           width: _trackWidth,
           height: _trackHeight,
           decoration: BoxDecoration(
-            color: _trackColor(isHovered && isEnabled),
+            color: _trackColor(
+              isActive: (state.isHovered || state.isFocused) && isEnabled,
+            ),
             borderRadius: BorderRadius.circular(_trackHeight / 2),
+            boxShadow:
+                state.isFocused && isEnabled ? AppShadows.focusRing : null,
           ),
           child: AnimatedAlign(
-            duration: AppDurations.fast,
+            duration: AppDurations.instant,
             curve: AppDurations.curve,
             alignment: value ? Alignment.centerRight : Alignment.centerLeft,
             child: Padding(
@@ -62,8 +72,8 @@ class EgToggle extends StatelessWidget {
     );
   }
 
-  Color _trackColor(bool isHovered) {
-    if (value) return isHovered ? AppColors.greenLight : AppColors.greenPrimary;
-    return isHovered ? AppColors.hover : AppColors.border;
+  Color _trackColor({required bool isActive}) {
+    if (value) return isActive ? AppColors.greenLight : AppColors.greenPrimary;
+    return isActive ? AppColors.hover : AppColors.border;
   }
 }

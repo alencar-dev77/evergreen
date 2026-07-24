@@ -13,6 +13,32 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 - Atalhos de um único caractere sem modificador (ex: apenas "j"/"k" para navegar, como em apps inspirados em vim) são aceitáveis **apenas quando o foco estiver claramente em um contexto de navegação de lista** e nunca quando o foco estiver em um campo de texto — nesse caso o caractere deve ser digitado normalmente como texto.
 - A paleta de comandos (command palette, se o Evergreen tiver uma, no espírito Raycast/Linear) é o hub central de descobribilidade de atalhos: cada ação nela listada mostra seu atalho correspondente ao lado, ensinando o atalho organicamente pelo uso repetido.
 
+### Mapa de atalhos implementado
+
+| Atalho | Contexto | Ação |
+|---|---|---|
+| `⌘⇧C` | global | abre o overlay do Pin |
+| `↑` `↓` | overlay | move a seleção (funciona com o foco no campo de busca) |
+| `Enter` | overlay | copia o item selecionado e fecha |
+| `Tab` | overlay | abre/fecha o preview |
+| `Esc` | overlay | recolhe o preview; sem preview, fecha o overlay |
+| `⌘P` | overlay | fixa/desafixa o selecionado |
+| `⌘⌫` | overlay | apaga o selecionado, mantendo o overlay aberto e a seleção no vizinho |
+| `⌘,` | overlay | abre as preferências (Hub) e fecha o overlay |
+| `⌘1`–`⌘5` | overlay | copia direto o N-ésimo **recente** |
+| `⌥1`–`⌥5` | overlay | copia direto o N-ésimo **fixado** |
+
+Dois detalhes de convenção que valem para atalhos futuros:
+
+- **Modificador obrigatório quando um campo de texto tem o foco.** No overlay a busca está sempre focada, então excluir é `⌘⌫` e não `Delete` puro — um Backspace solto precisa continuar apagando o texto digitado. A mesma regra vale para qualquer tecla de ação em tela com campo de texto.
+- **Nem todo atalho cabe na barra de dicas.** A barra mostra o subconjunto relevante ao estado atual (`⌘⌫ excluir` só aparece com o preview aberto, onde há largura para ele e onde a exclusão é a ação em foco). Descobribilidade não é "mostrar tudo": é mostrar a coisa certa no momento em que a dúvida existe.
+
+### Decisão do produto: atalho global não é reconfigurável na v0.1
+
+A linha "Abrir Pin" nas preferências é **exibição-somente**: mostra `⌘⇧C` em key-caps e não aceita rebinding. Rebinding exige captura de tecla, validação de conflito com o sistema e persistência do novo atalho — trabalho que fica para uma versão futura.
+
+Enquanto isso valer, a linha continua na tela em vez de ser omitida: ela ensina o atalho, que é a função mais importante dela. Não a transforme em algo que *pareça* editável (campo, botão "alterar") sem implementar a captura de verdade.
+
 ## Navegação por teclado dentro de listas e menus
 
 - Setas para cima/baixo movem a seleção item a item; `Enter` confirma/abre o item selecionado; `Esc` fecha o contexto (popup, busca, modal) sem executar ação.

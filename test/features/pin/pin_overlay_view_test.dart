@@ -126,7 +126,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(PinPreviewPane), findsOneWidget);
-    expect(find.text('Colar novamente'), findsOneWidget);
+    expect(find.text('Copiar'), findsOneWidget);
   });
 
   testWidgets('Esc recolhe o preview antes de fechar o overlay', (tester) async {
@@ -246,6 +246,48 @@ void main() {
       // Fixado depois do 'Flutter', então herda o segundo slot da camada ⌥.
       expect(find.text('⌥2'), findsOneWidget);
     });
+  });
+
+  testWidgets('⌘⌫ apaga o selecionado e mantém a seleção no vizinho',
+      (tester) async {
+    await pumpOverlay(tester);
+
+    // Vai para o primeiro recente, que tem um item logo abaixo.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+    await tester.pumpAndSettle();
+
+    expect(find.text('https://pub.dev/packages/sqlite3'), findsNothing);
+
+    // O overlay continua aberto e a seleção caiu sobre quem tomou o lugar.
+    final selected = tester
+        .widgetList<PinListItem>(find.byType(PinListItem))
+        .firstWhere((widget) => widget.isSelected);
+
+    expect(selected.item.content, 'Senha temporária: xK9#mPz2');
+  });
+
+  testWidgets('linha sem atalho mostra o horário relativo', (tester) async {
+    // Com seis recentes, o último fica fora dos cinco slots de ⌘N — é a linha
+    // que exibe o tempo em vez do badge de atalho. Os instantes são relativos a
+    // agora porque é isso que o texto formata.
+    final now = DateTime.now();
+    repository = FakeClipboardRepository([
+      for (var minutes = 1; minutes <= 6; minutes++)
+        ClipboardItem.capture(
+          'item $minutes',
+          at: now.subtract(Duration(minutes: minutes)),
+        ).copyWith(id: minutes),
+    ]);
+    await pumpOverlay(tester);
+
+    expect(find.text('⌘5'), findsOneWidget);
+    expect(find.text('⌘6'), findsNothing);
+    expect(find.text('há 6 min'), findsOneWidget);
   });
 
   testWidgets('histórico vazio mostra a mensagem de boas-vindas', (tester) async {

@@ -23,9 +23,19 @@ Sugestão de organização (ajuste os hex reais durante implementação, o que i
 - `text/secondary` — labels, metadados, texto de apoio.
 - `text/tertiary` — placeholders, texto desabilitado, timestamps discretos.
 
+### Decisão do produto: dark-only até (pelo menos) a v0.2
+
+O Evergreen v0.1 é **dark-only, por decisão explícita** — não por esquecimento. Light mode é **dívida assumida**: a paleta em `app_colors.dart` são cores diretas, não um par claro/escuro, e nenhuma tela foi calibrada para fundo claro.
+
+Consequências práticas enquanto essa decisão valer:
+
+- Não adicione `Brightness`/`ThemeMode`/tokens duplicados "já preparando" o light mode. Preparar sem calibrar produz um light mode de segunda classe, que é exatamente o que a seção abaixo proíbe.
+- Não force uma cor a "funcionar nos dois modos" ao custo de ficar morna no escuro. Otimize para o escuro, que é o único modo que existe hoje.
+- Quando o light mode entrar (v0.2+), ele é uma tarefa de recalibração inteira — cada papel de superfície, o accent e as cores semânticas —, não um `if (isDark)` espalhado pelos widgets.
+
 ### Light mode e dark mode como cidadãos de primeira classe
 
-O Evergreen roda o dia inteiro na tela de alguém — ele **precisa** funcionar perfeitamente nos dois modos, sem que um pareça "o modo de verdade" e o outro "o modo que faltou polir". Regras práticas:
+Quando os dois modos existirem, valem as regras abaixo. O Evergreen roda o dia inteiro na tela de alguém — ele **precisa** funcionar perfeitamente nos dois modos, sem que um pareça "o modo de verdade" e o outro "o modo que faltou polir". Regras práticas:
 
 - Não inverta cores mecanicamente (preto vira branco, branco vira preto). Redesenhe cada papel de superfície com a mesma lógica de profundidade, mas calibrada para a percepção em cada modo — no dark mode, superfícies "elevadas" ficam **mais claras** que a base (o oposto do que a intuição de sombra em light mode sugeriria), porque é assim que o olho humano lê elevação sob luz escura.
 - Cor de destaque (accent) deve ter uma variante calibrada para cada modo — a mesma cor pura costuma parecer "gritante" ou "suja" dependendo do fundo; ajuste luminosidade e saturação por modo, mantendo o matiz (hue) reconhecível como o mesmo.
@@ -77,6 +87,37 @@ O fundo das janelas do Evergreen **não** é uma cor chapada ("preto blocado"). 
 2. **Brilho verde difuso** — um gradiente radial de accent em opacidade muito baixa (~6%), ancorado acima do topo da janela, com falloff largo. Simula o "blur por cima" / luz difusa **sem** `BackdropFilter`, então pode ficar permanente na tela sem custo de render.
 
 Implementação: tokens em `app_colors.dart` (`backgroundTop`, `backgroundDeep`, `surfaceTop`), gradientes compostos em `app_gradients.dart`, aplicados via `EgBackground` (janelas) e pelo parâmetro `gradient` do `EgPanel` (overlay do Pin). Sidebars podem ficar levemente translúcidas (sólido com alpha sobre o gradiente, sem blur) para o brilho atravessar e unificar as regiões.
+
+## Papéis reais implementados (`app_colors.dart`)
+
+Os papéis abstratos acima já têm nome e valor no produto. Use o token, nunca um hex — o único arquivo do repositório autorizado a escrever `Color(0x...)` é o `app_colors.dart`.
+
+| Papel | Token | Valor | Onde aparece |
+|---|---|---|---|
+| Fundo de janela | `background` | `#0B0B0B` | janela, overlay, barra de dicas |
+| Superfície de painel | `surface` | `#141414` | `EgPanel`, sidebar (a 72% de alpha) |
+| Campo / card interno | `card` | `#1A1A1A` | inputs, key-caps, badges, botão secundário |
+| Hover neutro | `hover` | `#232323` | mouse sobre linha, botão, item de sidebar |
+| Pressed | `pressed` | `#2E2E2E` | um degrau acima do hover, enquanto o clique está apertado |
+| Borda sutil | `border` | `#262626` | divisores de 1px, contorno de painel |
+| Accent | `greenPrimary` | `#22C55E` | ação primária, ícone de fixado, cursor |
+| Accent hover | `greenLight` | `#4ADE80` | hover do primário, texto de item selecionado |
+| Accent pressed | `greenDeep` | `#16A34A` | pressed do botão primário |
+| **Seleção** | `selection` | accent a 14% | linha de lista selecionada, item de sidebar aberto, opção do segmented control |
+| **Anel de foco** | `focusRing` | accent a 60% | 2px ao redor do componente focado por teclado |
+| Texto primário | `textPrimary` | `#F5F5F5` | conteúdo, títulos |
+| Texto secundário | `textSecondary` | `#9CA3AF` | metadados, labels, ícones em repouso |
+| **Texto terciário** | `textTertiary` | `#6B7280` | placeholder de busca, timestamp de linha, badge de atalho em repouso |
+| Erro / destrutivo | `error` | `#EF4444` | texto do botão "Excluir"/"Limpar" |
+| Aviso | `warning` | `#F59E0B` | reservado |
+| Véu de modal | `scrim` | preto a 60% | fundo do `EgConfirmDialog` |
+| Transparente | `transparent` | — | estado de repouso de superfícies que só aparecem no hover |
+
+Notas de aplicação:
+
+- **`selection` e `hover` nunca são a mesma cor.** Seleção é "onde o teclado está" (accent); hover é "onde o mouse passou" (neutro). Quando os dois coincidem na mesma linha, a seleção vence.
+- **`focusRing` é sombra, não borda** (`AppShadows.focusRing`): assim o componente não muda de tamanho ao receber foco. Isso exige fundo opaco sob o anel — um componente transparente em repouso (botão de ícone, item de sidebar) adota a superfície de hover ao ganhar foco.
+- **Exceção registrada — `EgToggle`:** o switch usa trilho **verde chapado** quando ligado, contrariando a regra de "accent sempre em baixa opacidade". É convenção nativa de macOS: o usuário lê ligado/desligado por essa cor antes de ler qualquer outra pista, e um trilho a 14% ficaria ambíguo. É a única exceção do design system; qualquer outra precisa da mesma justificativa de convenção do sistema, não de estética.
 
 ## Estados de cor (checklist rápido)
 

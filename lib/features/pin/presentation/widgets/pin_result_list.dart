@@ -10,6 +10,11 @@ import 'pin_list_item.dart';
 ///
 /// Mantém o item selecionado sempre visível ao navegar pelo teclado, que é a
 /// forma principal de usar o Pin.
+///
+/// Rola por cálculo de offset em vez de `Scrollable.ensureVisible`: com o
+/// histórico no limite (500 itens) só as linhas visíveis existem como widget,
+/// então não há um `GlobalKey` por item para medir. A altura de cada linha é
+/// conhecida de antemão — daí o offset sair de uma soma, não de um layout.
 class PinResultList extends StatefulWidget {
   const PinResultList({
     super.key,
@@ -36,30 +41,30 @@ class PinResultList extends StatefulWidget {
 
 class _PinResultListState extends State<PinResultList> {
   final _scrollController = ScrollController();
-  final _itemKeys = <int, GlobalKey>{};
+
+  /// Linhas visíveis — cabeçalhos de grupo e itens na ordem em que aparecem.
+  List<_ListRow> _rows = const [];
+
+  static const _paddingTop = AppSpacing.md;
+  static const _paddingBottom = AppSpacing.lg;
+
+  @override
+  void initState() {
+    super.initState();
+    _rows = _buildRows();
+  }
 
   @override
   void didUpdateWidget(PinResultList oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (!identical(oldWidget.state.results, widget.state.results)) {
+      _rows = _buildRows();
+    }
+
     if (oldWidget.state.selectedIndex != widget.state.selectedIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _revealSelection());
     }
-  }
-
-  /// Rola o mínimo necessário para trazer a seleção ao viewport.
-  void _revealSelection() {
-    final key = _itemKeys[widget.state.selectedIndex];
-    final context = key?.currentContext;
-    if (context == null) return;
-
-    Scrollable.ensureVisible(
-      context,
-      alignment: 0.5,
-      alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
-      duration: AppDurations.fast,
-      curve: AppDurations.curve,
-    );
   }
 
   @override
@@ -68,62 +73,149 @@ class _PinResultListState extends State<PinResultList> {
     super.dispose();
   }
 
+  /// Percorre os resultados uma vez e insere um cabeçalho quando o grupo muda.
+  ///
+  /// Assim o índice de cada linha na lista de resultados sai do próprio laço —
+  /// nada de `indexOf` por item, que seria quadrático no histórico cheio.
+  List<_ListRow> _buildRows() {
+    final rows = <_ListRow>[];
+    bool? group;
+
+    for (var index = 0; index < widget.state.results.length; index++) {
+      final item = widget.state.results[index];
+
+      if (item.isPinned != group) {
+        rows.add(
+          _ListRow.header(
+            item.isPinned ? 'Fixados' : 'Recentes',
+            isFirst: rows.isEmpty,
+          ),
+        );
+        group = item.isPinned;
+      }
+
+      rows.add(_ListRow.item(item, index: index));
+    }
+
+    return rows;
+  }
+
+  /// Rola o mínimo necessário para trazer a seleção ao viewport.
+  void _revealSelection() {
+    if (!_scrollController.hasClients) return;
+
+    final row = _rows.indexWhere(
+      (row) => row.resultIndex == widget.state.selectedIndex,
+    );
+    if (row < 0) return;
+
+    var top = _paddingTop;
+    for (var i = 0; i < row; i++) {
+      top += _rows[i].height;
+    }
+    final bottom = top + _rows[row].height;
+
+    final position = _scrollController.position;
+    final offset = position.pixels;
+    final viewport = position.viewportDimension;
+
+    // Um cabeçalho de grupo acima da linha vem junto quando a rolagem sobe: é o
+    // que dá contexto de "em qual grupo eu estou" ao navegar pelo teclado.
+    final leadIn =
+        row > 0 && _rows[row - 1].isHeader ? _rows[row - 1].height : 0.0;
+
+    final double target;
+    if (top - leadIn < offset) {
+      target = top - leadIn;
+    } else if (bottom > offset + viewport) {
+      target = bottom - viewport;
+    } else {
+      return;
+    }
+
+    _scrollController.animateTo(
+      target.clamp(position.minScrollExtent, position.maxScrollExtent),
+      duration: AppDurations.instant,
+      curve: AppDurations.curve,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pinned = widget.state.pinned;
-    final recent = widget.state.recent;
+    final horizontal = widget.compact ? AppSpacing.xs : AppSpacing.sm;
 
     return Scrollbar(
       controller: _scrollController,
-      child: SingleChildScrollView(
+      child: ListView.builder(
         controller: _scrollController,
         padding: EdgeInsets.fromLTRB(
-          widget.compact ? AppSpacing.xs : AppSpacing.sm,
-          AppSpacing.md,
-          widget.compact ? AppSpacing.xs : AppSpacing.sm,
-          AppSpacing.lg,
+          horizontal,
+          _paddingTop,
+          horizontal,
+          _paddingBottom,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (pinned.isNotEmpty) ...[
-              _sectionLabel('Fixados', isFirst: true),
-              ...pinned.map(_buildItem),
-            ],
-            if (recent.isNotEmpty) ...[
-              _sectionLabel('Recentes', isFirst: pinned.isEmpty),
-              ...recent.map(_buildItem),
-            ],
-          ],
-        ),
+        itemCount: _rows.length,
+        itemExtentBuilder: (index, _) => _rows[index].height,
+        itemBuilder: (context, index) => _buildRow(_rows[index]),
       ),
     );
   }
 
-  Widget _sectionLabel(String text, {required bool isFirst}) => EgSectionLabel(
-        text,
+  Widget _buildRow(_ListRow row) {
+    final item = row.item;
+
+    if (item == null) {
+      return EgSectionLabel(
+        row.label!,
         padding: EdgeInsets.fromLTRB(
           AppSpacing.md,
-          isFirst ? AppSpacing.xs : AppSpacing.lg,
+          row.isFirst ? AppSpacing.xs : AppSpacing.lg,
           AppSpacing.md,
           AppSpacing.xxs,
         ),
       );
+    }
 
-  Widget _buildItem(ClipboardItem item) {
-    final index = widget.state.results.indexOf(item);
-    final key = _itemKeys.putIfAbsent(index, GlobalKey.new);
-
-    return KeyedSubtree(
-      key: key,
-      child: PinListItem(
-        item: item,
-        isSelected: index == widget.state.selectedIndex,
-        shortcut: widget.state.shortcutFor(item),
-        compact: widget.compact,
-        onTap: () => widget.onSelect(item),
-        onDoubleTap: () => widget.onActivate(item),
-      ),
+    return PinListItem(
+      item: item,
+      isSelected: row.resultIndex == widget.state.selectedIndex,
+      shortcut: widget.state.shortcutFor(item),
+      compact: widget.compact,
+      onTap: () => widget.onSelect(item),
+      onDoubleTap: () => widget.onActivate(item),
     );
+  }
+}
+
+/// Uma linha da lista: cabeçalho de grupo ou item, com altura conhecida.
+@immutable
+class _ListRow {
+  const _ListRow.header(this.label, {required this.isFirst})
+      : item = null,
+        resultIndex = -1;
+
+  const _ListRow.item(this.item, {required int index})
+      : label = null,
+        isFirst = false,
+        resultIndex = index;
+
+  final ClipboardItem? item;
+  final String? label;
+
+  /// Primeiro cabeçalho da lista — leva menos respiro acima que os seguintes.
+  final bool isFirst;
+
+  /// Posição do item em `state.results`; -1 para cabeçalhos.
+  final int resultIndex;
+
+  bool get isHeader => item == null;
+
+  /// Altura fixa: texto de 11px com o padding do cabeçalho, ou a linha de item.
+  static const _headerHeight = AppSpacing.xs + 15 + AppSpacing.xxs;
+  static const _headerHeightWithGap = AppSpacing.lg + 15 + AppSpacing.xxs;
+
+  double get height {
+    if (!isHeader) return PinListItem.height;
+    return isFirst ? _headerHeight : _headerHeightWithGap;
   }
 }

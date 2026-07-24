@@ -85,6 +85,31 @@ exigir uma ponte de mensagens explícita.
 Pacote de terceiros, pouco movimentado, no caminho crítico de uma janela do
 produto.
 
+### 7. A geometria da janela do Hub só existe em Swift
+
+> Decisão tomada em 24/07/2026, na revisão de design do v0.1.
+
+O `desktop_multi_window` 0.3.0 cria **toda** sub-janela com `NSRect(x: 0, y: 0,
+width: 800, height: 600)` fixos: sem tamanho mínimo e ancorada no canto inferior
+esquerdo da tela. Não há como mudar isso pelo Dart —
+
+- `WindowConfiguration` aceita só `arguments` e `hiddenAtLaunch`;
+- `WindowController` expõe só `show()`, `hide()` e `invokeMethod`;
+- `window_manager` age sobre a janela principal do app, que aqui é o overlay do
+  Pin, não o Hub.
+
+Por isso o Hub recebe `minSize` (720x480), tamanho inicial (880x620) e
+`center()` dentro de `applyHubGeometry`, chamada no
+`setOnWindowCreatedCallback` em `MainFlutterWindow.swift` — o mesmo callback que
+já registrava os canais nativos. São três linhas de AppKit, e a alternativa em
+Flutter puro seria aceitar uma janela de configurações de 800x600 nascendo no
+canto da tela.
+
+**Limite conhecido:** o callback não recebe os `arguments` da janela, então a
+geometria vale para qualquer sub-janela. Hoje só existe uma (o Hub). Quando
+aparecer a segunda, o tamanho precisará vir do Dart por canal — ou, melhor, a
+essa altura a migração deste documento já resolve o problema na origem.
+
 ---
 
 ## O que a migração envolveria

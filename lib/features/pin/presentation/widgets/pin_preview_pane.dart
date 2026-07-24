@@ -64,6 +64,7 @@ class PinPreviewPane extends StatelessWidget {
         const SizedBox(width: AppSpacing.sm),
         EgIconButton(
           icon: EgIconData.star,
+          tooltip: item.isPinned ? 'Desafixar (⌘P)' : 'Fixar (⌘P)',
           size: 28,
           iconSize: 13,
           color: item.isPinned ? AppColors.greenPrimary : AppColors.textSecondary,
@@ -97,7 +98,7 @@ class PinPreviewPane extends StatelessWidget {
       children: [
         Expanded(
           child: EgButton(
-            label: 'Colar novamente',
+            label: 'Copiar',
             onPressed: onCopy,
             expand: true,
           ),

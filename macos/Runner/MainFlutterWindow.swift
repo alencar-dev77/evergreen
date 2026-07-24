@@ -30,6 +30,7 @@ class MainFlutterWindow: NSWindow {
     // SharedPreferences, ao banco ou a qualquer canal nativo.
     FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
       Self.registerChannels(for: controller)
+      Self.applyHubGeometry(to: controller.view.window)
     }
 
     super.awakeFromNib()
@@ -44,6 +45,25 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: controller)
     LaunchAtLoginChannel.register(with: controller.engine.binaryMessenger)
     PreviousAppFocusChannel.register(with: controller.engine.binaryMessenger)
+  }
+
+  /// Dá ao Hub um tamanho de janela de preferências.
+  ///
+  /// O `desktop_multi_window` cria toda sub-janela com 800x600 fixos, sem
+  /// tamanho mínimo e ancorada no canto — a `WindowConfiguration` do pacote só
+  /// aceita `arguments` e `hiddenAtLaunch`, e o `WindowController` do Dart só
+  /// expõe `show`/`hide`. Não há caminho em Flutter puro: `window_manager` age
+  /// sobre a janela principal, que aqui é o overlay do Pin. Ver
+  /// `docs/Ideis projeto/sugestoes-futuras-migracao-nativa.md`.
+  ///
+  /// Vale para qualquer sub-janela porque hoje só existe uma (o Hub). Quando
+  /// aparecer uma segunda, a geometria precisará vir do lado Dart, por canal.
+  private static func applyHubGeometry(to window: NSWindow?) {
+    guard let window = window else { return }
+
+    window.minSize = NSSize(width: 720, height: 480)
+    window.setContentSize(NSSize(width: 880, height: 620))
+    window.center()
   }
 
   /// Impede o flash da janela no lançamento: o overlay só aparece quando o

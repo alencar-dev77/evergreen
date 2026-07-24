@@ -42,16 +42,16 @@ class EgSearchField extends StatelessWidget {
             cursorColor: AppColors.greenPrimary,
             cursorWidth: 1.5,
             cursorHeight: 16,
-            style: AppTypography.body.copyWith(fontSize: 14),
+            style: AppTypography.body,
             decoration: InputDecoration(
               isDense: true,
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,
               hintText: hintText,
-              hintStyle: AppTypography.body.copyWith(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
+              // Placeholder é texto de terceiro nível: precisa ser legível sem
+              // competir com o que a pessoa digita.
+              hintStyle:
+                  AppTypography.body.copyWith(color: AppColors.textTertiary),
             ),
           ),
         ),
@@ -69,7 +69,10 @@ class EgSearchField extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 11),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: AppRadii.buttonAll,

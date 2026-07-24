@@ -38,6 +38,16 @@ class PinTogglePinIntent extends Intent {
   const PinTogglePinIntent();
 }
 
+/// Apaga o item selecionado, mantendo o overlay aberto.
+class PinDeleteIntent extends Intent {
+  const PinDeleteIntent();
+}
+
+/// Abre as preferências (Hub) e fecha o overlay.
+class PinOpenSettingsIntent extends Intent {
+  const PinOpenSettingsIntent();
+}
+
 /// Mapa de teclado do overlay.
 ///
 /// Declarar as teclas como `Shortcuts` — e não como um `onKeyEvent` — é o que
@@ -57,6 +67,13 @@ abstract final class PinOverlayIntents {
         const PinTogglePreviewIntent(),
     const SingleActivator(LogicalKeyboardKey.keyP, meta: true):
         const PinTogglePinIntent(),
+    // ⌘⌫, e não Delete puro: o campo de busca está sempre focado, então um
+    // Backspace solto precisa continuar apagando o texto digitado.
+    const SingleActivator(LogicalKeyboardKey.backspace, meta: true):
+        const PinDeleteIntent(),
+    // Convenção do macOS para preferências, válida em qualquer janela do app.
+    const SingleActivator(LogicalKeyboardKey.comma, meta: true):
+        const PinOpenSettingsIntent(),
     ..._quickCopyShortcuts(),
   };
 
@@ -92,6 +109,8 @@ abstract final class PinOverlayIntents {
     required Future<void> Function(PinShortcutGroup group, int number)
         onQuickCopy,
     required VoidCallback onTogglePin,
+    required VoidCallback onDelete,
+    required Future<void> Function() onOpenSettings,
   }) {
     return <Type, Action<Intent>>{
       PinMoveSelectionIntent: CallbackAction<PinMoveSelectionIntent>(
@@ -120,6 +139,15 @@ abstract final class PinOverlayIntents {
           onTogglePin();
           return null;
         },
+      ),
+      PinDeleteIntent: CallbackAction<PinDeleteIntent>(
+        onInvoke: (_) {
+          onDelete();
+          return null;
+        },
+      ),
+      PinOpenSettingsIntent: CallbackAction<PinOpenSettingsIntent>(
+        onInvoke: (_) => onOpenSettings(),
       ),
     };
   }

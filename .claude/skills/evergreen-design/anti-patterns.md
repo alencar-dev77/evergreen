@@ -46,7 +46,7 @@ Use este arquivo como checklist final antes de considerar qualquer tela, compone
 
 - ❌ **Não seguir "padrões genéricos de IA"** reconhecíveis por: simetria performática sem hierarquia real por trás, redundância de affordance (ícone + texto + cor + sombra para uma ação simples que precisaria só de um desses), espaço em branco sem propósito de agrupamento, falta de opinião editorial visível (tudo com o mesmo peso visual, nada deliberadamente discreto ao lado de algo deliberadamente forte).
 - ❌ **Não copiar interfaces de referência ao pé da letra.** Raycast, Linear, Arc, Things, Craft, CleanShot e Maccy (ver `references.md`) são fontes de **princípio**, nunca de pixel a ser reproduzido diretamente — o Evergreen precisa ter identidade própria, não ser uma colagem reconhecível de outros produtos.
-- ❌ **Não tratar o dark mode como modo secundário.** Ambos os modos são desenhados com o mesmo nível de cuidado (ver `colors.md`) — nunca um "dark mode de inversão mecânica" mal calibrado.
+- ❌ **Não tratar o dark mode como modo secundário.** Quando os dois modos existirem, ambos são desenhados com o mesmo nível de cuidado (ver `colors.md`) — nunca um "dark mode de inversão mecânica" mal calibrado. Hoje o Evergreen é **dark-only por decisão registrada**: não vale "resolver" isso adicionando um light mode não calibrado.
 
 ## Teste final antes de entregar
 
