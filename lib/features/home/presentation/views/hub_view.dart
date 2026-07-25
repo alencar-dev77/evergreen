@@ -4,10 +4,12 @@ import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_background.dart';
+import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
 import '../../models/evergreen_module.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
+import 'app_settings_view.dart';
 
 /// Painel principal do Evergreen.
 ///
@@ -22,7 +24,8 @@ class HubView extends StatefulWidget {
 }
 
 class _HubViewState extends State<HubView> {
-  EvergreenModule _selected = EvergreenModule.pin;
+  /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
+  EvergreenModule? _selected = EvergreenModule.pin;
 
   @override
   Widget build(BuildContext context) {
@@ -55,10 +58,7 @@ class _HubViewState extends State<HubView> {
         children: [
           _header(),
           const SizedBox(height: AppSpacing.xxxl),
-          if (_selected.isAvailable)
-            _settingsFor(_selected)
-          else
-            ModulePlaceholder(module: _selected),
+          _content(),
         ],
       ),
     );
@@ -67,18 +67,36 @@ class _HubViewState extends State<HubView> {
   /// Cabeçalho de painel, não hero: título no maior estilo do app (17px) com a
   /// tagline logo abaixo, colada nele — os dois são um bloco só.
   Widget _header() {
+    final module = _selected;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(_selected.name, style: AppTypography.screenTitle),
+        Text(
+          module?.name ?? 'Evergreen',
+          style: AppTypography.screenTitle,
+        ),
         const SizedBox(height: AppSpacing.xxs),
-        Text(_selected.tagline, style: AppTypography.caption),
+        Text(
+          module?.tagline ?? 'Preferências do aplicativo',
+          style: AppTypography.caption,
+        ),
       ],
     );
   }
 
+  Widget _content() {
+    final module = _selected;
+    if (module == null) return const AppSettingsView();
+
+    return module.isAvailable
+        ? _settingsFor(module)
+        : ModulePlaceholder(module: module);
+  }
+
   Widget _settingsFor(EvergreenModule module) => switch (module) {
         EvergreenModule.pin => const PinSettingsView(),
+        EvergreenModule.focus => const FocusSettingsView(),
         _ => ModulePlaceholder(module: module),
       };
 }

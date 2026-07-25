@@ -4,14 +4,25 @@ import 'package:tray_manager/tray_manager.dart';
 
 /// Ações que o menu da barra de status pode disparar.
 enum MenuBarAction {
-  openPin('open_pin', 'PIN'),
-  openHub('open_hub', 'Preferências'),
+  openPin('open_pin', 'Pin', '⌘⇧C'),
+  openFocus('open_focus', 'Focus', '⌘⇧X'),
+  openHub('open_hub', 'Preferências', '⌘⇧,'),
   quit('quit', 'Encerrar Evergreen');
 
-  const MenuBarAction(this.key, this.label);
+  const MenuBarAction(this.key, this.label, [this.shortcut]);
 
   final String key;
   final String label;
+
+  /// Atalho global que chega ao mesmo lugar, quando existe.
+  final String? shortcut;
+
+  /// Como o item se apresenta no menu.
+  ///
+  /// O atalho vai no próprio texto porque o `tray_manager` não expõe
+  /// `keyEquivalent` — sem isso, o único lugar permanente do app na tela não
+  /// ensinaria nenhum dos três atalhos.
+  String get menuLabel => shortcut == null ? label : '$label   $shortcut';
 
   static MenuBarAction? fromKey(String? key) {
     for (final action in values) {
@@ -45,19 +56,32 @@ class MenuBarService with TrayListener {
     await trayManager.setContextMenu(_buildMenu());
   }
 
+  /// Mostra a contagem da sessão de foco ao lado do ícone.
+  ///
+  /// É onde o Focus vive enquanto o painel está fechado: a barra de menus é o
+  /// lugar nativo do macOS para um estado que corre em segundo plano, e evita
+  /// deixar uma janela flutuante ocupando a tela por 25 minutos. [label] nulo
+  /// devolve o ícone ao estado silencioso.
+  Future<void> setSessionLabel(String? label) =>
+      trayManager.setTitle(label ?? '');
+
   Menu _buildMenu() => Menu(
     items: [
       MenuItem(label: 'Evergreen', disabled: true),
       MenuItem(
         key: MenuBarAction.openPin.key,
-        label: MenuBarAction.openPin.label,
+        label: MenuBarAction.openPin.menuLabel,
+      ),
+      MenuItem(
+        key: MenuBarAction.openFocus.key,
+        label: MenuBarAction.openFocus.menuLabel,
       ),
       MenuItem(
         key: MenuBarAction.openHub.key,
-        label: MenuBarAction.openHub.label,
+        label: MenuBarAction.openHub.menuLabel,
       ),
       MenuItem.separator(),
-      MenuItem(key: MenuBarAction.quit.key, label: MenuBarAction.quit.label),
+      MenuItem(key: MenuBarAction.quit.key, label: MenuBarAction.quit.menuLabel),
     ],
   );
 

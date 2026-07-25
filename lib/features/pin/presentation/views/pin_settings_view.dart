@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
-import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
@@ -29,18 +27,6 @@ class PinSettingsView extends ConsumerWidget {
         EgSettingsSection(
           title: 'Geral',
           children: [
-            EgSettingsRow.toggle(
-              label: 'Iniciar com o macOS',
-              description: 'O Evergreen sobe junto com o sistema.',
-              value: settings.launchAtLogin,
-              onChanged: viewModel.setLaunchAtLogin,
-            ),
-            EgSettingsRow.toggle(
-              label: 'Abrir minimizado',
-              description: 'Fica só na barra de menus, sem abrir janelas.',
-              value: settings.startMinimized,
-              onChanged: viewModel.setStartMinimized,
-            ),
             EgSettingsRow.toggle(
               label: 'Colar automaticamente',
               description:
@@ -89,10 +75,6 @@ class PinSettingsView extends ConsumerWidget {
             ),
           ],
         ),
-        const EgSettingsSection(
-          title: 'Sobre',
-          children: [_AboutLine()],
-        ),
       ],
     );
   }
@@ -110,20 +92,5 @@ class PinSettingsView extends ConsumerWidget {
     if (!confirmed) return;
 
     ref.read(clipboardRepositoryProvider).clearAll();
-  }
-}
-
-class _AboutLine extends StatelessWidget {
-  const _AboutLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xxs),
-      child: Text(
-        'Evergreen v0.1.0 · Pin\nTodos os dados ficam nesta máquina. Nada é enviado para a internet.',
-        style: AppTypography.captionSmall,
-      ),
-    );
   }
 }

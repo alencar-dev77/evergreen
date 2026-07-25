@@ -5,15 +5,17 @@ import 'package:window_manager/window_manager.dart';
 
 import '../system/previous_app_focus_channel.dart';
 
-/// Controla a janela nativa que hospeda o overlay do Pin.
+/// Controla a janela nativa que hospeda os painéis flutuantes do Evergreen.
 ///
 /// Transforma a janela 0 num painel flutuante: sem chrome, fundo transparente,
 /// sempre acima dos outros apps e presente em todos os Spaces. A janela nunca é
-/// destruída — apenas escondida —, o que faz o `⌘⇧C` abrir instantaneamente.
-class PinOverlayWindow {
-  PinOverlayWindow._();
+/// destruída — apenas escondida —, o que faz `⌘⇧C` e `⌘⇧X` abrirem
+/// instantaneamente. Pin e Focus compartilham esta janela; quem escolhe o
+/// painel é o `overlayPanelProvider`, no lado Dart.
+class OverlayWindow {
+  OverlayWindow._();
 
-  static final instance = PinOverlayWindow._();
+  static final instance = OverlayWindow._();
 
   /// Largura total da janela. Maior que o painel (420) para acomodar a sombra
   /// de 60px de blur sem que ela seja cortada pela borda da janela.

@@ -122,6 +122,20 @@ abstract final class AppTypography {
     height: 1.2,
   );
 
+  /// Contagem regressiva do Focus — 500 / 36px, algarismos tabulares.
+  ///
+  /// É a exceção prevista em `typography.md` para "um número de destaque
+  /// isolado": aqui o número não decora a tela, ele *é* a tela. Peso 500 e não
+  /// 600 porque em 36px o semibold já grita; os dígitos tabulares impedem que a
+  /// linha dance a cada segundo.
+  static final timer = _base.copyWith(
+    fontSize: 36,
+    fontWeight: FontWeight.w500,
+    letterSpacing: -0.5,
+    height: 1.1,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
+
   /// Conteúdo monoespaçado (key-caps, preview de comandos).
   static const mono = TextStyle(
     fontFamily: 'SF Mono',

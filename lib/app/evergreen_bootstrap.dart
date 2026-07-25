@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,15 +7,20 @@ import '../core/system/global_shortcut_service.dart';
 import '../core/system/menu_bar_service.dart';
 import '../core/system/startup_service.dart';
 import '../core/window/hub_window.dart';
-import '../core/window/pin_overlay_window.dart';
+import '../core/window/overlay_panel.dart';
+import '../core/window/overlay_window.dart';
+import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
+import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
+import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
-import '../features/pin/presentation/viewmodels/pin_settings_view_model.dart';
+import 'providers.dart';
 
 /// Liga os serviços que rodam enquanto o Evergreen estiver aberto.
 ///
-/// Tudo aqui vive no engine da janela 0 (o overlay do Pin), que nunca é
-/// destruído — por isso a captura da área de transferência, o atalho global e o
-/// ícone da barra de menus continuam funcionando com todas as janelas fechadas.
+/// Tudo aqui vive no engine da janela 0 (a janela flutuante), que nunca é
+/// destruído — por isso a captura da área de transferência, o cronômetro do
+/// Focus, os atalhos globais e o ícone da barra de menus continuam funcionando
+/// com todas as janelas fechadas.
 class EvergreenBootstrap {
   EvergreenBootstrap(this._container);
 
@@ -29,17 +35,51 @@ class EvergreenBootstrap {
     await _syncLaunchAtLogin();
     await _registerShortcuts();
     await _setUpMenuBar();
+    // Depois da barra de menus existir: a primeira emissão já escreve o rótulo
+    // nela, inclusive para limpá-lo.
+    _watchFocusSession();
     await _openHubIfRequested();
   }
 
   Future<void> _registerShortcuts() async {
     final shortcuts = GlobalShortcutService.instance;
     await shortcuts.initialize();
-    await shortcuts.registerPinToggle(togglePinOverlay);
+    await shortcuts.registerPinToggle(() => toggleOverlay(OverlayPanel.pin));
+    await shortcuts.registerFocusToggle(
+      () => toggleOverlay(OverlayPanel.focus),
+    );
+    await shortcuts.registerHubOpen(HubWindow.instance.open);
   }
 
   Future<void> _setUpMenuBar() async {
     await MenuBarService.instance.initialize(onAction: _handleMenuAction);
+  }
+
+  /// Mantém a barra de menus e a janela em dia com o cronômetro do Focus.
+  ///
+  /// A assinatura também é o que segura o cronômetro vivo fora da árvore de
+  /// widgets: a sessão precisa continuar correndo com o painel fechado.
+  void _watchFocusSession() {
+    _container.listen<FocusTimerState>(
+      focusTimerViewModelProvider,
+      (previous, next) {
+        // Na primeira emissão (`previous` nulo) o rótulo é escrito sempre, até
+        // quando é nulo: o texto na barra de menus vive no lado nativo e
+        // sobrevive a um hot restart — sem essa escrita, um cronômetro que
+        // morreu com o engine continuaria "rodando" na barra.
+        if (previous == null || previous.menuBarLabel != next.menuBarLabel) {
+          unawaited(MenuBarService.instance.setSessionLabel(next.menuBarLabel));
+        }
+
+        // O contador de alertas só sobe quando uma fase termina sozinha e o
+        // aviso na tela está ligado — comparar com o anterior evita reabrir o
+        // painel a cada tique.
+        if (next.alerts > (previous?.alerts ?? 0)) {
+          unawaited(showOverlay(OverlayPanel.focus));
+        }
+      },
+      fireImmediately: true,
+    );
   }
 
   /// Alinha a preferência salva com o estado real do sistema.
@@ -51,43 +91,75 @@ class EvergreenBootstrap {
     final actual = await StartupService.instance.isEnabled();
 
     await _container
-        .read(pinSettingsViewModelProvider.notifier)
+        .read(appSettingsViewModelProvider.notifier)
         .adoptSystemLaunchAtLogin(actual);
   }
 
   /// "Abrir minimizado" desligado significa mostrar o Hub ao iniciar.
   Future<void> _openHubIfRequested() async {
-    if (_container.read(pinSettingsViewModelProvider).startMinimized) return;
+    if (_container.read(appSettingsViewModelProvider).startMinimized) return;
     await HubWindow.instance.open();
   }
 
-  /// Abre o overlay se estiver fechado, fecha se estiver aberto.
+  /// Abre o painel se ele estiver fechado, fecha se já estiver à vista.
   ///
   /// Serializado: apertar o atalho duas vezes em sequência rápida faria as duas
   /// execuções lerem a visibilidade antes de qualquer uma mudá-la, e uma
   /// desfaria a outra.
-  Future<void> togglePinOverlay() {
+  Future<void> toggleOverlay(OverlayPanel panel) {
     return _pending = _pending
-        .then((_) => _togglePinOverlay())
+        .then((_) => _toggleOverlay(panel))
         .catchError((Object _) {});
   }
 
-  Future<void> _togglePinOverlay() async {
-    final overlay = PinOverlayWindow.instance;
+  /// Traz um painel para a frente sem nunca fechá-lo — o caminho do aviso de
+  /// fim de sessão, onde esconder a janela seria o oposto do pedido.
+  Future<void> showOverlay(OverlayPanel panel) {
+    return _pending =
+        _pending.then((_) => _showOverlay(panel)).catchError((Object _) {});
+  }
 
-    if (await overlay.isVisible()) {
+  Future<void> _toggleOverlay(OverlayPanel panel) async {
+    final overlay = OverlayWindow.instance;
+
+    // Mesmo painel já à vista: o atalho funciona como interruptor.
+    if (await overlay.isVisible() &&
+        _container.read(overlayPanelProvider) == panel) {
       await overlay.hide();
       return;
     }
 
-    _container.read(pinOverlayViewModelProvider.notifier).prepareForOpen();
-    await overlay.show();
+    await _showOverlay(panel);
+  }
+
+  Future<void> _showOverlay(OverlayPanel panel) async {
+    await _prepare(panel);
+    _container.read(overlayPanelProvider.notifier).show(panel);
+
+    // Já visível em outro painel: trocar o conteúdo basta. Reexibir a janela
+    // aqui só a faria piscar e roubaria o foco outra vez.
+    if (await OverlayWindow.instance.isVisible()) return;
+
+    await OverlayWindow.instance.show();
+  }
+
+  Future<void> _prepare(OverlayPanel panel) async {
+    switch (panel) {
+      case OverlayPanel.pin:
+        _container.read(pinOverlayViewModelProvider.notifier).prepareForOpen();
+      case OverlayPanel.focus:
+        await _container
+            .read(focusTimerViewModelProvider.notifier)
+            .prepareForOpen();
+    }
   }
 
   void _handleMenuAction(MenuBarAction action) {
     switch (action) {
       case MenuBarAction.openPin:
-        togglePinOverlay();
+        toggleOverlay(OverlayPanel.pin);
+      case MenuBarAction.openFocus:
+        toggleOverlay(OverlayPanel.focus);
       case MenuBarAction.openHub:
         HubWindow.instance.open();
       case MenuBarAction.quit:

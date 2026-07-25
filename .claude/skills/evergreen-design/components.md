@@ -14,6 +14,8 @@ Antes de desenhar um componente novo, procure aqui. Módulos futuros (Focus, She
 | `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · focus · disabled · on/off |
 | `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado | default · hover · pressed · focus · selected |
 | `EgSearchField` | `eg_search_field.dart` | campo de busca (`bare` para a linha do topo do overlay) | default · focus (borda accent) · placeholder |
+| `EgTextField` | `eg_text_field.dart` | campo de texto de uma linha que a pessoa escreve e confirma (atividade e resumo do Focus) | default · focus (borda accent) · disabled |
+| `EgHintBar` / `EgHint` | `eg_hint_bar.dart` | rodapé de atalhos de um painel operado por teclado | — |
 | `EgPanel` | `eg_panel.dart` | superfície flutuante com borda, radius e sombra | `elevated` on/off |
 | `EgIconBadge` | `eg_panel.dart` | quadrado arredondado que abriga um ícone | — |
 | `EgConfirmDialog` | `eg_confirm_dialog.dart` | confirmação de ação irreversível (360px, ações à direita, Esc = cancelar) | — |
@@ -38,9 +40,17 @@ Estas decisões foram tomadas no v0.1 e valem como padrão do produto. Um módul
 - **Hub = sidebar de módulos + painel de detalhe.** A sidebar lista todos os módulos (inclusive os não lançados, esmaecidos, com a versão prevista no lugar da tagline); o detalhe abre com um cabeçalho compacto (nome + tagline) e as configurações abaixo.
 - **Preferências são `EgSettingsSection` + `EgSettingsRow`.** Seção com label em caps, linhas com rótulo à esquerda e controle à direita, divisor sutil entre linhas e nenhum na última. Módulo novo herda a mesma densidade e alinhamento de graça.
 - **Configuração é escrita na hora.** Não existe botão "Salvar" em tela de preferência: mexer no controle já persiste. Também não existe confirmação de "salvo com sucesso" — a mudança visível no controle já é o feedback.
+- **A marca da sidebar é a entrada do aplicativo.** Clicar no logo do Evergreen abre as preferências do app (iniciar com o macOS, atalho do Hub, sobre), com os mesmos estados de seleção dos módulos. Um segundo item escrito "Evergreen" logo abaixo do logo seria o mesmo rótulo duas vezes na mesma lista.
+- **Preferência de app não mora em tela de módulo.** Se a configuração vale para o Evergreen inteiro, ela pertence à tela do aplicativo — não à do módulo que por acaso nasceu primeiro.
 - **Registro de módulo é o enum `EvergreenModule` + `_settingsFor`.** Adicionar um módulo é adicionar um valor ao enum e ligar sua tela de configuração no `switch`; nada de lista paralela de navegação.
 - **Lista longa se agrupa com `EgSectionLabel`,** não com card nem fundo colorido (no Pin: "FIXADOS" e "RECENTES").
-- **Painel operado por teclado leva uma barra de dicas no rodapé** com os atalhos daquele contexto (`EgShortcutDisplay` + rótulo curto), variando conforme o estado da tela. É documentação embutida no lugar onde a dúvida aparece.
+- **Painel operado por teclado leva uma barra de dicas no rodapé** (`EgHintBar`) com os atalhos daquele contexto, variando conforme o estado da tela. É documentação embutida no lugar onde a dúvida aparece. A dica que não pode sumir (tipicamente o `esc`) vai no `trailing`, ancorada à direita.
+- **Painel flutuante é um só, compartilhado.** Pin e Focus dividem a janela 0 e trocam de conteúdo por `OverlayPanel`; um módulo novo com atalho global entra ali, não em uma janela nova. Consequência de design: os painéis são ancorados no topo e cada um escolhe a própria largura (Pin 420/560, Focus 380).
+- **Lista com detalhe vai para um diálogo de consulta, não para uma linha que expande.** No histórico do Focus, a linha responde "quando, quanto e em quê" e anuncia o que há dentro ("1 anotação · resumo"); o conteúdo longo abre em um diálogo (`FocusSessionDialog`) que só se lê e se fecha. Expandir a linha na própria lista empurraria todo o resto da tela para baixo a cada clique.
+- **Rótulo de botão descreve o que ele faz, nunca o que o usuário conseguiu.** No fim de uma sessão do Focus o botão é "Encerrar" (fecha o ciclo) e não "Concluir", que se lia como "concluí a tarefa" — uma afirmação sobre o trabalho que o app não tem como saber. Se o produto não registra o desfecho, a microcopy não pode insinuar que registra.
+- **Controle desabilitado mostra o valor efetivo, não o guardado.** Quando "Utilizar apenas Pomodoro" anula as duas perguntas, os toggles delas aparecem **desligados** e apagados — não ligados e apagados. Um controle ligado promete um comportamento; se ele não vai acontecer, exibi-lo ligado é mentira, e a opacidade sozinha não desfaz a promessa. Desligar o modo devolve as escolhas guardadas.
+- **O que é título não se repete no corpo.** O diálogo de detalhe usa a atividade como título, então ela sai da lista de anotações — a mesma frase duas vezes na mesma tela é ruído, não reforço.
+- **Um painel que muda de estado mantém o esqueleto.** No Focus, partida/contando/concluído usam o mesmo bloco (rótulo da fase → número grande → ação principal): o que muda é o conteúdo, não o layout, e o olho não precisa reencontrar nada.
 
 ## Botões
 
