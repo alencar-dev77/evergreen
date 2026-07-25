@@ -19,6 +19,12 @@ abstract interface class ClipboardRepository {
 
   void setPinned(int id, {required bool isPinned});
 
+  /// Troca de lugar dois itens fixados na ordem dos fixados.
+  ///
+  /// Ignora o pedido se algum dos dois não existir ou não estiver fixado — só
+  /// os fixados têm ordem própria para trocar.
+  void swapPinnedOrder(int firstId, int secondId);
+
   void delete(int id);
 
   /// Remove os itens não fixados mais antigos que excedam [maxItems].
@@ -79,6 +85,42 @@ class SqliteClipboardRepository implements ClipboardRepository {
         isPinned ? DateTime.now().millisecondsSinceEpoch : null,
         id,
       ],
+    );
+  }
+
+  @override
+  void swapPinnedOrder(int firstId, int secondId) {
+    final rows = _db.select(
+      '''
+      SELECT id, pinned_at, copied_at
+        FROM clipboard_items
+       WHERE id IN (?, ?) AND is_pinned = 1;
+      ''',
+      [firstId, secondId],
+    );
+    if (rows.length != 2) return;
+
+    final order = {
+      for (final row in rows)
+        row['id'] as int:
+            (row['pinned_at'] as int?) ?? row['copied_at'] as int,
+    };
+
+    final first = order[firstId]!;
+    // Dois fixados no mesmo milissegundo não têm ordem entre si para trocar:
+    // a troca escreveria o mesmo valor nos dois e nada se moveria. Separá-los
+    // aqui é o que garante que o ⌥↑/⌥↓ sempre resulte em movimento.
+    final second = order[secondId] == first ? first + 1 : order[secondId]!;
+
+    // Uma única instrução: a troca não pode ficar pela metade se o processo
+    // morrer no meio dela.
+    _db.execute(
+      '''
+      UPDATE clipboard_items
+         SET pinned_at = CASE id WHEN ? THEN ? ELSE ? END
+       WHERE id IN (?, ?);
+      ''',
+      [firstId, second, first, firstId, secondId],
     );
   }
 

@@ -76,6 +76,35 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     state = state.copyWith(selectedIndex: next);
   }
 
+  /// Reordena o fixado selecionado dentro do grupo (`⌥↑` / `⌥↓`).
+  ///
+  /// Troca de lugar com o vizinho **visível**: com uma busca ativa o grupo está
+  /// filtrado, e o que a pessoa vê acontecer é o item passar por cima de quem
+  /// estava ao lado dele na tela. Nas pontas do grupo o atalho não faz nada —
+  /// sair dos fixados por baixo significaria desafixar, que é trabalho do ⌘P.
+  void movePinnedSelection(int delta) {
+    if (!state.canMoveSelectedPinned) return;
+
+    final item = state.selectedItem!;
+    final pinned = state.pinned;
+    final index = pinned.indexWhere((it) => it.id == item.id);
+    if (index < 0) return;
+
+    final target = index + delta;
+    if (target < 0 || target >= pinned.length) return;
+
+    final id = item.id;
+    final targetId = pinned[target].id;
+    if (id == null || targetId == null) return;
+
+    _repository.swapPinnedOrder(id, targetId);
+    _allItems = _repository.loadAll();
+
+    // Sem `preferredIndex`: a seleção segue o item pelo id, que é o ponto —
+    // quem se move é a linha, não o cursor.
+    _emitResults();
+  }
+
   void selectItem(ClipboardItem item) {
     final index = state.results.indexOf(item);
     if (index < 0) return;

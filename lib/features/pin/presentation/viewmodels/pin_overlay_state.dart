@@ -93,6 +93,16 @@ class PinOverlayState {
     return results[selectedIndex];
   }
 
+  /// O selecionado pode ser reordenado com `⌥↑`/`⌥↓`.
+  ///
+  /// Só os fixados têm ordem própria — os recentes seguem a data de cópia, e
+  /// movê-los duraria até a cópia seguinte. Um fixado sozinho também não tem
+  /// com quem trocar de lugar, e nesse caso o rodapé não anuncia o atalho.
+  bool get canMoveSelectedPinned {
+    final item = selectedItem;
+    return item != null && item.isPinned && pinned.length > 1;
+  }
+
   /// Não há nada para mostrar — nem histórico, nem resultado de busca.
   bool get isEmpty => !isLoading && results.isEmpty;
 

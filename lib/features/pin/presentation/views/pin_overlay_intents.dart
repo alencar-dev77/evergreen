@@ -10,6 +10,13 @@ class PinMoveSelectionIntent extends Intent {
   final int delta;
 }
 
+/// Reordena o fixado selecionado. [delta] é -1 (⌥↑) ou +1 (⌥↓).
+class PinMovePinnedIntent extends Intent {
+  const PinMovePinnedIntent(this.delta);
+
+  final int delta;
+}
+
 /// Copia o item selecionado e fecha o overlay.
 class PinActivateIntent extends Intent {
   const PinActivateIntent();
@@ -59,6 +66,12 @@ abstract final class PinOverlayIntents {
         const PinMoveSelectionIntent(-1),
     const SingleActivator(LogicalKeyboardKey.arrowDown):
         const PinMoveSelectionIntent(1),
+    // ⌥ é o modificador da camada dos fixados em todo o overlay — é ele que
+    // alcança os fixados no ⌥1..⌥5, e é ele que os reordena aqui.
+    const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true):
+        const PinMovePinnedIntent(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true):
+        const PinMovePinnedIntent(1),
     const SingleActivator(LogicalKeyboardKey.enter): const PinActivateIntent(),
     const SingleActivator(LogicalKeyboardKey.numpadEnter):
         const PinActivateIntent(),
@@ -103,6 +116,7 @@ abstract final class PinOverlayIntents {
 
   static Map<Type, Action<Intent>> actions({
     required void Function(int delta) onMove,
+    required void Function(int delta) onMovePinned,
     required Future<void> Function() onActivate,
     required Future<void> Function() onClose,
     required VoidCallback onTogglePreview,
@@ -116,6 +130,12 @@ abstract final class PinOverlayIntents {
       PinMoveSelectionIntent: CallbackAction<PinMoveSelectionIntent>(
         onInvoke: (intent) {
           onMove(intent.delta);
+          return null;
+        },
+      ),
+      PinMovePinnedIntent: CallbackAction<PinMovePinnedIntent>(
+        onInvoke: (intent) {
+          onMovePinned(intent.delta);
           return null;
         },
       ),

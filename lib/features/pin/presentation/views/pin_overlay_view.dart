@@ -173,6 +173,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
         child: Actions(
           actions: PinOverlayIntents.actions(
             onMove: _viewModel.moveSelection,
+            onMovePinned: _viewModel.movePinnedSelection,
             onActivate: _activateSelection,
             onClose: _handleEscape,
             onTogglePreview: _togglePreview,
@@ -212,7 +213,10 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
                           children: [
                             _searchBar(),
                             Flexible(child: _content(showPreview)),
-                            PinHintBar(isPreviewOpen: showPreview),
+                            PinHintBar(
+                              isPreviewOpen: showPreview,
+                              canMovePinned: state.canMoveSelectedPinned,
+                            ),
                           ],
                         ),
                       ),
