@@ -21,6 +21,32 @@ class GlobalShortcutService {
   /// Representação do atalho do Pin como key-caps, para a tela de config.
   static const pinShortcutKeys = <String>['⌘', '⇧', 'C'];
 
+  /// Atalho padrão do Focus: `⌘⇧X`.
+  static final focusShortcut = HotKey(
+    identifier: 'evergreen.focus.toggle',
+    key: PhysicalKeyboardKey.keyX,
+    modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
+    scope: HotKeyScope.system,
+  );
+
+  /// Representação do atalho do Focus como key-caps.
+  static const focusShortcutKeys = <String>['⌘', '⇧', 'X'];
+
+  /// Atalho padrão das preferências: `⌘⇧,`.
+  ///
+  /// `⌘,` é a convenção de preferências do macOS, mas como atalho global ele
+  /// roubaria a tecla de todos os outros apps. O `⇧` promove a convenção ao
+  /// prefixo da casa (`⌘⇧`) sem trocar o mnemônico.
+  static final hubShortcut = HotKey(
+    identifier: 'evergreen.hub.open',
+    key: PhysicalKeyboardKey.comma,
+    modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
+    scope: HotKeyScope.system,
+  );
+
+  /// Representação do atalho do Hub como key-caps.
+  static const hubShortcutKeys = <String>['⌘', '⇧', ','];
+
   /// Deve rodar uma única vez, antes de registrar qualquer atalho.
   Future<void> initialize() async {
     // Atalhos do sistema sobrevivem a um hot restart do engine; limpar evita
@@ -31,6 +57,22 @@ class GlobalShortcutService {
   Future<void> registerPinToggle(Future<void> Function() onPressed) async {
     await hotKeyManager.register(
       pinShortcut,
+      keyDownHandler: (_) => onPressed(),
+    );
+  }
+
+  Future<void> registerFocusToggle(Future<void> Function() onPressed) async {
+    await hotKeyManager.register(
+      focusShortcut,
+      keyDownHandler: (_) => onPressed(),
+    );
+  }
+
+  /// Abre — nunca esconde. Diferente dos painéis flutuantes, o Hub é uma janela
+  /// comum: no macOS, um atalho que a alcança traz ela para a frente.
+  Future<void> registerHubOpen(Future<void> Function() onPressed) async {
+    await hotKeyManager.register(
+      hubShortcut,
       keyDownHandler: (_) => onPressed(),
     );
   }

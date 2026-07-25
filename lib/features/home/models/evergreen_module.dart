@@ -17,11 +17,12 @@ enum EvergreenModule {
   ),
   focus(
     name: 'Focus',
-    tagline: 'Pomodoro moderno',
-    description: 'Ciclos de foco e pausa, sem ruído e sem notificação inútil.',
+    tagline: 'Cronômetro de foco',
+    description:
+        'Ciclos de foco e pausa, com o registro do que foi feito em cada '
+        'sessão. Histórico local e nada de notificação inútil.',
     icon: EgIconData.timer,
-    status: ModuleStatus.planned,
-    plannedFor: 'v0.2',
+    status: ModuleStatus.available,
   ),
   shelf(
     name: 'Shelf',

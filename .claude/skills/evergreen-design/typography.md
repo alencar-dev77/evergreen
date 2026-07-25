@@ -55,8 +55,13 @@ Nada de `copyWith(fontSize: ...)` em widget: se falta um degrau, ele entra aqui 
 | `captionXS` | 11 / 400, secundário | timestamp de linha, rótulo de dica de atalho, subtítulo de sidebar |
 | `overline` | 11 / 600, caps, tracking +0.66 | label de seção ("FIXADOS", "GERAL") |
 | `button` | 14 / 600 | rótulo de botão |
+| `timer` | 36 / 500, tabular | contagem regressiva do Focus — a exceção do "número de destaque isolado" |
 | `mono` | 12 | conteúdo técnico monoespaçado |
 | `monoSmall` | 11 | key-cap, badge de atalho na linha |
+
+`timer` é a única entrada acima de 17 e existe sob condição: o número tem que
+ser o **conteúdo** da tela, não um enfeite dela. Peso 500 (não 600, que em 36px
+grita) e `FontFeature.tabularFigures()`, senão a linha dança a cada segundo.
 
 O topo da escala (17) fica a **um** degrau do corpo (14), não a três: é o que impede o "título heroico" de voltar por acidente. Hierarquia dentro de um mesmo bloco se faz por **peso** (400 → 500 → 600), não por tamanho — daí os pares `body`/`bodyEmphasis` e `bodyCompact`/`bodyCompactEmphasis`. Peso 700 não existe mais na escala.
 

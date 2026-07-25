@@ -8,7 +8,7 @@ import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
-import '../../../../core/window/pin_overlay_window.dart';
+import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_panel.dart';
@@ -112,7 +112,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
       ref.read(pinOverlayViewModelProvider.notifier);
 
   Future<void> _close({bool paste = false}) =>
-      PinOverlayWindow.instance.hide(paste: paste);
+      OverlayWindow.instance.hide(paste: paste);
 
   /// Fecha após copiar. Com o auto-colar ligado, o item é colado no app anterior
   /// em vez de só devolver o foco — os dois caminhos passam por aqui.
@@ -142,10 +142,11 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
     setState(() => _isPreviewOpen = !_isPreviewOpen);
   }
 
-  /// `⌘,`: leva às preferências do Pin no Hub e sai de cena.
+  /// `⌘,`: sai de cena primeiro, depois abre o Hub — nessa ordem, um problema
+  /// ao criar a janela nunca deixa o overlay preso na tela.
   Future<void> _openSettings() async {
-    await HubWindow.instance.open();
     await _close();
+    await HubWindow.instance.open();
   }
 
   /// Esc é hierárquico: recolhe o preview primeiro e só fecha o overlay quando

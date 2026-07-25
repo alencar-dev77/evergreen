@@ -1,4 +1,5 @@
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/services.dart';
 
 import 'window_kind.dart';
 
@@ -12,30 +13,45 @@ class HubWindow {
 
   static final instance = HubWindow._();
 
-  WindowController? _controller;
+  /// Fila de aberturas, para que duas chamadas em sequência rápida não criem
+  /// duas janelas — o atalho global é fácil de apertar duas vezes, e a segunda
+  /// execução leria a lista de janelas antes de a primeira ter criado a sua.
+  Future<void> _pending = Future<void>.value();
 
   /// Traz o Hub para frente, criando a janela se ainda não existir.
-  Future<void> open() async {
-    final existing = _controller ?? await _findExisting();
+  Future<void> open() {
+    return _pending = _pending.then((_) => _open()).catchError((Object _) {});
+  }
+
+  /// Não guarda o controller entre chamadas: fechar o Hub destrói a sub-janela
+  /// no lado nativo, e um cache aqui apontaria para um windowId morto — o
+  /// `show()` seguinte estourava com "failed to find target window". Consultar
+  /// `getAll()` a cada abertura é barato e é a única fonte que reflete o que
+  /// realmente existe.
+  Future<void> _open() async {
+    final existing = await _findExisting();
 
     if (existing != null) {
-      _controller = existing;
-      await existing.show();
-      return;
+      try {
+        await existing.show();
+        return;
+      } on PlatformException {
+        // A janela morreu entre o getAll e o show (fechada nesse instante).
+        // Segue para criar uma nova.
+      }
     }
 
-    _controller = await WindowController.create(
+    final controller = await WindowController.create(
       const WindowConfiguration(
         arguments: 'hub',
         hiddenAtLaunch: true,
       ),
     );
 
-    await _controller!.show();
+    await controller.show();
   }
 
-  /// Procura uma janela do Hub já aberta — cobre o caso de a referência local
-  /// ter se perdido (por exemplo, após um hot restart).
+  /// Procura uma janela do Hub já aberta.
   Future<WindowController?> _findExisting() async {
     final windows = await WindowController.getAll();
 

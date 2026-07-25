@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/app_info.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
@@ -9,7 +10,7 @@ import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/evergreen_module.dart';
 
-/// Barra lateral do Hub com todos os módulos do Evergreen.
+/// Barra lateral do Hub: o aplicativo no topo e os módulos abaixo.
 class ModuleSidebar extends StatelessWidget {
   const ModuleSidebar({
     super.key,
@@ -17,8 +18,11 @@ class ModuleSidebar extends StatelessWidget {
     required this.onSelect,
   });
 
-  final EvergreenModule selected;
-  final ValueChanged<EvergreenModule> onSelect;
+  /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
+  final EvergreenModule? selected;
+
+  /// Recebe `null` quando a escolha é a tela do aplicativo.
+  final ValueChanged<EvergreenModule?> onSelect;
 
   static const width = 260.0;
 
@@ -37,7 +41,13 @@ class ModuleSidebar extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _brand(),
+            // A marca é a própria entrada do aplicativo: ela já leva o nome e o
+            // ícone do Evergreen, e um segundo item escrito "Evergreen" logo
+            // abaixo seria o mesmo rótulo duas vezes na mesma lista.
+            _AppTile(
+              isSelected: selected == null,
+              onTap: () => onSelect(null),
+            ),
             const EgSectionLabel(
               'Módulos',
               padding: EdgeInsets.fromLTRB(
@@ -70,45 +80,92 @@ class ModuleSidebar extends StatelessWidget {
     );
   }
 
-  Widget _brand() {
+  Widget _version() {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xxl),
+      child: Text(AppInfo.versionLabel, style: AppTypography.captionSmall),
+    );
+  }
+}
+
+/// A marca, que também é o item das preferências do aplicativo.
+class _AppTile extends StatelessWidget {
+  const _AppTile({required this.isSelected, required this.onTap});
+
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
         AppSpacing.xxl,
-        AppSpacing.huge,
-        AppSpacing.xxl,
-        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.xs,
       ),
-      child: Row(
-        children: [
-          EgIconBadge(
-            size: 28,
-            color: AppColors.card,
-            borderRadius: AppRadii.badgeAll,
-            bordered: true,
-            child: const EgIcon(
-              EgIconData.evergreen,
-              size: 16,
-              color: AppColors.greenPrimary,
-            ),
+      child: EgHoverable(
+        onTap: onTap,
+        focusable: true,
+        builder: (context, state) => AnimatedContainer(
+          duration: AppDurations.instant,
+          curve: AppDurations.curve,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: _background(state),
+            borderRadius: AppRadii.listItemAll,
+            boxShadow: state.isFocused ? AppShadows.focusRing : null,
           ),
-          const SizedBox(width: AppSpacing.md),
-          Text(
-            'Evergreen',
-            style: AppTypography.body.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
-            ),
+          child: Row(
+            children: [
+              EgIconBadge(
+                size: 28,
+                color: AppColors.card,
+                borderRadius: AppRadii.badgeAll,
+                bordered: true,
+                child: const EgIcon(
+                  EgIconData.evergreen,
+                  size: 16,
+                  color: AppColors.greenPrimary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Evergreen',
+                      style: AppTypography.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: isSelected
+                            ? AppColors.greenLight
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'Preferências do aplicativo',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.captionXS,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _version() {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xxl),
-      child: Text('v0.1.0', style: AppTypography.captionSmall),
-    );
+  Color _background(EgInteraction state) {
+    if (isSelected) return AppColors.selection;
+    if (state.isPressed) return AppColors.pressed;
+    if (state.isHovered || state.isFocused) return AppColors.hover;
+    return AppColors.transparent;
   }
 }
 

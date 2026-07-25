@@ -11,8 +11,6 @@ class PinSettingsRepository {
 
   final SharedPreferences _prefs;
 
-  static const _launchAtLoginKey = 'pin.launch_at_login';
-  static const _startMinimizedKey = 'pin.start_minimized';
   static const _historyLimitKey = 'pin.history_limit';
   static const _autoPasteKey = 'pin.auto_paste';
 
@@ -20,9 +18,6 @@ class PinSettingsRepository {
     const defaults = PinSettings();
 
     return PinSettings(
-      launchAtLogin: _prefs.getBool(_launchAtLoginKey) ?? defaults.launchAtLogin,
-      startMinimized:
-          _prefs.getBool(_startMinimizedKey) ?? defaults.startMinimized,
       historyLimit: _prefs.getInt(_historyLimitKey) ?? defaults.historyLimit,
       autoPaste: _prefs.getBool(_autoPasteKey) ?? defaults.autoPaste,
     );
@@ -38,8 +33,6 @@ class PinSettingsRepository {
 
   Future<void> save(PinSettings settings) async {
     await Future.wait([
-      _prefs.setBool(_launchAtLoginKey, settings.launchAtLogin),
-      _prefs.setBool(_startMinimizedKey, settings.startMinimized),
       _prefs.setInt(_historyLimitKey, settings.historyLimit),
       _prefs.setBool(_autoPasteKey, settings.autoPaste),
     ]);

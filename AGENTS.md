@@ -2,9 +2,10 @@
 
 Evergreen é uma suíte pessoal de produtividade para macOS, feita como agente de
 barra de menus (`LSUIElement`) — sem janela ao iniciar, sem ícone no Dock. Tudo
-roda localmente, nada é enviado para a internet. v0.1 tem só o módulo Pin
-(gerenciador de área de transferência); Focus e Shelf existem como placeholders
-em `EvergreenModule`.
+roda localmente, nada é enviado para a internet. A v0.2 tem dois módulos: Pin
+(gerenciador de área de transferência, `⌘⇧C`) e Focus (cronômetro de foco com
+registro de atividade, `⌘⇧X`); Shelf existe como placeholder em
+`EvergreenModule`.
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 
@@ -16,9 +17,11 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   sem manutenção ativa, codegen quebra no Dart 3.11); acesso isolado atrás de
   `ClipboardRepository`. Ver [docs/Ideis projeto/](docs/Ideis%20projeto/) para
   decisões de arquitetura descartadas.
-- **`desktop_multi_window`** — cada painel (overlay do Pin, Hub) roda em um
-  engine Flutter próprio; sub-janelas nascem sem plugins, por isso o Runner
-  nativo precisa registrar callback de criação (ver Convenções).
+- **`desktop_multi_window`** — o Hub roda em um engine Flutter próprio;
+  sub-janelas nascem sem plugins, por isso o Runner nativo precisa registrar
+  callback de criação (ver Convenções). A janela flutuante (janela 0) é
+  compartilhada por Pin e Focus — ver
+  [docs/Ideis projeto/focus-janela-compartilhada.md](docs/Ideis%20projeto/focus-janela-compartilhada.md).
 - **`window_manager`, `tray_manager`, `hotkey_manager`, `screen_retriever`** —
   janela flutuante, ícone da barra de menus, atalho global.
 - **`launch_at_startup`** — "iniciar com o macOS", via canal nativo próprio
@@ -47,6 +50,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Novo módulo: registrar em `EvergreenModule`, criar
   `lib/features/<modulo>/` na estrutura padrão, ligar tela de configurações em
   `_settingsFor` (`hub_view.dart`).
+- Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub)
+  vai para `AppSettings` e para a tela do aplicativo (`app_settings_view.dart`),
+  nunca para a tela de um módulo — foi assim que "iniciar com o macOS" acabou
+  morando dentro do Pin até a v0.2.
+- Módulo com painel flutuante: **não crie uma janela nova** — acrescente um
+  valor a `OverlayPanel`, desenhe o painel em `OverlayHost` e registre o atalho
+  global no `EvergreenBootstrap`. Só a janela 0 pode ser borderless/sempre no
+  topo (motivo em `docs/Ideis projeto/`).
+- Serviços que precisam sobreviver com todas as janelas fechadas (captura de
+  clipboard, cronômetro do Focus) vivem no engine da janela 0 e são ligados no
+  `EvergreenBootstrap`.
 - Preferir sempre a solução em Flutter puro a código nativo (Swift/AppKit);
   quando uma alternativa nativa for descartada, documentar em `docs/`.
 

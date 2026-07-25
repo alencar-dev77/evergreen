@@ -7,16 +7,19 @@ import 'app/evergreen_app.dart';
 import 'app/evergreen_bootstrap.dart';
 import 'app/providers.dart';
 import 'core/storage/app_database.dart';
-import 'core/window/pin_overlay_window.dart';
+import 'core/system/keyboard_state_guard.dart';
+import 'core/window/overlay_window.dart';
 import 'core/window/window_kind.dart';
 
 /// Ponto de entrada de todas as janelas do Evergreen.
 ///
 /// Cada janela roda um engine Flutter próprio e executa este mesmo `main`. O
 /// argumento recebido pelo engine diz qual painel construir; a janela 0 (sem
-/// argumento) é o overlay do Pin e também hospeda os serviços de background.
+/// argumento) é a janela flutuante dos overlays e também hospeda os serviços de
+/// background.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  KeyboardStateGuard.install();
 
   final window = await WindowController.fromCurrentEngine();
   final kind = WindowKind.fromArguments(window.arguments);
@@ -30,8 +33,8 @@ Future<void> main() async {
     ],
   );
 
-  if (kind == WindowKind.pinOverlay) {
-    await PinOverlayWindow.instance.configure();
+  if (kind == WindowKind.overlay) {
+    await OverlayWindow.instance.configure();
     await EvergreenBootstrap(container).start();
   }
 

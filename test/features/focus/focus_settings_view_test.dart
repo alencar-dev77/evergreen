@@ -1,0 +1,291 @@
+import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/features/focus/data/focus_session_repository.dart';
+import 'package:evergreen/features/focus/models/focus_session.dart';
+import 'package:evergreen/features/focus/models/focus_session_note.dart';
+import 'package:evergreen/features/focus/presentation/widgets/focus_session_dialog.dart';
+import 'package:evergreen/features/focus/presentation/views/focus_settings_view.dart';
+import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
+import 'package:evergreen/shared/widgets/eg_settings_row.dart';
+import 'package:evergreen/shared/widgets/eg_toggle.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'fake_focus_session_repository.dart';
+
+void main() {
+  late FakeFocusSessionRepository repository;
+  late SharedPreferences preferences;
+
+  final today = DateTime.now();
+
+  /// Tudo dentro da semana corrente de propósito: o histórico do Focus zera na
+  /// segunda-feira, e uma fixture "de ontem" sumiria quando o teste rodasse
+  /// numa segunda.
+  DateTime at(int hour, int minute) =>
+      DateTime(today.year, today.month, today.day, hour, minute);
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    preferences = await SharedPreferences.getInstance();
+
+    repository = FakeFocusSessionRepository([
+      FocusSession(
+        id: 1,
+        startedAt: at(9, 12),
+        duration: const Duration(minutes: 25),
+        activity: 'Refatorar o módulo de auth',
+        summary: 'Terminei a migração',
+        notes: const [
+          FocusSessionNote(minute: 12, text: 'terminei a task e comecei outra'),
+        ],
+      ),
+      FocusSession(
+        id: 2,
+        startedAt: at(14, 30),
+        duration: const Duration(minutes: 40),
+      ),
+    ]);
+  });
+
+  Future<void> pumpSettings(WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          focusSessionRepositoryProvider.overrideWithValue(repository),
+          sharedPreferencesProvider.overrideWithValue(preferences),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.build(),
+          home: const Scaffold(
+            body: SingleChildScrollView(child: FocusSettingsView()),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+  }
+
+  EgToggle toggleFor(WidgetTester tester, String label) {
+    return tester.widget<EgToggle>(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text(label),
+          matching: find.byType(EgSettingsRow),
+        ),
+        matching: find.byType(EgToggle),
+      ),
+    );
+  }
+
+  testWidgets('o resumo soma o dia e a semana', (tester) async {
+    await pumpSettings(tester);
+
+    expect(find.text('Hoje'), findsWidgets);
+    expect(find.text('Esta semana'), findsOneWidget);
+    expect(find.text('1h 05min'), findsWidgets, reason: '25 + 40 minutos');
+  });
+
+  testWidgets('cada linha do histórico diz quando, quanto e o que há dentro',
+      (tester) async {
+    await pumpSettings(tester);
+
+    expect(find.text('Refatorar o módulo de auth'), findsOneWidget);
+    expect(find.text('40 min'), findsOneWidget);
+    // A segunda linha anuncia o que o detalhe guarda, sem despejar na lista.
+    expect(
+      find.text('Hoje · 09:12 · 1 anotação · resumo'),
+      findsOneWidget,
+    );
+    // Sem atividade informada, o título é a própria data e hora.
+    expect(find.text('Hoje · 14:30'), findsOneWidget);
+  });
+
+  testWidgets('clicar na sessão abre o detalhe com anotações e resumo',
+      (tester) async {
+    await pumpSettings(tester);
+
+    await tester.tap(find.text('Refatorar o módulo de auth'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FocusSessionDialog), findsOneWidget);
+    expect(find.text('Hoje · 09:12 · 25 min'), findsOneWidget);
+    // A atividade é o título do diálogo, e não se repete dentro dele.
+    expect(
+      find.descendant(
+        of: find.byType(FocusSessionDialog),
+        matching: find.text('Refatorar o módulo de auth'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('ANOTAÇÕES'), findsOneWidget);
+    expect(
+      find.text('aos 12 min — terminei a task e comecei outra'),
+      findsOneWidget,
+    );
+    expect(find.text('RESUMO'), findsOneWidget);
+    expect(find.text('Terminei a migração'), findsOneWidget);
+
+    await tester.tap(find.text('Fechar'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FocusSessionDialog), findsNothing);
+  });
+
+  testWidgets('apenas Pomodoro desabilita as perguntas sem escondê-las',
+      (tester) async {
+    await pumpSettings(tester);
+
+    expect(toggleFor(tester, 'Perguntar a atividade ao iniciar').onChanged,
+        isNotNull);
+
+    await tester.tap(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('Utilizar apenas Pomodoro'),
+          matching: find.byType(EgSettingsRow),
+        ),
+        matching: find.byType(EgToggle),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Perguntar a atividade ao iniciar'), findsOneWidget);
+    expect(
+      toggleFor(tester, 'Perguntar a atividade ao iniciar').onChanged,
+      isNull,
+    );
+    expect(toggleFor(tester, 'Pedir um resumo ao terminar').onChanged, isNull);
+    // O que não depende do modo continua editável.
+    expect(toggleFor(tester, 'Tocar som ao finalizar').onChanged, isNotNull);
+  });
+
+  testWidgets('limpar histórico pede confirmação antes de apagar',
+      (tester) async {
+    await pumpSettings(tester);
+
+    await tester.tap(find.text('Limpar'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EgConfirmDialog), findsOneWidget);
+    expect(repository.loadRecent(), hasLength(2));
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(repository.loadRecent(), hasLength(2));
+
+    await tester.tap(find.text('Limpar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Limpar').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.loadRecent(), isEmpty);
+    expect(find.text('Nenhuma sessão esta semana'), findsOneWidget);
+  });
+
+  testWidgets('o que é da semana passada não aparece nem conta', (tester) async {
+    // Um minuto antes da segunda-feira desta semana — a fronteira do histórico.
+    final lastWeek = SqliteFocusSessionRepository.startOfWeek(today)
+        .subtract(const Duration(minutes: 1));
+
+    repository.insert(
+      FocusSession(
+        startedAt: lastWeek,
+        duration: const Duration(minutes: 50),
+        activity: 'Coisa da semana passada',
+      ),
+    );
+
+    await pumpSettings(tester);
+
+    expect(find.text('Coisa da semana passada'), findsNothing);
+    expect(
+      find.text('1h 05min'),
+      findsWidgets,
+      reason: 'o total da semana ignora o que ficou para trás',
+    );
+    expect(repository.loadRecent(), hasLength(2), reason: 'a linha foi apagada');
+  });
+
+  testWidgets('as perguntas desligadas pelo Pomodoro puro aparecem desligadas',
+      (tester) async {
+    // O que o usuário deixou gravado antes de ligar o Pomodoro puro.
+    SharedPreferences.setMockInitialValues({
+      'focus.ask_activity': true,
+      'focus.ask_summary': true,
+      'focus.pomodoro_only': true,
+    });
+    preferences = await SharedPreferences.getInstance();
+
+    await pumpSettings(tester);
+
+    // O valor efetivo é "não pergunta" — e é ele que o controle mostra. Exibir
+    // o toggle ligado (só apagadinho) prometeria um resumo que nunca vem.
+    expect(toggleFor(tester, 'Perguntar a atividade ao iniciar').value, isFalse);
+    expect(toggleFor(tester, 'Pedir um resumo ao terminar').value, isFalse);
+  });
+
+  testWidgets('desligar o Pomodoro puro devolve as escolhas guardadas',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'focus.ask_summary': true,
+      'focus.pomodoro_only': true,
+    });
+    preferences = await SharedPreferences.getInstance();
+
+    await pumpSettings(tester);
+    expect(toggleFor(tester, 'Pedir um resumo ao terminar').value, isFalse);
+
+    await tester.tap(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('Utilizar apenas Pomodoro'),
+          matching: find.byType(EgSettingsRow),
+        ),
+        matching: find.byType(EgToggle),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(toggleFor(tester, 'Pedir um resumo ao terminar').value, isTrue);
+  });
+
+  testWidgets('apagar uma sessão pelo detalhe não leva as outras',
+      (tester) async {
+    await pumpSettings(tester);
+
+    await tester.tap(find.text('Refatorar o módulo de auth'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Apagar'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EgConfirmDialog), findsOneWidget);
+    expect(repository.loadRecent(), hasLength(2), reason: 'só abriu o aviso');
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(repository.loadRecent(), hasLength(2));
+    expect(find.byType(FocusSessionDialog), findsOneWidget,
+        reason: 'cancelar volta para o detalhe, não fecha tudo');
+
+    // O rótulo "Apagar" existe no botão do detalhe e no do aviso; o do aviso é
+    // o último a entrar na árvore.
+    await tester.tap(find.text('Apagar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apagar').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FocusSessionDialog), findsNothing);
+    expect(repository.loadRecent(), hasLength(1));
+    expect(find.text('Refatorar o módulo de auth'), findsNothing);
+    // A outra sessão continua onde estava, e o resumo da semana acompanha.
+    expect(find.text('Hoje · 14:30'), findsOneWidget);
+    expect(find.text('40 min'), findsWidgets);
+  });
+}

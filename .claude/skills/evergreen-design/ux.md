@@ -27,10 +27,38 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘,` | overlay | abre as preferências (Hub) e fecha o overlay |
 | `⌘1`–`⌘5` | overlay | copia direto o N-ésimo **recente** |
 | `⌥1`–`⌥5` | overlay | copia direto o N-ésimo **fixado** |
+| `⌘⇧X` | global | abre o painel do Focus |
+| `⌘⇧,` | global | abre as preferências (Hub) |
+| `Enter` | Focus | executa a ação principal daquele estado (iniciar, iniciar a pausa, voltar ao foco); durante a sessão, anota a observação digitada |
+| `space` | Focus | pausa/retoma — desligado enquanto o campo de anotação tem o foco (espaço volta a ser espaço) |
+| `⌘.` | Focus | encerra a fase em andamento |
+| `⌘+` | Focus | +5 min na sessão — só na reta final (≤5 min restantes) e uma única vez por sessão |
+| `Esc` | Focus | fecha o painel; com o ciclo concluído, encerra o ciclo antes de sair |
+| `⌘,` | Focus | abre as preferências (Hub) |
+
+Quatro convenções que valem para qualquer painel novo:
+
+- **O atalho global é um interruptor — para painel flutuante.** Apertá-lo com o
+  mesmo painel à vista fecha; com outro painel à vista, troca o conteúdo sem
+  piscar a janela. Janela comum (o Hub) não alterna: o atalho abre e traz para
+  a frente, como qualquer app do macOS.
+- **Atalho global nunca toma uma tecla que os outros apps usam.** `⌘,` é a
+  convenção de preferências do sistema e por isso *não* pode ser global — ele
+  viraria as preferências do Evergreen em cima das de todo mundo. O prefixo
+  `⌘⇧` é o espaço da casa: `⌘⇧C`, `⌘⇧X`, `⌘⇧,`.
+- **`Enter` é sempre o botão primário da tela**, e o rodapé anuncia isso com o
+  verbo daquele estado ("iniciar", "pausa"). Se uma tela não tem proposta, ela
+  não tem primário nem dica de Enter.
+- **Fechar o painel não cancela o que está em curso.** Por isso a dica do Focus
+  em sessão diz "fechar", e não "sair" — e a contagem passa para a barra de
+  menus, que é onde o macOS espera encontrar um estado de segundo plano.
 
 Dois detalhes de convenção que valem para atalhos futuros:
 
 - **Modificador obrigatório quando um campo de texto tem o foco.** No overlay a busca está sempre focada, então excluir é `⌘⌫` e não `Delete` puro — um Backspace solto precisa continuar apagando o texto digitado. A mesma regra vale para qualquer tecla de ação em tela com campo de texto.
+- **O menu da barra ensina os atalhos globais.** Cada item mostra o seu ao lado
+  do rótulo — é o único lugar permanente do app na tela, e quem clica ali com o
+  mouse é justamente quem ainda não decorou a tecla.
 - **Nem todo atalho cabe na barra de dicas.** A barra mostra o subconjunto relevante ao estado atual (`⌘⌫ excluir` só aparece com o preview aberto, onde há largura para ele e onde a exclusão é a ação em foco). Descobribilidade não é "mostrar tudo": é mostrar a coisa certa no momento em que a dúvida existe.
 
 ### Decisão do produto: atalho global não é reconfigurável na v0.1
