@@ -23,6 +23,7 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Tab` | overlay | abre/fecha o preview |
 | `Esc` | overlay | recolhe o preview; sem preview, fecha o overlay |
 | `⌘P` | overlay | fixa/desafixa o selecionado |
+| `⌥↑` `⌥↓` | overlay | reordena o fixado selecionado dentro do grupo; nas pontas e fora dos fixados, não faz nada |
 | `⌘⌫` | overlay | apaga o selecionado, mantendo o overlay aberto e a seleção no vizinho |
 | `⌘,` | overlay | abre as preferências (Hub) e fecha o overlay |
 | `⌘1`–`⌘5` | overlay | copia direto o N-ésimo **recente** |
@@ -60,6 +61,8 @@ Dois detalhes de convenção que valem para atalhos futuros:
   do rótulo — é o único lugar permanente do app na tela, e quem clica ali com o
   mouse é justamente quem ainda não decorou a tecla.
 - **Nem todo atalho cabe na barra de dicas.** A barra mostra o subconjunto relevante ao estado atual (`⌘⌫ excluir` só aparece com o preview aberto, onde há largura para ele e onde a exclusão é a ação em foco). Descobribilidade não é "mostrar tudo": é mostrar a coisa certa no momento em que a dúvida existe.
+- **O modificador nomeia a camada.** No overlay, `⌥` é sempre "os fixados": ele alcança os fixados no `⌥1..⌥5` e os reordena no `⌥↑`/`⌥↓`. Um atalho novo que atue sobre os fixados nasce em `⌥`; um que atue sobre a lista inteira, em `⌘`.
+- **Atalho que só vale numa parte da lista se anuncia só ali.** `⌥↑↓ mover` entra no rodapé quando a seleção está num fixado que tem com quem trocar de lugar, e sai quando ela desce para os recentes — a fronteira entre os grupos é exatamente onde a capacidade muda, e anunciá-lo o tempo todo prometeria algo que a maior parte da lista não cumpre. A largura sai da dica mais evidente do rodapé (`enter`, que já era exibido sem rótulo), não do `tab ver`.
 
 ### Decisão do produto: atalho global não é reconfigurável na v0.1
 

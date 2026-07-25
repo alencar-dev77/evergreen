@@ -248,6 +248,152 @@ void main() {
     });
   });
 
+  group('reordenar fixados', () {
+    /// Fixado com posição explícita no grupo — `pinned_at` crescente, como o
+    /// `ORDER BY pinned_at ASC` do banco.
+    ClipboardItem pinnedAt(int id, String content, {required int position}) {
+      return ClipboardItem(
+        id: id,
+        content: content,
+        type: ClipboardItemClassifier.classify(content),
+        isPinned: true,
+        copiedAt: base.subtract(Duration(minutes: id)),
+        pinnedAt: base.add(Duration(minutes: position)),
+      );
+    }
+
+    List<String> pinnedOrder(WidgetTester tester) => tester
+        .widgetList<PinListItem>(find.byType(PinListItem))
+        .where((widget) => widget.item.isPinned)
+        .map((widget) => widget.item.content)
+        .toList();
+
+    String selectedOf(WidgetTester tester) => tester
+        .widgetList<PinListItem>(find.byType(PinListItem))
+        .firstWhere((widget) => widget.isSelected)
+        .item
+        .content;
+
+    Future<void> pressOption(WidgetTester tester, LogicalKeyboardKey key) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.alt);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.alt);
+      await tester.pumpAndSettle();
+    }
+
+    setUp(() {
+      repository = FakeClipboardRepository([
+        pinnedAt(1, 'Alfa', position: 0),
+        pinnedAt(2, 'Beta', position: 1),
+        pinnedAt(3, 'Gama', position: 2),
+        item(4, 'recente'),
+      ]);
+    });
+
+    testWidgets('⌥↓ desce o fixado e leva a seleção junto', (tester) async {
+      await pumpOverlay(tester);
+      expect(pinnedOrder(tester), ['Alfa', 'Beta', 'Gama']);
+
+      await pressOption(tester, LogicalKeyboardKey.arrowDown);
+
+      expect(pinnedOrder(tester), ['Beta', 'Alfa', 'Gama']);
+      // Quem se move é a linha, não o cursor.
+      expect(selectedOf(tester), 'Alfa');
+    });
+
+    testWidgets('⌥↑ sobe o fixado', (tester) async {
+      await pumpOverlay(tester);
+
+      // Desce a seleção até 'Gama', o último fixado.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      await pressOption(tester, LogicalKeyboardKey.arrowUp);
+
+      expect(pinnedOrder(tester), ['Alfa', 'Gama', 'Beta']);
+      expect(selectedOf(tester), 'Gama');
+    });
+
+    testWidgets('reordenar renumera os atalhos ⌥N', (tester) async {
+      await pumpOverlay(tester);
+
+      // 'Alfa' é o ⌥1 antes da troca.
+      expect(
+        tester
+            .widgetList<PinListItem>(find.byType(PinListItem))
+            .firstWhere((widget) => widget.item.content == 'Alfa')
+            .shortcut
+            ?.number,
+        1,
+      );
+
+      await pressOption(tester, LogicalKeyboardKey.arrowDown);
+
+      expect(
+        tester
+            .widgetList<PinListItem>(find.byType(PinListItem))
+            .firstWhere((widget) => widget.item.content == 'Alfa')
+            .shortcut
+            ?.number,
+        2,
+      );
+    });
+
+    testWidgets('⌥↓ no último fixado não o joga para os recentes',
+        (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      await pressOption(tester, LogicalKeyboardKey.arrowDown);
+
+      expect(pinnedOrder(tester), ['Alfa', 'Beta', 'Gama']);
+      expect(selectedOf(tester), 'Gama');
+    });
+
+    testWidgets('⌥↑ num recente não mexe em nada', (tester) async {
+      await pumpOverlay(tester);
+
+      // Quarta linha: o único item não fixado.
+      for (var i = 0; i < 3; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      await tester.pumpAndSettle();
+      expect(selectedOf(tester), 'recente');
+
+      await pressOption(tester, LogicalKeyboardKey.arrowUp);
+
+      expect(pinnedOrder(tester), ['Alfa', 'Beta', 'Gama']);
+      expect(selectedOf(tester), 'recente');
+    });
+
+    testWidgets('o rodapé só anuncia ⌥↑↓ dentro dos fixados', (tester) async {
+      await pumpOverlay(tester);
+      expect(find.text('mover'), findsOneWidget);
+
+      for (var i = 0; i < 3; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      await tester.pumpAndSettle();
+
+      expect(find.text('mover'), findsNothing);
+    });
+
+    testWidgets('um fixado sozinho não anuncia ⌥↑↓', (tester) async {
+      repository = FakeClipboardRepository([
+        pinnedAt(1, 'Alfa', position: 0),
+        item(4, 'recente'),
+      ]);
+      await pumpOverlay(tester);
+
+      expect(selectedOf(tester), 'Alfa');
+      expect(find.text('mover'), findsNothing);
+    });
+  });
+
   testWidgets('⌘⌫ apaga o selecionado e mantém a seleção no vizinho',
       (tester) async {
     await pumpOverlay(tester);

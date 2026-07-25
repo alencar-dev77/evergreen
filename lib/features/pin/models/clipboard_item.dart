@@ -26,10 +26,12 @@ class ClipboardItem {
   /// Momento da última vez que este conteúdo passou pela área de transferência.
   final DateTime copiedAt;
 
-  /// Momento em que o item foi fixado; `null` quando não está fixado.
+  /// Chave de ordenação dos fixados; `null` quando o item não está fixado.
   ///
-  /// É o que dá ordem estável aos fixados: recopiar um item fixado atualiza o
-  /// [copiedAt] mas não mexe na posição dele — nem, portanto, no atalho ⌥N.
+  /// Nasce como o momento em que o item foi fixado, e é o que dá ordem estável
+  /// ao grupo: recopiar um item fixado atualiza o [copiedAt] mas não mexe na
+  /// posição dele — nem, portanto, no atalho ⌥N. Reordenar com `⌥↑`/`⌥↓` troca
+  /// este valor entre dois itens, então ele não serve para exibir "fixado em".
   final DateTime? pinnedAt;
 
   /// Cria um item ainda não persistido a partir de um conteúdo capturado.

@@ -65,6 +65,20 @@ class FakeClipboardRepository implements ClipboardRepository {
   }
 
   @override
+  void swapPinnedOrder(int firstId, int secondId) {
+    final first = _items.indexWhere((it) => it.id == firstId);
+    final second = _items.indexWhere((it) => it.id == secondId);
+    if (first < 0 || second < 0) return;
+    if (!_items[first].isPinned || !_items[second].isPinned) return;
+
+    final firstAt = _items[first].pinnedAt ?? _items[first].copiedAt;
+    final secondAt = _items[second].pinnedAt ?? _items[second].copiedAt;
+
+    _items[first] = _items[first].copyWith(pinnedAt: secondAt);
+    _items[second] = _items[second].copyWith(pinnedAt: firstAt);
+  }
+
+  @override
   void delete(int id) => _items.removeWhere((it) => it.id == id);
 
   @override
