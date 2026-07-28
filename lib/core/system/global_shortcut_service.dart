@@ -32,6 +32,21 @@ class GlobalShortcutService {
   /// Representação do atalho do Focus como key-caps.
   static const focusShortcutKeys = <String>['⌘', '⇧', 'X'];
 
+  /// Atalho padrão do Awake: `⌘⇧D`.
+  ///
+  /// `D` de *display*, a tela que ele mantém acesa. `⌘⇧A` seria o mnemônico do
+  /// nome, mas é "ir para Aplicativos" no Finder — e atalho global não pode
+  /// tomar uma tecla que os outros apps usam.
+  static final awakeShortcut = HotKey(
+    identifier: 'evergreen.awake.toggle',
+    key: PhysicalKeyboardKey.keyD,
+    modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
+    scope: HotKeyScope.system,
+  );
+
+  /// Representação do atalho do Awake como key-caps.
+  static const awakeShortcutKeys = <String>['⌘', '⇧', 'D'];
+
   /// Atalho padrão das preferências: `⌘⇧,`.
   ///
   /// `⌘,` é a convenção de preferências do macOS, mas como atalho global ele
@@ -64,6 +79,13 @@ class GlobalShortcutService {
   Future<void> registerFocusToggle(Future<void> Function() onPressed) async {
     await hotKeyManager.register(
       focusShortcut,
+      keyDownHandler: (_) => onPressed(),
+    );
+  }
+
+  Future<void> registerAwakeToggle(Future<void> Function() onPressed) async {
+    await hotKeyManager.register(
+      awakeShortcut,
       keyDownHandler: (_) => onPressed(),
     );
   }

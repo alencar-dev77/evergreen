@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/window/overlay_panel.dart';
+import '../core/window/overlay_window.dart';
+import '../features/awake/presentation/views/awake_overlay_view.dart';
 import '../features/focus/presentation/views/focus_overlay_view.dart';
 import '../features/pin/presentation/views/pin_overlay_view.dart';
 import 'providers.dart';
@@ -12,14 +14,31 @@ import 'providers.dart';
 /// módulo escreve em [overlayPanelProvider] antes de mandar a janela aparecer.
 /// Sem transição entre um painel e outro — quem apertou `⌘⇧X` quer o Focus na
 /// tela, não uma animação.
+///
+/// O `Opacity` é o outro lado do quadro em branco descrito em
+/// `OverlayWindow.hide`: enquanto a janela se esconde, o painel para de ser
+/// desenhado sem ser desmontado — assim a superfície que o macOS guarda da
+/// janela escondida não tem o painel antigo para mostrar quando ela reaparece.
 class OverlayHost extends ConsumerWidget {
   const OverlayHost({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return switch (ref.watch(overlayPanelProvider)) {
+    final panel = switch (ref.watch(overlayPanelProvider)) {
       OverlayPanel.pin => const PinOverlayView(),
       OverlayPanel.focus => const FocusOverlayView(),
+      OverlayPanel.awake => const AwakeOverlayView(),
     };
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: OverlayWindow.instance.isPanelHidden,
+      // O painel entra como `child` para ficar de fora da reconstrução: apagar
+      // e reacender é só trocar a opacidade, nunca refazer a árvore.
+      child: panel,
+      builder: (context, isHidden, child) => Opacity(
+        opacity: isHidden ? 0 : 1,
+        child: child,
+      ),
+    );
   }
 }

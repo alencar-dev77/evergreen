@@ -4,7 +4,7 @@ Este arquivo define o comportamento e a aparência padrão de cada tipo de compo
 
 ## Inventário `Eg*` (o que já existe)
 
-Antes de desenhar um componente novo, procure aqui. Módulos futuros (Focus, Shelf) devem **reusar** esta gramática em vez de recriar uma paralela — é o que faz os três módulos parecerem o mesmo aplicativo. Todos vivem em `lib/shared/widgets/`.
+Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusar** esta gramática em vez de recriar uma paralela — é o que faz os três módulos parecerem o mesmo aplicativo. Todos vivem em `lib/shared/widgets/`.
 
 | Componente | Arquivo | Papel | Estados cobertos |
 |---|---|---|---|
@@ -24,6 +24,7 @@ Antes de desenhar um componente novo, procure aqui. Módulos futuros (Focus, She
 | `EgSectionLabel` | `eg_section_label.dart` | label de grupo em caixa alta | — |
 | `EgKeyCap` / `EgShortcutDisplay` | `eg_key_cap.dart` | tecla e sequência de teclas | — |
 | `EgEmptyState` | `eg_empty_state.dart` | estado vazio discreto (ícone pequeno + título + mensagem) | — |
+| `EgCountdown` | `eg_countdown.dart` | bloco de painel que conta tempo: situação em caps + número grande + progresso | `isMuted` on/off |
 | `EgIcon` | `eg_icon.dart` | ícone de path customizado (não Material Icons) | — |
 | `EgBackground` | `eg_background.dart` | fundo de janela com vinheta + brilho verde | — |
 
@@ -37,15 +38,19 @@ Regras de manutenção deste inventário:
 
 Estas decisões foram tomadas no v0.1 e valem como padrão do produto. Um módulo novo que precise da mesma coisa usa o mesmo arranjo:
 
-- **Hub = sidebar de módulos + painel de detalhe.** A sidebar lista todos os módulos (inclusive os não lançados, esmaecidos, com a versão prevista no lugar da tagline); o detalhe abre com um cabeçalho compacto (nome + tagline) e as configurações abaixo.
+- **Hub = sidebar de módulos + painel de detalhe.** A sidebar lista todos os módulos (inclusive os não lançados, esmaecidos, com a versão prevista no lugar da tagline); o detalhe abre com um cabeçalho compacto (nome + tagline) e as configurações abaixo. Os módulos ficam **colados no topo** da sidebar, sem cabeçalho de grupo acima deles: são eles que a pessoa vem procurar, e cada linha acima empurra o último módulo para o meio da janela.
+- **Toda tela do Hub começa no topo, cheia ou vazia.** A área de detalhe rola, e um `SingleChildScrollView` encolhe até a altura do conteúdo quando ele cabe na janela — o `Row` do Hub precisa esticar (`CrossAxisAlignment.stretch`), senão a tela de um módulo curto abre com o texto no meio da janela enquanto as compridas abrem no topo. Duas telas do mesmo aplicativo não podem começar em alturas diferentes.
 - **Preferências são `EgSettingsSection` + `EgSettingsRow`.** Seção com label em caps, linhas com rótulo à esquerda e controle à direita, divisor sutil entre linhas e nenhum na última. Módulo novo herda a mesma densidade e alinhamento de graça.
 - **Configuração é escrita na hora.** Não existe botão "Salvar" em tela de preferência: mexer no controle já persiste. Também não existe confirmação de "salvo com sucesso" — a mudança visível no controle já é o feedback.
-- **A marca da sidebar é a entrada do aplicativo.** Clicar no logo do Evergreen abre as preferências do app (iniciar com o macOS, atalho do Hub, sobre), com os mesmos estados de seleção dos módulos. Um segundo item escrito "Evergreen" logo abaixo do logo seria o mesmo rótulo duas vezes na mesma lista.
+- **A marca da sidebar é a entrada do aplicativo, e mora no rodapé.** Clicar no logo do Evergreen abre as preferências do app (iniciar com o macOS, atalho do Hub, sobre), com os mesmos estados de seleção dos módulos. Um segundo item escrito "Evergreen" logo abaixo do logo seria o mesmo rótulo duas vezes na mesma lista. Fica embaixo, junto da versão, porque preferência de aplicativo é onde se vai de vez em quando — o topo pertence ao que se usa todo dia.
 - **Preferência de app não mora em tela de módulo.** Se a configuração vale para o Evergreen inteiro, ela pertence à tela do aplicativo — não à do módulo que por acaso nasceu primeiro.
 - **Registro de módulo é o enum `EvergreenModule` + `_settingsFor`.** Adicionar um módulo é adicionar um valor ao enum e ligar sua tela de configuração no `switch`; nada de lista paralela de navegação.
 - **Lista longa se agrupa com `EgSectionLabel`,** não com card nem fundo colorido (no Pin: "FIXADOS" e "RECENTES").
 - **Painel operado por teclado leva uma barra de dicas no rodapé** (`EgHintBar`) com os atalhos daquele contexto, variando conforme o estado da tela. É documentação embutida no lugar onde a dúvida aparece. A dica que não pode sumir (tipicamente o `esc`) vai no `trailing`, ancorada à direita.
-- **Painel flutuante é um só, compartilhado.** Pin e Focus dividem a janela 0 e trocam de conteúdo por `OverlayPanel`; um módulo novo com atalho global entra ali, não em uma janela nova. Consequência de design: os painéis são ancorados no topo e cada um escolhe a própria largura (Pin 420/560, Focus 380).
+- **Painel flutuante é um só, compartilhado.** Pin, Focus e Awake dividem a janela 0 e trocam de conteúdo por `OverlayPanel`; um módulo novo com atalho global entra ali, não em uma janela nova. Consequência de design: os painéis são ancorados no topo e cada um escolhe a própria largura (Pin 420/560, Focus 380, Awake 380 — mesmo arranjo do Focus, mesma largura).
+- **Janela que aparece por atalho abre na tela onde está o cursor.** Vale para o painel flutuante (`OverlayWindow`) e para o Hub (`HubWindowChannel`): com dois monitores, uma janela que abre no outro monitor é indistinguível de um aplicativo travado — ela ainda rouba o foco do teclado, e quem apertou o atalho fica digitando no vazio. O Hub só é reposicionado quando vem de escondido; arrastá-lo para um monitor e vê-lo pular de volta no próximo atalho seria pior que o problema.
+- **Trocar de painel nunca mostra o painel anterior.** A janela guarda o último quadro desenhado e o reexibe antes de o Flutter desenhar o novo, então `OverlayWindow.hide` apaga o painel e espera um quadro antes de esconder. Piscar o módulo errado por um quadro é o tipo de detalhe que faz a suíte parecer três apps mal colados em vez de um.
+- **Módulo que só tem um interruptor ainda tem painel.** O Awake poderia viver só no menu da barra, mas o painel é onde a duração é escolhida no momento de ligar — e é o que mantém a promessa de que todo módulo se opera pelo teclado, do atalho global ao Enter.
 - **Lista com detalhe vai para um diálogo de consulta, não para uma linha que expande.** No histórico do Focus, a linha responde "quando, quanto e em quê" e anuncia o que há dentro ("1 anotação · resumo"); o conteúdo longo abre em um diálogo (`FocusSessionDialog`) que só se lê e se fecha. Expandir a linha na própria lista empurraria todo o resto da tela para baixo a cada clique.
 - **Rótulo de botão descreve o que ele faz, nunca o que o usuário conseguiu.** No fim de uma sessão do Focus o botão é "Encerrar" (fecha o ciclo) e não "Concluir", que se lia como "concluí a tarefa" — uma afirmação sobre o trabalho que o app não tem como saber. Se o produto não registra o desfecho, a microcopy não pode insinuar que registra.
 - **Controle desabilitado mostra o valor efetivo, não o guardado.** Quando "Utilizar apenas Pomodoro" anula as duas perguntas, os toggles delas aparecem **desligados** e apagados — não ligados e apagados. Um controle ligado promete um comportamento; se ele não vai acontecer, exibi-lo ligado é mentira, e a opacidade sozinha não desfaz a promessa. Desligar o modo devolve as escolhas guardadas.

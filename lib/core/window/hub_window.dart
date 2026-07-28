@@ -1,6 +1,7 @@
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
 
+import 'hub_window_channel.dart';
 import 'window_kind.dart';
 
 /// Abre e reutiliza a janela do painel principal (Hub).
@@ -33,6 +34,9 @@ class HubWindow {
 
     if (existing != null) {
       try {
+        // Na tela onde o cursor está, e só quando ela vem de escondida — ver
+        // `HubWindowChannel`.
+        await HubWindowChannel.moveToActiveDisplay();
         await existing.show();
         return;
       } on PlatformException {
@@ -41,14 +45,17 @@ class HubWindow {
       }
     }
 
-    final controller = await WindowController.create(
+    // Sem `show()` aqui: a janela nasce escondida e **ela mesma** se exibe
+    // quando o engine dela desenha o primeiro quadro (ver `main.dart`).
+    // Exibi-la daqui era exibir uma janela ainda em branco — e, como o
+    // `window_show` do pacote chama `NSApp.activate(ignoringOtherApps: true)`,
+    // o foco do teclado ia para uma janela que ainda não tinha o que mostrar.
+    await WindowController.create(
       const WindowConfiguration(
         arguments: 'hub',
         hiddenAtLaunch: true,
       ),
     );
-
-    await controller.show();
   }
 
   /// Procura uma janela do Hub já aberta.

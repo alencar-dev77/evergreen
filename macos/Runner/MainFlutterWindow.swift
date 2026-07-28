@@ -45,6 +45,7 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: controller)
     LaunchAtLoginChannel.register(with: controller.engine.binaryMessenger)
     PreviousAppFocusChannel.register(with: controller.engine.binaryMessenger)
+    HubWindowChannel.register(with: controller.engine.binaryMessenger)
   }
 
   /// Dá ao Hub um tamanho de janela de preferências.
@@ -63,7 +64,7 @@ class MainFlutterWindow: NSWindow {
 
     window.minSize = NSSize(width: 720, height: 480)
     window.setContentSize(NSSize(width: 880, height: 620))
-    window.center()
+    HubWindowChannel.adopt(window)
   }
 
   /// Impede o flash da janela no lançamento: o overlay só aparece quando o
@@ -71,6 +72,78 @@ class MainFlutterWindow: NSWindow {
   override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
     super.order(place, relativeTo: otherWin)
     hiddenWindowAtLaunch()
+  }
+}
+
+/// Põe a janela do Hub na tela onde o usuário está.
+///
+/// `NSWindow.center()` — o que estava aqui antes — centraliza na tela em que a
+/// janela *já* está, e uma sub-janela do `desktop_multi_window` nasce na origem
+/// do sistema de coordenadas. Com dois monitores, isso significava o Hub abrir
+/// no monitor de cima enquanto a pessoa trabalhava no de baixo: como o
+/// `window_show` do pacote chama `NSApp.activate(ignoringOtherApps: true)`, o
+/// foco do teclado ia para uma janela fora do campo de visão e o aplicativo
+/// parecia travado.
+///
+/// A regra é a mesma que o painel flutuante já segue (`OverlayWindow`): quem
+/// manda é a tela onde está o cursor. Só reposiciona quando a janela está
+/// escondida — arrastar o Hub para um monitor e vê-lo pular de volta no próximo
+/// atalho seria pior que o problema original.
+///
+/// Não tem equivalente em Flutter puro: `window_manager` age sobre a janela
+/// principal (o overlay), e o `WindowController` do pacote só expõe
+/// `show`/`hide`.
+enum HubWindowChannel {
+  private static let channelName = "hub_window"
+
+  /// Fraca de propósito: quem retém a janela é o `desktop_multi_window`, e o
+  /// Hub é destruído ao ser fechado.
+  private static weak var window: NSWindow?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "moveToActiveDisplay":
+        moveToActiveDisplay()
+        result(nil)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// Guarda a janela recém-criada e já a posiciona — na criação ela ainda está
+  /// escondida, então este é o momento certo.
+  static func adopt(_ window: NSWindow) {
+    self.window = window
+    moveToActiveDisplay()
+  }
+
+  private static func moveToActiveDisplay() {
+    guard let window = window, !window.isVisible else { return }
+
+    let screen = activeScreen()
+    let visible = screen.visibleFrame
+    let size = window.frame.size
+
+    // Um pouco acima do centro vertical, como o painel flutuante e como o
+    // próprio `center()` do AppKit: uma janela exatamente no meio parece baixa.
+    let origin = NSPoint(
+      x: visible.midX - size.width / 2,
+      y: visible.midY - size.height / 2 + visible.height * 0.08)
+
+    window.setFrameOrigin(origin)
+  }
+
+  /// A tela que contém o cursor, com a principal como reserva.
+  private static func activeScreen() -> NSScreen {
+    let cursor = NSEvent.mouseLocation
+
+    return NSScreen.screens.first { NSMouseInRect(cursor, $0.frame, false) }
+      ?? NSScreen.main ?? NSScreen.screens[0]
   }
 }
 
@@ -181,8 +254,31 @@ enum PreviousAppFocusChannel {
     }
   }
 
+  /// Prazo máximo para o app anterior voltar a ser o frontmost.
+  ///
+  /// Generoso de propósito: um app pesado (Chrome, Xcode) pode demorar mais que
+  /// os 120ms que este canal esperava antes — e um ⌘V disparado cedo demais vai
+  /// para quem estiver na frente, que é justamente o bug de "às vezes não cola".
+  private static let activationTimeout: TimeInterval = 0.8
+
+  /// Prazo máximo esperando as modificadoras físicas serem soltas.
+  private static let modifiersTimeout: TimeInterval = 0.6
+
+  /// Intervalo entre duas verificações de estado.
+  private static let pollInterval: TimeInterval = 0.02
+
   private static func capture() {
-    capturedApp = NSWorkspace.shared.frontmostApplication
+    let frontmost = NSWorkspace.shared.frontmostApplication
+
+    // O próprio Evergreen não conta: com o Hub em foco, guardar a nós mesmos
+    // faria o auto-colar digitar dentro das preferências.
+    guard frontmost?.processIdentifier != ProcessInfo.processInfo.processIdentifier
+    else {
+      capturedApp = nil
+      return
+    }
+
+    capturedApp = frontmost
   }
 
   /// Devolve o foco ao app anterior e cola nele (⌘V sintético).
@@ -190,8 +286,24 @@ enum PreviousAppFocusChannel {
   /// Diferente do `restore`, aqui reativamos o app capturado sem exigir que o
   /// Evergreen ainda seja o frontmost: este caminho só é chamado quando o
   /// usuário selecionou um item de propósito, então trazer o app de volta e
-  /// colar é exatamente o que ele pediu. Sem permissão de Acessibilidade não há
-  /// como sintetizar a tecla — devolvemos um erro para o Dart tratar.
+  /// colar é exatamente o que ele pediu.
+  ///
+  /// A colagem é confirmada em três passos, e não disparada num prazo fixo —
+  /// era o prazo fixo que fazia o auto-colar funcionar "quase sempre":
+  ///
+  /// 1. pedimos a ativação (cedendo o turno explicitamente no macOS 14+, onde
+  ///    ativar outro app "por fora" é ignorado em silêncio);
+  /// 2. esperamos o app **realmente** virar o frontmost, verificando, em vez de
+  ///    torcer para que 120ms bastem;
+  /// 3. esperamos as modificadoras físicas serem soltas — o evento sintético é
+  ///    postado no HID tap, onde ele se soma ao que estiver pressionado de
+  ///    verdade: com o ⌥ do `⌥1` ainda no dedo, o app recebia ⌘⌥V e não colava
+  ///    nada.
+  ///
+  /// Sem permissão de Acessibilidade não há como sintetizar a tecla, e sem
+  /// conseguir devolver o foco não se cola às cegas — nos dois casos devolvemos
+  /// erro, e o Dart cai no restore comum (o item já está na área de
+  /// transferência de qualquer forma).
   private static func restoreAndPaste(result: @escaping FlutterResult) {
     guard AXIsProcessTrusted() else {
       capturedApp = nil
@@ -205,21 +317,111 @@ enum PreviousAppFocusChannel {
 
     let app = capturedApp
     capturedApp = nil
-    if let app = app, !app.isTerminated {
-      app.activate(options: [])
+
+    guard let app = app, !app.isTerminated else {
+      result(
+        FlutterError(
+          code: "no_previous_app",
+          message: "Nenhum aplicativo anterior para colar.",
+          details: nil))
+      return
     }
 
-    // Um respiro para o app anterior voltar a ser o frontmost antes do ⌘V — sem
-    // isso a tecla pode chegar enquanto o Evergreen ainda está saindo de cena.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-      sendPasteKeystroke()
-      result(nil)
+    activate(app)
+
+    waitUntil(isFrontmost(app), timeout: activationTimeout) { activated in
+      guard activated else {
+        result(
+          FlutterError(
+            code: "activation_failed",
+            message: "O aplicativo anterior não voltou ao foco a tempo.",
+            details: nil))
+        return
+      }
+
+      waitUntil(noModifiersPressed(), timeout: modifiersTimeout) { _ in
+        // Mesmo com as modificadoras soltas, um respiro: o app acabou de ganhar
+        // o foco e precisa ter o campo de texto pronto para receber a tecla.
+        DispatchQueue.main.asyncAfter(deadline: .now() + pollInterval) {
+          sendPasteKeystroke()
+          result(nil)
+        }
+      }
     }
   }
 
+  /// Traz um app para a frente.
+  ///
+  /// No macOS 14+ a ativação virou cooperativa: um app não tira o outro da
+  /// frente sozinho. `yieldActivation` é o lado certo dessa conversa — somos
+  /// nós que estamos entregando o turno, e é isso que o sistema espera ouvir.
+  private static func activate(_ app: NSRunningApplication) {
+    if #available(macOS 14.0, *) {
+      NSApp.yieldActivation(to: app)
+    }
+
+    app.activate(options: [])
+  }
+
+  private static func isFrontmost(_ app: NSRunningApplication) -> () -> Bool {
+    return {
+      NSWorkspace.shared.frontmostApplication?.processIdentifier
+        == app.processIdentifier
+    }
+  }
+
+  /// Nenhuma modificadora pressionada no teclado físico.
+  ///
+  /// `combinedSessionState` é o estado real do hardware — é o mesmo que o
+  /// sistema vai somar ao evento sintético.
+  private static func noModifiersPressed() -> () -> Bool {
+    return {
+      let flags = CGEventSource.flagsState(.combinedSessionState)
+      let modifiers: CGEventFlags = [
+        .maskCommand, .maskShift, .maskAlternate, .maskControl,
+      ]
+
+      return flags.intersection(modifiers).isEmpty
+    }
+  }
+
+  /// Verifica [condition] a cada [pollInterval] até ela valer ou o prazo
+  /// vencer, e então chama [completion] dizendo qual dos dois aconteceu.
+  ///
+  /// Tudo na main queue: são leituras de estado do AppKit/CoreGraphics, e o
+  /// custo de uma verificação a cada 20ms por meio segundo é irrelevante perto
+  /// de colar no aplicativo errado.
+  private static func waitUntil(
+    _ condition: @escaping () -> Bool,
+    timeout: TimeInterval,
+    completion: @escaping (Bool) -> Void
+  ) {
+    let deadline = Date().addingTimeInterval(timeout)
+
+    func check() {
+      if condition() {
+        completion(true)
+        return
+      }
+
+      guard Date() < deadline else {
+        completion(false)
+        return
+      }
+
+      DispatchQueue.main.asyncAfter(deadline: .now() + pollInterval, execute: check)
+    }
+
+    check()
+  }
+
   /// Sintetiza um ⌘V no app em foco via CoreGraphics.
+  ///
+  /// A fonte é `privateState`, e não `combinedSessionState`: a segunda herda o
+  /// estado do teclado físico, e é dela que vinham as modificadoras extras
+  /// grudadas no ⌘V.
   private static func sendPasteKeystroke() {
-    let source = CGEventSource(stateID: .combinedSessionState)
+    let source = CGEventSource(stateID: .privateState)
     let vKeyCode: CGKeyCode = 0x09  // ANSI "v"
 
     guard

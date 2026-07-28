@@ -2,10 +2,10 @@
 
 Evergreen é uma suíte pessoal de produtividade para macOS, feita como agente de
 barra de menus (`LSUIElement`) — sem janela ao iniciar, sem ícone no Dock. Tudo
-roda localmente, nada é enviado para a internet. A v0.2 tem dois módulos: Pin
-(gerenciador de área de transferência, `⌘⇧C`) e Focus (cronômetro de foco com
-registro de atividade, `⌘⇧X`); Shelf existe como placeholder em
-`EvergreenModule`.
+roda localmente, nada é enviado para a internet. A v0.3 tem três módulos: Pin
+(gerenciador de área de transferência, `⌘⇧C`), Focus (cronômetro de foco com
+registro de atividade, `⌘⇧X`) e Awake (mantém a tela acesa por um prazo,
+`⌘⇧D`).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 
@@ -20,12 +20,16 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - **`desktop_multi_window`** — o Hub roda em um engine Flutter próprio;
   sub-janelas nascem sem plugins, por isso o Runner nativo precisa registrar
   callback de criação (ver Convenções). A janela flutuante (janela 0) é
-  compartilhada por Pin e Focus — ver
+  compartilhada por Pin, Focus e Awake — ver
   [docs/Ideis projeto/focus-janela-compartilhada.md](docs/Ideis%20projeto/focus-janela-compartilhada.md).
 - **`window_manager`, `tray_manager`, `hotkey_manager`, `screen_retriever`** —
   janela flutuante, ícone da barra de menus, atalho global.
 - **`launch_at_startup`** — "iniciar com o macOS", via canal nativo próprio
   (`SMAppService`), não o pacote nativo sugerido pela lib.
+- **`wakelock_plus`** — a trava do Awake. No macOS ele registra um
+  `IOPMAssertionCreateWithName(kIOPMAssertionTypeNoDisplaySleep)`, a mesma
+  assertion do Caffeine/Amphetamine — por isso o módulo não tem canal nativo
+  próprio: o Swift equivalente já vive dentro do pacote.
 - **`shared_preferences`, `path_provider`, `intl`** — persistência simples,
   paths do sistema, formatação de data/hora.
 
@@ -58,9 +62,23 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   valor a `OverlayPanel`, desenhe o painel em `OverlayHost` e registre o atalho
   global no `EvergreenBootstrap`. Só a janela 0 pode ser borderless/sempre no
   topo (motivo em `docs/Ideis projeto/`).
+- Sub-janela (hoje só o Hub) nasce escondida e **se exibe sozinha** depois do
+  primeiro quadro, em `main.dart` — quem pediu a janela roda em outro engine e
+  não tem como saber quando este subiu. Exibi-la de fora mostrava uma janela em
+  branco que já levava o foco do teclado junto, e parecia app travado.
+- Geometria de sub-janela é nativa (`HubWindowChannel`, em
+  `MainFlutterWindow.swift`): ela abre centralizada na tela onde está o cursor,
+  como o painel flutuante. `NSWindow.center()` centraliza na tela em que a
+  janela já está — e uma sub-janela nasce na origem do sistema de coordenadas,
+  o que com dois monitores jogava o Hub para o monitor errado.
+- Esconder a janela flutuante **não** descarta o que estava desenhado nela: o
+  macOS reexibe a última superfície antes de o Flutter desenhar o painel novo.
+  Por isso `OverlayWindow.hide` apaga o painel (`Opacity(0)` no `OverlayHost`) e
+  espera um quadro antes de esconder — sem isso, abrir o Focus logo depois de
+  fechar o Pin mostra o Pin por um quadro.
 - Serviços que precisam sobreviver com todas as janelas fechadas (captura de
-  clipboard, cronômetro do Focus) vivem no engine da janela 0 e são ligados no
-  `EvergreenBootstrap`.
+  clipboard, cronômetro do Focus, trava do Awake) vivem no engine da janela 0 e
+  são ligados no `EvergreenBootstrap`.
 - Preferir sempre a solução em Flutter puro a código nativo (Swift/AppKit);
   quando uma alternativa nativa for descartada, documentar em `docs/`.
 

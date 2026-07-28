@@ -44,4 +44,13 @@ Future<void> main() async {
       child: EvergreenApp(kind: kind),
     ),
   );
+
+  // O Hub nasce escondido e se exibe sozinho, depois do primeiro quadro: quem
+  // pediu a janela (o atalho global, no engine do overlay) não tem como saber
+  // quando este engine terminou de subir, e exibi-la antes disso mostrava uma
+  // janela em branco — que, por causa do `NSApp.activate` do
+  // `desktop_multi_window`, ainda levava o foco do teclado junto.
+  if (kind == WindowKind.hub) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => window.show());
+  }
 }

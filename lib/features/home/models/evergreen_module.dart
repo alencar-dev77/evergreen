@@ -24,14 +24,14 @@ enum EvergreenModule {
     icon: EgIconData.timer,
     status: ModuleStatus.available,
   ),
-  shelf(
-    name: 'Shelf',
-    tagline: 'Área temporária de arquivos',
+  awake(
+    name: 'Awake',
+    tagline: 'Mantém a tela acesa',
     description:
-        'Um lugar para largar arquivos enquanto você os move de um app para outro.',
-    icon: EgIconData.tray,
-    status: ModuleStatus.planned,
-    plannedFor: 'v0.3',
+        'Impede o Mac de apagar a tela e dormir pelo tempo que você escolher. '
+        'Nada de mexer nas configurações de energia por causa de uma reunião.',
+    icon: EgIconData.sun,
+    status: ModuleStatus.available,
   );
 
   const EvergreenModule({
@@ -40,6 +40,7 @@ enum EvergreenModule {
     required this.description,
     required this.icon,
     required this.status,
+    // ignore: unused_element_parameter
     this.plannedFor,
   });
 

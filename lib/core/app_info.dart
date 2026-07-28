@@ -4,7 +4,7 @@
 /// lateral do Hub e no rodapé "Sobre", e as duas divergirem seria o tipo de
 /// detalhe que denuncia falta de cuidado.
 abstract final class AppInfo {
-  static const version = '0.2.0';
+  static const version = '0.3.0';
 
   /// Como a versão é escrita na interface.
   static const versionLabel = 'v$version';

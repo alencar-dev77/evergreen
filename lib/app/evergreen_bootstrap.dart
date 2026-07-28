@@ -9,6 +9,8 @@ import '../core/system/startup_service.dart';
 import '../core/window/hub_window.dart';
 import '../core/window/overlay_panel.dart';
 import '../core/window/overlay_window.dart';
+import '../features/awake/presentation/viewmodels/awake_state.dart';
+import '../features/awake/presentation/viewmodels/awake_view_model.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
@@ -38,6 +40,7 @@ class EvergreenBootstrap {
     // Depois da barra de menus existir: a primeira emissão já escreve o rótulo
     // nela, inclusive para limpá-lo.
     _watchFocusSession();
+    _watchAwake();
     await _openHubIfRequested();
   }
 
@@ -47,6 +50,9 @@ class EvergreenBootstrap {
     await shortcuts.registerPinToggle(() => toggleOverlay(OverlayPanel.pin));
     await shortcuts.registerFocusToggle(
       () => toggleOverlay(OverlayPanel.focus),
+    );
+    await shortcuts.registerAwakeToggle(
+      () => toggleOverlay(OverlayPanel.awake),
     );
     await shortcuts.registerHubOpen(HubWindow.instance.open);
   }
@@ -77,6 +83,23 @@ class EvergreenBootstrap {
         if (next.alerts > (previous?.alerts ?? 0)) {
           unawaited(showOverlay(OverlayPanel.focus));
         }
+      },
+      fireImmediately: true,
+    );
+  }
+
+  /// Mantém a barra de menus em dia com a trava do Awake.
+  ///
+  /// A assinatura também é o que segura a trava viva fora da árvore de widgets:
+  /// ela precisa continuar valendo com o painel fechado, e o painel é a única
+  /// outra coisa que observa esta ViewModel.
+  void _watchAwake() {
+    _container.listen<AwakeState>(
+      awakeViewModelProvider,
+      (previous, next) {
+        if (previous?.menuBarDetail == next.menuBarDetail) return;
+
+        unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
       },
       fireImmediately: true,
     );
@@ -151,6 +174,10 @@ class EvergreenBootstrap {
         await _container
             .read(focusTimerViewModelProvider.notifier)
             .prepareForOpen();
+      case OverlayPanel.awake:
+        await _container
+            .read(awakeViewModelProvider.notifier)
+            .prepareForOpen();
     }
   }
 
@@ -160,6 +187,8 @@ class EvergreenBootstrap {
         toggleOverlay(OverlayPanel.pin);
       case MenuBarAction.openFocus:
         toggleOverlay(OverlayPanel.focus);
+      case MenuBarAction.openAwake:
+        toggleOverlay(OverlayPanel.awake);
       case MenuBarAction.openHub:
         HubWindow.instance.open();
       case MenuBarAction.quit:

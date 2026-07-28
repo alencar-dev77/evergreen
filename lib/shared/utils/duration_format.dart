@@ -16,6 +16,21 @@ abstract final class DurationFormat {
     return '${_pad(minutes)}:${_pad(seconds)}';
   }
 
+  /// Contagem regressiva que pode passar de uma hora (`59:58`, `1:59:58`).
+  ///
+  /// Existe separada de [countdown] porque o Awake conta até duas horas: fixar
+  /// `mm:ss` ali viraria `119:58`, e obrigar o Focus a mostrar `0:24:13` daria
+  /// uma casa a mais a um cronômetro que nunca chega perto de uma hora.
+  static String clock(Duration duration) {
+    final total = duration.isNegative ? Duration.zero : duration;
+    if (total.inHours == 0) return countdown(total);
+
+    final minutes = total.inMinutes % 60;
+    final seconds = total.inSeconds % 60;
+
+    return '${total.inHours}:${_pad(minutes)}:${_pad(seconds)}';
+  }
+
   /// Duração acumulada, para histórico e resumo (`45 min`, `1h 20min`).
   ///
   /// Sem segundos: quem lê o total do dia quer a ordem de grandeza, e "1h
