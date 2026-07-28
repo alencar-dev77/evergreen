@@ -6,6 +6,7 @@ import 'package:tray_manager/tray_manager.dart';
 enum MenuBarAction {
   openPin('open_pin', 'Pin', '⌘⇧C'),
   openFocus('open_focus', 'Focus', '⌘⇧X'),
+  openAwake('open_awake', 'Awake', '⌘⇧D'),
   openHub('open_hub', 'Preferências', '⌘⇧,'),
   quit('quit', 'Encerrar Evergreen');
 
@@ -45,6 +46,20 @@ class MenuBarService with TrayListener {
 
   void Function(MenuBarAction action)? _onAction;
 
+  /// Contagem da sessão de foco, quando há uma.
+  String? _sessionLabel;
+
+  /// Quanto falta da trava do Awake ("38 min", "sem limite"), quando ligada.
+  String? _awakeDetail;
+
+  /// Ponto que anuncia a trava do Awake ligada.
+  ///
+  /// Um caractere, e não um número: a contagem do Focus já ocupa o título, e
+  /// dois relógios lado a lado na barra de menus viram ruído. Quanto falta fica
+  /// no item do menu, a um clique. Ponto e não emoji — o título é desenhado em
+  /// modo template, junto do ícone monocromático.
+  static const _awakeMark = '●';
+
   Future<void> initialize({
     required void Function(MenuBarAction action) onAction,
   }) async {
@@ -62,8 +77,44 @@ class MenuBarService with TrayListener {
   /// lugar nativo do macOS para um estado que corre em segundo plano, e evita
   /// deixar uma janela flutuante ocupando a tela por 25 minutos. [label] nulo
   /// devolve o ícone ao estado silencioso.
-  Future<void> setSessionLabel(String? label) =>
-      trayManager.setTitle(label ?? '');
+  Future<void> setSessionLabel(String? label) {
+    _sessionLabel = label;
+    return _applyTitle();
+  }
+
+  /// Anuncia a trava do Awake: o ponto no título e o tempo restante no menu.
+  ///
+  /// [detail] nulo significa desligado. O menu é reconstruído a cada mudança —
+  /// é a única forma de o `tray_manager` atualizar rótulo e marca de seleção de
+  /// um item, e acontece no máximo uma vez por minuto.
+  Future<void> setAwakeDetail(String? detail) async {
+    final wasOn = _awakeDetail != null;
+    _awakeDetail = detail;
+
+    await _applyTitle();
+    // Só o rótulo do item muda a cada minuto; a marca de seleção, só ao ligar
+    // e desligar. Reconstruir sempre custaria um menu novo por minuto sem que
+    // nada além do texto mudasse — mas é o texto que responde "quanto falta".
+    if (wasOn || detail != null) await trayManager.setContextMenu(_buildMenu());
+  }
+
+  Future<void> _applyTitle() {
+    final parts = <String>[
+      if (_awakeDetail != null) _awakeMark,
+      ?_sessionLabel,
+    ];
+
+    return trayManager.setTitle(parts.join(' '));
+  }
+
+  /// "Awake   ⌘⇧D" desligado; "Awake · 38 min   ⌘⇧D" ligado.
+  String get _awakeMenuLabel {
+    const action = MenuBarAction.openAwake;
+    final detail = _awakeDetail;
+    if (detail == null) return action.menuLabel;
+
+    return '${action.label} · $detail   ${action.shortcut}';
+  }
 
   Menu _buildMenu() => Menu(
     items: [
@@ -75,6 +126,14 @@ class MenuBarService with TrayListener {
       MenuItem(
         key: MenuBarAction.openFocus.key,
         label: MenuBarAction.openFocus.menuLabel,
+      ),
+      // Ligado, o item vira "Awake · 38 min   ⌘⇧D": é onde quem viu o ponto no
+      // ícone vai procurar quanto falta. Sem marca de seleção, apesar de ser um
+      // estado ligado/desligado — clicar aqui abre o painel, como nos outros
+      // módulos, e um item marcado prometeria que o clique desliga a trava.
+      MenuItem(
+        key: MenuBarAction.openAwake.key,
+        label: _awakeMenuLabel,
       ),
       MenuItem(
         key: MenuBarAction.openHub.key,

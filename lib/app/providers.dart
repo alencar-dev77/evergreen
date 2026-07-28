@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/storage/app_database.dart';
 import '../core/window/overlay_panel.dart';
+import '../features/awake/data/awake_settings_repository.dart';
+import '../features/awake/data/display_sleep_service.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
 import '../features/home/data/app_settings_repository.dart';
@@ -54,6 +56,18 @@ final focusSessionRepositoryProvider = Provider<FocusSessionRepository>(
 
 final focusSettingsRepositoryProvider = Provider<FocusSettingsRepository>(
   (ref) => FocusSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+final awakeSettingsRepositoryProvider = Provider<AwakeSettingsRepository>(
+  (ref) => AwakeSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+/// A trava que impede o display de dormir.
+///
+/// Provider (e não uma instância global) porque é o que o teste substitui para
+/// verificar o cronômetro do Awake sem tocar no IOKit.
+final displaySleepServiceProvider = Provider<DisplaySleepService>(
+  (ref) => WakelockDisplaySleepService(),
 );
 
 /// Painel que a janela flutuante está mostrando.

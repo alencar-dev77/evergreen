@@ -5,7 +5,11 @@ import 'dart:io';
 
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_colors.dart';
+import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/features/awake/models/awake_duration.dart';
+import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
+import 'package:evergreen/features/awake/presentation/views/awake_overlay_view.dart';
 import 'package:evergreen/features/focus/models/focus_session.dart';
 import 'package:evergreen/features/focus/models/focus_session_note.dart';
 import 'package:evergreen/features/focus/presentation/viewmodels/focus_timer_view_model.dart';
@@ -21,6 +25,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'features/awake/fake_display_sleep_service.dart';
 import 'features/focus/fake_focus_session_repository.dart';
 import 'features/pin/fake_clipboard_repository.dart';
 
@@ -105,6 +110,10 @@ void main() {
         overrides: [
           clipboardRepositoryProvider.overrideWithValue(repository),
           focusSessionRepositoryProvider.overrideWithValue(sessions),
+          // Sem isso, ligar a trava chamaria o canal do `wakelock_plus`, que
+          // não existe sob `flutter test` — e o `await` da chamada nunca
+          // voltaria: o teste ficaria pendurado em vez de falhar.
+          displaySleepServiceProvider.overrideWithValue(FakeDisplaySleepService()),
           sharedPreferencesProvider.overrideWithValue(preferences),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now()),
@@ -241,6 +250,62 @@ void main() {
     await expectLater(
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_focus.png'),
+    );
+  });
+
+  testWidgets('painel do Awake — desligado', (tester) async {
+    await pump(tester, const AwakeOverlayView(), const Size(1120, 700));
+
+    await expectLater(
+      find.byType(AwakeOverlayView),
+      matchesGoldenFile('goldens/awake_overlay_idle.png'),
+    );
+  });
+
+  testWidgets('painel do Awake — trava ligada', (tester) async {
+    await pump(
+      tester,
+      const AwakeOverlayView(),
+      const Size(1120, 700),
+      fakeClock: true,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AwakeOverlayView)),
+    );
+    final viewModel = container.read(awakeViewModelProvider.notifier);
+    await viewModel.selectDuration(AwakeDuration.minutes30);
+    await viewModel.turnOn();
+
+    // Poucos minutos, e não uma hora: o ticker é de um segundo, e cada minuto
+    // pulado aqui são sessenta callbacks executados de verdade pelo relógio
+    // falso. O que a imagem precisa mostrar é a contagem correndo com um pedaço
+    // do progresso preenchido — 4 minutos bastam para as duas coisas.
+    await tester.pump(const Duration(minutes: 4, seconds: 12));
+    // O botão e a pílula selecionada trocam de cor em 90ms. Sem este quadro a
+    // imagem congela no meio da transição — botão ainda verde escrito
+    // "Desligar", pílula do lado errado — e viraria um golden que não
+    // corresponde a nenhum estado real do painel.
+    await tester.pump(AppDurations.instant);
+
+    await expectLater(
+      find.byType(AwakeOverlayView),
+      matchesGoldenFile('goldens/awake_overlay_running.png'),
+    );
+
+    // O golden não pode deixar o ticker vivo atrás de si.
+    await viewModel.turnOff();
+  });
+
+  testWidgets('Hub — Awake', (tester) async {
+    await pump(tester, const HubView(), const Size(1800, 1200));
+
+    await tester.tap(find.text(EvergreenModule.awake.name));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_awake.png'),
     );
   });
 }

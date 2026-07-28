@@ -4,6 +4,7 @@ import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_background.dart';
+import '../../../awake/presentation/views/awake_settings_view.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
 import '../../models/evergreen_module.dart';
@@ -33,6 +34,13 @@ class _HubViewState extends State<HubView> {
       backgroundColor: AppColors.background,
       body: EgBackground(
         child: Row(
+          // Estica: a área de detalhe rola, e um `SingleChildScrollView` se
+          // encolhe até a altura do conteúdo quando ele cabe na tela. Com o
+          // alinhamento padrão do `Row` (center), a tela de um módulo curto —
+          // o Awake — nascia centralizada verticalmente, enquanto Pin e Focus,
+          // que enchem a janela, começavam no topo. Toda tela do Hub começa no
+          // mesmo lugar.
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ModuleSidebar(
               selected: _selected,
@@ -97,6 +105,6 @@ class _HubViewState extends State<HubView> {
   Widget _settingsFor(EvergreenModule module) => switch (module) {
         EvergreenModule.pin => const PinSettingsView(),
         EvergreenModule.focus => const FocusSettingsView(),
-        _ => ModulePlaceholder(module: module),
+        EvergreenModule.awake => const AwakeSettingsView(),
       };
 }

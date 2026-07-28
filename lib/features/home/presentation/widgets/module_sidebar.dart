@@ -7,7 +7,6 @@ import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_panel.dart';
-import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/evergreen_module.dart';
 
 /// Barra lateral do Hub: o aplicativo no topo e os módulos abaixo.
@@ -41,27 +40,18 @@ class ModuleSidebar extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // A marca é a própria entrada do aplicativo: ela já leva o nome e o
-            // ícone do Evergreen, e um segundo item escrito "Evergreen" logo
-            // abaixo seria o mesmo rótulo duas vezes na mesma lista.
-            _AppTile(
-              isSelected: selected == null,
-              onTap: () => onSelect(null),
-            ),
-            const EgSectionLabel(
-              'Módulos',
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.xxl,
-                AppSpacing.md,
-                AppSpacing.xxl,
-                AppSpacing.sm,
-              ),
-            ),
+            // Os módulos abrem a lista, colados no topo: são eles que a pessoa
+            // vem procurar, e qualquer coisa acima empurra o último módulo para
+            // o meio da janela. Sem label de grupo por cima deles pelo mesmo
+            // motivo — um cabeçalho para o único grupo da lista só ocupa a linha
+            // que o terceiro módulo queria.
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.xxs,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.xxs,
                 ),
                 children: [
                   for (final module in EvergreenModule.values)
@@ -73,6 +63,16 @@ class ModuleSidebar extends StatelessWidget {
                 ],
               ),
             ),
+            // A marca é a própria entrada do aplicativo: ela já leva o nome e o
+            // ícone do Evergreen, e um segundo item escrito "Evergreen" seria o
+            // mesmo rótulo duas vezes na mesma lista. No rodapé, e não no topo,
+            // porque preferência do aplicativo é onde se vai de vez em quando —
+            // o macOS põe esse tipo de entrada embaixo (Ajustes do Sistema,
+            // Mail, Notas) justamente por isso.
+            _AppTile(
+              isSelected: selected == null,
+              onTap: () => onSelect(null),
+            ),
             _version(),
           ],
         ),
@@ -82,7 +82,12 @@ class ModuleSidebar extends StatelessWidget {
 
   Widget _version() {
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xs,
+        AppSpacing.xxl,
+        AppSpacing.xl,
+      ),
       child: Text(AppInfo.versionLabel, style: AppTypography.captionSmall),
     );
   }

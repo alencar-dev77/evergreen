@@ -29,6 +29,10 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘1`–`⌘5` | overlay | copia direto o N-ésimo **recente** |
 | `⌥1`–`⌥5` | overlay | copia direto o N-ésimo **fixado** |
 | `⌘⇧X` | global | abre o painel do Focus |
+| `⌘⇧D` | global | abre o painel do Awake (`D` de *display* — `⌘⇧A` é "Aplicativos" no Finder) |
+| `Enter` | Awake | liga a trava (e fecha o painel) ou desliga (e fica) |
+| `←` `→` | Awake | troca a duração, com o seletor focado |
+| `Esc` | Awake | fecha o painel; a trava continua como está |
 | `⌘⇧,` | global | abre as preferências (Hub) |
 | `Enter` | Focus | executa a ação principal daquele estado (iniciar, iniciar a pausa, voltar ao foco); durante a sessão, anota a observação digitada |
 | `space` | Focus | pausa/retoma — desligado enquanto o campo de anotação tem o foco (espaço volta a ser espaço) |

@@ -1,18 +1,22 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
-import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
-import '../../../../shared/widgets/eg_section_label.dart';
+import '../../core/design/app_colors.dart';
+import '../../core/design/app_metrics.dart';
+import '../../core/design/app_typography.dart';
+import 'eg_section_label.dart';
 
-/// O bloco central do painel do Focus: rótulo da fase, número grande e, quando
-/// há, a atividade e a linha de progresso.
+/// O bloco de um painel que conta tempo: situação em caixa alta, número grande
+/// e, quando há, um detalhe e a linha de progresso.
 ///
-/// É o mesmo bloco em todos os estados — contando, pausado ou concluído — e por
-/// isso o número nunca muda de posição quando a sessão troca de fase. O que
-/// muda é o conteúdo, não o layout.
-class FocusCountdown extends StatelessWidget {
-  const FocusCountdown({
+/// Nasceu no Focus e virou compartilhado quando o Awake precisou do mesmo
+/// arranjo — dois módulos com o mesmo bloco visual não podem ter duas
+/// implementações dele.
+///
+/// Em ambos vale a mesma regra: é o mesmo bloco em todos os estados — contando,
+/// pausado, concluído, desligado — e por isso o número nunca muda de posição
+/// quando o painel troca de estado. O que muda é o conteúdo, não o layout.
+class EgCountdown extends StatelessWidget {
+  const EgCountdown({
     super.key,
     required this.label,
     required this.value,

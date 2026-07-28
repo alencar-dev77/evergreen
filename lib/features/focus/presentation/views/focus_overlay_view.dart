@@ -15,7 +15,7 @@ import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/focus_timer_state.dart';
 import '../viewmodels/focus_timer_view_model.dart';
-import '../widgets/focus_countdown.dart';
+import '../../../../shared/widgets/eg_countdown.dart';
 import '../widgets/focus_session_log.dart';
 import 'focus_overlay_intents.dart';
 
@@ -309,7 +309,7 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FocusCountdown(
+        EgCountdown(
           label: state.phase.label,
           value: DurationFormat.countdown(state.settings.focusDuration),
           isMuted: true,
@@ -342,7 +342,7 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FocusCountdown(
+        EgCountdown(
           label: isPaused ? 'Pausado' : state.phase.label,
           value: DurationFormat.countdown(state.remaining),
           progress: state.progress,
@@ -419,7 +419,7 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FocusCountdown(
+        EgCountdown(
           label: isFocus ? 'Sessão concluída' : 'Pausa concluída',
           value: DurationFormat.compact(elapsed),
           detail: isFocus ? state.activity : null,

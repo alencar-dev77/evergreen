@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_colors.dart';
@@ -38,8 +40,8 @@ enum EgIconData {
   /// Cronômetro — identifica o módulo Focus.
   timer,
 
-  /// Bandeja — identifica o módulo Shelf.
-  tray,
+  /// Sol — identifica o módulo Awake (a tela que não apaga).
+  sun,
 
   /// Árvore perene — a marca do Evergreen (preenchida, como a [star]).
   evergreen,
@@ -130,7 +132,7 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.trash => _trashPath(),
         EgIconData.clipboard => _clipboardPath(),
         EgIconData.timer => _timerPath(),
-        EgIconData.tray => _trayPath(),
+        EgIconData.sun => _sunPath(),
         EgIconData.star => _starPath(),
         EgIconData.evergreen => _evergreenPath(),
       };
@@ -223,20 +225,27 @@ class _EgIconPainter extends CustomPainter {
     ..moveTo(6.3, 2)
     ..lineTo(9.7, 2);
 
-  Path _trayPath() => Path()
-    ..moveTo(2.5, 9.5)
-    ..lineTo(4.5, 3.5)
-    ..lineTo(11.5, 3.5)
-    ..lineTo(13.5, 9.5)
-    ..moveTo(2.5, 9.5)
-    ..lineTo(2.5, 12.5)
-    ..lineTo(13.5, 12.5)
-    ..lineTo(13.5, 9.5)
-    ..lineTo(10, 9.5)
-    ..lineTo(9, 11)
-    ..lineTo(7, 11)
-    ..lineTo(6, 9.5)
-    ..close();
+  /// Sol de traço: disco pequeno e oito raios curtos.
+  ///
+  /// Os raios param a 2,2px do disco e vão até a borda do viewBox — mais curtos
+  /// desapareceriam no tamanho de 14px da sidebar, mais longos engrossariam o
+  /// ícone a ponto de ele pesar mais que os vizinhos.
+  Path _sunPath() {
+    final path = Path()
+      ..addOval(Rect.fromCircle(center: const Offset(8, 8), radius: 3.2));
+
+    for (var i = 0; i < 8; i++) {
+      final angle = i * math.pi / 4;
+      final dx = math.cos(angle);
+      final dy = math.sin(angle);
+
+      path
+        ..moveTo(8 + dx * 5.4, 8 + dy * 5.4)
+        ..lineTo(8 + dx * 7, 8 + dy * 7);
+    }
+
+    return path;
+  }
 
   /// Árvore perene do Evergreen, centralizada no viewBox 16x16 (o mesmo
   /// desenho de `assets/icons/evergreen_menu.svg`, reescalado a partir do
