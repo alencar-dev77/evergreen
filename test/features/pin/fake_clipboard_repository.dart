@@ -61,6 +61,26 @@ class FakeClipboardRepository implements ClipboardRepository {
       isPinned: isPinned,
       copiedAt: current.copiedAt,
       pinnedAt: isPinned ? DateTime.now() : null,
+      alias: current.alias,
+    );
+  }
+
+  @override
+  void setAlias(int id, String? alias) {
+    final index = _items.indexWhere((it) => it.id == id);
+    if (index < 0) return;
+
+    final trimmed = alias?.trim() ?? '';
+    final current = _items[index];
+
+    _items[index] = ClipboardItem(
+      id: current.id,
+      content: current.content,
+      type: current.type,
+      isPinned: current.isPinned,
+      copiedAt: current.copiedAt,
+      pinnedAt: current.pinnedAt,
+      alias: trimmed.isEmpty ? null : trimmed,
     );
   }
 

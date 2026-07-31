@@ -92,6 +92,36 @@ void main() {
     expect(recente.pinnedAt, isNull);
   });
 
+  test('o apelido é guardado e sobrevive a copiar o item de novo', () {
+    final item = repository.upsert(ClipboardItem.capture('12345678900'));
+
+    repository.setAlias(item.id!, 'chave pix');
+    // Recopiar passa pelo mesmo `ON CONFLICT` da captura: só a data muda.
+    repository.upsert(ClipboardItem.capture('12345678900'));
+
+    final stored = repository.loadAll().single;
+    expect(stored.alias, 'chave pix');
+    expect(stored.content, '12345678900');
+  });
+
+  test('apelido em branco apaga o que havia', () {
+    final item = repository.upsert(ClipboardItem.capture('12345678900'));
+    repository.setAlias(item.id!, 'chave pix');
+
+    repository.setAlias(item.id!, '   ');
+
+    expect(repository.loadAll().single.alias, isNull);
+  });
+
+  test('fixar não mexe no apelido', () {
+    final item = repository.upsert(ClipboardItem.capture('12345678900'));
+    repository.setAlias(item.id!, 'chave pix');
+
+    repository.setPinned(item.id!, isPinned: true);
+
+    expect(repository.loadAll().single.alias, 'chave pix');
+  });
+
   test('desafixar e refixar joga o item para o fim dos fixados', () {
     final alfa = pin('alfa');
     pin('beta');

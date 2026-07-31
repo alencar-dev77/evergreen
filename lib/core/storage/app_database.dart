@@ -62,6 +62,12 @@ class AppDatabase {
     '''
     ALTER TABLE focus_sessions ADD COLUMN notes TEXT;
     ''',
+    // Apelido dado pela pessoa a um item do histórico ("chave pix"). É só um
+    // nome para reencontrar o item na lista — o conteúdo copiado continua
+    // sendo o original, e por isso mora numa coluna à parte de `content`.
+    '''
+    ALTER TABLE clipboard_items ADD COLUMN alias TEXT;
+    ''',
   ];
 
   /// Abre (ou reaproveita) a conexão com o banco.

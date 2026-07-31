@@ -21,6 +21,7 @@ class EgTextField extends StatefulWidget {
     this.hintText,
     this.autofocus = false,
     this.onChanged,
+    this.onSubmitted,
     this.enabled = true,
   });
 
@@ -32,6 +33,11 @@ class EgTextField extends StatefulWidget {
 
   final bool autofocus;
   final ValueChanged<String>? onChanged;
+
+  /// Confirmação pelo Enter. Vem do canal de texto do sistema, e não de um
+  /// atalho: um `Shortcuts` acima do campo pode nunca ver essa tecla.
+  final ValueChanged<String>? onSubmitted;
+
   final bool enabled;
 
   @override
@@ -100,6 +106,7 @@ class _EgTextFieldState extends State<EgTextField> {
           autofocus: widget.autofocus,
           enabled: widget.enabled,
           onChanged: widget.onChanged,
+          onSubmitted: widget.onSubmitted,
           cursorColor: AppColors.greenPrimary,
           cursorWidth: 1.5,
           cursorHeight: 16,
