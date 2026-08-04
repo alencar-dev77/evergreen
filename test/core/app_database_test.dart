@@ -59,6 +59,45 @@ void main() {
     expect(versionOf(database), version + 5);
   });
 
+  List<String> appliedIn(Database database) => database
+      .select('SELECT id FROM schema_migrations ORDER BY id;')
+      .map((row) => row['id'] as String)
+      .toList();
+
+  test('um banco antigo é convertido sem reaplicar o que já rodou', () {
+    // O estado de quem vinha da contagem: schema completo, nenhum registro.
+    AppDatabase.migrate(database);
+    final ids = appliedIn(database);
+    database.execute('DROP TABLE schema_migrations;');
+    database.execute('INSERT INTO clipboard_items (content, type, is_pinned, '
+        'copied_at, pinned_at) VALUES (?, ?, 1, 10, 99);', ['pix', 'text']);
+
+    AppDatabase.migrate(database);
+
+    expect(appliedIn(database), ids);
+    // Reaplicar a migração da ordem dos fixados teria jogado `pinned_at` de
+    // volta para `copied_at` — é o dado que o registro protege.
+    expect(
+      database.select('SELECT pinned_at FROM clipboard_items;').first.values.first,
+      99,
+    );
+  });
+
+  test('migração de outra branch não é pulada por ocupar a mesma posição', () {
+    AppDatabase.migrate(database);
+
+    // Uma branch paralela chegou antes, criou a própria tabela e deixou a
+    // contagem no mesmo número que esta lista de migrações produz. Pelo número
+    // não haveria nada pendente; pela chave, a última daqui nunca rodou.
+    database.execute('DELETE FROM schema_migrations WHERE id = ?;',
+        ['clipboard-alias']);
+    database.execute('ALTER TABLE clipboard_items DROP COLUMN alias;');
+
+    AppDatabase.migrate(database);
+
+    expect(columnsOf(database, 'clipboard_items'), contains('alias'));
+  });
+
   test('uma migração que falha de verdade não é engolida', () {
     database.execute('CREATE TABLE clipboard_items (wrong INTEGER);');
 

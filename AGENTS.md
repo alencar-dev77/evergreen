@@ -45,9 +45,11 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
 - Acesso a dados sempre atrás de repositório (ex.: `ClipboardRepository`) —
   nunca acoplar UI/ViewModel diretamente ao SQLite.
-- Migrações de schema: só **adicionar** string nova em `_migrations` em
-  `lib/core/storage/app_database.dart`; nunca editar uma já publicada
-  (`PRAGMA user_version` rastreia o que já rodou).
+- Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
+  em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
+  chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A
+  chave vale mais que a posição porque duas branches escrevem "a próxima
+  migração" ao mesmo tempo — por número elas colidem e uma some em silêncio.
 - Ao adicionar pacote com código nativo macOS, verificar se ele precisa
   aparecer também no callback de sub-janela em
   `macos/Runner/MainFlutterWindow.swift` (senão quebra em janelas secundárias).
