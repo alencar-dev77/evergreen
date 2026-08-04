@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 /// Filtra um `assert` conhecido do Flutter provocado pelos atalhos globais.
 ///
-/// Quando `⌘⇧C`, `⌘⇧X` ou `⌘⇧,` disparam, o macOS entrega a combinação ao
+/// Quando `⌘⇧C`, `⌘⇧F` ou `⌘⇧,` disparam, o macOS entrega a combinação ao
 /// atalho global e leva o foco para outra janela — a janela que estava em foco
 /// nunca recebe o "soltou" das modificadoras. O framework segue achando que o
 /// Shift está pressionado e, no próximo evento sintetizado ao reaver o foco,

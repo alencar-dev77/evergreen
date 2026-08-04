@@ -19,7 +19,7 @@ import '../../../../shared/widgets/eg_countdown.dart';
 import '../widgets/focus_session_log.dart';
 import 'focus_overlay_intents.dart';
 
-/// Painel flutuante do Focus — a tela que o `⌘⇧X` abre.
+/// Painel flutuante do Focus — a tela que o `⌘⇧F` abre.
 ///
 /// Divide a janela com o overlay do Pin (ver `OverlayWindow`). Os três estados
 /// — partida, contando e concluído — usam o mesmo esqueleto: rótulo da fase,

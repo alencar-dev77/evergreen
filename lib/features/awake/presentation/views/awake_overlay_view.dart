@@ -18,7 +18,7 @@ import '../viewmodels/awake_state.dart';
 import '../viewmodels/awake_view_model.dart';
 import 'awake_overlay_intents.dart';
 
-/// Painel flutuante do Awake — a tela que o `⌘⇧D` abre.
+/// Painel flutuante do Awake — a tela que o `⌘⇧X` abre.
 ///
 /// Divide a janela com Pin e Focus (ver `OverlayWindow`). É o painel mais curto
 /// da suíte de propósito: escolher por quanto tempo e ligar são as duas únicas

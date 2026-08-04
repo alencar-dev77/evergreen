@@ -8,6 +8,7 @@ import '../features/awake/data/display_sleep_service.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
 import '../features/home/data/app_settings_repository.dart';
+import '../features/leaf/data/leaf_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
 import '../features/pin/data/pin_settings_repository.dart';
@@ -60,6 +61,10 @@ final focusSettingsRepositoryProvider = Provider<FocusSettingsRepository>(
 
 final awakeSettingsRepositoryProvider = Provider<AwakeSettingsRepository>(
   (ref) => AwakeSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+final leafRepositoryProvider = Provider<LeafRepository>(
+  (ref) => SqliteLeafRepository(ref.watch(appDatabaseProvider).db),
 );
 
 /// A trava que impede o display de dormir.
