@@ -46,10 +46,16 @@ class LeafGrid extends StatelessWidget {
   }
 
   /// Largura de uma parede com [columns] colunas, já com o respiro do painel.
+  ///
+  /// A borda do `EgPanel` entra na conta porque é desenhada por dentro da caixa:
+  /// ela reduz a largura que sobra para os cartões. Sem esses 2px a última
+  /// coluna passava do painel por um fio, e o viewport sem rolagem a recortava
+  /// em silêncio — os cartões 3, 6 e 9 ficavam sem a borda direita.
   static double widthFor(int columns) =>
       columns * LeafCardMetrics.width +
       (columns - 1) * LeafCardMetrics.gap +
-      AppSpacing.xxl * 2;
+      AppSpacing.xxl * 2 +
+      AppBorders.subtle.width * 2;
 
   @override
   Widget build(BuildContext context) {

@@ -162,15 +162,15 @@ class EvergreenBootstrap {
     _container.read(overlayPanelProvider.notifier).show(panel);
 
     // Já visível em outro painel: trocar o conteúdo basta. Reexibir a janela
-    // aqui só a faria piscar e roubaria o foco outra vez — mas a altura ainda
-    // é a do painel anterior, e um painel grande no lugar de um pequeno sairia
-    // pela borda de baixo da tela.
+    // aqui só a faria piscar e roubaria o foco outra vez — mas o cursor pode
+    // ter ido para outro monitor desde a abertura, e o atalho leva o painel
+    // para onde a pessoa está olhando.
     if (await OverlayWindow.instance.isVisible()) {
-      await OverlayWindow.instance.reposition(panel.verticalAnchor);
+      await OverlayWindow.instance.reposition();
       return;
     }
 
-    await OverlayWindow.instance.show(verticalAnchor: panel.verticalAnchor);
+    await OverlayWindow.instance.show();
   }
 
   Future<void> _prepare(OverlayPanel panel) async {

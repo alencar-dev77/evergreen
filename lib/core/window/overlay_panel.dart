@@ -5,6 +5,11 @@
 /// ela nunca é destruída — é o que faz os atalhos globais abrirem
 /// instantaneamente. Decisão registrada em
 /// `docs/Ideis projeto/focus-janela-compartilhada.md`.
+///
+/// Nenhum painel escolhe onde nasce: todos são centralizados na janela, que por
+/// sua vez nasce sempre no mesmo ponto da tela do cursor (`OverlayWindow`). É o
+/// que faz painéis de alturas tão diferentes quanto o Awake e a parede cheia do
+/// Leaf aparecerem no mesmo lugar.
 enum OverlayPanel {
   /// Histórico da área de transferência (`⌘⇧C`).
   pin,
@@ -13,22 +18,8 @@ enum OverlayPanel {
   focus,
 
   /// Parede de anotações rápidas (`⌘⇧D`).
-  ///
-  /// Abre bem mais alto que os outros porque é o único painel que ocupa quase
-  /// toda a altura útil da tela: a 18% ele começaria alto o bastante para a
-  /// última linha de cartões sair pela borda de baixo.
-  leaf(verticalAnchor: 0.06),
+  leaf,
 
   /// Trava que mantém a tela acesa (`⌘⇧X`).
-  awake;
-
-  const OverlayPanel({this.verticalAnchor = _defaultVerticalAnchor});
-
-  /// Fração da altura da tela onde o topo do painel é ancorado.
-  ///
-  /// Um pouco acima do centro, como o Spotlight — quanto maior o painel, mais
-  /// alto ele precisa nascer para caber inteiro.
-  final double verticalAnchor;
-
-  static const _defaultVerticalAnchor = 0.18;
+  awake,
 }

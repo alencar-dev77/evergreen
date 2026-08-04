@@ -16,17 +16,16 @@ import '../../models/leaf_note.dart';
 /// (espaçamento, raio, cor) continua vindo dos tokens.
 abstract final class LeafCardMetrics {
   /// Largura do cartão. Com três colunas e o respiro de [gap], fecha o painel
-  /// em 776.
+  /// em 778 (ver `LeafGrid.widthFor`).
   static const width = 236.0;
 
   /// Altura do cartão.
   ///
   /// É o teto, não uma preferência: três linhas de cartão mais o rodapé de
-  /// dicas precisam caber inteiras na tela. Em 1440x900 — a menor onde o
-  /// Evergreen roda hoje — sobram cerca de 750px abaixo do topo do painel do
-  /// Leaf, que por isso abre mais alto que os outros (ver
-  /// `OverlayPanel.verticalAnchor`), e 200 é o que cabe neles sem a última
-  /// linha de cartões sair pela borda de baixo.
+  /// dicas precisam caber inteiras na janela flutuante, que tem 800px de altura
+  /// (ver `OverlayWindow`) e é centralizada na tela. Com 200, a parede cheia
+  /// fecha em 706 e ainda sobra a margem da sombra; um cartão mais alto faria a
+  /// última linha ser cortada pela borda da janela.
   ///
   /// É o que separa "anotação de reunião" de "recado de post-it": em 236x200
   /// cabem [LeafNote.maxLength] caracteres em nove linhas — quatro vezes a área

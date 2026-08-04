@@ -186,11 +186,16 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView>
           ),
           // A janela é maior que o painel para caber a sombra. O resto dela é
           // transparente mas ainda captura cliques — clicar fora fecha.
+          //
+          // Centralizado na janela, como todos os painéis: quem se posiciona na
+          // tela é a janela (ver `OverlayWindow`). Para a parede, que muda de
+          // tamanho, é também o que a mantém no mesmo lugar da tela com uma ou
+          // com nove anotações.
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _close,
             child: Align(
-              alignment: Alignment.topCenter,
+              alignment: Alignment.center,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.xxl),
                 child: GestureDetector(
@@ -216,11 +221,12 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView>
     // Anima os dois eixos: a parede ganha coluna ao chegar no terceiro cartão e
     // perde linha a cada cartão jogado fora. Sem isto o painel saltaria de
     // tamanho, e um salto de 200px é a diferença entre "encolheu" e "piscou".
-    // Ancorado no topo porque é de lá que o painel cresce.
+    // Cresce a partir do centro, como o painel se posiciona na janela: a parede
+    // se abre para os quatro lados em torno do mesmo ponto da tela.
     return AnimatedSize(
       duration: AppDurations.medium,
       curve: AppDurations.curve,
-      alignment: Alignment.topCenter,
+      alignment: Alignment.center,
       child: SizedBox(
         width: LeafGrid.widthFor(LeafGrid.columnsFor(state)),
         child: EgPanel(

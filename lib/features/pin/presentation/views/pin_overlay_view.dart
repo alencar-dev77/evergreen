@@ -295,11 +295,15 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
           // A janela é maior que o painel para caber a sombra e o painel
           // expandido. O resto dela é transparente, mas ainda captura cliques —
           // então tratamos essa área como barreira: clicar fora fecha.
+          //
+          // Centralizado na janela, como todos os painéis: é a janela que se
+          // posiciona na tela (ver `OverlayWindow`), e centralizar aqui é o que
+          // faz painéis de alturas diferentes nascerem no mesmo ponto.
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _close,
             child: Align(
-              alignment: Alignment.topCenter,
+              alignment: Alignment.center,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.xxl),
                 child: GestureDetector(

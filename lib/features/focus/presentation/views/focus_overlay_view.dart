@@ -256,11 +256,14 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
           ),
           // A janela é maior que o painel para caber a sombra. O resto dela é
           // transparente mas ainda captura cliques — clicar fora fecha.
+          //
+          // Centralizado na janela, como todos os painéis: quem se posiciona na
+          // tela é a janela (ver `OverlayWindow`).
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _close,
             child: Align(
-              alignment: Alignment.topCenter,
+              alignment: Alignment.center,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.xxl),
                 child: GestureDetector(

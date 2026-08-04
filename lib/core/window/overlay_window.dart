@@ -20,19 +20,20 @@ class OverlayWindow {
   /// Tamanho da janela. Maior que qualquer painel para acomodar a sombra de
   /// 60px de blur sem que ela seja cortada pela borda da janela.
   ///
-  /// Quem dita a medida é o maior painel — hoje a parede do Leaf, 776x706 com
+  /// Quem dita a medida é o maior painel — hoje a parede do Leaf, 778x706 com
   /// as nove vagas ocupadas. Os outros painéis não se mexem por causa disso:
-  /// todos são ancorados no topo da janela, que é transparente, então crescê-la
-  /// só aumenta a área invisível em volta deles.
+  /// todos são centralizados na janela, que é transparente, então crescê-la só
+  /// aumenta a área invisível em volta deles.
   static const _windowSize = Size(920, 800);
 
-  /// Fração da altura da tela onde o topo da janela é posicionado.
+  /// Fração da altura útil da tela onde o **centro** da janela é posto.
   ///
-  /// Quem manda é o painel à vista (`OverlayPanel.verticalAnchor`): os painéis
-  /// são todos ancorados no topo da janela, então a altura de um painel grande
-  /// só cabe na tela se a janela nascer mais alto. Guardado aqui para que
-  /// reposicionar sem trocar de painel repita a mesma âncora.
-  double _verticalAnchor = 0.18;
+  /// Os painéis são centralizados na janela, então este é o ponto em que todos
+  /// eles nascem, qualquer que seja a altura de cada um — é o que faz o Leaf com
+  /// uma anotação e o Pin com a lista cheia abrirem no mesmo lugar da tela. Um
+  /// pouco acima do centro, como o Spotlight: a altura exata do centro parece
+  /// baixa demais para algo que se lê de relance.
+  static const _opticalCenter = 0.42;
 
   /// Teto da espera pelo quadro em branco. Se o engine não desenhar nesse
   /// prazo, escondemos assim mesmo: um flash é melhor que uma janela presa.
@@ -88,13 +89,13 @@ class OverlayWindow {
   ///
   /// Reposicionar a cada abertura é o que mantém o painel sempre no monitor que
   /// o usuário está usando, em vez de onde ele foi aberto da última vez.
-  Future<void> show({double? verticalAnchor}) async {
+  Future<void> show() async {
     // Precisa vir antes do `windowManager.show()`: é o instante em que o app
     // anterior ainda é o frontmost do sistema, antes do `NSApp.activate` que
     // o `window_manager` dispara em seguida roubar o foco dele.
     await PreviousAppFocusChannel.capture();
 
-    await reposition(verticalAnchor);
+    await reposition();
 
     // O painel volta a ser desenhado só agora: o quadro gravado na janela
     // escondida é o branco deixado por `hide`, e é ele que aparece no instante
@@ -173,22 +174,37 @@ class OverlayWindow {
     ]);
   }
 
-  /// Leva a janela para a tela onde o cursor está, na altura pedida.
+  /// Leva a janela para a tela onde o cursor está.
   ///
   /// Público porque trocar de painel com a janela já visível também precisa
-  /// dele: o painel novo pode ser mais alto que o anterior, e reposicionar é
-  /// mais barato (e não pisca) comparado a esconder e reexibir a janela.
-  Future<void> reposition([double? verticalAnchor]) async {
-    if (verticalAnchor != null) _verticalAnchor = verticalAnchor;
-
+  /// dele: o cursor pode estar em outro monitor, e reposicionar é mais barato
+  /// (e não pisca) comparado a esconder e reexibir a janela.
+  Future<void> reposition() async {
     final display = await _activeDisplay();
     final visible = display.visiblePosition ?? Offset.zero;
     final size = display.visibleSize ?? display.size;
 
     final x = visible.dx + (size.width - _windowSize.width) / 2;
-    final y = visible.dy + size.height * _verticalAnchor;
+    final y = _verticalPosition(visible.dy, size.height);
 
     await windowManager.setPosition(Offset(x, y));
+  }
+
+  /// Topo da janela para que o centro dela caia em [_opticalCenter] da tela.
+  ///
+  /// Preso dentro da área útil: o painel é centralizado *na janela*, então uma
+  /// janela que passa da borda leva o painel junto — e a parede cheia do Leaf,
+  /// que ocupa quase toda a altura da janela, sairia da tela por baixo. Em telas
+  /// mais baixas que a própria janela não há o que prender; aí ela nasce
+  /// centralizada e sobra o mesmo tanto para cada lado.
+  double _verticalPosition(double top, double height) {
+    if (height < _windowSize.height) {
+      return top + (height - _windowSize.height) / 2;
+    }
+
+    final y = top + height * _opticalCenter - _windowSize.height / 2;
+
+    return y.clamp(top, top + height - _windowSize.height);
   }
 
   /// A tela que contém o cursor, com a primária como reserva.
