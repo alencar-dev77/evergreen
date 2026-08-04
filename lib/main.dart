@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/evergreen_app.dart';
 import 'app/evergreen_bootstrap.dart';
 import 'app/providers.dart';
+import 'core/app_info.dart';
 import 'core/storage/app_database.dart';
 import 'core/system/keyboard_state_guard.dart';
 import 'core/window/overlay_window.dart';
@@ -20,6 +21,7 @@ import 'core/window/window_kind.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   KeyboardStateGuard.install();
+  await AppInfo.load();
 
   final window = await WindowController.fromCurrentEngine();
   final kind = WindowKind.fromArguments(window.arguments);

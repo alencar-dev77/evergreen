@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/design/app_colors.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
@@ -23,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/awake/fake_display_sleep_service.dart';
@@ -36,6 +38,20 @@ import 'features/pin/fake_clipboard_repository.dart';
 /// revisão, não uma trava de regressão.
 void main() {
   setUpAll(_loadFonts);
+
+  // A versão da barra lateral do Hub sai do bundle, que não existe em teste.
+  // Fixá-la aqui mantém os goldens estáveis quando o pubspec mudar de versão —
+  // é o design que eles conferem, não o número.
+  setUpAll(() async {
+    PackageInfo.setMockInitialValues(
+      appName: 'Evergreen',
+      packageName: 'com.evergreen.app',
+      version: '0.3.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+    await AppInfo.load();
+  });
 
   late SharedPreferences preferences;
 

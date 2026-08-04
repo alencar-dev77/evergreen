@@ -1,4 +1,5 @@
 import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/app_settings_view.dart';
@@ -7,6 +8,7 @@ import 'package:evergreen/features/pin/presentation/views/pin_settings_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../focus/fake_focus_session_repository.dart';
@@ -18,6 +20,16 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
+
+    // A versão do rodapé "Sobre" vem do bundle, que não existe em teste.
+    PackageInfo.setMockInitialValues(
+      appName: 'Evergreen',
+      packageName: 'com.evergreen.app',
+      version: '0.3.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+    await AppInfo.load();
   });
 
   Future<void> pumpHub(WidgetTester tester) async {
