@@ -12,6 +12,7 @@ class ClipboardItem {
     required this.isPinned,
     required this.copiedAt,
     this.pinnedAt,
+    this.alias,
   });
 
   /// Identificador no banco local. `null` enquanto o item não foi persistido.
@@ -33,6 +34,17 @@ class ClipboardItem {
   /// posição dele — nem, portanto, no atalho ⌥N. Reordenar com `⌥↑`/`⌥↓` troca
   /// este valor entre dois itens, então ele não serve para exibir "fixado em".
   final DateTime? pinnedAt;
+
+  /// Nome dado pela pessoa a este item ("chave pix"), ou `null` se ela não deu
+  /// nenhum.
+  ///
+  /// Serve só para reencontrar o item na lista: o que vai para a área de
+  /// transferência é sempre [content]. Texto em branco é o mesmo que não ter
+  /// apelido — quem lê pergunta por [hasAlias], nunca por `alias != null`.
+  final String? alias;
+
+  /// O item tem um apelido para exibir.
+  bool get hasAlias => alias != null && alias!.trim().isNotEmpty;
 
   /// Cria um item ainda não persistido a partir de um conteúdo capturado.
   factory ClipboardItem.capture(String content, {DateTime? at}) {
@@ -61,6 +73,14 @@ class ClipboardItem {
   /// Verdadeiro quando o conteúdo tem mais do que a linha exibida na lista.
   bool get hasMoreThanTitle => content.trim() != title;
 
+  /// O que a lista põe em primeiro plano: o apelido quando existe, o próprio
+  /// conteúdo quando não.
+  ///
+  /// O apelido tem prioridade porque é justamente o nome que a pessoa escolheu
+  /// para reconhecer o item de relance; o conteúdo continua visível ao lado,
+  /// em segundo plano, para ninguém copiar às cegas.
+  String get displayTitle => hasAlias ? alias!.trim() : title;
+
   ClipboardItem copyWith({
     int? id,
     String? content,
@@ -68,6 +88,7 @@ class ClipboardItem {
     bool? isPinned,
     DateTime? copiedAt,
     DateTime? pinnedAt,
+    String? alias,
   }) {
     return ClipboardItem(
       id: id ?? this.id,
@@ -76,19 +97,34 @@ class ClipboardItem {
       isPinned: isPinned ?? this.isPinned,
       copiedAt: copiedAt ?? this.copiedAt,
       pinnedAt: pinnedAt ?? this.pinnedAt,
+      // Passar `''` apaga o apelido: um apelido em branco não existe, e essa é
+      // a única forma de tirá-lo por aqui — `null` significa "não mexe".
+      alias: alias ?? this.alias,
     );
   }
 
-  /// Verdadeiro se [query] casa com o conteúdo, ignorando caixa.
+  /// Verdadeiro se [query] casa com o conteúdo ou com o apelido, ignorando
+  /// caixa.
+  ///
+  /// O apelido entra na busca porque é o nome pelo qual a pessoa procura o
+  /// item — buscar por "pix" precisa achar a chave apelidada de "chave pix",
+  /// mesmo que a palavra não apareça em lugar nenhum do conteúdo.
   bool matches(String query) {
     if (query.isEmpty) return true;
-    return content.toLowerCase().contains(query.toLowerCase());
+
+    final term = query.toLowerCase();
+    if (content.toLowerCase().contains(term)) return true;
+
+    return hasAlias && alias!.toLowerCase().contains(term);
   }
 
   @override
   bool operator ==(Object other) =>
-      other is ClipboardItem && other.id == id && other.isPinned == isPinned;
+      other is ClipboardItem &&
+      other.id == id &&
+      other.isPinned == isPinned &&
+      other.alias == alias;
 
   @override
-  int get hashCode => Object.hash(id, isPinned);
+  int get hashCode => Object.hash(id, isPinned, alias);
 }

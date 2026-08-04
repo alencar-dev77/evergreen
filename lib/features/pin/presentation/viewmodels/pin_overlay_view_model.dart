@@ -181,6 +181,23 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     _emitResults();
   }
 
+  /// Guarda o apelido do item — texto em branco tira o que havia.
+  ///
+  /// Só toca o banco quando o texto muda de verdade: o campo confirma sozinho
+  /// ao perder o foco, então fechar o overlay sem editar nada passaria por aqui
+  /// a cada abertura.
+  void setAlias(ClipboardItem item, String alias) {
+    final id = item.id;
+    if (id == null) return;
+
+    final trimmed = alias.trim();
+    if (trimmed == (item.alias?.trim() ?? '')) return;
+
+    _repository.setAlias(id, trimmed);
+    _allItems = _repository.loadAll();
+    _emitResults();
+  }
+
   void delete(ClipboardItem item) {
     final id = item.id;
     if (id == null) return;

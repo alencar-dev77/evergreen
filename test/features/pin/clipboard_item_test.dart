@@ -69,5 +69,36 @@ void main() {
       expect(item.matches(''), isTrue);
       expect(item.matches('inexistente'), isFalse);
     });
+
+    test('o apelido vai para a frente do conteúdo na lista', () {
+      final item =
+          ClipboardItem.capture('12345678900').copyWith(alias: 'chave pix');
+
+      expect(item.hasAlias, isTrue);
+      expect(item.displayTitle, 'chave pix');
+      // O conteúdo continua intocado — é ele que vai para a área de
+      // transferência.
+      expect(item.content, '12345678900');
+      expect(item.title, '12345678900');
+    });
+
+    test('apelido em branco é o mesmo que não ter apelido', () {
+      final item =
+          ClipboardItem.capture('12345678900').copyWith(alias: '   ');
+
+      expect(item.hasAlias, isFalse);
+      expect(item.displayTitle, '12345678900');
+    });
+
+    test('matches também casa com o apelido', () {
+      final item =
+          ClipboardItem.capture('12345678900').copyWith(alias: 'chave pix');
+
+      // A palavra não aparece em lugar nenhum do conteúdo: é justamente para
+      // isso que serve dar um apelido.
+      expect(item.matches('PIX'), isTrue);
+      expect(item.matches('123'), isTrue);
+      expect(item.matches('inexistente'), isFalse);
+    });
   });
 }

@@ -11,9 +11,17 @@ class PinHintBar extends StatelessWidget {
     super.key,
     required this.isPreviewOpen,
     this.canMovePinned = false,
+    this.isEditingAlias = false,
   });
 
   final bool isPreviewOpen;
+
+  /// O cursor está no campo de apelido.
+  ///
+  /// Aí o rodapé fala de uma coisa só: enquanto se digita, todo o resto do
+  /// teclado pertence ao texto, e anunciar atalhos que não respondem seria
+  /// prometer o que a tecla não faz.
+  final bool isEditingAlias;
 
   /// A seleção está num fixado que tem com quem trocar de lugar.
   ///
@@ -25,6 +33,13 @@ class PinHintBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isEditingAlias) {
+      return const EgHintBar(
+        hints: [EgHint(keys: ['enter'], label: 'guardar apelido')],
+        trailing: EgHint(keys: ['esc'], label: 'descartar'),
+      );
+    }
+
     return EgHintBar(
       hints: [
         // Setas e Enter dispensam rótulo: ao lado de uma lista eles se
@@ -41,6 +56,11 @@ class PinHintBar extends StatelessWidget {
         // também só ofereceria duas formas de fazer a mesma coisa. A largura que
         // ele libera é o que permite anunciar o ⌘⌫, que ninguém descobre por
         // conta própria.
+        // O ⌘R só é anunciado com o preview aberto, que é onde o campo de
+        // apelido existe: quem está na lista descobre o recurso abrindo o
+        // preview, e é lá que a dúvida "dá para fazer isso sem o mouse?"
+        // aparece. Na lista de 420px ele também não caberia.
+        if (isPreviewOpen) const EgHint(keys: ['⌘R'], label: 'apelido'),
         if (isPreviewOpen)
           const EgHint(keys: ['⌘⌫'], label: 'excluir')
         else

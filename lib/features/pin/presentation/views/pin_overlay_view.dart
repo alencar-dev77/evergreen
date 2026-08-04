@@ -38,6 +38,16 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
+  /// Campo de apelido do preview. Enquanto ele tem o foco o overlay troca de
+  /// mapa de teclado — daí o listener com `setState`.
+  final _aliasController = TextEditingController();
+  final _aliasFocusNode = FocusNode(debugLabel: 'pin-alias');
+
+  /// Item cujo apelido está no campo. Guardado à parte da seleção porque o
+  /// clique numa outra linha não tira o foco do campo: sem isso, o texto
+  /// digitado seria gravado no item errado.
+  ClipboardItem? _aliasItem;
+
   /// Fade de entrada do painel. Nasce em 1 para que a primeira construção (e os
   /// testes, que não têm janela) já mostrem o painel pronto — quem rebobina a
   /// animação é o `onWindowFocus`, uma vez por abertura.
@@ -68,6 +78,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    _aliasFocusNode.addListener(_onAliasFocusChanged);
   }
 
   @override
@@ -77,6 +88,9 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
     _entrance.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _aliasFocusNode.removeListener(_onAliasFocusChanged);
+    _aliasFocusNode.dispose();
+    _aliasController.dispose();
     super.dispose();
   }
 
@@ -85,6 +99,12 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
     _searchController.clear();
     _searchFocusNode.requestFocus();
     _entrance.forward(from: 0);
+
+    // O campo de apelido volta do zero: o preview fecha junto, e a abertura
+    // seguinte recarrega o apelido do item que estiver selecionado então.
+    _aliasItem = null;
+    _aliasController.clear();
+
     setState(() => _isPreviewOpen = false);
   }
 
@@ -108,11 +128,19 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
     await _close();
   }
 
-  PinOverlayViewModel get _viewModel =>
+  /// Guardada uma vez, na primeira construção, em vez de procurada a cada uso:
+  /// a troca de item também acontece dentro de um listener do próprio provider,
+  /// e procurar o `ProviderScope` na árvore enquanto ela se rearranja é o tipo
+  /// de coisa que o Flutter recusa a fazer.
+  late final PinOverlayViewModel _viewModel =
       ref.read(pinOverlayViewModelProvider.notifier);
 
-  Future<void> _close({bool paste = false}) =>
-      OverlayWindow.instance.hide(paste: paste);
+  /// Esconder a janela não tira o foco do campo de apelido dentro do Flutter,
+  /// então o que estava digitado é guardado aqui — fechar não é desistir.
+  Future<void> _close({bool paste = false}) {
+    _commitAlias();
+    return OverlayWindow.instance.hide(paste: paste);
+  }
 
   /// Fecha após copiar. Com o auto-colar ligado, o item é colado no app anterior
   /// em vez de só devolver o foco — os dois caminhos passam por aqui.
@@ -138,8 +166,77 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   }
 
   void _togglePreview() {
-    if (ref.read(pinOverlayViewModelProvider).selectedItem == null) return;
+    final item = ref.read(pinOverlayViewModelProvider).selectedItem;
+    if (item == null) return;
+
+    _syncAliasField(item);
     setState(() => _isPreviewOpen = !_isPreviewOpen);
+  }
+
+  /// A barra de dicas e o mapa de teclado mudam quando o apelido entra em
+  /// edição — os dois saem daqui.
+  void _onAliasFocusChanged() {
+    if (!_aliasFocusNode.hasFocus) _commitAlias();
+    if (mounted) setState(() {});
+  }
+
+  /// Recarrega o campo quando a seleção muda de item.
+  ///
+  /// O que estava sendo digitado é guardado antes: trocar de linha com o texto
+  /// pela metade é uma troca de assunto, não um cancelamento.
+  void _syncAliasField(ClipboardItem? item) {
+    if (_aliasItem?.id == item?.id) return;
+
+    _commitAlias();
+    _aliasItem = item;
+    _aliasController.text = item?.alias ?? '';
+  }
+
+  /// `⌘R`: abre o preview, se preciso, e leva o cursor para o apelido.
+  void _editAlias() {
+    final item = ref.read(pinOverlayViewModelProvider).selectedItem;
+    if (item == null) return;
+
+    _syncAliasField(item);
+    if (!_isPreviewOpen) setState(() => _isPreviewOpen = true);
+
+    // O campo só existe depois que o preview entra na árvore.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _aliasFocusNode.requestFocus();
+      _aliasController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _aliasController.text.length,
+      );
+    });
+  }
+
+  /// Guarda o apelido digitado. Chamado também quando o campo perde o foco por
+  /// qualquer motivo — fechar o overlay no meio da edição não perde o texto.
+  void _commitAlias() {
+    final item = _aliasItem;
+    if (item == null) return;
+
+    _viewModel.setAlias(item, _aliasController.text);
+
+    // O item guardado vira a nova referência do campo: é ele que o Esc
+    // restaura, e um apelido já gravado não é mais o valor a desfazer.
+    _aliasItem = item.copyWith(alias: _aliasController.text.trim());
+  }
+
+  /// Enter no campo: guarda e devolve o teclado à lista.
+  void _finishAliasEdit() {
+    _commitAlias();
+    _searchFocusNode.requestFocus();
+  }
+
+  /// Esc no campo: desfaz o que foi digitado e devolve o teclado à lista.
+  ///
+  /// Restaura o texto **antes** de tirar o foco porque é a saída do foco que
+  /// grava — do contrário o cancelamento salvaria justamente o que ele desfez.
+  void _cancelAliasEdit() {
+    _aliasController.text = _aliasItem?.alias ?? '';
+    _searchFocusNode.requestFocus();
   }
 
   /// `⌘,`: sai de cena primeiro, depois abre o Hub — nessa ordem, um problema
@@ -165,11 +262,21 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   Widget build(BuildContext context) {
     final state = ref.watch(pinOverlayViewModelProvider);
     final showPreview = _isPreviewOpen && state.selectedItem != null;
+    final isEditingAlias = _aliasFocusNode.hasFocus;
+
+    // O campo acompanha a seleção: navegar pela lista com o preview aberto
+    // troca o item exibido, e o apelido é do item, não do painel. Vai num
+    // `listen`, e não no corpo do build, porque guardar o apelido anterior
+    // escreve no estado — proibido enquanto a árvore se constrói.
+    ref.listen(pinOverlayViewModelProvider, (previous, next) {
+      if (previous?.selectedItem?.id == next.selectedItem?.id) return;
+      _syncAliasField(next.selectedItem);
+    });
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Shortcuts(
-        shortcuts: PinOverlayIntents.shortcuts,
+        shortcuts: PinOverlayIntents.shortcuts(isEditingAlias: isEditingAlias),
         child: Actions(
           actions: PinOverlayIntents.actions(
             onMove: _viewModel.moveSelection,
@@ -181,6 +288,9 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
             onTogglePin: _viewModel.togglePinSelected,
             onDelete: _viewModel.deleteSelected,
             onOpenSettings: _openSettings,
+            onEditAlias: _editAlias,
+            onCommitAlias: _finishAliasEdit,
+            onCancelAlias: _cancelAliasEdit,
           ),
           // A janela é maior que o painel para caber a sombra e o painel
           // expandido. O resto dela é transparente, mas ainda captura cliques —
@@ -216,6 +326,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
                             PinHintBar(
                               isPreviewOpen: showPreview,
                               canMovePinned: state.canMoveSelectedPinned,
+                              isEditingAlias: isEditingAlias,
                             ),
                           ],
                         ),
@@ -275,6 +386,9 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
         Expanded(
           child: PinPreviewPane(
             item: selected,
+            aliasController: _aliasController,
+            aliasFocusNode: _aliasFocusNode,
+            onAliasSubmitted: (_) => _finishAliasEdit(),
             onCopy: () => _activate(selected),
             onTogglePin: () => _viewModel.togglePin(selected),
             onDelete: () => _viewModel.delete(selected),

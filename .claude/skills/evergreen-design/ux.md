@@ -25,6 +25,9 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘P` | overlay | fixa/desafixa o selecionado |
 | `⌥↑` `⌥↓` | overlay | reordena o fixado selecionado dentro do grupo; nas pontas e fora dos fixados, não faz nada |
 | `⌘⌫` | overlay | apaga o selecionado, mantendo o overlay aberto e a seleção no vizinho |
+| `⌘R` | overlay | abre o preview e leva o cursor ao apelido do item selecionado |
+| `Enter` | apelido em edição | guarda o apelido e devolve o teclado à lista |
+| `Esc` | apelido em edição | descarta o que foi digitado e devolve o teclado à lista |
 | `⌘,` | overlay | abre as preferências (Hub) e fecha o overlay |
 | `⌘1`–`⌘5` | overlay | copia direto o N-ésimo **recente** |
 | `⌥1`–`⌥5` | overlay | copia direto o N-ésimo **fixado** |
@@ -61,6 +64,8 @@ Quatro convenções que valem para qualquer painel novo:
 Dois detalhes de convenção que valem para atalhos futuros:
 
 - **Modificador obrigatório quando um campo de texto tem o foco.** No overlay a busca está sempre focada, então excluir é `⌘⌫` e não `Delete` puro — um Backspace solto precisa continuar apagando o texto digitado. A mesma regra vale para qualquer tecla de ação em tela com campo de texto.
+- **Campo que a pessoa escreve e confirma esvazia o mapa de atalhos enquanto tem o foco.** No apelido do Pin sobram duas teclas — Enter guarda, Esc descarta — e o rodapé passa a falar só delas. Setas, `⌘⌫` e os números pertencem ao texto que está sendo digitado; um atalho que os roubasse tornaria o campo inutilizável. É a mesma regra que já desligava o `space` do Focus com o cursor na anotação, agora valendo para o mapa inteiro.
+- **Editar não é confirmar: sair do campo guarda.** O apelido é gravado quando o campo perde o foco, por qualquer caminho (Enter, clicar em outra linha, fechar o painel) — só o Esc desfaz. Painel que some do olho não pode levar junto o que a pessoa acabou de escrever.
 - **O menu da barra ensina os atalhos globais.** Cada item mostra o seu ao lado
   do rótulo — é o único lugar permanente do app na tela, e quem clica ali com o
   mouse é justamente quem ainda não decorou a tecla.

@@ -75,15 +75,7 @@ class PinListItem extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                    style: AppTypography.bodyCompactEmphasis,
-                  ),
-                ),
+                Expanded(child: _label()),
                 if (!compact) ...[
                   const SizedBox(width: AppSpacing.sm),
                   _trailing(),
@@ -93,6 +85,43 @@ class PinListItem extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  /// Texto da linha: o apelido à frente e, atrás dele, o começo do conteúdo em
+  /// segundo plano.
+  ///
+  /// Os dois num parágrafo só, e não em dois `Text` lado a lado: assim o corte
+  /// por ellipsis come primeiro o conteúdo, que é o que sobra de contexto, e
+  /// nunca o apelido — que é o nome pelo qual a pessoa procura a linha. O
+  /// contraste de peso e tamanho já separa um do outro, sem precisar de
+  /// divisor. Na coluna estreita ao lado do preview só cabe o apelido.
+  Widget _label() {
+    if (!item.hasAlias || compact) {
+      return Text(
+        item.displayTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: AppTypography.bodyCompactEmphasis,
+      );
+    }
+
+    return Text.rich(
+      TextSpan(
+        text: item.displayTitle,
+        children: [
+          TextSpan(
+            text: '   ${item.title}',
+            style: AppTypography.captionXS
+                .copyWith(color: AppColors.textTertiary),
+          ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+      style: AppTypography.bodyCompactEmphasis,
     );
   }
 

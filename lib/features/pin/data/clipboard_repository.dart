@@ -19,6 +19,9 @@ abstract interface class ClipboardRepository {
 
   void setPinned(int id, {required bool isPinned});
 
+  /// Dá (ou tira) o apelido de um item. Texto em branco apaga o apelido.
+  void setAlias(int id, String? alias);
+
   /// Troca de lugar dois itens fixados na ordem dos fixados.
   ///
   /// Ignora o pedido se algum dos dois não existir ou não estiver fixado — só
@@ -44,7 +47,7 @@ class SqliteClipboardRepository implements ClipboardRepository {
   List<ClipboardItem> loadAll({int limit = 500}) {
     final rows = _db.select(
       '''
-      SELECT id, content, type, is_pinned, copied_at, pinned_at
+      SELECT id, content, type, is_pinned, copied_at, pinned_at, alias
         FROM clipboard_items
        ORDER BY is_pinned DESC, pinned_at ASC, copied_at DESC
        LIMIT ?;
@@ -69,7 +72,7 @@ class SqliteClipboardRepository implements ClipboardRepository {
     );
 
     final row = _db.select(
-      'SELECT id, content, type, is_pinned, copied_at, pinned_at FROM clipboard_items WHERE content = ?;',
+      'SELECT id, content, type, is_pinned, copied_at, pinned_at, alias FROM clipboard_items WHERE content = ?;',
       [item.content],
     ).first;
 
@@ -85,6 +88,18 @@ class SqliteClipboardRepository implements ClipboardRepository {
         isPinned ? DateTime.now().millisecondsSinceEpoch : null,
         id,
       ],
+    );
+  }
+
+  @override
+  void setAlias(int id, String? alias) {
+    final trimmed = alias?.trim();
+
+    _db.execute(
+      'UPDATE clipboard_items SET alias = ? WHERE id = ?;',
+      // Apelido em branco é ausência de apelido: guardar `''` faria a coluna
+      // ter dois jeitos de dizer a mesma coisa.
+      [trimmed == null || trimmed.isEmpty ? null : trimmed, id],
     );
   }
 
@@ -163,6 +178,7 @@ class SqliteClipboardRepository implements ClipboardRepository {
       pinnedAt: pinnedAt == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(pinnedAt),
+      alias: row['alias'] as String?,
     );
   }
 }

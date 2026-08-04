@@ -30,11 +30,22 @@ superior do macOS.
 | `⌘1`…`⌘5` | Copia direto o 1º…5º **recente** e fecha |
 | `⌥1`…`⌥5` | Copia direto o 1º…5º **fixado** e fecha |
 | `⌘P` | Fixa/desafixa o item selecionado |
+| `⌘R` | Dá um apelido ao item selecionado |
 | `tab` | Abre o preview do item |
 | `esc` | Fecha o preview; se não houver preview, fecha o painel |
 
 O badge à direita de cada linha mostra o atalho dela — não é preciso contar
 posições.
+
+#### Apelidos
+
+Qualquer item — fixado ou não — pode ganhar um apelido: `⌘R`, ou o campo
+"Apelido para achar depois" no preview (`tab`). Enter guarda, `esc` descarta.
+
+O apelido passa a ser o que a lista mostra, com o conteúdo logo atrás em cinza,
+e a busca também procura por ele — dá para achar "chave pix" sem lembrar os
+números. **O que é copiado continua sendo o conteúdo original**; o apelido só
+existe para você reencontrar o item.
 
 #### Por que duas camadas de números
 

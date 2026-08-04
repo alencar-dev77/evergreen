@@ -6,6 +6,8 @@ import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
 import 'package:evergreen/features/pin/presentation/widgets/pin_list_item.dart';
 import 'package:evergreen/features/pin/presentation/widgets/pin_preview_pane.dart';
+import 'package:evergreen/shared/widgets/eg_search_field.dart';
+import 'package:evergreen/shared/widgets/eg_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -157,6 +159,128 @@ void main() {
 
     expect(find.text('Senha temporária: xK9#mPz2'), findsOneWidget);
     expect(find.byType(PinPreviewPane), findsNothing);
+  });
+
+  group('apelido', () {
+    /// O campo do preview, distinguido do campo de busca do topo.
+    Finder aliasField() => find.byType(EgTextField);
+
+    /// Lê o item do fixture direto do repositório — é lá que o apelido é
+    /// gravado, e é isso que precisa sobreviver ao fechamento do overlay.
+    ClipboardItem stored(int id) =>
+        repository.loadAll().firstWhere((item) => item.id == id);
+
+    testWidgets('⌘R abre o preview e leva o cursor ao apelido', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PinPreviewPane), findsOneWidget);
+      expect(aliasField(), findsOneWidget);
+      expect(find.text('Apelido para achar depois'), findsOneWidget);
+
+      // Com o cursor no campo, o rodapé fala só do que a tecla faz ali.
+      expect(find.text('guardar apelido'), findsOneWidget);
+      expect(find.text('descartar'), findsOneWidget);
+    });
+
+    testWidgets('Enter guarda o apelido e ele aparece na lista',
+        (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(aliasField(), 'chave pix');
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(stored(1).alias, 'chave pix');
+      // O conteúdo não é tocado: o apelido só muda o que se lê na lista.
+      expect(stored(1).content, 'Flutter');
+      expect(find.textContaining('chave pix'), findsWidgets);
+
+      // O Enter guardou em vez de copiar e fechar: a lista continua ali.
+      expect(find.byType(PinListItem), findsWidgets);
+    });
+
+    testWidgets('Esc descarta o que foi digitado sem fechar o preview',
+        (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      await tester.enterText(aliasField(), 'chave pix');
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(stored(1).alias, isNull);
+      expect(find.byType(PinPreviewPane), findsOneWidget);
+    });
+
+    testWidgets('trocar de item guarda o apelido do anterior', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      await tester.enterText(aliasField(), 'chave pix');
+      await tester.pumpAndSettle();
+
+      // Clicar em outra linha troca a seleção sem tirar o foco do campo — é o
+      // caminho em que o texto digitado poderia acabar no item errado. A espera
+      // é o tempo do duplo clique: até ele passar, a linha ainda não sabe se o
+      // clique foi simples (selecionar) ou duplo (copiar).
+      await tester.tap(find.byType(PinListItem).at(1));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(stored(1).alias, 'chave pix');
+      // O campo recarrega para o item da vez, que não tem apelido nenhum.
+      expect(tester.widget<EgTextField>(aliasField()).controller.text, isEmpty);
+    });
+
+    testWidgets('copiar um item apelidado copia o conteúdo original',
+        (tester) async {
+      String? copiedText;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      repository.setAlias(1, 'chave pix');
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(copiedText, 'Flutter');
+    });
+
+    testWidgets('a busca acha o item pelo apelido', (tester) async {
+      repository.setAlias(1, 'chave pix');
+      await pumpOverlay(tester);
+
+      // "pix" não aparece em lugar nenhum do conteúdo dos itens.
+      await tester.enterText(find.byType(EgSearchField), 'pix');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PinListItem), findsOneWidget);
+      expect(find.textContaining('chave pix'), findsOneWidget);
+    });
   });
 
   group('atalhos rápidos', () {

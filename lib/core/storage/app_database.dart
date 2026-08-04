@@ -17,10 +17,16 @@ class AppDatabase {
   /// Nome do arquivo dentro de `~/Library/Application Support/<bundle>`.
   static const _fileName = 'evergreen.db';
 
-  /// Migrações indexadas pela versão que produzem. Para evoluir o schema,
-  /// acrescente uma nova entrada — nunca edite uma já publicada.
-  static const _migrations = <String>[
-    '''
+  /// Migrações identificadas por nome, na ordem em que foram escritas. Para
+  /// evoluir o schema, acrescente uma entrada com chave nova — nunca edite nem
+  /// reaproveite uma chave já publicada.
+  ///
+  /// A chave existe porque a posição não distingue duas migrações escritas em
+  /// paralelo: duas branches criando cada uma "a quinta migração" produzem o
+  /// mesmo número, e a que chegasse depois seria pulada em silêncio — o erro só
+  /// aparecia semanas adiante, num `SELECT` de coluna inexistente.
+  static const _migrations = <String, String>{
+    'clipboard-items': '''
     CREATE TABLE IF NOT EXISTS clipboard_items (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       content    TEXT    NOT NULL,
@@ -36,7 +42,7 @@ class AppDatabase {
     // Os fixados passam a ter ordem própria, definida por quando foram
     // fixados. Sem isso eles se reordenariam a cada nova cópia e os atalhos
     // ⌥1..⌥5 mudariam de item sozinhos.
-    '''
+    'clipboard-pinned-order': '''
     ALTER TABLE clipboard_items ADD COLUMN pinned_at INTEGER;
     UPDATE clipboard_items SET pinned_at = copied_at WHERE is_pinned = 1;
     CREATE INDEX IF NOT EXISTS idx_clipboard_pinned
@@ -46,7 +52,7 @@ class AppDatabase {
     // não o fim: com pausas os dois não se derivam um do outro, e o fim não
     // aparece em lugar nenhum da interface — o histórico mostra "quando começou"
     // e "quanto durou".
-    '''
+    'focus-sessions': '''
     CREATE TABLE IF NOT EXISTS focus_sessions (
       id               INTEGER PRIMARY KEY AUTOINCREMENT,
       started_at       INTEGER NOT NULL,
@@ -59,10 +65,16 @@ class AppDatabase {
     ''',
     // Observações escritas durante a sessão ("terminei a task e comecei
     // outra"), uma por linha no formato `minuto|texto` — ver FocusSessionNote.
-    '''
+    'focus-session-notes': '''
     ALTER TABLE focus_sessions ADD COLUMN notes TEXT;
     ''',
-  ];
+    // Apelido dado pela pessoa a um item do histórico ("chave pix"). É só um
+    // nome para reencontrar o item na lista — o conteúdo copiado continua
+    // sendo o original, e por isso mora numa coluna à parte de `content`.
+    'clipboard-alias': '''
+    ALTER TABLE clipboard_items ADD COLUMN alias TEXT;
+    ''',
+  };
 
   /// Abre (ou reaproveita) a conexão com o banco.
   static Future<AppDatabase> open() async {
@@ -91,24 +103,29 @@ class AppDatabase {
   /// um banco em memória com o mesmo schema.
   ///
   /// Roda dentro de uma transação: as duas janelas do Evergreen abrem o banco
-  /// ao mesmo tempo, e sem isso as duas poderiam ler a mesma versão antiga e
+  /// ao mesmo tempo, e sem isso as duas poderiam ler o mesmo registro antigo e
   /// aplicar a mesma migração em seguida.
   static void migrate(Database database) {
     database.execute('BEGIN IMMEDIATE;');
 
     try {
       final currentVersion = _userVersion(database);
+      final applied = _openLedger(database, currentVersion);
 
-      for (var version = currentVersion;
-          version < _migrations.length;
-          version++) {
-        _apply(database, _migrations[version]);
+      for (final migration in _migrations.entries) {
+        if (applied.contains(migration.key)) continue;
+
+        _apply(database, migration.value);
+        database.execute(
+          'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?);',
+          [migration.key, DateTime.now().millisecondsSinceEpoch],
+        );
       }
 
-      // Só avança, nunca retrocede. Escrever o número às cegas fazia um binário
-      // antigo (com menos migrações) rebobinar a versão de um banco já
-      // migrado — e o binário novo, na abertura seguinte, tentava aplicar de
-      // novo uma migração que já estava lá.
+      // `user_version` não manda mais em nada aqui — quem decide é o registro.
+      // Continua sendo escrito só para um binário anterior a esta mudança, que
+      // ainda conta migrações, encontrar um número alto e não tentar reaplicar
+      // as suas por cima. Só avança, nunca retrocede.
       if (_migrations.length > currentVersion) {
         database.execute('PRAGMA user_version = ${_migrations.length};');
       }
@@ -122,6 +139,40 @@ class AppDatabase {
 
   static int _userVersion(Database database) =>
       database.select('PRAGMA user_version;').first.values.first as int;
+
+  /// Garante o registro de migrações aplicadas e devolve o que há nele.
+  ///
+  /// Um banco anterior a este registro só sabe dizer *quantas* migrações rodou,
+  /// em [currentVersion]. Como até ali a ordem do arquivo era a ordem de
+  /// aplicação, as primeiras [currentVersion] chaves são exatamente as que já
+  /// rodaram: semeá-las converte o banco sem reaplicar nada. A contagem só
+  /// decide este primeiro instante — daqui em diante quem responde "esta rodou?"
+  /// é a chave, e branches paralelas deixam de colidir.
+  static Set<String> _openLedger(Database database, int currentVersion) {
+    database.execute('''
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        id         TEXT    PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      );
+    ''');
+
+    final applied = database
+        .select('SELECT id FROM schema_migrations;')
+        .map((row) => row['id'] as String)
+        .toSet();
+
+    if (applied.isNotEmpty || currentVersion == 0) return applied;
+
+    for (final id in _migrations.keys.take(currentVersion)) {
+      database.execute(
+        'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?);',
+        [id, DateTime.now().millisecondsSinceEpoch],
+      );
+      applied.add(id);
+    }
+
+    return applied;
+  }
 
   /// Executa uma migração instrução a instrução.
   ///
@@ -144,9 +195,10 @@ class AppDatabase {
     }
   }
 
-  /// A coluna já existe — ou seja, esta migração já rodou, mesmo que a versão
-  /// gravada diga o contrário. Acontece em bancos que passaram pelo bug de
-  /// versão descrito em [migrate]; tolerar aqui é o que os conserta sozinhos.
+  /// A coluna já existe — ou seja, esta migração já rodou, mesmo que o registro
+  /// diga o contrário. Rede para bancos que atravessaram a época em que a
+  /// contagem de [_userVersion] mandava e podia descrever mal o que rodou;
+  /// tolerar aqui é o que os conserta sozinhos.
   static bool _isAlreadyApplied(SqliteException error) =>
       error.message.contains('duplicate column name');
 

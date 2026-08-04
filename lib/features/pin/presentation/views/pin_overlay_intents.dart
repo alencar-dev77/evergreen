@@ -55,13 +55,46 @@ class PinOpenSettingsIntent extends Intent {
   const PinOpenSettingsIntent();
 }
 
+/// Leva o cursor para o campo de apelido do item selecionado.
+class PinEditAliasIntent extends Intent {
+  const PinEditAliasIntent();
+}
+
+/// Guarda o apelido digitado e devolve o teclado à lista.
+class PinCommitAliasIntent extends Intent {
+  const PinCommitAliasIntent();
+}
+
+/// Desfaz o que foi digitado no apelido e devolve o teclado à lista.
+class PinCancelAliasIntent extends Intent {
+  const PinCancelAliasIntent();
+}
+
 /// Mapa de teclado do overlay.
 ///
 /// Declarar as teclas como `Shortcuts` — e não como um `onKeyEvent` — é o que
 /// permite sobrepor os atalhos padrão de edição de texto: as setas e o Enter
 /// seriam consumidos pelo campo de busca antes de chegarem à lista.
 abstract final class PinOverlayIntents {
-  static final shortcuts = <ShortcutActivator, Intent>{
+  /// O mapa do estado atual.
+  ///
+  /// Com o apelido em edição sobram duas teclas: Enter guarda e Esc desfaz.
+  /// Todo o resto sai do mapa de propósito — setas, Enter e ⌘⌫ pertencem ao
+  /// texto que está sendo digitado, e um atalho que roubasse essas teclas
+  /// tornaria o campo inutilizável.
+  static Map<ShortcutActivator, Intent> shortcuts({
+    bool isEditingAlias = false,
+  }) {
+    if (!isEditingAlias) return _browsing;
+
+    return const <ShortcutActivator, Intent>{
+      SingleActivator(LogicalKeyboardKey.enter): PinCommitAliasIntent(),
+      SingleActivator(LogicalKeyboardKey.numpadEnter): PinCommitAliasIntent(),
+      SingleActivator(LogicalKeyboardKey.escape): PinCancelAliasIntent(),
+    };
+  }
+
+  static final _browsing = <ShortcutActivator, Intent>{
     const SingleActivator(LogicalKeyboardKey.arrowUp):
         const PinMoveSelectionIntent(-1),
     const SingleActivator(LogicalKeyboardKey.arrowDown):
@@ -84,6 +117,10 @@ abstract final class PinOverlayIntents {
     // Backspace solto precisa continuar apagando o texto digitado.
     const SingleActivator(LogicalKeyboardKey.backspace, meta: true):
         const PinDeleteIntent(),
+    // ⌘R de "renomear": a ação atua sobre o item inteiro (fixado ou recente),
+    // então nasce em ⌘ — ⌥ é a camada dos fixados.
+    const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
+        const PinEditAliasIntent(),
     // Convenção do macOS para preferências, válida em qualquer janela do app.
     const SingleActivator(LogicalKeyboardKey.comma, meta: true):
         const PinOpenSettingsIntent(),
@@ -125,6 +162,9 @@ abstract final class PinOverlayIntents {
     required VoidCallback onTogglePin,
     required VoidCallback onDelete,
     required Future<void> Function() onOpenSettings,
+    required VoidCallback onEditAlias,
+    required VoidCallback onCommitAlias,
+    required VoidCallback onCancelAlias,
   }) {
     return <Type, Action<Intent>>{
       PinMoveSelectionIntent: CallbackAction<PinMoveSelectionIntent>(
@@ -168,6 +208,24 @@ abstract final class PinOverlayIntents {
       ),
       PinOpenSettingsIntent: CallbackAction<PinOpenSettingsIntent>(
         onInvoke: (_) => onOpenSettings(),
+      ),
+      PinEditAliasIntent: CallbackAction<PinEditAliasIntent>(
+        onInvoke: (_) {
+          onEditAlias();
+          return null;
+        },
+      ),
+      PinCommitAliasIntent: CallbackAction<PinCommitAliasIntent>(
+        onInvoke: (_) {
+          onCommitAlias();
+          return null;
+        },
+      ),
+      PinCancelAliasIntent: CallbackAction<PinCancelAliasIntent>(
+        onInvoke: (_) {
+          onCancelAlias();
+          return null;
+        },
       ),
     };
   }

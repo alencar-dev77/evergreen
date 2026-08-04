@@ -54,7 +54,9 @@ void main() {
     item(1, 'Flutter', isPinned: true),
     item(2, 'git pull origin develop', isPinned: true),
     item(4, 'https://pub.dev/packages/sqlite3'),
-    item(6, 'Senha temporária: xK9#mPz2'),
+    // Um item apelidado: na lista o apelido vem à frente e o conteúdo fica
+    // atrás dele, em segundo plano.
+    item(6, 'Senha temporária: xK9#mPz2').copyWith(alias: 'senha do roteador'),
     item(9, 'flutter pub get'),
     item(14, 'https://github.com/evergreen/pin'),
     item(30, 'const AppColors.greenPrimary = Color(0xFF22C55E);'),
