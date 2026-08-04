@@ -17,6 +17,9 @@ import 'package:evergreen/features/focus/presentation/viewmodels/focus_timer_vie
 import 'package:evergreen/features/focus/presentation/views/focus_overlay_view.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
+import 'package:evergreen/features/leaf/models/leaf_note.dart';
+import 'package:evergreen/features/leaf/presentation/viewmodels/leaf_view_model.dart';
+import 'package:evergreen/features/leaf/presentation/views/leaf_overlay_view.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
@@ -29,6 +32,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/awake/fake_display_sleep_service.dart';
 import 'features/focus/fake_focus_session_repository.dart';
+import 'features/leaf/fake_leaf_repository.dart';
 import 'features/pin/fake_clipboard_repository.dart';
 
 /// Goldens usados como conferência visual do design durante o desenvolvimento.
@@ -106,6 +110,44 @@ void main() {
     ),
   ]);
 
+  // Cinco vagas ocupadas de nove: mostra a grade cheia de conteúdo real, a
+  // terceira linha ainda por nascer e a vaga que convida a próxima.
+  final notes = FakeLeafRepository([
+    LeafNote(
+      id: 1,
+      slot: 1,
+      content: 'ligar pro contador antes de sexta',
+      createdAt: anchor.subtract(const Duration(days: 3)),
+    ),
+    // Uma anotação no tamanho para que o cartão foi calibrado: o recado de uma
+    // reunião, inteiro, sem reticências.
+    LeafNote(
+      id: 2,
+      slot: 2,
+      content: 'Marina fecha o contrato até sexta. Cobrar o jurídico antes de '
+          'quarta e mandar a minuta revisada junto.',
+      createdAt: anchor.subtract(const Duration(hours: 5)),
+    ),
+    LeafNote(
+      id: 3,
+      slot: 3,
+      content: 'perguntar do deploy de quinta',
+      createdAt: anchor.subtract(const Duration(hours: 2)),
+    ),
+    LeafNote(
+      id: 4,
+      slot: 4,
+      content: 'renovar o domínio em novembro',
+      createdAt: anchor.subtract(const Duration(minutes: 40)),
+    ),
+    LeafNote(
+      id: 5,
+      slot: 5,
+      content: 'pizza sem cebola',
+      createdAt: anchor.subtract(const Duration(minutes: 4)),
+    ),
+  ]);
+
   /// [beforeSettle] roda entre a montagem e o `pumpAndSettle` — é onde o
   /// histórico entra. Antes disso o overlay mostra o indicador de carregamento,
   /// que é indeterminado e nunca deixaria o `pumpAndSettle` terminar.
@@ -132,6 +174,7 @@ void main() {
           // não existe sob `flutter test` — e o `await` da chamada nunca
           // voltaria: o teste ficaria pendurado em vez de falhar.
           displaySleepServiceProvider.overrideWithValue(FakeDisplaySleepService()),
+          leafRepositoryProvider.overrideWithValue(notes),
           sharedPreferencesProvider.overrideWithValue(preferences),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now()),
@@ -268,6 +311,48 @@ void main() {
     await expectLater(
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_focus.png'),
+    );
+  });
+
+  testWidgets('painel do Leaf — parede com anotações', (tester) async {
+    await pump(tester, const LeafOverlayView(), const Size(1800, 1600));
+
+    await expectLater(
+      find.byType(LeafOverlayView),
+      matchesGoldenFile('goldens/leaf_overlay_wall.png'),
+    );
+  });
+
+  testWidgets('painel do Leaf — cartão em edição', (tester) async {
+    await pump(tester, const LeafOverlayView(), const Size(1800, 1600));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LeafOverlayView)),
+    );
+    container.read(leafViewModelProvider.notifier).startNote();
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextField),
+      'Perguntar pro Rafa se o webhook novo já está em produção',
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(LeafOverlayView),
+      matchesGoldenFile('goldens/leaf_overlay_editing.png'),
+    );
+  });
+
+  testWidgets('Hub — Leaf', (tester) async {
+    await pump(tester, const HubView(), const Size(1800, 1900));
+
+    await tester.tap(find.text(EvergreenModule.leaf.name));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_leaf.png'),
     );
   });
 

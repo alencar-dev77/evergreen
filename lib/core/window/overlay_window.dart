@@ -9,7 +9,7 @@ import '../system/previous_app_focus_channel.dart';
 ///
 /// Transforma a janela 0 num painel flutuante: sem chrome, fundo transparente,
 /// sempre acima dos outros apps e presente em todos os Spaces. A janela nunca é
-/// destruída — apenas escondida —, o que faz `⌘⇧C` e `⌘⇧X` abrirem
+/// destruída — apenas escondida —, o que faz `⌘⇧C` e `⌘⇧F` abrirem
 /// instantaneamente. Pin e Focus compartilham esta janela; quem escolhe o
 /// painel é o `overlayPanelProvider`, no lado Dart.
 class OverlayWindow {
@@ -17,13 +17,22 @@ class OverlayWindow {
 
   static final instance = OverlayWindow._();
 
-  /// Largura total da janela. Maior que o painel (420) para acomodar a sombra
-  /// de 60px de blur sem que ela seja cortada pela borda da janela.
-  static const _windowSize = Size(560, 640);
+  /// Tamanho da janela. Maior que qualquer painel para acomodar a sombra de
+  /// 60px de blur sem que ela seja cortada pela borda da janela.
+  ///
+  /// Quem dita a medida é o maior painel — hoje a parede do Leaf, 776x706 com
+  /// as nove vagas ocupadas. Os outros painéis não se mexem por causa disso:
+  /// todos são ancorados no topo da janela, que é transparente, então crescê-la
+  /// só aumenta a área invisível em volta deles.
+  static const _windowSize = Size(920, 800);
 
-  /// Fração da altura da tela onde o topo da janela é posicionado. Um pouco
-  /// acima do centro, como o Spotlight.
-  static const _verticalAnchor = 0.18;
+  /// Fração da altura da tela onde o topo da janela é posicionado.
+  ///
+  /// Quem manda é o painel à vista (`OverlayPanel.verticalAnchor`): os painéis
+  /// são todos ancorados no topo da janela, então a altura de um painel grande
+  /// só cabe na tela se a janela nascer mais alto. Guardado aqui para que
+  /// reposicionar sem trocar de painel repita a mesma âncora.
+  double _verticalAnchor = 0.18;
 
   /// Teto da espera pelo quadro em branco. Se o engine não desenhar nesse
   /// prazo, escondemos assim mesmo: um flash é melhor que uma janela presa.
@@ -79,13 +88,13 @@ class OverlayWindow {
   ///
   /// Reposicionar a cada abertura é o que mantém o painel sempre no monitor que
   /// o usuário está usando, em vez de onde ele foi aberto da última vez.
-  Future<void> show() async {
+  Future<void> show({double? verticalAnchor}) async {
     // Precisa vir antes do `windowManager.show()`: é o instante em que o app
     // anterior ainda é o frontmost do sistema, antes do `NSApp.activate` que
     // o `window_manager` dispara em seguida roubar o foco dele.
     await PreviousAppFocusChannel.capture();
 
-    await _moveToActiveDisplay();
+    await reposition(verticalAnchor);
 
     // O painel volta a ser desenhado só agora: o quadro gravado na janela
     // escondida é o branco deixado por `hide`, e é ele que aparece no instante
@@ -164,7 +173,14 @@ class OverlayWindow {
     ]);
   }
 
-  Future<void> _moveToActiveDisplay() async {
+  /// Leva a janela para a tela onde o cursor está, na altura pedida.
+  ///
+  /// Público porque trocar de painel com a janela já visível também precisa
+  /// dele: o painel novo pode ser mais alto que o anterior, e reposicionar é
+  /// mais barato (e não pisca) comparado a esconder e reexibir a janela.
+  Future<void> reposition([double? verticalAnchor]) async {
+    if (verticalAnchor != null) _verticalAnchor = verticalAnchor;
+
     final display = await _activeDisplay();
     final visible = display.visiblePosition ?? Offset.zero;
     final size = display.visibleSize ?? display.size;

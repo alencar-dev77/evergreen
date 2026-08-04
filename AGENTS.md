@@ -2,10 +2,10 @@
 
 Evergreen é uma suíte pessoal de produtividade para macOS, feita como agente de
 barra de menus (`LSUIElement`) — sem janela ao iniciar, sem ícone no Dock. Tudo
-roda localmente, nada é enviado para a internet. A v0.3 tem três módulos: Pin
+roda localmente, nada é enviado para a internet. São quatro módulos: Pin
 (gerenciador de área de transferência, `⌘⇧C`), Focus (cronômetro de foco com
-registro de atividade, `⌘⇧X`) e Awake (mantém a tela acesa por um prazo,
-`⌘⇧D`).
+registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
+`⌘⇧D`) e Awake (mantém a tela acesa por um prazo, `⌘⇧X`).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 

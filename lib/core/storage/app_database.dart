@@ -74,6 +74,19 @@ class AppDatabase {
     'clipboard-alias': '''
     ALTER TABLE clipboard_items ADD COLUMN alias TEXT;
     ''',
+    // Anotações do Leaf. A vaga (1..9) é única porque ela é a identidade da
+    // anotação na parede — é dela que saem o número do cartão e o `⌘N` que o
+    // copia, e duas anotações na mesma vaga significariam dois cartões
+    // disputando a mesma tecla.
+    'leaf-notes': '''
+    CREATE TABLE IF NOT EXISTS leaf_notes (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      slot       INTEGER NOT NULL,
+      content    TEXT    NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_leaf_slot ON leaf_notes (slot);
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

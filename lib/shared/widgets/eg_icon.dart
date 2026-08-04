@@ -43,6 +43,9 @@ enum EgIconData {
   /// Sol — identifica o módulo Awake (a tela que não apaga).
   sun,
 
+  /// Papel com a ponta dobrada — identifica o módulo Leaf.
+  note,
+
   /// Árvore perene — a marca do Evergreen (preenchida, como a [star]).
   evergreen,
 }
@@ -133,6 +136,7 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.clipboard => _clipboardPath(),
         EgIconData.timer => _timerPath(),
         EgIconData.sun => _sunPath(),
+        EgIconData.note => _notePath(),
         EgIconData.star => _starPath(),
         EgIconData.evergreen => _evergreenPath(),
       };
@@ -246,6 +250,22 @@ class _EgIconPainter extends CustomPainter {
 
     return path;
   }
+
+  /// Papel com a ponta de baixo dobrada — o Leaf.
+  ///
+  /// A dobra é o que distingue este ícone do [_documentPath] (que é o item de
+  /// texto do Pin) sem precisar de uma segunda forma: um é uma folha escrita, o
+  /// outro é uma folha destacada.
+  Path _notePath() => Path()
+    ..moveTo(3, 2.8)
+    ..lineTo(13, 2.8)
+    ..lineTo(13, 9.4)
+    ..lineTo(9.4, 13.2)
+    ..lineTo(3, 13.2)
+    ..close()
+    ..moveTo(13, 9.4)
+    ..lineTo(9.4, 9.4)
+    ..lineTo(9.4, 13.2);
 
   /// Árvore perene do Evergreen, centralizada no viewBox 16x16 (o mesmo
   /// desenho de `assets/icons/evergreen_menu.svg`, reescalado a partir do

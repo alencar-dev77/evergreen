@@ -5,8 +5,9 @@ import 'package:tray_manager/tray_manager.dart';
 /// Ações que o menu da barra de status pode disparar.
 enum MenuBarAction {
   openPin('open_pin', 'Pin', '⌘⇧C'),
-  openFocus('open_focus', 'Focus', '⌘⇧X'),
-  openAwake('open_awake', 'Awake', '⌘⇧D'),
+  openFocus('open_focus', 'Focus', '⌘⇧F'),
+  openLeaf('open_leaf', 'Leaf', '⌘⇧D'),
+  openAwake('open_awake', 'Awake', '⌘⇧X'),
   openHub('open_hub', 'Preferências', '⌘⇧,'),
   quit('quit', 'Encerrar Evergreen');
 
@@ -107,7 +108,7 @@ class MenuBarService with TrayListener {
     return trayManager.setTitle(parts.join(' '));
   }
 
-  /// "Awake   ⌘⇧D" desligado; "Awake · 38 min   ⌘⇧D" ligado.
+  /// "Awake   ⌘⇧X" desligado; "Awake · 38 min   ⌘⇧X" ligado.
   String get _awakeMenuLabel {
     const action = MenuBarAction.openAwake;
     final detail = _awakeDetail;
@@ -127,7 +128,11 @@ class MenuBarService with TrayListener {
         key: MenuBarAction.openFocus.key,
         label: MenuBarAction.openFocus.menuLabel,
       ),
-      // Ligado, o item vira "Awake · 38 min   ⌘⇧D": é onde quem viu o ponto no
+      MenuItem(
+        key: MenuBarAction.openLeaf.key,
+        label: MenuBarAction.openLeaf.menuLabel,
+      ),
+      // Ligado, o item vira "Awake · 38 min   ⌘⇧X": é onde quem viu o ponto no
       // ícone vai procurar quanto falta. Sem marca de seleção, apesar de ser um
       // estado ligado/desligado — clicar aqui abre o painel, como nos outros
       // módulos, e um item marcado prometeria que o clique desliga a trava.

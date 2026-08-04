@@ -24,6 +24,15 @@ enum EvergreenModule {
     icon: EgIconData.timer,
     status: ModuleStatus.available,
   ),
+  leaf(
+    name: 'Leaf',
+    tagline: 'Anotações rápidas',
+    description:
+        'Uma parede de até nove anotações curtas, todas à vista de uma vez. '
+        'Para o que precisa sair da cabeça agora e ser resolvido depois.',
+    icon: EgIconData.note,
+    status: ModuleStatus.available,
+  ),
   awake(
     name: 'Awake',
     tagline: 'Mantém a tela acesa',

@@ -5,6 +5,7 @@ import '../core/window/overlay_panel.dart';
 import '../core/window/overlay_window.dart';
 import '../features/awake/presentation/views/awake_overlay_view.dart';
 import '../features/focus/presentation/views/focus_overlay_view.dart';
+import '../features/leaf/presentation/views/leaf_overlay_view.dart';
 import '../features/pin/presentation/views/pin_overlay_view.dart';
 import 'providers.dart';
 
@@ -12,7 +13,7 @@ import 'providers.dart';
 ///
 /// Trocar de painel é trocar de widget, não de janela: o atalho global de cada
 /// módulo escreve em [overlayPanelProvider] antes de mandar a janela aparecer.
-/// Sem transição entre um painel e outro — quem apertou `⌘⇧X` quer o Focus na
+/// Sem transição entre um painel e outro — quem apertou `⌘⇧F` quer o Focus na
 /// tela, não uma animação.
 ///
 /// O `Opacity` é o outro lado do quadro em branco descrito em
@@ -27,6 +28,7 @@ class OverlayHost extends ConsumerWidget {
     final panel = switch (ref.watch(overlayPanelProvider)) {
       OverlayPanel.pin => const PinOverlayView(),
       OverlayPanel.focus => const FocusOverlayView(),
+      OverlayPanel.leaf => const LeafOverlayView(),
       OverlayPanel.awake => const AwakeOverlayView(),
     };
 

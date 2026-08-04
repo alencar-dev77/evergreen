@@ -21,31 +21,43 @@ class GlobalShortcutService {
   /// Representação do atalho do Pin como key-caps, para a tela de config.
   static const pinShortcutKeys = <String>['⌘', '⇧', 'C'];
 
-  /// Atalho padrão do Focus: `⌘⇧X`.
+  /// Atalho padrão do Focus: `⌘⇧F`.
   static final focusShortcut = HotKey(
     identifier: 'evergreen.focus.toggle',
-    key: PhysicalKeyboardKey.keyX,
+    key: PhysicalKeyboardKey.keyF,
     modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
     scope: HotKeyScope.system,
   );
 
   /// Representação do atalho do Focus como key-caps.
-  static const focusShortcutKeys = <String>['⌘', '⇧', 'X'];
+  static const focusShortcutKeys = <String>['⌘', '⇧', 'F'];
 
-  /// Atalho padrão do Awake: `⌘⇧D`.
+  /// Atalho padrão do Awake: `⌘⇧X`.
   ///
-  /// `D` de *display*, a tela que ele mantém acesa. `⌘⇧A` seria o mnemônico do
-  /// nome, mas é "ir para Aplicativos" no Finder — e atalho global não pode
-  /// tomar uma tecla que os outros apps usam.
+  /// Sem mnemônico, e de propósito: `⌘⇧A` é "ir para Aplicativos" no Finder e
+  /// `⌘⇧D` passou a ser o Leaf, então sobrou a tecla que ninguém disputa. Em
+  /// atalho global, não colidir vale mais que lembrar o nome — o `X` é o que
+  /// resta depois de descartar o que os outros apps já usam.
   static final awakeShortcut = HotKey(
     identifier: 'evergreen.awake.toggle',
-    key: PhysicalKeyboardKey.keyD,
+    key: PhysicalKeyboardKey.keyX,
     modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
     scope: HotKeyScope.system,
   );
 
   /// Representação do atalho do Awake como key-caps.
-  static const awakeShortcutKeys = <String>['⌘', '⇧', 'D'];
+  static const awakeShortcutKeys = <String>['⌘', '⇧', 'X'];
+
+  /// Atalho padrão do Leaf: `⌘⇧D`.
+  static final leafShortcut = HotKey(
+    identifier: 'evergreen.leaf.toggle',
+    key: PhysicalKeyboardKey.keyD,
+    modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
+    scope: HotKeyScope.system,
+  );
+
+  /// Representação do atalho do Leaf como key-caps.
+  static const leafShortcutKeys = <String>['⌘', '⇧', 'D'];
 
   /// Atalho padrão das preferências: `⌘⇧,`.
   ///
@@ -86,6 +98,13 @@ class GlobalShortcutService {
   Future<void> registerAwakeToggle(Future<void> Function() onPressed) async {
     await hotKeyManager.register(
       awakeShortcut,
+      keyDownHandler: (_) => onPressed(),
+    );
+  }
+
+  Future<void> registerLeafToggle(Future<void> Function() onPressed) async {
+    await hotKeyManager.register(
+      leafShortcut,
       keyDownHandler: (_) => onPressed(),
     );
   }

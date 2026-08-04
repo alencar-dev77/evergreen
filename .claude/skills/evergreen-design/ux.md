@@ -31,8 +31,17 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘,` | overlay | abre as preferências (Hub) e fecha o overlay |
 | `⌘1`–`⌘5` | overlay | copia direto o N-ésimo **recente** |
 | `⌥1`–`⌥5` | overlay | copia direto o N-ésimo **fixado** |
-| `⌘⇧X` | global | abre o painel do Focus |
-| `⌘⇧D` | global | abre o painel do Awake (`D` de *display* — `⌘⇧A` é "Aplicativos" no Finder) |
+| `⌘⇧F` | global | abre o painel do Focus |
+| `⌘⇧D` | global | abre o painel do Leaf |
+| `⌘⇧X` | global | abre o painel do Awake (sem mnemônico: `⌘⇧A` é "Aplicativos" no Finder e `⌘⇧D` foi para o Leaf — não colidir vale mais que lembrar o nome) |
+| `⌘+` | Leaf | abre um cartão em branco na primeira vaga livre |
+| `Enter` | Leaf | edita o cartão selecionado — ou anota, quando a vaga selecionada é a livre |
+| `←` `→` `↑` `↓` | Leaf | move a seleção pela grade, parando nas bordas |
+| `⌘1`–`⌘9` | Leaf | copia a anotação daquela vaga e fecha o painel |
+| `⌘⌫` | Leaf | tira o cartão selecionado; os seguintes sobem uma vaga e a parede encolhe |
+| `Enter` | cartão em edição | guarda a anotação e devolve o teclado à parede |
+| `⇧⏎` | cartão em edição | quebra a linha dentro do cartão |
+| `Esc` | cartão em edição | descarta o que foi digitado (um cartão novo não chega a existir) |
 | `Enter` | Awake | liga a trava (e fecha o painel) ou desliga (e fica) |
 | `←` `→` | Awake | troca a duração, com o seletor focado |
 | `Esc` | Awake | fecha o painel; a trava continua como está |
@@ -53,7 +62,7 @@ Quatro convenções que valem para qualquer painel novo:
 - **Atalho global nunca toma uma tecla que os outros apps usam.** `⌘,` é a
   convenção de preferências do sistema e por isso *não* pode ser global — ele
   viraria as preferências do Evergreen em cima das de todo mundo. O prefixo
-  `⌘⇧` é o espaço da casa: `⌘⇧C`, `⌘⇧X`, `⌘⇧,`.
+  `⌘⇧` é o espaço da casa: `⌘⇧C`, `⌘⇧F`, `⌘⇧D`, `⌘⇧X`, `⌘⇧,`.
 - **`Enter` é sempre o botão primário da tela**, e o rodapé anuncia isso com o
   verbo daquele estado ("iniciar", "pausa"). Se uma tela não tem proposta, ela
   não tem primário nem dica de Enter.
@@ -64,6 +73,8 @@ Quatro convenções que valem para qualquer painel novo:
 Dois detalhes de convenção que valem para atalhos futuros:
 
 - **Modificador obrigatório quando um campo de texto tem o foco.** No overlay a busca está sempre focada, então excluir é `⌘⌫` e não `Delete` puro — um Backspace solto precisa continuar apagando o texto digitado. A mesma regra vale para qualquer tecla de ação em tela com campo de texto.
+- **Enter confirma, `⇧⏎` quebra a linha — e o Enter é interceptado acima do campo.** No Leaf o `Shortcuts` do painel consome o Enter antes de ele virar texto; com o Shift junto a combinação não casa com nada no mapa, desce até o campo e quebra a linha. Vale para qualquer campo de várias linhas que precise confirmar por teclado: registrar o Enter no mapa do painel resolve as duas teclas de uma vez, enquanto o `onSubmitted`/`textInputAction` do campo só resolveria uma.
+- **Foco de campo que aparece por mudança de estado se pede à mão.** `autofocus` só vale quando **nada** no escopo tem o foco, e um painel operado por teclado sempre tem (é o nó que recebe os atalhos). Um cartão que abre para escrever precisa de `requestFocus` no quadro seguinte — sem isso ele nasce esperando um clique, e a primeira letra digitada se perde.
 - **Campo que a pessoa escreve e confirma esvazia o mapa de atalhos enquanto tem o foco.** No apelido do Pin sobram duas teclas — Enter guarda, Esc descarta — e o rodapé passa a falar só delas. Setas, `⌘⌫` e os números pertencem ao texto que está sendo digitado; um atalho que os roubasse tornaria o campo inutilizável. É a mesma regra que já desligava o `space` do Focus com o cursor na anotação, agora valendo para o mapa inteiro.
 - **Editar não é confirmar: sair do campo guarda.** O apelido é gravado quando o campo perde o foco, por qualquer caminho (Enter, clicar em outra linha, fechar o painel) — só o Esc desfaz. Painel que some do olho não pode levar junto o que a pessoa acabou de escrever.
 - **O menu da barra ensina os atalhos globais.** Cada item mostra o seu ao lado

@@ -14,6 +14,7 @@ import '../features/awake/presentation/viewmodels/awake_view_model.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
+import '../features/leaf/presentation/viewmodels/leaf_view_model.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'providers.dart';
 
@@ -54,6 +55,7 @@ class EvergreenBootstrap {
     await shortcuts.registerAwakeToggle(
       () => toggleOverlay(OverlayPanel.awake),
     );
+    await shortcuts.registerLeafToggle(() => toggleOverlay(OverlayPanel.leaf));
     await shortcuts.registerHubOpen(HubWindow.instance.open);
   }
 
@@ -160,10 +162,15 @@ class EvergreenBootstrap {
     _container.read(overlayPanelProvider.notifier).show(panel);
 
     // Já visível em outro painel: trocar o conteúdo basta. Reexibir a janela
-    // aqui só a faria piscar e roubaria o foco outra vez.
-    if (await OverlayWindow.instance.isVisible()) return;
+    // aqui só a faria piscar e roubaria o foco outra vez — mas a altura ainda
+    // é a do painel anterior, e um painel grande no lugar de um pequeno sairia
+    // pela borda de baixo da tela.
+    if (await OverlayWindow.instance.isVisible()) {
+      await OverlayWindow.instance.reposition(panel.verticalAnchor);
+      return;
+    }
 
-    await OverlayWindow.instance.show();
+    await OverlayWindow.instance.show(verticalAnchor: panel.verticalAnchor);
   }
 
   Future<void> _prepare(OverlayPanel panel) async {
@@ -174,6 +181,8 @@ class EvergreenBootstrap {
         await _container
             .read(focusTimerViewModelProvider.notifier)
             .prepareForOpen();
+      case OverlayPanel.leaf:
+        await _container.read(leafViewModelProvider.notifier).prepareForOpen();
       case OverlayPanel.awake:
         await _container
             .read(awakeViewModelProvider.notifier)
@@ -187,6 +196,8 @@ class EvergreenBootstrap {
         toggleOverlay(OverlayPanel.pin);
       case MenuBarAction.openFocus:
         toggleOverlay(OverlayPanel.focus);
+      case MenuBarAction.openLeaf:
+        toggleOverlay(OverlayPanel.leaf);
       case MenuBarAction.openAwake:
         toggleOverlay(OverlayPanel.awake);
       case MenuBarAction.openHub:
