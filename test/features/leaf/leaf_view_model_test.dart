@@ -90,13 +90,22 @@ void main() {
     expect(stateOf(container).noteAt(1)?.content, 'duas\nlinhas');
   });
 
+  test('linha em branco do ⇧⏎ duplo é preservada — separa dois blocos', () {
+    final container = containerFor();
+
+    viewModelOf(container).startNote();
+    viewModelOf(container).commitEdit('topo\n\nfundo');
+
+    expect(stateOf(container).noteAt(1)?.content, 'topo\n\nfundo');
+  });
+
   test('linhas em branco a mais viram uma só', () {
     final container = containerFor();
 
     viewModelOf(container).startNote();
-    viewModelOf(container).commitEdit('\n\ntopo\n\n\nfundo\n\n');
+    viewModelOf(container).commitEdit('\n\ntopo\n\n\n\nfundo\n\n');
 
-    expect(stateOf(container).noteAt(1)?.content, 'topo\nfundo');
+    expect(stateOf(container).noteAt(1)?.content, 'topo\n\nfundo');
   });
 
   test('desistir do rascunho não deixa rastro', () {
