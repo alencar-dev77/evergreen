@@ -63,12 +63,15 @@ class LeafNote {
   /// Normaliza o que veio do campo.
   ///
   /// Quebras de linha são preservadas — elas chegam por `⇧⏎` e são a forma de
-  /// separar dois assuntos dentro do mesmo cartão. O que some é o excesso: uma
-  /// sequência de linhas em branco vira uma só, porque três linhas vazias no
-  /// meio de um cartão de nove linhas gastam um terço do espaço sem dizer nada.
+  /// separar dois assuntos dentro do mesmo cartão. A linha em branco entre dois
+  /// blocos também é preservada: quem digita `⇧⏎` duas vezes está separando
+  /// assuntos de propósito, e engoli-la juntava os dois parágrafos na hora de
+  /// guardar. O que some é o excesso: duas ou mais linhas vazias seguidas viram
+  /// uma só, porque três linhas vazias no meio de um cartão de nove linhas
+  /// gastam um terço do espaço sem dizer nada.
   static String sanitize(String raw) => raw
       .replaceAll('\r\n', '\n')
-      .replaceAll(RegExp(r'\n{2,}'), '\n')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .trim();
 
   LeafNote copyWith({int? slot, String? content}) => LeafNote(
