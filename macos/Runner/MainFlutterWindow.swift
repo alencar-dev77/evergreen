@@ -156,6 +156,22 @@ enum HubWindowChannel {
 enum LaunchAtLoginChannel {
   private static let channelName = "launch_at_startup"
 
+  /// Caminho do bundle a partir do qual registramos o item de início.
+  ///
+  /// O `SMAppService` diz se o item está ligado, mas não para onde ele aponta —
+  /// e é isso que precisamos saber para descobrir que ele ficou para trás.
+  private static let registeredPathKey = "evergreen.launchAtLogin.bundlePath"
+
+  /// Só a cópia instalada manda no item de início.
+  ///
+  /// `SMAppService.mainApp` registra o bundle de quem chamou. Sem esta regra,
+  /// abrir uma build de trabalho com o item ligado fazia o macOS passar a subir
+  /// aquela build no login — e ela envelhece no lugar onde foi compilada,
+  /// enquanto as correções seguem para `/Applications`. O sintoma é o pior de
+  /// todos, porque não parece um bug: o app abre, funciona, e as correções
+  /// simplesmente não estão nele.
+  private static let installPrefix = "/Applications/"
+
   static func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
 
@@ -180,6 +196,47 @@ enum LaunchAtLoginChannel {
     return SMAppService.mainApp.status == .enabled
   }
 
+  /// Reaponta o item de início para esta cópia, quando ela é a instalada.
+  ///
+  /// Chamada a cada abertura, mas só faz alguma coisa quando o caminho mudou —
+  /// tipicamente uma vez, na primeira vez que o app é aberto de
+  /// `/Applications` depois de o item ter sido ligado a partir de outro lugar.
+  /// Ver [installPrefix] para o porquê da regra.
+  static func adoptInstalledBundle() {
+    guard #available(macOS 13.0, *) else { return }
+
+    let path = Bundle.main.bundleURL.path
+    guard path.hasPrefix(installPrefix) else { return }
+    guard SMAppService.mainApp.status == .enabled else { return }
+
+    let defaults = UserDefaults.standard
+    guard defaults.string(forKey: registeredPathKey) != path else { return }
+
+    do {
+      try SMAppService.mainApp.register()
+    } catch {
+      // O sistema recusa registrar o que já está registrado, e é justamente
+      // esse o caso aqui: o item existe, apontando para o lugar errado. Só
+      // desfazendo o registro antigo o novo caminho entra no lugar.
+      try? SMAppService.mainApp.unregister()
+
+      guard (try? SMAppService.mainApp.register()) != nil else { return }
+    }
+
+    defaults.set(path, forKey: registeredPathKey)
+  }
+
+  /// Guarda de onde o item de início foi ligado — ver [adoptInstalledBundle].
+  private static func rememberRegistration(enabled: Bool) {
+    let defaults = UserDefaults.standard
+
+    if enabled {
+      defaults.set(Bundle.main.bundleURL.path, forKey: registeredPathKey)
+    } else {
+      defaults.removeObject(forKey: registeredPathKey)
+    }
+  }
+
   private static func setEnabled(_ enabled: Bool, result: @escaping FlutterResult) {
     guard #available(macOS 13.0, *) else {
       result(
@@ -196,6 +253,7 @@ enum LaunchAtLoginChannel {
       } else {
         try SMAppService.mainApp.unregister()
       }
+      rememberRegistration(enabled: enabled)
       result(nil)
     } catch {
       // Builds de desenvolvimento (fora de /Applications, sem assinatura
