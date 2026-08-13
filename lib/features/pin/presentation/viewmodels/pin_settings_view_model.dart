@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
-import '../../../../core/system/previous_app_focus_channel.dart';
 import '../../data/pin_settings_repository.dart';
 import '../../models/pin_settings.dart';
+import 'accessibility_permission_view_model.dart';
 
 final pinSettingsViewModelProvider =
     NotifierProvider<PinSettingsViewModel, PinSettings>(
@@ -29,7 +29,7 @@ class PinSettingsViewModel extends Notifier<PinSettings> {
   /// permissão for concedida.
   Future<void> setAutoPaste(bool value) async {
     if (value) {
-      await PreviousAppFocusChannel.requestAccessibilityPermission();
+      await ref.read(accessibilityPermissionProvider.notifier).request();
     }
     await _update(state.copyWith(autoPaste: value));
   }

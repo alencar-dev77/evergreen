@@ -221,6 +221,15 @@ enum PreviousAppFocusChannel {
   private static let channelName = "previous_app_focus"
   private static var capturedApp: NSRunningApplication?
 
+  /// Se o Evergreen ainda era o app da frente quando o fechamento começou.
+  ///
+  /// Tirado no início do `hide`, e não dentro do `restore`: esconder a janela
+  /// já entrega a frente para outro app, então perguntar depois responde sobre
+  /// o mundo *pós*-fechamento e o `restore` desistia achando que o usuário
+  /// tinha trocado de app sozinho — era daí que vinha o "copiei e o foco não
+  /// voltou".
+  private static var wasFrontmostAtHide = false
+
   static func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
 
@@ -228,6 +237,10 @@ enum PreviousAppFocusChannel {
       switch call.method {
       case "capture":
         capture()
+        result(nil)
+
+      case "beginHide":
+        noteFrontmost()
         result(nil)
 
       case "restore":
@@ -281,6 +294,13 @@ enum PreviousAppFocusChannel {
     capturedApp = frontmost
   }
 
+  /// Registra quem está na frente agora — ver [wasFrontmostAtHide].
+  private static func noteFrontmost() {
+    wasFrontmostAtHide =
+      NSWorkspace.shared.frontmostApplication?.processIdentifier
+      == ProcessInfo.processInfo.processIdentifier
+  }
+
   /// Devolve o foco ao app anterior e cola nele (⌘V sintético).
   ///
   /// Diferente do `restore`, aqui reativamos o app capturado sem exigir que o
@@ -305,8 +325,13 @@ enum PreviousAppFocusChannel {
   /// erro, e o Dart cai no restore comum (o item já está na área de
   /// transferência de qualquer forma).
   private static func restoreAndPaste(result: @escaping FlutterResult) {
+    // Em nenhum caminho de erro o app capturado é descartado: quem trata o erro
+    // do outro lado é o `restore` comum, e sem o app guardado ele não teria a
+    // quem devolver o foco. Era esse descarte que transformava "não consegui
+    // colar" em "e ainda perdi o foco" — o caso mais comum de todos, já que a
+    // permissão de Acessibilidade cai sozinha a cada build nova em
+    // desenvolvimento.
     guard AXIsProcessTrusted() else {
-      capturedApp = nil
       result(
         FlutterError(
           code: "accessibility_denied",
@@ -315,10 +340,7 @@ enum PreviousAppFocusChannel {
       return
     }
 
-    let app = capturedApp
-    capturedApp = nil
-
-    guard let app = app, !app.isTerminated else {
+    guard let app = capturedApp, !app.isTerminated else {
       result(
         FlutterError(
           code: "no_previous_app",
@@ -344,6 +366,7 @@ enum PreviousAppFocusChannel {
         // o foco e precisa ter o campo de texto pronto para receber a tecla.
         DispatchQueue.main.asyncAfter(deadline: .now() + pollInterval) {
           sendPasteKeystroke()
+          capturedApp = nil
           result(nil)
         }
       }
@@ -437,20 +460,25 @@ enum PreviousAppFocusChannel {
     keyUp.post(tap: .cghidEventTap)
   }
 
-  /// Só reativa o app capturado se o Evergreen ainda for o frontmost.
+  /// Só reativa o app capturado se o Evergreen ainda era o frontmost quando o
+  /// fechamento começou.
   ///
   /// Se o usuário clicou em outro app enquanto o overlay estava aberto (o que
-  /// fecha o overlay por perda de foco), esse outro app já é o frontmost aqui
+  /// fecha o overlay por perda de foco), esse outro app já era o frontmost lá
   /// — reativar o app capturado nesse caso roubaria o foco de volta contra a
   /// vontade do usuário.
+  ///
+  /// Quem responde é o instantâneo de [wasFrontmostAtHide], não o estado de
+  /// agora: neste ponto a janela já saiu da tela e a frente já mudou de dono.
   private static func restore() {
-    defer { capturedApp = nil }
+    defer {
+      capturedApp = nil
+      wasFrontmostAtHide = false
+    }
 
+    guard wasFrontmostAtHide else { return }
     guard let app = capturedApp, !app.isTerminated else { return }
-    guard NSWorkspace.shared.frontmostApplication?.processIdentifier
-      == ProcessInfo.processInfo.processIdentifier
-    else { return }
 
-    app.activate(options: [])
+    activate(app)
   }
 }

@@ -15,6 +15,15 @@ class PreviousAppFocusChannel {
   /// frontmost do sistema.
   static Future<void> capture() => _channel.invokeMethod('capture');
 
+  /// Chamar no começo do fechamento, **antes** de esconder a janela.
+  ///
+  /// É aqui que o nativo anota se o Evergreen ainda era o app da frente — a
+  /// pergunta que decide se o foco deve voltar ao app capturado ou se o
+  /// usuário já trocou de app por conta própria. Perguntada depois de esconder
+  /// a janela ela responde sobre outro instante, e a resposta errada é
+  /// justamente "não devolve o foco".
+  static Future<void> beginHide() => _channel.invokeMethod('beginHide');
+
   /// Chamar ao esconder o overlay, para devolver o foco ao app capturado.
   static Future<void> restore() => _channel.invokeMethod('restore');
 
