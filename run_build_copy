@@ -7,8 +7,26 @@
 #   2. Apaga o build anterior (build/macos/.../Release/Evergreen.app), se existir.
 #   3. Apaga a cópia antiga em /Applications, se existir.
 #   4. Roda `flutter build macos --release`.
-#   5. Copia o .app novo para /Applications.
-#   6. Abre o app instalado.
+#   5. Reassina com uma identidade estável (ver abaixo).
+#   6. Copia o .app novo para /Applications.
+#   7. Abre o app instalado.
+#
+# Por que reassinar
+# -----------------
+# O projeto builda com assinatura ad-hoc (`CODE_SIGN_IDENTITY = "-"`), e uma
+# assinatura ad-hoc não tem identidade nenhuma: o macOS só consegue identificar
+# o app pelo hash do binário. Como esse hash muda a cada build, toda permissão
+# que o sistema guarda por app — Acessibilidade, que é o que sustenta o
+# auto-colar do Pin — é descartada em silêncio a cada instalação. O sintoma é
+# o app copiar, devolver o foco e simplesmente não colar.
+#
+# Assinando com um certificado de verdade, a permissão passa a ser guardada
+# contra a identidade, não contra o hash, e sobrevive às builds seguintes.
+#
+# Qual certificado: o do `EVERGREEN_SIGN_IDENTITY`, se estiver definido; senão
+# o primeiro que aparecer no chaveiro. Sem nenhum, o script segue com a
+# assinatura ad-hoc e avisa — dá para instalar e usar, só a permissão é que
+# precisará ser concedida de novo a cada vez.
 #
 # Uso: ./run_build_copy
 
@@ -19,6 +37,7 @@ BUILD_DIR="build/macos/Build/Products/Release"
 BUILT_APP="$BUILD_DIR/$APP_NAME"
 DEST_DIR="/Applications"
 DEST_APP="$DEST_DIR/$APP_NAME"
+ENTITLEMENTS="macos/Runner/Release.entitlements"
 
 # Garante que estamos na raiz do projeto (onde está o pubspec.yaml).
 cd "$(dirname "$0")"
@@ -59,6 +78,34 @@ flutter build macos --release
 if [[ ! -d "$BUILT_APP" ]]; then
   echo "❌ Build não gerou $BUILT_APP" >&2
   exit 1
+fi
+
+echo "🔏 Assinando…"
+SIGN_IDENTITY="${EVERGREEN_SIGN_IDENTITY:-}"
+
+if [[ -z "$SIGN_IDENTITY" ]]; then
+  # O hash em vez do nome: dois certificados podem ter o mesmo nome, e aí o
+  # codesign recusa por ambiguidade.
+  # O `|| true` segura o `set -e`: chaveiro sem certificado nenhum é um caminho
+  # previsto, tratado logo abaixo, não um erro que deva abortar a instalação.
+  SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+    | awk 'NR==1 && /\)/ { print $2 }' || true)"
+fi
+
+if [[ -z "$SIGN_IDENTITY" ]]; then
+  echo "   ⚠️  Nenhum certificado de assinatura no chaveiro — seguindo ad-hoc."
+  echo "      A permissão de Acessibilidade vai precisar ser concedida de novo"
+  echo "      depois desta instalação (Ajustes > Privacidade e Segurança)."
+else
+  # Duas passadas: a primeira assina tudo que está aninhado (frameworks, libs),
+  # a segunda refaz só o topo, que é quem carrega os entitlements — aplicá-los
+  # ao pacote inteiro assinaria cada framework como se fosse o app.
+  codesign --force --deep --sign "$SIGN_IDENTITY" "$BUILT_APP" > /dev/null 2>&1
+  codesign --force --sign "$SIGN_IDENTITY" \
+    --entitlements "$ENTITLEMENTS" "$BUILT_APP" > /dev/null 2>&1
+
+  echo "   assinado com: $(codesign -dvv "$BUILT_APP" 2>&1 \
+    | awk -F'=' '/^Authority/ { print $2; exit }')"
 fi
 
 echo "📦 Copiando pra ${DEST_DIR}…"
