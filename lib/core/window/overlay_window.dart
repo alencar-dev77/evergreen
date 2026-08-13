@@ -136,6 +136,11 @@ class OverlayWindow {
     _isHiding = true;
 
     try {
+      // Antes de qualquer coisa: enquanto a janela ainda está na tela, o
+      // Evergreen ainda é o app da frente, e é essa a foto que decide se o foco
+      // volta para o app anterior. Ver `PreviousAppFocusChannel.beginHide`.
+      await PreviousAppFocusChannel.beginHide();
+
       await _blankPanel();
       await windowManager.hide();
 
