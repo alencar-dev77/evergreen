@@ -400,7 +400,26 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   private var micFile: AVAudioFile?
   private var systemFile: AVAudioFile?
 
+  private var micConverter: AVAudioConverter?
+  private var systemConverter: AVAudioConverter?
+
   private var live: EchoLiveTranscriber?
+
+  /// Formato em que o áudio é gravado: 16 kHz, mono, inteiro de 16 bits.
+  ///
+  /// É o que os modelos de fala esperam — e o que a `SCStream` entrega é bem
+  /// outra coisa: 48 kHz, estéreo, ponto flutuante. Gravar cru custaria **23 MB
+  /// por minuto em cada faixa**, ou seja 2,8 GB por hora de reunião somando as
+  /// duas. Convertido, a mesma hora ocupa 230 MB.
+  ///
+  /// A conversão não perde nada que importe aqui: a fala humana vive abaixo dos
+  /// 8 kHz, que é exatamente o teto que 16 kHz de amostragem preserva. Estéreo
+  /// então não faz falta nenhuma — cada faixa já é uma fonte só.
+  static let recordingFormat = AVAudioFormat(
+    commonFormat: .pcmFormatInt16,
+    sampleRate: 16_000,
+    channels: 1,
+    interleaved: true)!
 
   init(micURL: URL, systemURL: URL) {
     self.micURL = micURL
@@ -414,6 +433,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   func finish() async {
     micFile = nil
     systemFile = nil
+    micConverter = nil
+    systemConverter = nil
     await live?.finish()
     live = nil
   }
@@ -425,14 +446,22 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     do {
       if type == .microphone {
         if micFile == nil {
-          micFile = try AVAudioFile(forWriting: micURL, settings: buffer.format.settings)
+          micFile = try AVAudioFile(
+            forWriting: micURL, settings: Self.recordingFormat.settings)
+          micConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
         }
-        try micFile?.write(from: buffer)
+        if let converted = Self.convert(buffer, with: micConverter) {
+          try micFile?.write(from: converted)
+        }
       } else {
         if systemFile == nil {
-          systemFile = try AVAudioFile(forWriting: systemURL, settings: buffer.format.settings)
+          systemFile = try AVAudioFile(
+            forWriting: systemURL, settings: Self.recordingFormat.settings)
+          systemConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
         }
-        try systemFile?.write(from: buffer)
+        if let converted = Self.convert(buffer, with: systemConverter) {
+          try systemFile?.write(from: converted)
+        }
       }
     } catch {
       // Um bloco perdido não justifica derrubar a gravação inteira: o resto da
@@ -444,6 +473,44 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
       let speaker = type == .microphone ? EchoSpeaker.me : EchoSpeaker.others
       Task { await live.append(buffer: buffer, speaker: speaker) }
     }
+  }
+
+  /// Reamostra o bloco para [recordingFormat].
+  ///
+  /// Precisa da API de bloco do `AVAudioConverter`, e não do `convert(to:from:)`
+  /// simples: mudar a taxa de amostragem muda a quantidade de quadros, e a
+  /// versão simples só aceita conversões que preservam a contagem.
+  static func convert(
+    _ buffer: AVAudioPCMBuffer,
+    with converter: AVAudioConverter?
+  ) -> AVAudioPCMBuffer? {
+    guard let converter = converter else { return nil }
+
+    let ratio = recordingFormat.sampleRate / buffer.format.sampleRate
+    // A folga cobre o arredondamento do reamostrador, que pode devolver um
+    // quadro a mais do que a razão sugere.
+    let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1_024
+
+    guard let output = AVAudioPCMBuffer(pcmFormat: recordingFormat, frameCapacity: capacity)
+    else { return nil }
+
+    var consumed = false
+    var error: NSError?
+
+    let status = converter.convert(to: output, error: &error) { _, inputStatus in
+      // O conversor pede blocos até se dar por satisfeito; temos só um por
+      // chamada, então o segundo pedido responde "no momento não há mais".
+      if consumed {
+        inputStatus.pointee = .noDataNow
+        return nil
+      }
+      consumed = true
+      inputStatus.pointee = .haveData
+      return buffer
+    }
+
+    guard status != .error, output.frameLength > 0 else { return nil }
+    return output
   }
 
   /// Converte o bloco da `SCStream` no formato que o `AVAudioFile` e o
