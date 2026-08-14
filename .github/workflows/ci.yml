@@ -1,0 +1,30 @@
+name: CI
+
+# Roda em `macos-latest`, e não no `ubuntu-latest` mais barato: o Evergreen é um
+# app macOS-only, os testes de widget desenham telas que só existem aqui e o
+# `sqlite3` chega por native assets do próprio sistema.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  analyze-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      - run: flutter analyze
+
+      # Os goldens de conferência visual ficam de fora de propósito: dependem
+      # das fontes do sistema e são gerados à mão com
+      # `flutter test --run-skipped -t preview --update-goldens`.
+      - run: flutter test
