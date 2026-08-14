@@ -18,12 +18,6 @@ import Speech
 enum EchoChannel {
   private static let channelName = "echo"
 
-  /// O canal do engine que pediu a gravação — o da janela flutuante.
-  ///
-  /// Mesma regra do `PasteboardWatcherChannel`: os dois engines registram o
-  /// seu, mas o aviso de transcrição ao vivo precisa voltar para quem pediu.
-  private static weak var activeChannel: FlutterMethodChannel?
-
   /// Criado só quando o sistema aguenta.
   ///
   /// O Echo inteiro exige macOS 26 — é de lá que vêm o `SpeechAnalyzer` e o
@@ -75,7 +69,9 @@ enum EchoChannel {
         requestScreenRecording(result: result)
 
       case "startRecording":
-        activeChannel = channel
+        // O aviso do ao vivo volta por este mesmo `channel`, que é o do engine
+        // que pediu a gravação — a janela flutuante. Os dois engines registram
+        // o seu, e cada um só recebe o que ele mesmo começou.
         let live = arguments["liveTranscription"] as? Bool ?? false
         let locale = arguments["locale"] as? String ?? "pt-BR"
         Task {
@@ -443,23 +439,25 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     guard type == .audio || type == .microphone else { return }
     guard let buffer = Self.pcmBuffer(from: sampleBuffer) else { return }
 
+    var converted: AVAudioPCMBuffer?
+
     do {
       if type == .microphone {
         if micFile == nil {
-          micFile = try AVAudioFile(
-            forWriting: micURL, settings: Self.recordingFormat.settings)
+          micFile = try Self.makeFile(at: micURL)
           micConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
         }
-        if let converted = Self.convert(buffer, with: micConverter) {
+        converted = Self.convert(buffer, with: micConverter)
+        if let converted = converted {
           try micFile?.write(from: converted)
         }
       } else {
         if systemFile == nil {
-          systemFile = try AVAudioFile(
-            forWriting: systemURL, settings: Self.recordingFormat.settings)
+          systemFile = try Self.makeFile(at: systemURL)
           systemConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
         }
-        if let converted = Self.convert(buffer, with: systemConverter) {
+        converted = Self.convert(buffer, with: systemConverter)
+        if let converted = converted {
           try systemFile?.write(from: converted)
         }
       }
@@ -469,10 +467,34 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
       return
     }
 
-    if let live = live {
-      let speaker = type == .microphone ? EchoSpeaker.me : EchoSpeaker.others
-      Task { await live.append(buffer: buffer, speaker: speaker) }
+    // O ao vivo recebe o bloco **convertido**, nunca o cru: o analisador de
+    // fala só aceita o formato que ele mesmo declara em
+    // `bestAvailableAudioFormat` — que é exatamente o [recordingFormat]. Com o
+    // formato da captura (48 kHz, estéreo, ponto flutuante) o Speech aborta o
+    // processo lá dentro, e não por um erro que dê para capturar.
+    //
+    // Entregue daqui, e não de uma `Task`: as duas faixas chegam por uma fila
+    // serial só, então chamar direto preserva a ordem dos blocos. Uma `Task`
+    // por bloco desmancharia justamente isso — elas não têm ordem entre si, e
+    // o áudio chegaria embaralhado no analisador.
+    if let converted = converted {
+      live?.append(converted)
     }
+  }
+
+  /// Cria o arquivo já no formato em que os blocos vão chegar.
+  ///
+  /// Sem o `commonFormat:`, o `AVAudioFile` mantém o `processingFormat` em
+  /// ponto flutuante mesmo quando os `settings` pedem inteiro de 16 bits — e aí
+  /// `write(from:)` com um bloco Int16 **não devolve erro**: aborta o processo
+  /// dentro do AudioToolbox, onde nenhum `catch` alcança. Dizer o formato aqui
+  /// é o que faz o arquivo aceitar o que o conversor produz.
+  private static func makeFile(at url: URL) throws -> AVAudioFile {
+    try AVAudioFile(
+      forWriting: url,
+      settings: recordingFormat.settings,
+      commonFormat: recordingFormat.commonFormat,
+      interleaved: recordingFormat.isInterleaved)
   }
 
   /// Reamostra o bloco para [recordingFormat].
@@ -647,8 +669,13 @@ enum EchoTranscriber {
 /// O que ela produz é aviso na tela enquanto a reunião acontece, não o
 /// resultado final — esse sai do arquivo, depois. Se ela falhar, engasgar ou
 /// for desligada no meio, nada se perde.
+///
+/// Classe, e não `actor`, por causa da ordem: os blocos de áudio chegam por uma
+/// fila serial só (a mesma para as duas faixas) e são entregues aqui de forma
+/// síncrona. Num `actor`, cada bloco viraria uma `Task` — e `Task`s não têm
+/// ordem garantida entre si, o que entregaria o áudio embaralhado.
 @available(macOS 26.0, *)
-actor EchoLiveTranscriber {
+final class EchoLiveTranscriber {
   private let channel: FlutterMethodChannel
   private let transcriber: SpeechTranscriber
   private let analyzer: SpeechAnalyzer
@@ -666,7 +693,7 @@ actor EchoLiveTranscriber {
     let analyzer = SpeechAnalyzer(inputSequence: stream, modules: [transcriber])
     let live = EchoLiveTranscriber(
       channel: channel, transcriber: transcriber, analyzer: analyzer, continuation: continuation)
-    await live.startPump()
+    live.startPump()
     return live
   }
 
@@ -686,6 +713,12 @@ actor EchoLiveTranscriber {
     pump = Task { [transcriber, channel] in
       do {
         for try await result in transcriber.results {
+          // Só o que o analisador já deu por fechado. O preset progressivo
+          // reemite o mesmo trecho a cada revisão enquanto ainda está
+          // decidindo — somar todos encheria o painel da mesma frase crescendo
+          // ("olá", "olá tudo", "olá tudo bem"), que é ruído, não sinal.
+          guard result.isFinal else { continue }
+
           let text = String(result.text.characters)
           guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
 
@@ -699,9 +732,15 @@ actor EchoLiveTranscriber {
     }
   }
 
-  /// O microfone e a saída chegam em formatos diferentes; o analisador aceita
-  /// os dois porque cada bloco carrega o próprio formato.
-  func append(buffer: AVAudioPCMBuffer, speaker: EchoSpeaker) {
+  /// Recebe um bloco **já convertido** para `EchoStreamOutput.recordingFormat`.
+  ///
+  /// O analisador não aceita qualquer formato: `bestAvailableAudioFormat`
+  /// responde 16 kHz, mono, inteiro de 16 bits — exatamente o formato em que a
+  /// gravação já grava. Entregar o bloco cru da captura aborta o processo
+  /// dentro do Speech, sem erro que dê para capturar.
+  ///
+  /// Síncrono, e chamado da fila de áudio: é o que preserva a ordem dos blocos.
+  func append(_ buffer: AVAudioPCMBuffer) {
     continuation.yield(AnalyzerInput(buffer: buffer))
   }
 

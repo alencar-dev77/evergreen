@@ -151,6 +151,29 @@ void main() {
     expect(state().menuBarLabel, isNull);
   });
 
+  test('a gravação nasce sem transcrição ao vivo', () async {
+    // O padrão é desligado, e de propósito: transcrever ao vivo custa
+    // processador exatamente enquanto a chamada de vídeo já está consumindo a
+    // máquina.
+    await viewModel().start();
+
+    expect(channel.startedWithLiveTranscription, isFalse);
+    expect(channel.startedWithLocale, 'pt-BR');
+  });
+
+  test('a transcrição ao vivo ligada chega ao canal', () async {
+    // As preferências são editadas no Hub, que roda em outro engine — daí o
+    // `reload` antes de gravar. Sem ele a gravação sairia no modo de ontem, e
+    // nada no Dart denunciaria: o ao vivo simplesmente não aconteceria.
+    await preferences.setBool('echo.liveTranscription', true);
+    await preferences.setString('echo.language', 'en-US');
+
+    await viewModel().start();
+
+    expect(channel.startedWithLiveTranscription, isTrue);
+    expect(channel.startedWithLocale, 'en-US');
+  });
+
   test('o texto ao vivo não passa dos últimos trechos', () async {
     // É o `initialize` que assina o canal — sem ele, não há transcrição ao vivo
     // chegando de lugar nenhum.

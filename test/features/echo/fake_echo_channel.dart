@@ -30,6 +30,14 @@ class FakeEchoChannel implements EchoChannel {
 
   bool didStart = false;
   bool didCancel = false;
+
+  /// Com que preferências a gravação foi pedida.
+  ///
+  /// São elas que decidem o modo lá no nativo — o ao vivo liga um segundo
+  /// analisador, o idioma escolhe o modelo de fala. Ler a preferência errada
+  /// não quebra nada visível no Dart: a gravação sai calada no modo de ontem.
+  bool? startedWithLiveTranscription;
+  String? startedWithLocale;
   List<String> deletedAudio = const [];
   List<String> summarizedTexts = [];
   List<String> summarizedInstructions = [];
@@ -77,6 +85,8 @@ class FakeEchoChannel implements EchoChannel {
   }) async {
     if (failWith != null) throw failWith!;
     didStart = true;
+    startedWithLiveTranscription = liveTranscription;
+    startedWithLocale = locale;
   }
 
   @override
