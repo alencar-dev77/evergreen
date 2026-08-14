@@ -139,21 +139,32 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
         EgSettingsSection(
           title: 'Resumo',
           children: [
+            // O campo desce para baixo do rótulo em vez de ficar na coluna da
+            // direita, onde todas as outras preferências põem o seu controle.
+            // A regra que decide é o tamanho da resposta: um seletor cabe ao
+            // lado do rótulo, um texto de três linhas não — espremido em 260px
+            // ele mostraria meia frase por vez e faria a pessoa escrever numa
+            // fresta.
             EgSettingsRow(
               label: 'Como você quer o resumo',
               description:
                   'Vale para todas as reuniões, e é aplicada quando você '
                   'aperta Resumir. Curta e direta funciona melhor: o modelo é '
                   'local e pequeno, e ignora instrução longa demais.',
-              showDivider: summaries.explanation != null,
-              trailing: SizedBox(
-                width: 260,
-                child: EgTextField(
-                  controller: _instructions,
-                  focusNode: _instructionsFocus,
-                  hintText: EchoSettings.defaultInstructionsHint,
-                  onSubmitted: (_) => _save(),
-                ),
+              showDivider: false,
+              trailing: const SizedBox.shrink(),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: EgTextField(
+                controller: _instructions,
+                focusNode: _instructionsFocus,
+                hintText: EchoSettings.defaultInstructionsHint,
+                minLines: 3,
+                maxLines: 6,
+                // Sem `onSubmitted`: com várias linhas o Enter quebra a linha,
+                // que é o que se espera de um campo desse tamanho. Quem guarda
+                // é sair do campo — a mesma regra do apelido do Pin.
               ),
             ),
             if (summaries.explanation != null)
