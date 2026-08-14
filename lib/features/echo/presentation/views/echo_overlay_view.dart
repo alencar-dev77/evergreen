@@ -327,7 +327,8 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
     EchoPhase.idle => 'Echo',
     EchoPhase.recording => 'Gravando',
     EchoPhase.transcribing => 'Transcrevendo',
-    EchoPhase.done => 'Transcrição pronta',
+    EchoPhase.done =>
+      (state.lastMeeting?.isEmpty ?? false) ? 'Nenhuma fala' : 'Transcrição pronta',
     EchoPhase.failed => 'Não deu certo',
   };
 
@@ -348,7 +349,9 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
     EchoPhase.idle => 'Sua voz e o áudio da reunião, em faixas separadas',
     EchoPhase.recording => 'Fechar o painel não para a gravação',
     EchoPhase.transcribing => 'Pode levar alguns minutos',
-    EchoPhase.done => 'O resumo fica no Hub',
+    EchoPhase.done => (state.lastMeeting?.isEmpty ?? false)
+        ? 'A gravação saiu muda — confira o microfone e a saída de áudio'
+        : 'O resumo fica no Hub',
     EchoPhase.failed => null,
   };
 

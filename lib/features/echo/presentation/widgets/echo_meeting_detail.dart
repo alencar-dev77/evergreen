@@ -96,6 +96,16 @@ class EchoMeetingDetail extends StatelessWidget {
       return Text(label, style: AppTypography.captionSmall);
     }
 
+    // Sem transcrição não há o que resumir, e um botão que não faz nada é pior
+    // que botão nenhum: a pessoa clica, não acontece nada, e não fica sabendo
+    // se o app travou ou se ela entendeu errado.
+    if (meeting.isEmpty) {
+      return Text(
+        'Não há o que resumir: esta gravação não capturou nenhuma fala.',
+        style: AppTypography.captionSmall,
+      );
+    }
+
     final explanation = summaries.explanation;
     if (explanation != null) {
       return Text(explanation, style: AppTypography.captionSmall);
@@ -110,8 +120,10 @@ class EchoMeetingDetail extends StatelessWidget {
   Widget _transcript() {
     if (meeting.isEmpty) {
       return Text(
-        'A transcrição saiu vazia — nenhuma fala foi reconhecida nesta '
-        'gravação.',
+        'Nenhuma fala foi reconhecida. As duas causas comuns: o microfone '
+        'estava sem permissão, ou o áudio da reunião não estava saindo pelos '
+        'alto-falantes — fone de ouvido Bluetooth, por exemplo, não passa pela '
+        'captura do sistema.',
         style: AppTypography.captionSmall,
       );
     }
