@@ -537,36 +537,52 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
 
   /// Converte o bloco da `SCStream` no formato que o `AVAudioFile` e o
   /// analisador de fala entendem.
+  ///
+  /// **Copia** as amostras, e é aí que mora a diferença. A versão anterior usava
+  /// `CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer` preenchendo a
+  /// lista do próprio `AVAudioPCMBuffer` — só que essa função não copia nada:
+  /// ela aponta a lista para a memória de um `CMBlockBuffer`, devolvido numa
+  /// variável local. Ao sair daqui, a variável morria, o bloco era liberado, e o
+  /// buffer que este método devolvia apontava para memória solta.
+  ///
+  /// O sintoma não era um estouro: era **silêncio**. Memória liberada lê como
+  /// zeros, então os arquivos saíam com a duração certa, o tamanho certo e nada
+  /// dentro — e a transcrição, corretamente, não encontrava fala nenhuma.
+  ///
+  /// `withAudioBufferList` segura o bloco vivo enquanto o fecho roda, que é a
+  /// janela em que a cópia acontece.
   static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
-    guard let description = CMSampleBufferGetFormatDescription(sampleBuffer),
-          let streamDescription = CMAudioFormatDescriptionGetStreamBasicDescription(description),
-          let format = AVAudioFormat(streamDescription: streamDescription)
+    guard let description = sampleBuffer.formatDescription,
+          var streamDescription = description.audioStreamBasicDescription,
+          let format = AVAudioFormat(streamDescription: &streamDescription)
     else { return nil }
 
-    let frames = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
+    let frames = AVAudioFrameCount(sampleBuffer.numSamples)
     guard frames > 0,
           let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)
     else { return nil }
 
     buffer.frameLength = frames
 
-    let list = buffer.mutableAudioBufferList
-    // O tamanho precisa contar todos os buffers: áudio não-intercalado chega com
-    // um por canal, e assumir um só trunca o segundo canal em silêncio.
-    let listSize = AudioBufferList.sizeInBytes(maximumBuffers: Int(list.pointee.mNumberBuffers))
+    do {
+      try sampleBuffer.withAudioBufferList { source, _ in
+        let destination = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
 
-    var blockBuffer: CMBlockBuffer?
-    let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
-      sampleBuffer,
-      bufferListSizeNeededOut: nil,
-      bufferListOut: list,
-      bufferListSize: listSize,
-      blockBufferAllocator: nil,
-      blockBufferMemoryAllocator: nil,
-      flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
-      blockBufferOut: &blockBuffer)
+        // Um buffer por canal quando o áudio é não-intercalado; um só quando é
+        // intercalado. Percorrer o menor dos dois cobre os dois casos sem
+        // supor qual deles a `SCStream` escolheu.
+        for index in 0..<min(source.count, destination.count) {
+          guard let from = source[index].mData,
+                let to = destination[index].mData
+          else { continue }
 
-    guard status == noErr else { return nil }
+          memcpy(to, from, Int(min(source[index].mDataByteSize, destination[index].mDataByteSize)))
+        }
+      }
+    } catch {
+      return nil
+    }
+
     return buffer
   }
 }

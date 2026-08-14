@@ -12,11 +12,14 @@ import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../../models/echo_settings.dart';
+import '../../models/echo_capabilities.dart';
 import '../../models/transcription_language.dart';
 import '../viewmodels/echo_library_view_model.dart';
+import '../viewmodels/echo_recorder_view_model.dart';
 import '../viewmodels/echo_settings_view_model.dart';
 import '../widgets/echo_meeting_detail.dart';
 import '../widgets/echo_meeting_list.dart';
+import '../widgets/echo_permission_row.dart';
 
 /// Tela do Echo dentro do Hub.
 class EchoSettingsView extends ConsumerStatefulWidget {
@@ -48,7 +51,10 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
     // As reuniões são gravadas no engine da janela flutuante; este é o do Hub,
     // que só descobre o que existe indo ao banco.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(ref.read(echoLibraryViewModelProvider.notifier).load());
+      if (!mounted) return;
+      unawaited(ref.read(echoLibraryViewModelProvider.notifier).load());
+      // As permissões podem ter mudado nos Ajustes desde a última vez.
+      unawaited(ref.read(echoRecorderViewModelProvider.notifier).prepareForOpen());
     });
   }
 
@@ -70,6 +76,11 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
     final summaries = ref.watch(
       echoLibraryViewModelProvider.select((state) => state.summaries),
     );
+
+    final capabilities = ref.watch(
+      echoRecorderViewModelProvider.select((state) => state.capabilities),
+    );
+    final recorder = ref.read(echoRecorderViewModelProvider.notifier);
 
     final library = ref.watch(echoLibraryViewModelProvider);
     final libraryViewModel = ref.read(echoLibraryViewModelProvider.notifier);
@@ -106,6 +117,47 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 onDelete: () => libraryViewModel.delete(selected.id!),
               ),
             ],
+          ],
+        ),
+        EgSettingsSection(
+          title: 'Permissões',
+          children: [
+            EchoPermissionRow(
+              title: 'Microfone',
+              detail: 'Grava a sua voz.',
+              status: capabilities.microphone,
+              onPressed: recorder.requestMicrophone,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            EchoPermissionRow(
+              title: 'Gravação de Tela',
+              detail:
+                  'Dá acesso ao áudio da reunião — a fala das outras pessoas. '
+                  'O Echo não grava imagem nenhuma; é só por aqui que o macOS '
+                  'entrega o som que sai do computador.',
+              status: capabilities.screenRecording,
+              onPressed: recorder.requestScreenRecording,
+            ),
+            if (capabilities.screenRecording == PermissionStatus.denied)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: Text(
+                  'Depois de ligar a Gravação de Tela nos Ajustes, encerre e '
+                  'abra o Evergreen de novo — o macOS só libera a captura para '
+                  'um app que iniciou depois da permissão.',
+                  style: AppTypography.captionSmall,
+                ),
+              ),
+            if (capabilities.canRecord)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: Text(
+                  'Tudo liberado. Lembre que o áudio precisa sair pelos '
+                  'alto-falantes: fone de ouvido não passa pela captura do '
+                  'sistema, e a faixa da reunião sai muda.',
+                  style: AppTypography.captionSmall,
+                ),
+              ),
           ],
         ),
         EgSettingsSection(

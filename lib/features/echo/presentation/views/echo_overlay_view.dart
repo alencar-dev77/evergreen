@@ -17,6 +17,7 @@ import '../../../../shared/widgets/eg_panel.dart';
 import '../../models/echo_capabilities.dart';
 import '../viewmodels/echo_recorder_state.dart';
 import '../viewmodels/echo_recorder_view_model.dart';
+import '../widgets/echo_permission_row.dart';
 import 'echo_overlay_intents.dart';
 
 /// Painel flutuante do Echo — a tela que o `⌘⇧E` abre.
@@ -121,6 +122,12 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
         await _viewModel.stopAndTranscribe();
 
       case EchoPhase.done:
+        // Gravação muda não tem o que ser lido no Hub; a proposta ali é tentar
+        // de novo. Com transcrição, é o contrário.
+        if (state.lastMeeting?.isEmpty ?? false) {
+          _viewModel.reset();
+          return;
+        }
         await _openHub();
 
       case EchoPhase.failed:
@@ -248,14 +255,14 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
           style: AppTypography.captionSmall,
         ),
         const SizedBox(height: AppSpacing.xl),
-        _PermissionRow(
+        EchoPermissionRow(
           title: 'Microfone',
           detail: 'Grava a sua voz.',
           status: capabilities.microphone,
           onPressed: _viewModel.requestMicrophone,
         ),
         const SizedBox(height: AppSpacing.md),
-        _PermissionRow(
+        EchoPermissionRow(
           title: 'Gravação de Tela',
           detail: 'Dá acesso ao áudio da reunião — a fala das outras pessoas.',
           status: capabilities.screenRecording,
@@ -311,10 +318,28 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
       expand: true,
       onPressed: _close,
     ),
-    EchoPhase.done => EgButton(
-      label: 'Abrir no Hub',
-      expand: true,
-      onPressed: _primary,
+    EchoPhase.done => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: (state.lastMeeting?.isEmpty ?? false)
+          ? [
+              EgButton(label: 'Gravar de novo', expand: true, onPressed: _primary),
+              const SizedBox(height: AppSpacing.sm),
+              EgButton.secondary(
+                label: 'Abrir no Hub',
+                expand: true,
+                onPressed: _openHub,
+              ),
+            ]
+          : [
+              EgButton(label: 'Abrir no Hub', expand: true, onPressed: _primary),
+              const SizedBox(height: AppSpacing.sm),
+              EgButton.secondary(
+                label: 'Gravar de novo',
+                expand: true,
+                onPressed: _viewModel.reset,
+              ),
+            ],
     ),
     EchoPhase.failed => EgButton.secondary(
       label: 'Voltar',
@@ -376,59 +401,9 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
   String _primaryHint(EchoRecorderState state) => switch (state.phase) {
     EchoPhase.idle => 'gravar',
     EchoPhase.recording => 'parar',
-    EchoPhase.done => 'abrir no Hub',
+    EchoPhase.done =>
+      (state.lastMeeting?.isEmpty ?? false) ? 'gravar de novo' : 'abrir no Hub',
     EchoPhase.failed => 'voltar',
     EchoPhase.transcribing => '',
   };
-}
-
-/// Uma permissão: o que ela traz, e o botão que resolve.
-///
-/// O verbo do botão muda com o estado — "Permitir" enquanto o sistema ainda vai
-/// perguntar, "Abrir Ajustes" depois de um "não", porque aí pedir de novo não
-/// faz nada. Concedida, some o botão e fica a confirmação.
-class _PermissionRow extends StatelessWidget {
-  const _PermissionRow({
-    required this.title,
-    required this.detail,
-    required this.status,
-    required this.onPressed,
-  });
-
-  final String title;
-  final String detail;
-  final PermissionStatus status;
-  final Future<void> Function() onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: AppTypography.bodyCompactEmphasis),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(detail, style: AppTypography.captionXS),
-            ],
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        if (status.isGranted)
-          Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xxs),
-            child: Text(
-              'liberado',
-              style: AppTypography.captionXS.copyWith(
-                color: AppColors.greenPrimary,
-              ),
-            ),
-          )
-        else
-          EgButton.secondary(label: status.actionLabel, onPressed: onPressed),
-      ],
-    );
-  }
 }

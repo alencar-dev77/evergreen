@@ -66,6 +66,14 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   Future<void> prepareForOpen() async {
     if (state.isRecording || state.isBusy) return;
 
+    // Uma reunião já encerrada não pode continuar ocupando o painel: quem
+    // aperta `⌘⇧E` de novo está pedindo a próxima gravação, não relendo o
+    // desfecho da anterior — esse mora no Hub. Sem isto o painel virava um beco
+    // sem saída, e a única forma de gravar de novo era reiniciar o app.
+    if (state.phase == EchoPhase.done || state.phase == EchoPhase.failed) {
+      reset();
+    }
+
     await _refreshCapabilities();
   }
 
@@ -178,7 +186,13 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       _repository.trimHistory(settings.historyLimit);
 
       // Só agora: o texto está salvo, o áudio virou andaime.
-      await _channel.deleteAudio(files.paths);
+      //
+      // Menos quando não saiu texto nenhum. Transcrição vazia é falha na
+      // prática — apagar o áudio ali seria jogar fora a única cópia do que foi
+      // dito, por causa de um problema que pode ser de permissão, de saída de
+      // som ou do próprio reconhecimento. Fica em disco, e a varredura do
+      // próximo início limpa se a pessoa não fizer nada.
+      if (segments.isNotEmpty) await _channel.deleteAudio(files.paths);
 
       _startedAt = null;
       state = state.copyWith(phase: EchoPhase.done, lastMeeting: meeting);
