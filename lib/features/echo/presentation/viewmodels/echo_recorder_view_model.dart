@@ -6,6 +6,7 @@ import '../../../../app/providers.dart';
 import '../../data/echo_channel.dart';
 import '../../data/echo_repository.dart';
 import '../../data/echo_settings_repository.dart';
+import '../../models/cross_talk_filter.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
 import 'echo_recorder_state.dart';
@@ -167,9 +168,14 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
     try {
       files = await _channel.stopRecording();
 
-      final segments = await _channel.transcribe(
-        files: files,
-        locale: settings.language.locale,
+      // Com a reunião saindo por alto-falante, o microfone escuta de volta o
+      // que o computador toca, e a mesma fala aparece nas duas faixas. O filtro
+      // devolve a separação de quem falou, que é a razão de existir do módulo.
+      final segments = CrossTalkFilter.clean(
+        await _channel.transcribe(
+          files: files,
+          locale: settings.language.locale,
+        ),
       );
 
       final startedAt = _startedAt ?? _now();
