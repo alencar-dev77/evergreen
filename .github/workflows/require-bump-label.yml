@@ -1,0 +1,27 @@
+name: Require version bump label
+
+# Mesma regra do LuizLaporta e do Portal_LL, com uma diferença: lá o bump
+# acontece na integração (`validation`) e a promoção para `main` herda a versão.
+# O Evergreen não tem branch de integração — as PRs vão direto para `main`, que
+# por isso é onde a label é exigida e onde a versão sobe.
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  check-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check exactly one bump label
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          COUNT=$(echo "$LABELS" | jq '[.[] | select(startswith("bump:"))] | length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::Nenhuma label bump:patch/bump:minor/bump:major encontrada nesta PR. Adicione uma antes de mergear."
+            exit 1
+          elif [ "$COUNT" -gt 1 ]; then
+            echo "::error::Mais de uma label bump: encontrada nesta PR. Deixe apenas uma."
+            exit 1
+          fi
+          echo "OK: 1 label de bump encontrada."
