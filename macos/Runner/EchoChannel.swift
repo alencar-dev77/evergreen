@@ -1,0 +1,693 @@
+import AVFoundation
+import CoreGraphics
+import FlutterMacOS
+import Foundation
+import FoundationModels
+import ScreenCaptureKit
+import Speech
+
+/// Canal nativo do Echo: grava a reunião, transcreve e resume — tudo local.
+///
+/// Nada aqui tem equivalente em Flutter puro, e por três motivos diferentes:
+/// capturar o áudio que sai do computador é `ScreenCaptureKit`, transcrever é o
+/// modelo de fala do sistema (`SpeechAnalyzer`, macOS 26) e resumir é o modelo
+/// do Apple Intelligence (`FoundationModels`). O Dart manda começar, parar e
+/// pedir; a decisão de *como* é toda deste lado.
+///
+/// O porquê de cada escolha está em `docs/Ideis projeto/echo-transcricao.md`.
+enum EchoChannel {
+  private static let channelName = "echo"
+
+  /// O canal do engine que pediu a gravação — o da janela flutuante.
+  ///
+  /// Mesma regra do `PasteboardWatcherChannel`: os dois engines registram o
+  /// seu, mas o aviso de transcrição ao vivo precisa voltar para quem pediu.
+  private static weak var activeChannel: FlutterMethodChannel?
+
+  /// Criado só quando o sistema aguenta.
+  ///
+  /// O Echo inteiro exige macOS 26 — é de lá que vêm o `SpeechAnalyzer` e o
+  /// modelo do Apple Intelligence. Guardar o gravador como `Any?` é o preço de
+  /// o resto do Evergreen continuar rodando no macOS 10.15.
+  private static var storedRecorder: Any?
+
+  @available(macOS 26.0, *)
+  private static var recorder: EchoRecorder {
+    if let existing = storedRecorder as? EchoRecorder { return existing }
+    let created = EchoRecorder()
+    storedRecorder = created
+    return created
+  }
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+
+    channel.setMethodCallHandler { call, result in
+      let arguments = call.arguments as? [String: Any] ?? [:]
+
+      // Abaixo do macOS 26 não existe nem transcritor nem modelo de resumo. A
+      // UI pergunta `capabilities` antes de oferecer qualquer coisa; as demais
+      // chamadas respondem erro em vez de fingir que funcionaram.
+      guard #available(macOS 26.0, *) else {
+        if call.method == "capabilities" {
+          result([
+            "microphone": "denied",
+            "screenRecording": "denied",
+            "summaries": "unsupportedOS",
+          ])
+        } else {
+          result(FlutterError(
+            code: "unsupported_os",
+            message: "O Echo precisa do macOS 26 ou superior.",
+            details: nil))
+        }
+        return
+      }
+
+      switch call.method {
+      case "capabilities":
+        result(capabilities())
+
+      case "requestMicrophone":
+        requestMicrophone(result: result)
+
+      case "requestScreenRecording":
+        requestScreenRecording(result: result)
+
+      case "startRecording":
+        activeChannel = channel
+        let live = arguments["liveTranscription"] as? Bool ?? false
+        let locale = arguments["locale"] as? String ?? "pt-BR"
+        Task {
+          await recorder.start(
+            liveTranscription: live, locale: locale, channel: channel, result: result)
+        }
+
+      case "stopRecording":
+        Task { await recorder.stop(result: result) }
+
+      case "cancelRecording":
+        Task { await recorder.cancel(result: result) }
+
+      case "transcribe":
+        let micPath = arguments["micPath"] as? String
+        let systemPath = arguments["systemPath"] as? String
+        let locale = arguments["locale"] as? String ?? "pt-BR"
+        Task {
+          await EchoTranscriber.transcribe(
+            micPath: micPath, systemPath: systemPath, locale: locale, result: result)
+        }
+
+      case "summarize":
+        let text = arguments["text"] as? String ?? ""
+        let instructions = arguments["instructions"] as? String
+        Task { await EchoSummarizer.summarize(text: text, instructions: instructions, result: result) }
+
+      case "installLocale":
+        let locale = arguments["locale"] as? String ?? "pt-BR"
+        Task { await EchoTranscriber.installLocale(locale, result: result) }
+
+      case "deleteAudio":
+        let paths = arguments["paths"] as? [String] ?? []
+        for path in paths { try? FileManager.default.removeItem(atPath: path) }
+        result(nil)
+
+      case "cleanOrphanAudio":
+        cleanOrphanAudio()
+        result(nil)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// Se já pedimos a gravação de tela alguma vez.
+  ///
+  /// O macOS não tem "ainda não perguntei" para essa permissão:
+  /// `CGPreflightScreenCaptureAccess` responde `false` tanto para "nunca pedi"
+  /// quanto para "o usuário negou", e `CGRequestScreenCaptureAccess` só abre o
+  /// diálogo na primeira vez. Sem guardar isso, não há como saber se a saída é
+  /// pedir ou mandar a pessoa para os Ajustes.
+  private static let screenAskedKey = "evergreen.echo.screenRecordingAsked"
+
+  /// O que esta máquina consegue fazer, para a UI não oferecer o impossível.
+  @available(macOS 26.0, *)
+  private static func capabilities() -> [String: Any] {
+    let microphone: String
+    switch AVCaptureDevice.authorizationStatus(for: .audio) {
+    case .authorized: microphone = "granted"
+    case .notDetermined: microphone = "notDetermined"
+    default: microphone = "denied"
+    }
+
+    let screenGranted = CGPreflightScreenCaptureAccess()
+    let screenAsked = UserDefaults.standard.bool(forKey: screenAskedKey)
+    let screenRecording = screenGranted
+      ? "granted"
+      : (screenAsked ? "denied" : "notDetermined")
+
+    var summaries = "unavailable"
+    switch SystemLanguageModel.default.availability {
+    case .available:
+      summaries = "available"
+    case .unavailable(let reason):
+      switch reason {
+      case .deviceNotEligible: summaries = "deviceNotEligible"
+      case .appleIntelligenceNotEnabled: summaries = "appleIntelligenceNotEnabled"
+      case .modelNotReady: summaries = "modelNotReady"
+      @unknown default: summaries = "unavailable"
+      }
+    }
+
+    return [
+      "microphone": microphone,
+      "screenRecording": screenRecording,
+      "summaries": summaries,
+    ]
+  }
+
+  /// Pede o microfone — ou leva aos Ajustes quando não há mais o que pedir.
+  ///
+  /// `requestAccess` só abre diálogo enquanto o estado é "ainda não perguntei".
+  /// Depois de um "não", ele retorna `false` na hora, calado. Era daí que vinha
+  /// o botão que não fazia nada: o app pedia, o sistema respondia
+  /// instantaneamente que não, e não havia mais nada na tela.
+  @available(macOS 26.0, *)
+  private static func requestMicrophone(result: @escaping FlutterResult) {
+    guard AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined else {
+      openSettings(pane: "Privacy_Microphone")
+      result(capabilities())
+      return
+    }
+
+    AVCaptureDevice.requestAccess(for: .audio) { _ in
+      // Fora da thread de UI o diálogo do sistema não aparece.
+      DispatchQueue.main.async { result(capabilities()) }
+    }
+  }
+
+  /// Pede a gravação de tela — a permissão que dá acesso ao áudio da reunião.
+  ///
+  /// Duas diferenças cruéis em relação ao microfone, e as duas parecem bug:
+  ///
+  /// 1. `CGRequestScreenCaptureAccess` só abre o diálogo **uma vez na vida** do
+  ///    app. Da segunda em diante ele responde `false` sem mostrar nada — por
+  ///    isso guardamos que já pedimos e mandamos a pessoa para os Ajustes.
+  /// 2. Conceder **não vale imediatamente**: o macOS só entrega a permissão a
+  ///    um processo que subiu depois dela. Enquanto o app não for reaberto, a
+  ///    resposta continua sendo `false` mesmo com a chave ligada nos Ajustes —
+  ///    e é por isso que a interface avisa para reabrir o Evergreen em vez de
+  ///    ficar dizendo que falta permissão.
+  @available(macOS 26.0, *)
+  private static func requestScreenRecording(result: @escaping FlutterResult) {
+    if CGPreflightScreenCaptureAccess() {
+      result(capabilities())
+      return
+    }
+
+    if UserDefaults.standard.bool(forKey: screenAskedKey) {
+      openSettings(pane: "Privacy_ScreenCapture")
+      result(capabilities())
+      return
+    }
+
+    UserDefaults.standard.set(true, forKey: screenAskedKey)
+    CGRequestScreenCaptureAccess()
+    result(capabilities())
+  }
+
+  /// Abre a página exata dos Ajustes, não a lista inteira de privacidade.
+  private static func openSettings(pane: String) {
+    guard let url = URL(
+      string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")
+    else { return }
+
+    NSWorkspace.shared.open(url)
+  }
+
+  /// Varre áudio deixado para trás por uma queda no meio de uma reunião.
+  ///
+  /// O áudio é andaime: existe entre gravar e transcrever, e some depois. Se o
+  /// app morrer no meio, ninguém apaga — daí esta varredura no início.
+  @available(macOS 26.0, *)
+  private static func cleanOrphanAudio() {
+    let directory = EchoRecorder.audioDirectory
+    guard let files = try? FileManager.default.contentsOfDirectory(at: directory,
+                                                                   includingPropertiesForKeys: nil)
+    else { return }
+
+    for file in files {
+      try? FileManager.default.removeItem(at: file)
+    }
+  }
+}
+
+// MARK: - Gravação
+
+/// Grava a reunião em duas faixas separadas.
+///
+/// A separação é a razão de o Echo saber quem falou sem nenhum modelo de
+/// diarização: o microfone é você e só você; o áudio do sistema é todo mundo
+/// menos você. Uma única `SCStream` entrega as duas — `captureMicrophone` (a
+/// partir do macOS 15) e o áudio do sistema saem como saídas distintas do mesmo
+/// fluxo, com uma permissão só e sem driver virtual.
+///
+/// `excludesCurrentProcessAudio` impede o Evergreen de gravar a si mesmo.
+@available(macOS 26.0, *)
+actor EchoRecorder {
+  /// Onde o áudio mora enquanto existe.
+  ///
+  /// Em `Caches`, não junto do banco: é arquivo temporário, e o próprio macOS
+  /// sabe limpar o que ficar para trás.
+  nonisolated static var audioDirectory: URL {
+    let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+      .appendingPathComponent("com.alencardev.evergreen/echo", isDirectory: true)
+    try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+    return base
+  }
+
+  private var stream: SCStream?
+  private var output: EchoStreamOutput?
+  private var startedAt: Date?
+  private var micURL: URL?
+  private var systemURL: URL?
+
+  func start(
+    liveTranscription: Bool,
+    locale: String,
+    channel: FlutterMethodChannel,
+    result: @escaping FlutterResult
+  ) async {
+    guard stream == nil else {
+      result(FlutterError(code: "already_recording", message: "Já existe uma gravação em andamento.", details: nil))
+      return
+    }
+
+    guard CGPreflightScreenCaptureAccess() else {
+      result(FlutterError(
+        code: "screen_recording_denied",
+        message: "Sem permissão de Gravação de Tela não dá para capturar o áudio da reunião.",
+        details: nil))
+      return
+    }
+
+    do {
+      let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+      guard let display = content.displays.first else {
+        result(FlutterError(code: "no_display", message: "Nenhuma tela disponível para capturar áudio.", details: nil))
+        return
+      }
+
+      let stamp = Int(Date().timeIntervalSince1970 * 1000)
+      let micURL = Self.audioDirectory.appendingPathComponent("\(stamp)-mic.caf")
+      let systemURL = Self.audioDirectory.appendingPathComponent("\(stamp)-sistema.caf")
+
+      let configuration = SCStreamConfiguration()
+      configuration.capturesAudio = true
+      configuration.excludesCurrentProcessAudio = true
+      configuration.captureMicrophone = true
+      configuration.sampleRate = 48_000
+      configuration.channelCount = 2
+      // O vídeo não interessa, mas a SCStream exige um filtro de tela. Dois
+      // pixels a um quadro por segundo é o mais perto de "nada" que dá para
+      // pedir sem abrir mão do áudio.
+      configuration.width = 2
+      configuration.height = 2
+      configuration.minimumFrameInterval = CMTime(value: 1, timescale: 1)
+
+      let filter = SCContentFilter(display: display, excludingWindows: [])
+      let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+
+      let output = EchoStreamOutput(micURL: micURL, systemURL: systemURL)
+      if liveTranscription {
+        await output.enableLiveTranscription(locale: locale, channel: channel)
+      }
+
+      let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
+      try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: queue)
+      try stream.addStreamOutput(output, type: .microphone, sampleHandlerQueue: queue)
+
+      try await stream.startCapture()
+
+      self.stream = stream
+      self.output = output
+      self.micURL = micURL
+      self.systemURL = systemURL
+      self.startedAt = Date()
+
+      result(["startedAt": Int(Date().timeIntervalSince1970 * 1000)])
+    } catch {
+      result(FlutterError(code: "start_failed", message: error.localizedDescription, details: nil))
+    }
+  }
+
+  func stop(result: @escaping FlutterResult) async {
+    guard let stream = stream else {
+      result(FlutterError(code: "not_recording", message: "Nenhuma gravação em andamento.", details: nil))
+      return
+    }
+
+    try? await stream.stopCapture()
+    await output?.finish()
+
+    let duration = startedAt.map { Int(Date().timeIntervalSince($0) * 1000) } ?? 0
+    let payload: [String: Any] = [
+      "micPath": micURL?.path as Any,
+      "systemPath": systemURL?.path as Any,
+      "durationMs": duration,
+    ]
+
+    reset()
+    result(payload)
+  }
+
+  /// Para e joga o áudio fora — para quando a pessoa desiste no meio.
+  func cancel(result: @escaping FlutterResult) async {
+    if let stream = stream {
+      try? await stream.stopCapture()
+      await output?.finish()
+    }
+
+    for url in [micURL, systemURL].compactMap({ $0 }) {
+      try? FileManager.default.removeItem(at: url)
+    }
+
+    reset()
+    result(nil)
+  }
+
+  private func reset() {
+    stream = nil
+    output = nil
+    startedAt = nil
+    micURL = nil
+    systemURL = nil
+  }
+}
+
+/// Recebe os blocos de áudio da `SCStream` e escreve cada faixa no seu arquivo.
+///
+/// Os dois arquivos nascem no primeiro bloco recebido, e não na abertura: o
+/// formato de cada faixa vem do próprio sistema (o microfone raramente casa com
+/// a saída), então só dá para criar o arquivo quando o primeiro bloco revela em
+/// que formato ele vai chegar.
+@available(macOS 26.0, *)
+final class EchoStreamOutput: NSObject, SCStreamOutput {
+  private let micURL: URL
+  private let systemURL: URL
+
+  private var micFile: AVAudioFile?
+  private var systemFile: AVAudioFile?
+
+  private var live: EchoLiveTranscriber?
+
+  init(micURL: URL, systemURL: URL) {
+    self.micURL = micURL
+    self.systemURL = systemURL
+  }
+
+  func enableLiveTranscription(locale: String, channel: FlutterMethodChannel) async {
+    live = await EchoLiveTranscriber.make(locale: locale, channel: channel)
+  }
+
+  func finish() async {
+    micFile = nil
+    systemFile = nil
+    await live?.finish()
+    live = nil
+  }
+
+  func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+    guard type == .audio || type == .microphone else { return }
+    guard let buffer = Self.pcmBuffer(from: sampleBuffer) else { return }
+
+    do {
+      if type == .microphone {
+        if micFile == nil {
+          micFile = try AVAudioFile(forWriting: micURL, settings: buffer.format.settings)
+        }
+        try micFile?.write(from: buffer)
+      } else {
+        if systemFile == nil {
+          systemFile = try AVAudioFile(forWriting: systemURL, settings: buffer.format.settings)
+        }
+        try systemFile?.write(from: buffer)
+      }
+    } catch {
+      // Um bloco perdido não justifica derrubar a gravação inteira: o resto da
+      // reunião continua valendo mais que o trecho que falhou.
+      return
+    }
+
+    if let live = live {
+      let speaker = type == .microphone ? EchoSpeaker.me : EchoSpeaker.others
+      Task { await live.append(buffer: buffer, speaker: speaker) }
+    }
+  }
+
+  /// Converte o bloco da `SCStream` no formato que o `AVAudioFile` e o
+  /// analisador de fala entendem.
+  static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
+    guard let description = CMSampleBufferGetFormatDescription(sampleBuffer),
+          let streamDescription = CMAudioFormatDescriptionGetStreamBasicDescription(description),
+          let format = AVAudioFormat(streamDescription: streamDescription)
+    else { return nil }
+
+    let frames = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
+    guard frames > 0,
+          let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)
+    else { return nil }
+
+    buffer.frameLength = frames
+
+    let list = buffer.mutableAudioBufferList
+    // O tamanho precisa contar todos os buffers: áudio não-intercalado chega com
+    // um por canal, e assumir um só trunca o segundo canal em silêncio.
+    let listSize = AudioBufferList.sizeInBytes(maximumBuffers: Int(list.pointee.mNumberBuffers))
+
+    var blockBuffer: CMBlockBuffer?
+    let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+      sampleBuffer,
+      bufferListSizeNeededOut: nil,
+      bufferListOut: list,
+      bufferListSize: listSize,
+      blockBufferAllocator: nil,
+      blockBufferMemoryAllocator: nil,
+      flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
+      blockBufferOut: &blockBuffer)
+
+    guard status == noErr else { return nil }
+    return buffer
+  }
+}
+
+// MARK: - Transcrição
+
+enum EchoSpeaker: String {
+  case me
+  case others
+}
+
+/// Transcreve as duas faixas depois que a reunião acaba.
+///
+/// Depois, e não durante, por decisão de produto: transcrever ao vivo custa
+/// processador justamente enquanto a chamada de vídeo já está consumindo a
+/// máquina. Gravar é barato; transcrever é que pesa. Quem tiver folga de sobra
+/// liga a transcrição ao vivo nas preferências — e mesmo assim o arquivo
+/// continua sendo gravado, então o resultado final não depende dela.
+@available(macOS 26.0, *)
+enum EchoTranscriber {
+  static func transcribe(
+    micPath: String?,
+    systemPath: String?,
+    locale: String,
+    result: @escaping FlutterResult
+  ) async {
+    do {
+      var segments: [[String: Any]] = []
+
+      if let micPath = micPath, FileManager.default.fileExists(atPath: micPath) {
+        segments += try await transcribeFile(at: micPath, locale: locale, speaker: .me)
+      }
+      if let systemPath = systemPath, FileManager.default.fileExists(atPath: systemPath) {
+        segments += try await transcribeFile(at: systemPath, locale: locale, speaker: .others)
+      }
+
+      // Intercalar por tempo é o que transforma duas transcrições paralelas em
+      // uma conversa legível.
+      segments.sort { ($0["startMs"] as? Int ?? 0) < ($1["startMs"] as? Int ?? 0) }
+
+      result(segments)
+    } catch {
+      result(FlutterError(code: "transcription_failed", message: error.localizedDescription, details: nil))
+    }
+  }
+
+  private static func transcribeFile(
+    at path: String,
+    locale: String,
+    speaker: EchoSpeaker
+  ) async throws -> [[String: Any]] {
+    let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
+    let transcriber = SpeechTranscriber(
+      locale: Locale(identifier: locale),
+      preset: .timeIndexedTranscriptionWithAlternatives)
+
+    let analyzer = SpeechAnalyzer(modules: [transcriber])
+
+    let collector = Task { () -> [[String: Any]] in
+      var collected: [[String: Any]] = []
+      for try await result in transcriber.results {
+        let text = String(result.text.characters)
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+
+        collected.append([
+          "speaker": speaker.rawValue,
+          "startMs": Int(result.range.start.seconds * 1000),
+          "endMs": Int(result.range.end.seconds * 1000),
+          "text": text,
+        ])
+      }
+      return collected
+    }
+
+    _ = try await analyzer.analyzeSequence(from: file)
+    try await analyzer.finalizeAndFinishThroughEndOfInput()
+
+    return try await collector.value
+  }
+
+  /// Garante que o modelo daquele idioma está na máquina, baixando se faltar.
+  static func installLocale(_ locale: String, result: @escaping FlutterResult) async {
+    let transcriber = SpeechTranscriber(
+      locale: Locale(identifier: locale),
+      preset: .timeIndexedTranscriptionWithAlternatives)
+
+    do {
+      if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+        try await request.downloadAndInstall()
+      }
+      result(true)
+    } catch {
+      result(FlutterError(code: "locale_install_failed", message: error.localizedDescription, details: nil))
+    }
+  }
+}
+
+/// Transcrição ao vivo: opcional, e de propósito descartável.
+///
+/// O que ela produz é aviso na tela enquanto a reunião acontece, não o
+/// resultado final — esse sai do arquivo, depois. Se ela falhar, engasgar ou
+/// for desligada no meio, nada se perde.
+@available(macOS 26.0, *)
+actor EchoLiveTranscriber {
+  private let channel: FlutterMethodChannel
+  private let transcriber: SpeechTranscriber
+  private let analyzer: SpeechAnalyzer
+  private let continuation: AsyncStream<AnalyzerInput>.Continuation
+  private var pump: Task<Void, Never>?
+
+  static func make(locale: String, channel: FlutterMethodChannel) async -> EchoLiveTranscriber? {
+    let transcriber = SpeechTranscriber(
+      locale: Locale(identifier: locale),
+      preset: .timeIndexedProgressiveTranscription)
+
+    var continuation: AsyncStream<AnalyzerInput>.Continuation!
+    let stream = AsyncStream<AnalyzerInput> { continuation = $0 }
+
+    let analyzer = SpeechAnalyzer(inputSequence: stream, modules: [transcriber])
+    let live = EchoLiveTranscriber(
+      channel: channel, transcriber: transcriber, analyzer: analyzer, continuation: continuation)
+    await live.startPump()
+    return live
+  }
+
+  private init(
+    channel: FlutterMethodChannel,
+    transcriber: SpeechTranscriber,
+    analyzer: SpeechAnalyzer,
+    continuation: AsyncStream<AnalyzerInput>.Continuation
+  ) {
+    self.channel = channel
+    self.transcriber = transcriber
+    self.analyzer = analyzer
+    self.continuation = continuation
+  }
+
+  private func startPump() {
+    pump = Task { [transcriber, channel] in
+      do {
+        for try await result in transcriber.results {
+          let text = String(result.text.characters)
+          guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+
+          await MainActor.run {
+            channel.invokeMethod("onLiveSegment", arguments: ["text": text])
+          }
+        }
+      } catch {
+        // Ao vivo é enfeite: falhou, para de avisar e a reunião segue gravando.
+      }
+    }
+  }
+
+  /// O microfone e a saída chegam em formatos diferentes; o analisador aceita
+  /// os dois porque cada bloco carrega o próprio formato.
+  func append(buffer: AVAudioPCMBuffer, speaker: EchoSpeaker) {
+    continuation.yield(AnalyzerInput(buffer: buffer))
+  }
+
+  func finish() async {
+    continuation.finish()
+    try? await analyzer.finalizeAndFinishThroughEndOfInput()
+    pump?.cancel()
+  }
+}
+
+// MARK: - Resumo
+
+/// Resume um bloco de texto com o modelo do Apple Intelligence.
+///
+/// Um bloco por chamada, de propósito: quem corta o texto em blocos é o Dart,
+/// onde isso é lógica testável. Aqui só entra o que já cabe na janela do
+/// modelo.
+@available(macOS 26.0, *)
+enum EchoSummarizer {
+  /// Instrução usada quando a pessoa não escreveu a dela nas preferências.
+  static let defaultInstructions = """
+    Você resume reuniões em português do Brasil. \
+    Escreva em tópicos curtos. \
+    Registre decisões, pendências e quem ficou responsável por cada coisa. \
+    Não invente nada que não esteja no texto.
+    """
+
+  static func summarize(text: String, instructions: String?, result: @escaping FlutterResult) async {
+    guard case .available = SystemLanguageModel.default.availability else {
+      result(FlutterError(
+        code: "model_unavailable",
+        message: "O modelo do Apple Intelligence não está disponível nesta máquina.",
+        details: nil))
+      return
+    }
+
+    let chosen = instructions?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let session = LanguageModelSession(
+      instructions: (chosen?.isEmpty == false ? chosen : nil) ?? defaultInstructions)
+
+    do {
+      let response = try await session.respond(to: text)
+      result(response.content)
+    } catch let error as LanguageModelSession.GenerationError {
+      // O estouro de janela é o único erro que o Dart sabe tratar sozinho:
+      // ele reparte o bloco e tenta de novo.
+      if case .exceededContextWindowSize = error {
+        result(FlutterError(code: "context_window_exceeded", message: error.localizedDescription, details: nil))
+        return
+      }
+      result(FlutterError(code: "summary_failed", message: error.localizedDescription, details: nil))
+    } catch {
+      result(FlutterError(code: "summary_failed", message: error.localizedDescription, details: nil))
+    }
+  }
+}

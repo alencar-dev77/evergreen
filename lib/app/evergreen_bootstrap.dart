@@ -11,6 +11,8 @@ import '../core/window/overlay_panel.dart';
 import '../core/window/overlay_window.dart';
 import '../features/awake/presentation/viewmodels/awake_state.dart';
 import '../features/awake/presentation/viewmodels/awake_view_model.dart';
+import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
+import '../features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
@@ -34,6 +36,7 @@ class EvergreenBootstrap {
 
   Future<void> start() async {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
+    unawaited(_container.read(echoRecorderViewModelProvider.notifier).initialize());
 
     await _syncLaunchAtLogin();
     await _registerShortcuts();
@@ -42,6 +45,7 @@ class EvergreenBootstrap {
     // nela, inclusive para limpá-lo.
     _watchFocusSession();
     _watchAwake();
+    _watchEcho();
     await _openHubIfRequested();
   }
 
@@ -56,6 +60,7 @@ class EvergreenBootstrap {
       () => toggleOverlay(OverlayPanel.awake),
     );
     await shortcuts.registerLeafToggle(() => toggleOverlay(OverlayPanel.leaf));
+    await shortcuts.registerEchoToggle(() => toggleOverlay(OverlayPanel.echo));
     await shortcuts.registerHubOpen(HubWindow.instance.open);
   }
 
@@ -102,6 +107,23 @@ class EvergreenBootstrap {
         if (previous?.menuBarDetail == next.menuBarDetail) return;
 
         unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
+      },
+      fireImmediately: true,
+    );
+  }
+
+  /// Mantém a barra de menus em dia com a gravação do Echo.
+  ///
+  /// A assinatura também é o que segura a gravação viva fora da árvore de
+  /// widgets: a reunião continua sendo gravada com o painel fechado, que é o
+  /// caso normal — ninguém fica olhando um painel por trinta minutos.
+  void _watchEcho() {
+    _container.listen<EchoRecorderState>(
+      echoRecorderViewModelProvider,
+      (previous, next) {
+        if (previous?.menuBarLabel == next.menuBarLabel) return;
+
+        unawaited(MenuBarService.instance.setEchoLabel(next.menuBarLabel));
       },
       fireImmediately: true,
     );
@@ -187,6 +209,10 @@ class EvergreenBootstrap {
         await _container
             .read(awakeViewModelProvider.notifier)
             .prepareForOpen();
+      case OverlayPanel.echo:
+        await _container
+            .read(echoRecorderViewModelProvider.notifier)
+            .prepareForOpen();
     }
   }
 
@@ -200,6 +226,8 @@ class EvergreenBootstrap {
         toggleOverlay(OverlayPanel.leaf);
       case MenuBarAction.openAwake:
         toggleOverlay(OverlayPanel.awake);
+      case MenuBarAction.openEcho:
+        toggleOverlay(OverlayPanel.echo);
       case MenuBarAction.openHub:
         HubWindow.instance.open();
       case MenuBarAction.quit:

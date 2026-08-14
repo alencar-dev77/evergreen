@@ -47,6 +47,7 @@ class MainFlutterWindow: NSWindow {
     PreviousAppFocusChannel.register(with: controller.engine.binaryMessenger)
     HubWindowChannel.register(with: controller.engine.binaryMessenger)
     PasteboardWatcherChannel.register(with: controller.engine.binaryMessenger)
+    EchoChannel.register(with: controller.engine.binaryMessenger)
   }
 
   /// Dá ao Hub um tamanho de janela de preferências.

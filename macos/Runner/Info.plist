@@ -28,6 +28,11 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
+	<!-- O Echo grava a sua voz pelo microfone e a das outras pessoas pelo áudio
+	     do computador. As duas faixas ficam separadas para o app saber quem
+	     falou sem precisar de modelo de reconhecimento de voz. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>O Echo usa o microfone para gravar a sua fala nas reuniões. O áudio fica nesta máquina, é apagado assim que a transcrição termina, e nada é enviado para a internet.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

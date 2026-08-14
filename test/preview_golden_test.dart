@@ -6,11 +6,18 @@ import 'dart:io';
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/design/app_colors.dart';
+import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
 import 'package:evergreen/features/awake/presentation/views/awake_overlay_view.dart';
+import 'package:evergreen/features/echo/data/echo_repository.dart';
+import 'package:evergreen/features/echo/models/meeting.dart';
+import 'package:evergreen/features/echo/models/meeting_segment.dart';
+import 'package:evergreen/features/echo/models/transcription_language.dart';
+import 'package:evergreen/features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
+import 'package:evergreen/features/echo/presentation/views/echo_overlay_view.dart';
 import 'package:evergreen/features/focus/models/focus_session.dart';
 import 'package:evergreen/features/focus/models/focus_session_note.dart';
 import 'package:evergreen/features/focus/presentation/viewmodels/focus_timer_view_model.dart';
@@ -29,8 +36,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import 'features/awake/fake_display_sleep_service.dart';
+import 'features/echo/fake_echo_channel.dart';
 import 'features/focus/fake_focus_session_repository.dart';
 import 'features/leaf/fake_leaf_repository.dart';
 import 'features/pin/fake_clipboard_repository.dart';
@@ -58,10 +67,66 @@ void main() {
   });
 
   late SharedPreferences preferences;
+  late Database echoDb;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
+
+    // A tela do Pin pergunta ao canal nativo se a permissão de Acessibilidade
+    // existe, e sob `flutter test` não há lado nativo para responder: a
+    // exceção subia no meio do primeiro quadro e derrubava toda tela do Hub.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('previous_app_focus'),
+      (call) async => call.method == 'hasAccessibilityPermission' ? true : null,
+    );
+
+    // O Echo lê as reuniões do banco; a conferência visual precisa de uma
+    // reunião com transcrição para a tela do Hub não sair vazia.
+    echoDb = sqlite3.openInMemory();
+    AppDatabase.migrate(echoDb);
+    SqliteEchoRepository(echoDb).insert(
+      Meeting(
+        title: 'Alinhamento de escopo',
+        startedAt: DateTime(2026, 7, 23, 10, 30),
+        durationMs: const Duration(minutes: 32).inMilliseconds,
+        language: TranscriptionLanguage.ptBR,
+        summary:
+            '- O escopo da v1 fica só na transcrição; o resumo entra depois.\n'
+            '- Lucas fecha a proposta até sexta.\n'
+            '- Ficou pendente decidir quem apresenta na terça.',
+        segments: const [
+          MeetingSegment(
+            speaker: Speaker.others,
+            startMs: 4000,
+            endMs: 12000,
+            text: 'Então, a ideia é fechar o escopo hoje ainda.',
+          ),
+          MeetingSegment(
+            speaker: Speaker.me,
+            startMs: 13500,
+            endMs: 21000,
+            text: 'Fechado. Eu mando a proposta até sexta.',
+          ),
+          MeetingSegment(
+            speaker: Speaker.others,
+            startMs: 22000,
+            endMs: 31000,
+            text: 'Perfeito. Falta só decidir quem apresenta na terça.',
+          ),
+        ],
+      ),
+    );
+  });
+
+  tearDown(() {
+    echoDb.close();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('previous_app_focus'),
+          null,
+        );
   });
 
   final base = DateTime(2026, 7, 23, 12);
@@ -176,6 +241,8 @@ void main() {
           displaySleepServiceProvider.overrideWithValue(FakeDisplaySleepService()),
           leafRepositoryProvider.overrideWithValue(notes),
           sharedPreferencesProvider.overrideWithValue(preferences),
+          echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),
+          echoChannelProvider.overrideWithValue(FakeEchoChannel()),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now()),
         ],
@@ -398,6 +465,51 @@ void main() {
 
     // O golden não pode deixar o ticker vivo atrás de si.
     await viewModel.turnOff();
+  });
+
+  testWidgets('painel do Echo — parado', (tester) async {
+    await pump(tester, const EchoOverlayView(), const Size(1120, 700));
+
+    await expectLater(
+      find.byType(EchoOverlayView),
+      matchesGoldenFile('goldens/echo_overlay_idle.png'),
+    );
+  });
+
+  testWidgets('painel do Echo — gravando', (tester) async {
+    await pump(
+      tester,
+      const EchoOverlayView(),
+      const Size(1120, 700),
+      fakeClock: true,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(EchoOverlayView)),
+    );
+    await container.read(echoRecorderViewModelProvider.notifier).start();
+    await tester.pump(const Duration(minutes: 12, seconds: 30));
+    await tester.pump(AppDurations.instant);
+
+    await expectLater(
+      find.byType(EchoOverlayView),
+      matchesGoldenFile('goldens/echo_overlay_recording.png'),
+    );
+
+    // O golden não pode deixar o ticker vivo atrás de si.
+    await container.read(echoRecorderViewModelProvider.notifier).cancel();
+  });
+
+  testWidgets('Hub — Echo', (tester) async {
+    await pump(tester, const HubView(), const Size(1800, 1200));
+
+    await tester.tap(find.text(EvergreenModule.echo.name));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo.png'),
+    );
   });
 
   testWidgets('Hub — Awake', (tester) async {

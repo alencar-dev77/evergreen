@@ -87,6 +87,29 @@ class AppDatabase {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_leaf_slot ON leaf_notes (slot);
     ''',
+    // Reuniões do Echo. O áudio não aparece aqui de propósito: ele é apagado
+    // assim que a transcrição entra, então o banco guarda só texto.
+    //
+    // `transcript` é JSON, e não o formato `campo|campo` das observações do
+    // Focus — ali o texto é escrito pela pessoa num campo de uma linha, aqui é
+    // fala transcrita, que pode conter qualquer separador que se improvisasse.
+    //
+    // `is_kept` é o "guardar" da reunião: mesma função do `is_pinned` do Pin,
+    // tirar a linha do alcance da limpeza automática.
+    'echo-meetings': '''
+    CREATE TABLE IF NOT EXISTS echo_meetings (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      title       TEXT    NOT NULL,
+      started_at  INTEGER NOT NULL,
+      duration_ms INTEGER NOT NULL,
+      language    TEXT    NOT NULL,
+      transcript  TEXT    NOT NULL,
+      summary     TEXT,
+      is_kept     INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_echo_meetings_recent
+      ON echo_meetings (started_at DESC);
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.
