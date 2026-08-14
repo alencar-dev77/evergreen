@@ -8,6 +8,7 @@ import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
 import '../../models/meeting_segment.dart';
+import '../../models/meeting_turn.dart';
 
 /// A reunião selecionada: o resumo, quando existe, e a transcrição inteira.
 ///
@@ -79,9 +80,12 @@ class EchoMeetingDetail extends StatelessWidget {
               color: AppColors.card,
               borderRadius: AppRadii.cardAll,
             ),
+            // Mesma fonte de leitura da transcrição: os dois são texto que
+            // se lê em parágrafo, e alternar entre eles não pode parecer
+            // trocar de documento.
             child: SelectableText(
               meeting.summary!,
-              style: AppTypography.bodyCompact,
+              style: AppTypography.reading,
             ),
           ),
         ],
@@ -120,17 +124,21 @@ class EchoMeetingDetail extends StatelessWidget {
   Widget _transcript() {
     if (meeting.isEmpty) {
       return Text(
-        'Nenhuma fala foi reconhecida. As duas causas comuns: o microfone '
-        'estava sem permissão, ou o áudio da reunião não estava saindo pelos '
-        'alto-falantes — fone de ouvido Bluetooth, por exemplo, não passa pela '
-        'captura do sistema.',
+        'Nenhuma fala foi reconhecida. As causas comuns: o microfone estava '
+        'sem permissão, ninguém falou, ou o idioma da transcrição não era o '
+        'idioma da reunião.',
         style: AppTypography.captionSmall,
       );
     }
 
+    final turns = MeetingTurn.from(meeting.segments);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.lg,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.card,
         borderRadius: AppRadii.cardAll,
@@ -138,10 +146,9 @@ class EchoMeetingDetail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final segment in meeting.segments) ...[
-            _SegmentLine(segment: segment),
-            if (segment != meeting.segments.last)
-              const SizedBox(height: AppSpacing.md),
+          for (final turn in turns) ...[
+            _TurnBlock(turn: turn),
+            if (turn != turns.last) const SizedBox(height: AppSpacing.xl),
           ],
         ],
       ),
@@ -149,43 +156,44 @@ class EchoMeetingDetail extends StatelessWidget {
   }
 }
 
-/// Uma fala: o relógio, quem falou e o que foi dito.
+/// Uma fala inteira: quem falou, quando, e o texto em parágrafo.
 ///
-/// "Você" fica em verde e o resto em neutro — é a única cor da tela, e ela
-/// carrega significado (de quem é a fala), que é a regra do projeto para usar
-/// cor. Como quem falou também aparece por escrito, quem não distingue a cor
-/// não perde nada.
-class _SegmentLine extends StatelessWidget {
-  const _SegmentLine({required this.segment});
+/// O cabeçalho é uma linha só e discreta; o peso visual fica no texto, que é o
+/// que a pessoa veio ler. O nome vem antes do horário porque "quem falou" é a
+/// pergunta que se faz ao percorrer a transcrição — o horário só interessa
+/// quando já se achou o trecho.
+///
+/// Sem balões de conversa: isso é vocabulário de aplicativo de mensagem, e o
+/// que está aqui é um documento para reler, não um bate-papo.
+class _TurnBlock extends StatelessWidget {
+  const _TurnBlock({required this.turn});
 
-  final MeetingSegment segment;
+  final MeetingTurn turn;
 
   @override
   Widget build(BuildContext context) {
-    final isMe = segment.speaker == Speaker.me;
+    final isMe = turn.speaker == Speaker.me;
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 46,
-          child: Text(segment.timestamp, style: AppTypography.monoSmall),
-        ),
-        SizedBox(
-          width: 74,
-          child: Text(
-            segment.speaker.label,
-            style: AppTypography.captionXS.copyWith(
-              color: isMe ? AppColors.greenPrimary : AppColors.textTertiary,
+        Row(
+          children: [
+            Text(
+              turn.speaker.label,
+              // Verde para você, neutro para a reunião: é a única cor da tela e
+              // carrega significado. Quem não distingue a cor lê o nome, que
+              // está escrito do lado.
+              style: AppTypography.overline.copyWith(
+                color: isMe ? AppColors.greenPrimary : AppColors.textSecondary,
+              ),
             ),
-          ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(turn.timestamp, style: AppTypography.monoSmall),
+          ],
         ),
-        Expanded(
-          child: SelectableText(
-            segment.text,
-            style: AppTypography.bodyCompact,
-          ),
-        ),
+        const SizedBox(height: AppSpacing.xs),
+        SelectableText(turn.text, style: AppTypography.reading),
       ],
     );
   }

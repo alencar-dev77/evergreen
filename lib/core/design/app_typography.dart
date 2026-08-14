@@ -67,6 +67,18 @@ abstract final class AppTypography {
   );
 
   /// Variante compacta usada dentro do overlay — 400 / 13px.
+  /// Leitura longa — 400 / 14px, entrelinha 1.65.
+  ///
+  /// Para texto que se lê em parágrafos, e não em linha de lista: a
+  /// transcrição de uma reunião. A entrelinha é maior que a do [body] porque
+  /// aqui o olho percorre muitas linhas seguidas, e é ela que impede que ele se
+  /// perca ao voltar para o começo da próxima.
+  static final reading = _base.copyWith(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    height: 1.65,
+  );
+
   static final bodyCompact = _base.copyWith(
     fontSize: 13,
     fontWeight: FontWeight.w400,

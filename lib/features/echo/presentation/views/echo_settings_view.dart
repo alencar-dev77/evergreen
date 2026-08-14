@@ -152,9 +152,9 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.md),
                 child: Text(
-                  'Tudo liberado. Lembre que o áudio precisa sair pelos '
-                  'alto-falantes: fone de ouvido não passa pela captura do '
-                  'sistema, e a faixa da reunião sai muda.',
+                  'Tudo liberado. Com fone de ouvido a separação fica melhor: '
+                  'no alto-falante, o microfone escuta a reunião de volta e o '
+                  'Echo precisa filtrar o eco para saber quem falou.',
                   style: AppTypography.captionSmall,
                 ),
               ),

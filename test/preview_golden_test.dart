@@ -96,18 +96,32 @@ void main() {
             '- O escopo da v1 fica só na transcrição; o resumo entra depois.\n'
             '- Lucas fecha a proposta até sexta.\n'
             '- Ficou pendente decidir quem apresenta na terça.',
+        // Fragmentado como o modelo de fala realmente devolve — é o
+        // agrupamento em turnos que a imagem precisa mostrar.
         segments: const [
           MeetingSegment(
             speaker: Speaker.others,
             startMs: 4000,
+            endMs: 9000,
+            text: 'Então, a ideia é fechar o escopo hoje ainda',
+          ),
+          MeetingSegment(
+            speaker: Speaker.others,
+            startMs: 9000,
             endMs: 12000,
-            text: 'Então, a ideia é fechar o escopo hoje ainda.',
+            text: ', se todo mundo concordar.',
           ),
           MeetingSegment(
             speaker: Speaker.me,
             startMs: 13500,
+            endMs: 17000,
+            text: 'Fechado. Eu mando a proposta até sexta',
+          ),
+          MeetingSegment(
+            speaker: Speaker.me,
+            startMs: 17000,
             endMs: 21000,
-            text: 'Fechado. Eu mando a proposta até sexta.',
+            text: ' com os números revisados.',
           ),
           MeetingSegment(
             speaker: Speaker.others,
