@@ -164,8 +164,10 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   Future<void> copyItem(ClipboardItem item) async {
     await Clipboard.setData(ClipboardData(text: item.content));
 
-    // Sem isso o polling leria a nossa própria escrita como uma cópia nova.
-    _watcher.acknowledge(item.content);
+    // Sem isso a captura leria a nossa própria escrita como uma cópia nova.
+    // Aguardado de propósito: é o que garante que a marcação chegue ao lado
+    // nativo antes do próximo ciclo de leitura do pasteboard.
+    await _watcher.acknowledge(item.content);
 
     _repository.upsert(item.copyWith(copiedAt: DateTime.now()));
     _allItems = _repository.loadAll();

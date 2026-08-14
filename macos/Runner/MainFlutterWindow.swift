@@ -46,6 +46,7 @@ class MainFlutterWindow: NSWindow {
     LaunchAtLoginChannel.register(with: controller.engine.binaryMessenger)
     PreviousAppFocusChannel.register(with: controller.engine.binaryMessenger)
     HubWindowChannel.register(with: controller.engine.binaryMessenger)
+    PasteboardWatcherChannel.register(with: controller.engine.binaryMessenger)
   }
 
   /// Dá ao Hub um tamanho de janela de preferências.
@@ -265,6 +266,124 @@ enum LaunchAtLoginChannel {
           message: error.localizedDescription,
           details: nil))
     }
+  }
+}
+
+/// Observa a área de transferência e avisa o Dart a cada cópia nova.
+///
+/// O macOS não notifica mudança de pasteboard — nem em Swift. O que muda aqui é
+/// **o que** se observa: `NSPasteboard.general.changeCount` é um inteiro que o
+/// sistema incrementa a cada escrita, então a mudança *dele* é o evento. O lado
+/// Dart comparava o conteúdo lido, e conteúdo não é evento:
+///
+/// - **recopiar a mesma coisa era invisível.** A string era igual à anterior,
+///   o polling desistia e o item não subia para o topo da lista;
+/// - **a leitura era cara.** Trazer a string inteira do pasteboard para o Dart
+///   a cada 600ms atravessa o canal de plataforma; ler um inteiro não sai
+///   daqui, e por isso pode ser feito com muito mais frequência.
+///
+/// A janela em que duas cópias muito rápidas viram uma só encolhe de 600ms para
+/// [pollInterval] — mas não fecha: quando o `changeCount` pula mais de um entre
+/// dois ciclos, o conteúdo intermediário já foi substituído no pasteboard e não
+/// há de onde recuperá-lo. Não existe API de notificação que resolva isso; o que
+/// existe é diminuir o intervalo, e a leitura barata é o que permite diminuir.
+enum PasteboardWatcherChannel {
+  private static let channelName = "pasteboard_watcher"
+
+  /// Um ciclo é uma leitura de inteiro — três vezes mais frequente que o
+  /// polling antigo e ainda assim mais barato que ele, que trazia a string
+  /// inteira pelo canal de plataforma a cada volta.
+  private static let pollInterval: TimeInterval = 0.2
+
+  /// Deixa o sistema agrupar este timer com outros e acordar o processador
+  /// menos vezes — o ciclo não tem hora certa, só um teto.
+  private static let pollTolerance: TimeInterval = 0.05
+
+  private static var timer: Timer?
+
+  /// O canal do engine que pediu a captura.
+  ///
+  /// Cada engine registra o seu (a janela 0 e o Hub), mas só um chama `start` —
+  /// o da janela 0, onde a captura vive. Guardar o canal de quem pediu é o que
+  /// impede o aviso de sair pelo engine errado, onde ninguém escuta.
+  private static weak var activeChannel: FlutterMethodChannel?
+
+  private static var lastChangeCount = NSPasteboard.general.changeCount
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "start":
+        start(pushingTo: channel)
+        result(nil)
+
+      case "stop":
+        stop()
+        result(nil)
+
+      case "acknowledge":
+        acknowledge(call.arguments as? String)
+        result(nil)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// Começa a observar, avisando o que já está na área de transferência.
+  ///
+  /// O aviso inicial mantém o comportamento que o Dart tinha: o que estava
+  /// copiado quando o Evergreen subiu entra no histórico. Sem ele, a primeira
+  /// coisa do dia só seria registrada se a pessoa copiasse de novo.
+  private static func start(pushingTo channel: FlutterMethodChannel) {
+    activeChannel = channel
+
+    guard timer == nil else { return }
+
+    lastChangeCount = NSPasteboard.general.changeCount
+    emitCurrentContent()
+
+    let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { _ in
+      poll()
+    }
+    timer.tolerance = pollTolerance
+    self.timer = timer
+  }
+
+  private static func stop() {
+    timer?.invalidate()
+    timer = nil
+  }
+
+  /// Marca a escrita que o próprio Pin acabou de fazer como já conhecida.
+  ///
+  /// Só quando o pasteboard de fato contém [content]: se outro aplicativo
+  /// copiou alguma coisa entre a nossa escrita e esta chamada, engolir o
+  /// `changeCount` dele apagaria uma cópia de verdade do usuário.
+  private static func acknowledge(_ content: String?) {
+    let pasteboard = NSPasteboard.general
+
+    guard content == nil || pasteboard.string(forType: .string) == content else { return }
+
+    lastChangeCount = pasteboard.changeCount
+  }
+
+  private static func poll() {
+    let changeCount = NSPasteboard.general.changeCount
+    guard changeCount != lastChangeCount else { return }
+
+    lastChangeCount = changeCount
+    emitCurrentContent()
+  }
+
+  private static func emitCurrentContent() {
+    guard let content = NSPasteboard.general.string(forType: .string) else { return }
+    guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+    activeChannel?.invokeMethod("onCopy", arguments: content)
   }
 }
 
