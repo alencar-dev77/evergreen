@@ -623,7 +623,14 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CODE_SIGN_IDENTITY = "-";
+				/* Assinatura de desenvolvimento, não ad-hoc: o TCC do macOS amarra
+				   permissão à assinatura do app. Com "-" cada build é um app
+				   desconhecido, e microfone e Gravação de Tela são negados sem nem
+				   perguntar — o Evergreen nem aparece na lista dos Ajustes. Só no
+				   Debug; o Release segue ad-hoc. */
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = 7U82KS5WG5;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
