@@ -4,6 +4,7 @@ import FlutterMacOS
 import Foundation
 import FoundationModels
 import ScreenCaptureKit
+import Security
 import Speech
 
 /// Canal nativo do Echo: grava a reunião, transcreve e resume — tudo local.
@@ -118,14 +119,63 @@ enum EchoChannel {
     }
   }
 
-  /// Se já pedimos a gravação de tela alguma vez.
+  /// Em que build já pedimos a gravação de tela.
   ///
   /// O macOS não tem "ainda não perguntei" para essa permissão:
   /// `CGPreflightScreenCaptureAccess` responde `false` tanto para "nunca pedi"
   /// quanto para "o usuário negou", e `CGRequestScreenCaptureAccess` só abre o
-  /// diálogo na primeira vez. Sem guardar isso, não há como saber se a saída é
-  /// pedir ou mandar a pessoa para os Ajustes.
-  private static let screenAskedKey = "evergreen.echo.screenRecordingAsked"
+  /// diálogo enquanto o sistema não tiver uma decisão registrada. Sem guardar
+  /// isso, não há como saber se a saída é pedir ou mandar a pessoa para os
+  /// Ajustes.
+  ///
+  /// Guardado **por build**, e não como um sim ou não para sempre: instalar uma
+  /// versão nova troca o binário, e a Gravação de Tela é a permissão que o
+  /// macOS reconfere quando o app deixa de ser o mesmo. Com o "já pedi" eterno
+  /// que estava aqui, toda instalação levava a pessoa aos Ajustes — onde a
+  /// chave do Evergreen aparece **ligada** — em vez de deixar o sistema
+  /// perguntar de novo. Era esse o "buildei e o Echo parou de capturar".
+  private static let screenAskedBuildKey = "evergreen.echo.screenRecordingAskedBuild"
+
+  /// A chave anterior, que valia para sempre. Só existe para ser apagada.
+  private static let legacyScreenAskedKey = "evergreen.echo.screenRecordingAsked"
+
+  /// A identidade do código que está rodando: o `cdhash` da assinatura.
+  ///
+  /// Muda a cada build, e é exatamente o que o macOS compara para decidir que o
+  /// app instalado não é mais aquele que recebeu a permissão. Vazia quando não
+  /// dá para ler — e aí o "já pedi" volta a valer para sempre, que é o
+  /// comportamento antigo, não um caminho pior.
+  private static func codeIdentity() -> String {
+    var code: SecCode?
+    guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return "" }
+
+    var staticCode: SecStaticCode?
+    guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess,
+      let staticCode
+    else { return "" }
+
+    var information: CFDictionary?
+    // Flags vazias: o `cdhash` (`kSecCodeInfoUnique`) já vem no conjunto básico
+    // de informações, sem precisar pedir certificado nem entitlements.
+    guard
+      SecCodeCopySigningInformation(staticCode, [], &information) == errSecSuccess,
+      let dictionary = information as? [String: Any],
+      let hash = dictionary[kSecCodeInfoUnique as String] as? Data
+    else { return "" }
+
+    return hash.map { String(format: "%02x", $0) }.joined()
+  }
+
+  /// Se esta build já pediu a gravação de tela.
+  private static func hasAskedScreenRecording() -> Bool {
+    UserDefaults.standard.string(forKey: screenAskedBuildKey) == codeIdentity()
+  }
+
+  private static func rememberAskedScreenRecording() {
+    let defaults = UserDefaults.standard
+    defaults.set(codeIdentity(), forKey: screenAskedBuildKey)
+    defaults.removeObject(forKey: legacyScreenAskedKey)
+  }
 
   /// O que esta máquina consegue fazer, para a UI não oferecer o impossível.
   @available(macOS 26.0, *)
@@ -138,10 +188,9 @@ enum EchoChannel {
     }
 
     let screenGranted = CGPreflightScreenCaptureAccess()
-    let screenAsked = UserDefaults.standard.bool(forKey: screenAskedKey)
     let screenRecording = screenGranted
       ? "granted"
-      : (screenAsked ? "denied" : "notDetermined")
+      : (hasAskedScreenRecording() ? "denied" : "notDetermined")
 
     var summaries = "unavailable"
     switch SystemLanguageModel.default.availability {
@@ -187,9 +236,10 @@ enum EchoChannel {
   ///
   /// Duas diferenças cruéis em relação ao microfone, e as duas parecem bug:
   ///
-  /// 1. `CGRequestScreenCaptureAccess` só abre o diálogo **uma vez na vida** do
-  ///    app. Da segunda em diante ele responde `false` sem mostrar nada — por
-  ///    isso guardamos que já pedimos e mandamos a pessoa para os Ajustes.
+  /// 1. `CGRequestScreenCaptureAccess` só abre o diálogo enquanto o sistema não
+  ///    tem uma decisão registrada para esta build. Depois disso ele responde
+  ///    `false` sem mostrar nada — por isso guardamos que já pedimos (ver
+  ///    [screenAskedBuildKey]) e mandamos a pessoa para os Ajustes.
   /// 2. Conceder **não vale imediatamente**: o macOS só entrega a permissão a
   ///    um processo que subiu depois dela. Enquanto o app não for reaberto, a
   ///    resposta continua sendo `false` mesmo com a chave ligada nos Ajustes —
@@ -202,13 +252,13 @@ enum EchoChannel {
       return
     }
 
-    if UserDefaults.standard.bool(forKey: screenAskedKey) {
+    if hasAskedScreenRecording() {
       openSettings(pane: "Privacy_ScreenCapture")
       result(capabilities())
       return
     }
 
-    UserDefaults.standard.set(true, forKey: screenAskedKey)
+    rememberAskedScreenRecording()
     CGRequestScreenCaptureAccess()
     result(capabilities())
   }
@@ -269,6 +319,99 @@ actor EchoRecorder {
   private var micURL: URL?
   private var systemURL: URL?
 
+  /// Quem escuta a `SCStream` parar sozinha.
+  ///
+  /// A stream nascia com `delegate: nil`, e um `didStopWithError` no meio da
+  /// reunião não chegava a lugar nenhum: a gravação virava silêncio e só se
+  /// descobria na transcrição vazia, sem nada que dissesse o que aconteceu. O
+  /// erro fica guardado no próprio delegate — ele é chamado de fora do ator, e
+  /// escrever daqui num campo do gravador seria escrever no estado do ator a
+  /// partir de outra thread.
+  private var delegate: EchoStreamDelegate?
+
+  /// A captura do microfone, feita por fora do `ScreenCaptureKit`.
+  ///
+  /// O `SCStreamConfiguration.captureMicrophone` era o caminho óbvio, e é o que
+  /// estava aqui — mas nesta máquina ele **inicia e não entrega**: o `replayd`
+  /// registra `micCaptureSessionCount=1`, o TCC responde Allow, a
+  /// `AVCaptureSession` interna dele roda, e nenhum bloco de tipo `.microphone`
+  /// chega ao processo. Reproduzido em duas builds e duas configurações
+  /// diferentes, com a faixa do sistema gravando normalmente ao lado.
+  ///
+  /// O `AVAudioEngine` é o caminho de sempre para gravar entrada no macOS —
+  /// anterior ao `captureMicrophone`, independente do `ScreenCaptureKit` e sem
+  /// piso de sistema. As duas faixas continuam separadas, que é o que sustenta
+  /// saber quem falou; muda só quem entrega uma delas.
+  private let micEngine = AVAudioEngine()
+  private var micError: String?
+
+  /// Liga o microfone e entrega cada bloco ao [output].
+  ///
+  /// Devolve `nil` quando deu certo, ou o motivo de não ter dado — que sobe até
+  /// a tela em vez de virar uma faixa muda sem explicação.
+  ///
+  /// O tap usa o formato do próprio dispositivo (`format: nil`): o microfone
+  /// interno de um MacBook é um arranjo de três canais, e pedir um formato que
+  /// ele não tem é justamente o tipo de desencontro que faz a entrada não
+  /// entregar nada. A conversão para 16 kHz mono acontece depois, igual para as
+  /// duas faixas.
+  private static func startMicrophone(
+    engine: AVAudioEngine,
+    output: EchoStreamOutput
+  ) -> String? {
+    let input = engine.inputNode
+    let format = input.inputFormat(forBus: 0)
+
+    guard format.sampleRate > 0, format.channelCount > 0 else {
+      return "Nenhum dispositivo de entrada de áudio disponível."
+    }
+
+    input.removeTap(onBus: 0)
+    input.installTap(onBus: 0, bufferSize: 4_096, format: nil) { buffer, _ in
+      output.appendMicrophone(buffer)
+    }
+
+    engine.prepare()
+
+    do {
+      try engine.start()
+      return nil
+    } catch {
+      input.removeTap(onBus: 0)
+      return error.localizedDescription
+    }
+  }
+
+  private func stopMicrophone() {
+    guard micEngine.isRunning else { return }
+
+    // Tirar o tap antes de parar: com ele instalado, um último bloco pode
+    // chegar depois de os arquivos terem sido fechados.
+    micEngine.inputNode.removeTap(onBus: 0)
+    micEngine.stop()
+  }
+
+  /// Confirma a Gravação de Tela — pedindo, se for o caso, antes de desistir.
+  ///
+  /// `CGPreflightScreenCaptureAccess` responder `false` não quer dizer
+  /// "negado". Toda instalação nova troca o binário, e esta é a permissão que o
+  /// macOS **reconfere** quando o app deixa de ser o mesmo: até a pessoa
+  /// responder, o preflight diz que não há acesso. Recusar ali mesmo, como
+  /// estava, era o que fazia o Echo parar de capturar depois de cada build — o
+  /// diálogo do sistema nunca aparecia porque ninguém chegava a pedi-lo.
+  ///
+  /// Na main thread porque é ela que apresenta o diálogo; fora dela a chamada
+  /// volta calada.
+  private static func ensureScreenRecordingAccess() async -> Bool {
+    if CGPreflightScreenCaptureAccess() { return true }
+
+    return await withCheckedContinuation { continuation in
+      DispatchQueue.main.async {
+        continuation.resume(returning: CGRequestScreenCaptureAccess())
+      }
+    }
+  }
+
   func start(
     liveTranscription: Bool,
     locale: String,
@@ -280,7 +423,7 @@ actor EchoRecorder {
       return
     }
 
-    guard CGPreflightScreenCaptureAccess() else {
+    guard await Self.ensureScreenRecordingAccess() else {
       result(FlutterError(
         code: "screen_recording_denied",
         message: "Sem permissão de Gravação de Tela não dá para capturar o áudio da reunião.",
@@ -302,9 +445,10 @@ actor EchoRecorder {
       let configuration = SCStreamConfiguration()
       configuration.capturesAudio = true
       configuration.excludesCurrentProcessAudio = true
-      configuration.captureMicrophone = true
-      configuration.sampleRate = 48_000
-      configuration.channelCount = 2
+      // O microfone **não** vem por aqui — ver [startMicrophone]. Sem fixar taxa
+      // nem número de canais: cada bloco é convertido para `recordingFormat` a
+      // partir do formato que ele mesmo declara, então impor 48 kHz estéreo
+      // aqui não economiza nada e só restringe o que o sistema pode entregar.
       // O vídeo não interessa, mas a SCStream exige um filtro de tela. Dois
       // pixels a um quadro por segundo é o mais perto de "nada" que dá para
       // pedir sem abrir mão do áudio.
@@ -313,21 +457,27 @@ actor EchoRecorder {
       configuration.minimumFrameInterval = CMTime(value: 1, timescale: 1)
 
       let filter = SCContentFilter(display: display, excludingWindows: [])
-      let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+      let delegate = EchoStreamDelegate()
+      let stream = SCStream(filter: filter, configuration: configuration, delegate: delegate)
 
-      let output = EchoStreamOutput(micURL: micURL, systemURL: systemURL)
+      let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
+      let output = EchoStreamOutput(micURL: micURL, systemURL: systemURL, queue: queue)
       if liveTranscription {
         await output.enableLiveTranscription(locale: locale, channel: channel)
       }
 
-      let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
       try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: queue)
-      try stream.addStreamOutput(output, type: .microphone, sampleHandlerQueue: queue)
 
       try await stream.startCapture()
 
+      // Depois da captura de tela, e nunca no lugar dela: se o microfone não
+      // subir, a reunião continua sendo gravada pelo lado do sistema. O motivo
+      // fica guardado e sai no resultado do `stop`.
+      micError = Self.startMicrophone(engine: micEngine, output: output)
+
       self.stream = stream
       self.output = output
+      self.delegate = delegate
       self.micURL = micURL
       self.systemURL = systemURL
       self.startedAt = Date()
@@ -345,13 +495,30 @@ actor EchoRecorder {
     }
 
     try? await stream.stopCapture()
+    stopMicrophone()
     await output?.finish()
 
     let duration = startedAt.map { Int(Date().timeIntervalSince($0) * 1000) } ?? 0
+
+    // O caminho só sai daqui quando existe arquivo com áudio dentro. Antes ele
+    // saía sempre, e o Dart mandava transcrever um arquivo que nunca chegou a
+    // ser criado — a faixa muda passava por faixa vazia, e o resultado era uma
+    // transcrição sem explicação.
+    let micFrames = output?.micFrames ?? 0
+    let systemFrames = output?.systemFrames ?? 0
+
     let payload: [String: Any] = [
-      "micPath": micURL?.path as Any,
-      "systemPath": systemURL?.path as Any,
+      "micPath": (micFrames > 0 ? micURL?.path : nil) as Any,
+      "systemPath": (systemFrames > 0 ? systemURL?.path : nil) as Any,
       "durationMs": duration,
+      // O diagnóstico das duas faixas, para o Dart poder dizer *o que* faltou
+      // em vez de mostrar uma reunião vazia.
+      "micFrames": micFrames,
+      "systemFrames": systemFrames,
+      "micPeak": output?.micPeak ?? 0,
+      "systemPeak": output?.systemPeak ?? 0,
+      "streamError": delegate?.error as Any,
+      "micError": micError as Any,
     ]
 
     reset()
@@ -362,6 +529,7 @@ actor EchoRecorder {
   func cancel(result: @escaping FlutterResult) async {
     if let stream = stream {
       try? await stream.stopCapture()
+      stopMicrophone()
       await output?.finish()
     }
 
@@ -376,6 +544,8 @@ actor EchoRecorder {
   private func reset() {
     stream = nil
     output = nil
+    delegate = nil
+    micError = nil
     startedAt = nil
     micURL = nil
     systemURL = nil
@@ -399,6 +569,19 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   private var micConverter: AVAudioConverter?
   private var systemConverter: AVAudioConverter?
 
+  /// Quanto chegou em cada faixa, e com que amplitude.
+  ///
+  /// Existe porque as duas maneiras de a gravação sair muda são
+  /// indistinguíveis no arquivo final: uma faixa que **não recebeu bloco
+  /// nenhum** e uma que recebeu 26 minutos de zeros produzem a mesma
+  /// transcrição vazia, e cada uma tem uma causa diferente — a primeira é a
+  /// captura que não veio, a segunda é o som que não estava lá. Sem contar,
+  /// a única saída era ler o `.caf` na mão depois.
+  private(set) var micFrames: Int64 = 0
+  private(set) var systemFrames: Int64 = 0
+  private(set) var micPeak: Int = 0
+  private(set) var systemPeak: Int = 0
+
   private var live: EchoLiveTranscriber?
 
   /// Formato em que o áudio é gravado: 16 kHz, mono, inteiro de 16 bits.
@@ -417,10 +600,20 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     channels: 1,
     interleaved: true)!
 
-  init(micURL: URL, systemURL: URL) {
+  init(micURL: URL, systemURL: URL, queue: DispatchQueue) {
     self.micURL = micURL
     self.systemURL = systemURL
+    self.queue = queue
   }
+
+  /// A fila serial por onde passam as duas faixas.
+  ///
+  /// A do sistema chega por ela porque é a `sampleHandlerQueue` da `SCStream`;
+  /// a do microfone vem de uma thread de áudio do `AVAudioEngine` e salta para
+  /// cá. Uma fila só é o que mantém a ordem entre as duas — o transcritor ao
+  /// vivo recebe os blocos na sequência em que eles são escritos, e blocos
+  /// embaralhados lá dentro saem como frases embaralhadas.
+  private let queue: DispatchQueue
 
   func enableLiveTranscription(locale: String, channel: FlutterMethodChannel) async {
     live = await EchoLiveTranscriber.make(locale: locale, channel: channel)
@@ -436,13 +629,29 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   }
 
   func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-    guard type == .audio || type == .microphone else { return }
+    guard type == .audio else { return }
     guard let buffer = Self.pcmBuffer(from: sampleBuffer) else { return }
 
+    write(buffer, isMicrophone: false)
+  }
+
+  /// Recebe um bloco do microfone, vindo da thread de áudio do `AVAudioEngine`.
+  ///
+  /// O buffer do tap é reaproveitado assim que o bloco retorna, então ele é
+  /// **copiado** antes de sair dessa thread — despachar o original guardaria
+  /// um ponteiro para memória que o motor já reescreveu.
+  func appendMicrophone(_ buffer: AVAudioPCMBuffer) {
+    guard let copy = Self.copy(buffer) else { return }
+    queue.async { [weak self] in self?.write(copy, isMicrophone: true) }
+  }
+
+  private func write(_ rawBuffer: AVAudioPCMBuffer, isMicrophone: Bool) {
+    // A mixagem para um canal é nossa, não do `AVAudioConverter` — ver [mono].
+    let buffer = Self.mono(rawBuffer)
     var converted: AVAudioPCMBuffer?
 
     do {
-      if type == .microphone {
+      if isMicrophone {
         if micFile == nil {
           micFile = try Self.makeFile(at: micURL)
           micConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
@@ -450,6 +659,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
         converted = Self.convert(buffer, with: micConverter)
         if let converted = converted {
           try micFile?.write(from: converted)
+          micFrames += Int64(converted.frameLength)
+          micPeak = max(micPeak, Self.peak(of: converted))
         }
       } else {
         if systemFile == nil {
@@ -459,6 +670,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
         converted = Self.convert(buffer, with: systemConverter)
         if let converted = converted {
           try systemFile?.write(from: converted)
+          systemFrames += Int64(converted.frameLength)
+          systemPeak = max(systemPeak, Self.peak(of: converted))
         }
       }
     } catch {
@@ -551,6 +764,99 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   ///
   /// `withAudioBufferList` segura o bloco vivo enquanto o fecho roda, que é a
   /// janela em que a cópia acontece.
+  /// A maior amplitude do bloco, em módulo — 0 é silêncio digital exato.
+  ///
+  /// Sempre sobre o buffer **já convertido** para [recordingFormat], que é
+  /// Int16 mono: um formato só para medir, em vez de um caso para cada coisa
+  /// que a captura possa entregar.
+  static func peak(of buffer: AVAudioPCMBuffer) -> Int {
+    guard let channel = buffer.int16ChannelData?[0] else { return 0 }
+
+    var peak: Int32 = 0
+    for index in 0..<Int(buffer.frameLength) {
+      peak = max(peak, Int32(channel[index].magnitude))
+    }
+
+    return Int(peak)
+  }
+
+  /// Soma os canais do bloco em um só, na mão.
+  ///
+  /// **É aqui que a faixa do microfone estava morrendo.** O microfone interno
+  /// de um MacBook é um arranjo de três canais, e pedir ao `AVAudioConverter`
+  /// que vá de três canais para mono devolve `status == .haveData`, o número
+  /// certo de quadros e **silêncio digital exato**: ele não recusa a conversão,
+  /// não devolve erro, só escreve zeros. Medido: um seno de meia escala nos
+  /// três canais entra, e sai um bloco de pico 0. Com a mixagem feita aqui, o
+  /// mesmo seno sai com pico 16384.
+  ///
+  /// Vale para as duas faixas. A do sistema é estéreo com layout padrão e o
+  /// conversor dá conta dela, mas a conta é a mesma e uma saída multicanal
+  /// cairia no mesmo buraco.
+  ///
+  /// Devolve o bloco original quando não há o que fazer — um canal só, ou um
+  /// formato que não é ponto flutuante. Nesses casos quem converte segue sendo
+  /// o `AVAudioConverter`, como sempre foi.
+  static func mono(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer {
+    let format = buffer.format
+
+    guard format.channelCount > 1,
+      format.commonFormat == .pcmFormatFloat32,
+      let monoFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: format.sampleRate,
+        channels: 1,
+        interleaved: false),
+      let output = AVAudioPCMBuffer(
+        pcmFormat: monoFormat, frameCapacity: buffer.frameLength),
+      let destination = output.floatChannelData?[0],
+      let source = buffer.floatChannelData
+    else { return buffer }
+
+    output.frameLength = buffer.frameLength
+
+    let frames = Int(buffer.frameLength)
+    let channels = Int(format.channelCount)
+
+    // Média, e não o primeiro canal: num arranjo de microfones cada canal é uma
+    // cápsula, e escolher uma jogaria fora o sinal das outras duas.
+    for frame in 0..<frames {
+      var sum: Float = 0
+
+      if format.isInterleaved {
+        for channel in 0..<channels { sum += source[0][frame * channels + channel] }
+      } else {
+        for channel in 0..<channels { sum += source[channel][frame] }
+      }
+
+      destination[frame] = sum / Float(channels)
+    }
+
+    return output
+  }
+
+  /// Uma cópia independente do bloco, com o mesmo formato e conteúdo.
+  static func copy(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+    guard buffer.frameLength > 0,
+      let copy = AVAudioPCMBuffer(
+        pcmFormat: buffer.format, frameCapacity: buffer.frameLength)
+    else { return nil }
+
+    copy.frameLength = buffer.frameLength
+
+    let source = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
+    let destination = UnsafeMutableAudioBufferListPointer(copy.mutableAudioBufferList)
+
+    for index in 0..<min(source.count, destination.count) {
+      guard let from = source[index].mData, let to = destination[index].mData
+      else { continue }
+
+      memcpy(to, from, Int(min(source[index].mDataByteSize, destination[index].mDataByteSize)))
+    }
+
+    return copy
+  }
+
   static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
     guard let description = sampleBuffer.formatDescription,
           var streamDescription = description.audioStreamBasicDescription,
@@ -811,5 +1117,32 @@ enum EchoSummarizer {
     } catch {
       result(FlutterError(code: "summary_failed", message: error.localizedDescription, details: nil))
     }
+  }
+}
+
+/// Escuta a `SCStream` só para o que ela tem de irreversível: parar sozinha.
+///
+/// Uma classe minúscula, e não o próprio `EchoRecorder`, porque o `SCStream`
+/// retém o delegate e o gravador é quem retém o stream — fechar esse ciclo
+/// seguraria a gravação inteira na memória depois de ela terminar.
+@available(macOS 26.0, *)
+final class EchoStreamDelegate: NSObject, SCStreamDelegate, @unchecked Sendable {
+  private let lock = NSLock()
+  private var stored: String?
+
+  /// O que derrubou a captura, se alguma coisa derrubou.
+  ///
+  /// Sob trava porque o `SCStream` avisa de uma thread própria e quem lê é o
+  /// gravador, ao parar.
+  var error: String? {
+    lock.lock()
+    defer { lock.unlock() }
+    return stored
+  }
+
+  func stream(_ stream: SCStream, didStopWithError error: Error) {
+    lock.lock()
+    stored = error.localizedDescription
+    lock.unlock()
   }
 }
