@@ -82,7 +82,7 @@ O que se quer:
 | **Janela flutuante (overlay)** | `920 × 800` | Transparente, borderless, sem chrome, sempre no topo, visível em todos os Spaces. É maior que qualquer painel só para caber a sombra de 60px de blur sem corte. Compartilhada pelos 5 módulos. |
 | Posição do overlay | centro óptico em **42% da altura útil** da tela | Um pouco acima do centro, como o Spotlight. Todos os painéis nascem no mesmo ponto. |
 | **Hub** | `880 × 620` | Janela normal, redimensionável, abre centralizada na tela onde está o cursor. |
-| Hub + região de leitura | `880 + 480 = 1360` de largura | A janela **cresce para o lado** quando o Echo abre uma reunião; volta ao fechar. |
+| Hub + região de leitura | `880 + 480 = 1360` de largura | A janela **cresce em torno do próprio centro**, metade para cada lado, quando um módulo abre um item para ler (Echo: a reunião; Focus: a sessão do histórico); volta ao mesmo lugar e ao mesmo tamanho ao fechar. |
 
 ### Painéis flutuantes (centralizados na janela de 920×800)
 

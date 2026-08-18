@@ -11,6 +11,7 @@ import '../../../awake/presentation/views/awake_settings_view.dart';
 import '../../../echo/presentation/views/echo_settings_view.dart';
 import '../../../echo/presentation/widgets/echo_reader.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
+import '../../../focus/presentation/widgets/focus_reader.dart';
 import '../../../leaf/presentation/views/leaf_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
 import '../../models/evergreen_module.dart';
@@ -27,8 +28,11 @@ import 'app_settings_view.dart';
 /// uma não afeta a outra.
 ///
 /// Um módulo pode abrir uma **terceira região**, dedicada ao item que se está
-/// lendo (hoje só o Echo, com a reunião). Quando isso acontece a janela cresce
-/// para o lado em vez de dividir o que já existe — ver [HubDetailRegion].
+/// lendo (o Echo, com a reunião; o Focus, com a sessão do histórico). Quando
+/// isso acontece a janela cresce em torno do próprio centro, em vez de dividir
+/// o que já existe — ver [HubDetailRegion]. É por aqui que qualquer módulo
+/// mostra conteúdo longo: no Evergreen não se abre janela nova nem diálogo
+/// modal para ler.
 class HubView extends ConsumerStatefulWidget {
   const HubView({super.key});
 
@@ -122,8 +126,10 @@ class _HubViewState extends ConsumerState<HubView> {
   /// A região dedicada do módulo que a abriu.
   Widget _region(EvergreenModule module, double width) => switch (module) {
         EvergreenModule.echo => EchoReader(width: width),
-        // Nenhum outro módulo abre região hoje; o `switch` existe para que o
-        // próximo entre aqui, e não num `if` espalhado pela tela.
+        EvergreenModule.focus => FocusReader(width: width),
+        // Os outros módulos ainda não têm nada longo para ler; o `switch`
+        // existe para que o próximo entre aqui, e não num `if` espalhado pela
+        // tela.
         _ => const SizedBox.shrink(),
       };
 

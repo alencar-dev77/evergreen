@@ -9,12 +9,35 @@ import '../../models/focus_session.dart';
 /// sessões da semana.
 @immutable
 class FocusHistoryState {
-  const FocusHistoryState({required this.sessions, required this.stats});
+  const FocusHistoryState({
+    required this.sessions,
+    required this.stats,
+    this.selectedId,
+  });
 
   final List<FocusSession> sessions;
   final FocusStats stats;
 
+  /// A sessão aberta na região de leitura do Hub, se houver.
+  ///
+  /// Guardado por id, e não como objeto: a lista é relida do banco a cada
+  /// [FocusHistoryViewModel.refresh], e um objeto guardado aqui envelheceria
+  /// em silêncio enquanto a lista ao lado já mostra o registro novo.
+  final int? selectedId;
+
   bool get isEmpty => sessions.isEmpty;
+
+  /// A sessão aberta, ou `null` quando nenhuma está — inclusive quando a que
+  /// estava aberta foi apagada ou saiu na virada da semana.
+  FocusSession? get selected {
+    if (selectedId == null) return null;
+
+    for (final session in sessions) {
+      if (session.id == selectedId) return session;
+    }
+
+    return null;
+  }
 }
 
 final focusHistoryViewModelProvider =
@@ -43,7 +66,18 @@ class FocusHistoryViewModel extends Notifier<FocusHistoryState> {
     return _read();
   }
 
-  void refresh() => state = _read();
+  void refresh() => state = _read(selectedId: state.selectedId);
+
+  /// Escolhe a sessão que a região de leitura mostra.
+  ///
+  /// Quem abre a região é a tela do Focus (`hubDetailProvider`), porque quem a
+  /// desenha — e quem faz a janela crescer — é o Hub. Aqui fica só *qual*
+  /// sessão está aberta.
+  void select(int id) => state = FocusHistoryState(
+        sessions: state.sessions,
+        stats: state.stats,
+        selectedId: id,
+      );
 
   /// Apaga uma sessão só — o oposto de "limpar histórico", que leva a semana
   /// inteira.
@@ -57,18 +91,21 @@ class FocusHistoryViewModel extends Notifier<FocusHistoryState> {
 
   void clear() {
     _repository.clearAll();
-    refresh();
+    // Sem sessão nenhuma não há o que ler: a seleção vai junto, e quem fecha a
+    // região é a tela (só ela conhece o `hubDetailProvider`).
+    state = _read();
   }
 
   /// Toda leitura começa apagando o que é de semanas anteriores — é aqui que a
   /// virada de segunda-feira acontece, sem tarefa agendada nem serviço extra.
-  FocusHistoryState _read() {
+  FocusHistoryState _read({int? selectedId}) {
     final now = _now();
     _repository.trimToCurrentWeek(now: now);
 
     return FocusHistoryState(
       sessions: _repository.loadRecent(limit: _limit, now: now),
       stats: _repository.stats(now: now),
+      selectedId: selectedId,
     );
   }
 }
