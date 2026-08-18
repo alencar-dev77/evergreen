@@ -17,8 +17,7 @@ import '../../models/transcription_language.dart';
 import '../viewmodels/echo_library_view_model.dart';
 import '../viewmodels/echo_recorder_view_model.dart';
 import '../viewmodels/echo_settings_view_model.dart';
-import '../widgets/echo_meeting_detail.dart';
-import '../widgets/echo_meeting_list.dart';
+import '../widgets/echo_library.dart';
 import '../widgets/echo_permission_row.dart';
 
 /// Tela do Echo dentro do Hub.
@@ -84,7 +83,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
 
     final library = ref.watch(echoLibraryViewModelProvider);
     final libraryViewModel = ref.read(echoLibraryViewModelProvider.notifier);
-    final selected = library.selected;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -92,11 +90,12 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
         EgSettingsSection(
           title: 'Reuniões',
           children: [
-            EchoMeetingList(
-              meetings: library.meetings,
-              selectedId: library.selectedId,
+            EchoLibrary(
+              state: library,
               onSelect: libraryViewModel.select,
               onToggleKept: libraryViewModel.toggleKept,
+              onSummarize: libraryViewModel.summarize,
+              onDelete: libraryViewModel.delete,
             ),
             if (library.errorMessage != null)
               Padding(
@@ -106,17 +105,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   style: AppTypography.captionSmall,
                 ),
               ),
-            if (selected != null) ...[
-              const SizedBox(height: AppSpacing.xl),
-              EchoMeetingDetail(
-                meeting: selected,
-                summaries: library.summaries,
-                isSummarizing: library.summarizingId == selected.id,
-                progress: library.progress,
-                onSummarize: () => libraryViewModel.summarize(selected.id!),
-                onDelete: () => libraryViewModel.delete(selected.id!),
-              ),
-            ],
           ],
         ),
         EgSettingsSection(

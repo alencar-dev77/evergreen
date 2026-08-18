@@ -3,19 +3,27 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
+import '../../../../shared/utils/day_label.dart';
+import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_button.dart';
-import '../../../../shared/widgets/eg_section_label.dart';
+import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
 import '../../models/meeting_segment.dart';
 import '../../models/meeting_turn.dart';
 
-/// A reunião selecionada: o resumo, quando existe, e a transcrição inteira.
+/// O que a reunião escolhida tem para ler: o resumo ou a transcrição.
 ///
-/// O resumo vem primeiro de propósito. Quem volta a uma reunião de semanas
-/// atrás quer o que foi decidido, não reler trinta minutos de fala — e quem
-/// quer reler tem a transcrição logo abaixo, sem precisar abrir nada.
-class EchoMeetingDetail extends StatelessWidget {
+/// **Um de cada vez, e não os dois empilhados.** Empilhados, a transcrição
+/// empurrava tudo o mais para fora da tela: a lista de reuniões sumia sob meia
+/// hora de fala, e trocar de reunião exigia rolar de volta ao topo. São dois
+/// documentos sobre a mesma coisa, e o seletor diz qual deles está aberto —
+/// que é o mesmo motivo de um app de e-mail não mostrar a mensagem e o anexo
+/// no mesmo scroll.
+///
+/// O resumo abre primeiro de propósito: quem volta a uma reunião de semanas
+/// atrás quer o que foi decidido, não reler trinta minutos de fala.
+class EchoMeetingDetail extends StatefulWidget {
   const EchoMeetingDetail({
     super.key,
     required this.meeting,
@@ -24,6 +32,7 @@ class EchoMeetingDetail extends StatelessWidget {
     required this.progress,
     required this.onSummarize,
     required this.onDelete,
+    this.now,
   });
 
   final Meeting meeting;
@@ -36,93 +45,79 @@ class EchoMeetingDetail extends StatelessWidget {
   final VoidCallback onSummarize;
   final VoidCallback onDelete;
 
+  /// Injetável para o teste e para os goldens não dependerem do relógio real.
+  final DateTime? now;
+
+  @override
+  State<EchoMeetingDetail> createState() => _EchoMeetingDetailState();
+}
+
+enum _DetailTab {
+  summary('Resumo'),
+  transcript('Transcrição');
+
+  const _DetailTab(this.label);
+
+  final String label;
+}
+
+class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
+  /// Trocar de reunião mantém a aba: quem está comparando a transcrição de duas
+  /// reuniões não quer voltar ao resumo a cada clique na lista.
+  var _tab = _DetailTab.summary;
+
   @override
   Widget build(BuildContext context) {
+    final meeting = widget.meeting;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _summary(),
-        const SizedBox(height: AppSpacing.xxl),
-        const EgSectionLabel('Transcrição'),
-        const SizedBox(height: AppSpacing.sm),
-        _transcript(),
-        const SizedBox(height: AppSpacing.xl),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: EgButton.destructive(
-            label: 'Apagar reunião',
-            onPressed: onDelete,
+        Text(
+          meeting.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.panelTitle,
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(_metadata(), style: AppTypography.captionXS),
+        const SizedBox(height: AppSpacing.lg),
+        if (!meeting.isEmpty) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: EgSegmentedControl<_DetailTab>(
+              value: _tab,
+              options: _DetailTab.values,
+              labelOf: (option) => option.label,
+              onChanged: (option) => setState(() => _tab = option),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        // A leitura rola dentro do painel, não na página: é o que mantém a
+        // lista ao lado sempre à vista.
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: _body(),
           ),
         ),
+        const SizedBox(height: AppSpacing.lg),
+        _actions(),
       ],
     );
   }
 
-  Widget _summary() {
-    if (meeting.hasSummary) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(child: EgSectionLabel('Resumo')),
-              // Refazer é barato quando a instrução mudou — e é assim que a
-              // pessoa experimenta formatos sem regravar nada.
-              if (summaries.isAvailable && !isSummarizing)
-                EgButton.secondary(label: 'Refazer', onPressed: onSummarize),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: const BoxDecoration(
-              color: AppColors.card,
-              borderRadius: AppRadii.cardAll,
-            ),
-            // Mesma fonte de leitura da transcrição: os dois são texto que
-            // se lê em parágrafo, e alternar entre eles não pode parecer
-            // trocar de documento.
-            child: SelectableText(
-              meeting.summary!,
-              style: AppTypography.reading,
-            ),
-          ),
-        ],
-      );
-    }
+  String _metadata() {
+    final meeting = widget.meeting;
 
-    if (isSummarizing) {
-      final label = progress == null || progress!.$2 <= 1
-          ? 'Resumindo…'
-          : 'Resumindo — bloco ${progress!.$1} de ${progress!.$2}';
-
-      return Text(label, style: AppTypography.captionSmall);
-    }
-
-    // Sem transcrição não há o que resumir, e um botão que não faz nada é pior
-    // que botão nenhum: a pessoa clica, não acontece nada, e não fica sabendo
-    // se o app travou ou se ela entendeu errado.
-    if (meeting.isEmpty) {
-      return Text(
-        'Não há o que resumir: esta gravação não capturou nenhuma fala.',
-        style: AppTypography.captionSmall,
-      );
-    }
-
-    final explanation = summaries.explanation;
-    if (explanation != null) {
-      return Text(explanation, style: AppTypography.captionSmall);
-    }
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: EgButton(label: 'Resumir', onPressed: onSummarize),
-    );
+    return '${DayLabel.of(meeting.startedAt, now: widget.now)} · '
+        '${DayLabel.time(meeting.startedAt)} · '
+        '${DurationFormat.compact(meeting.duration)}';
   }
 
-  Widget _transcript() {
-    if (meeting.isEmpty) {
+  Widget _body() {
+    if (widget.meeting.isEmpty) {
       return Text(
         'Nenhuma fala foi reconhecida. As causas comuns: o microfone estava '
         'sem permissão, ninguém falou, ou o idioma da transcrição não era o '
@@ -131,27 +126,81 @@ class EchoMeetingDetail extends StatelessWidget {
       );
     }
 
-    final turns = MeetingTurn.from(meeting.segments);
+    return switch (_tab) {
+      _DetailTab.summary => _summary(),
+      _DetailTab.transcript => _transcript(),
+    };
+  }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xl,
-        vertical: AppSpacing.lg,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.cardAll,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final turn in turns) ...[
-            _TurnBlock(turn: turn),
-            if (turn != turns.last) const SizedBox(height: AppSpacing.xl),
-          ],
+  Widget _summary() {
+    final meeting = widget.meeting;
+
+    if (meeting.hasSummary) {
+      return SelectableText(meeting.summary!, style: AppTypography.reading);
+    }
+
+    if (widget.isSummarizing) {
+      final progress = widget.progress;
+      final label = progress == null || progress.$2 <= 1
+          ? 'Resumindo…'
+          : 'Resumindo — bloco ${progress.$1} de ${progress.$2}';
+
+      return Text(label, style: AppTypography.captionSmall);
+    }
+
+    final explanation = widget.summaries.explanation;
+    if (explanation != null) {
+      return Text(explanation, style: AppTypography.captionSmall);
+    }
+
+    // Sem resumo ainda, o lugar dele explica o que ele é — melhor que um vazio
+    // com um botão solto no rodapé.
+    return Text(
+      'Esta reunião ainda não foi resumida. O resumo é feito na sua máquina, '
+      'a partir da transcrição, e leva alguns segundos.',
+      style: AppTypography.captionSmall,
+    );
+  }
+
+  Widget _transcript() {
+    final turns = MeetingTurn.from(widget.meeting.segments);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final turn in turns) ...[
+          _TurnBlock(turn: turn),
+          if (turn != turns.last) const SizedBox(height: AppSpacing.xl),
         ],
-      ),
+      ],
+    );
+  }
+
+  /// A ação da aba aberta à esquerda; apagar sempre à direita, longe dela.
+  ///
+  /// Só a aba do resumo tem ação: a transcrição é o que a gravação produziu,
+  /// não há o que refazer nela.
+  Widget _actions() {
+    final meeting = widget.meeting;
+    final canSummarize = !meeting.isEmpty &&
+        widget.summaries.isAvailable &&
+        !widget.isSummarizing &&
+        _tab == _DetailTab.summary;
+
+    return Row(
+      children: [
+        if (canSummarize)
+          meeting.hasSummary
+              // Refazer é barato quando a instrução mudou — e é assim que a
+              // pessoa experimenta formatos sem regravar nada.
+              ? EgButton.secondary(
+                  label: 'Refazer resumo',
+                  onPressed: widget.onSummarize,
+                )
+              : EgButton(label: 'Resumir', onPressed: widget.onSummarize),
+        const Spacer(),
+        EgButton.destructive(label: 'Apagar', onPressed: widget.onDelete),
+      ],
     );
   }
 }

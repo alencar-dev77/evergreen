@@ -359,7 +359,9 @@ void main() {
     await tester.tap(find.text(EvergreenModule.focus.name));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Refatorar o módulo de auth'));
+    // Na linha do histórico o título e o anúncio do que há dentro vivem num
+    // parágrafo só, como o apelido do Pin — daí a busca por trecho.
+    await tester.tap(find.textContaining('Refatorar o módulo de auth'));
     await tester.pumpAndSettle();
 
     // O diálogo vive na rota de cima, fora da subárvore do Hub — capturar o
@@ -433,6 +435,23 @@ void main() {
     await expectLater(
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_leaf.png'),
+    );
+  });
+
+  testWidgets('Hub — Echo, a transcrição', (tester) async {
+    await pump(tester, const HubView(), const Size(2400, 1400));
+
+    await tester.tap(find.text(EvergreenModule.echo.name));
+    await tester.pumpAndSettle();
+
+    // A aba que motivou o redesenho: empilhada sob o resumo, a transcrição
+    // empurrava a lista de reuniões para fora da tela.
+    await tester.tap(find.text('Transcrição'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo_transcript.png'),
     );
   });
 
@@ -514,7 +533,10 @@ void main() {
   });
 
   testWidgets('Hub — Echo', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1200));
+    // Mais larga que as outras telas do Hub: a biblioteca do Echo é a única de
+    // duas colunas, e numa janela estreita a imagem mostraria a coluna de
+    // leitura espremida — um problema de tamanho de janela, não de desenho.
+    await pump(tester, const HubView(), const Size(2400, 1400));
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();
