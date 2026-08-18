@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
 import '../../core/design/app_typography.dart';
-import 'eg_hoverable.dart';
+import 'eg_surface.dart';
 
 /// Seletor de opção única em formato de pílulas.
 ///
@@ -67,7 +67,7 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
       child: AnimatedContainer(
         duration: AppDurations.instant,
         curve: AppDurations.curve,
-        padding: const EdgeInsets.all(2),
+        padding: const EdgeInsets.all(AppSpacing.xxxs),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: AppRadii.badgeAll,
@@ -103,37 +103,39 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EgHoverable(
+    // Fora da navegação por Tab: o foco vive no controle inteiro, e as setas é
+    // que trocam a opção. Um ponto de parada por pílula faria o Tab andar três
+    // vezes para atravessar uma preferência só.
+    //
+    // A opção escolhida usa accent em baixa opacidade — o mesmo tratamento de
+    // seleção da lista e da sidebar. Preenchimento verde sólido puxaria o olho
+    // para uma preferência que não é a ação principal de tela nenhuma.
+    return EgInteractiveSurface(
       onTap: onTap,
-      builder: (context, state) => AnimatedContainer(
-        duration: state.isPressed ? Duration.zero : AppDurations.instant,
-        curve: AppDurations.curve,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xxs,
-        ),
-        decoration: BoxDecoration(
-          color: _background(state),
-          // Concêntrico com o container: 6px do pai menos os 2px de padding.
-          borderRadius: AppRadii.badgeSmallAll,
-        ),
-        child: Text(
-          label,
-          style: AppTypography.captionSmall.copyWith(
-            color: isSelected ? AppColors.greenLight : AppColors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
+      focusable: false,
+      style: EgSurfaceStyle.segment,
+      isSelected: isSelected,
+      // Concêntrico com o container: 6px do pai menos os 2px de padding.
+      borderRadius: AppRadii.badgeSmallAll,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xxs,
       ),
-    );
-  }
+      builder: (context, state) {
+        final style = isSelected
+            ? AppTypography.captionSmallEmphasis
+            : AppTypography.captionSmall;
 
-  /// A opção escolhida usa accent em baixa opacidade — o mesmo tratamento de
-  /// seleção da lista e da sidebar. Preenchimento verde sólido puxaria o olho
-  /// para uma preferência que não é a ação principal de tela nenhuma.
-  Color _background(EgInteraction state) {
-    if (isSelected) return AppColors.selection;
-    if (state.isPressed) return AppColors.pressed;
-    return state.isHovered ? AppColors.hover : AppColors.transparent;
+        return Text(
+          label,
+          style: style.copyWith(
+            color: EgSurfaceStyle.segment.foregroundFor(
+              state,
+              isSelected: isSelected,
+            ),
+          ),
+        );
+      },
+    );
   }
 }

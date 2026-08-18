@@ -7,6 +7,7 @@ import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/leaf_note.dart';
 
 /// Medidas do cartão da parede.
@@ -68,8 +69,8 @@ class LeafNoteCard extends StatelessWidget {
       onTap: onTap,
       builder: (context, state) {
         return _LeafCardSurface(
+          state: state,
           isSelected: isSelected,
-          isHovered: state.isHovered,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -142,13 +143,13 @@ class LeafNewNoteCell extends StatelessWidget {
       onTap: onTap,
       builder: (context, state) {
         return _LeafCardSurface(
+          state: state,
           isSelected: isSelected,
-          isHovered: state.isHovered,
           isEmpty: true,
           child: Center(
             child: EgIcon(
               EgIconData.plus,
-              size: 16,
+              size: AppIconSizes.lg,
               color: isSelected || state.isHovered
                   ? AppColors.textSecondary
                   : AppColors.textTertiary,
@@ -165,52 +166,72 @@ class LeafNewNoteCell extends StatelessWidget {
 /// Compartilhada pelo cartão com anotação, pela vaga vazia e pelo cartão em
 /// edição, para que os três tenham exatamente a mesma silhueta — trocar de
 /// estado não pode mexer no tamanho de nada.
+///
+/// Os estados saem da matriz do design system ([EgSurfaceStyle]); o que este
+/// módulo acrescenta são duas colunas próprias: a vaga livre, que em repouso é
+/// só um contorno, e o cartão em edição, cuja borda accent é o único sinal de
+/// que o teclado agora pertence a ele.
 class _LeafCardSurface extends StatelessWidget {
   const _LeafCardSurface({
     required this.child,
     required this.isSelected,
-    this.isHovered = false,
+    this.state = const EgInteraction(),
     this.isEditing = false,
     this.isEmpty = false,
   });
 
   final Widget child;
   final bool isSelected;
-  final bool isHovered;
+  final EgInteraction state;
   final bool isEditing;
 
   /// A vaga livre: em repouso ela é só um contorno, sem superfície própria.
   final bool isEmpty;
 
+  /// A vaga livre. Igual ao cartão, menos a superfície de repouso — o que a
+  /// desenha é a borda.
+  static const _emptyStyle = EgSurfaceStyle(
+    rest: AppColors.transparent,
+    hover: AppColors.hover,
+    pressed: AppColors.pressed,
+    selected: AppColors.selection,
+    foreground: AppColors.textPrimary,
+    border: AppColors.border,
+    selectedBorder: AppColors.greenDeep,
+  );
+
+  /// O cartão sendo escrito: borda accent cheia, em vez do [AppColors.greenDeep]
+  /// do apenas-selecionado. É um degrau a mais na mesma cor, não uma cor nova.
+  static const _editingStyle = EgSurfaceStyle(
+    rest: AppColors.card,
+    hover: AppColors.hover,
+    pressed: AppColors.pressed,
+    selected: AppColors.selection,
+    foreground: AppColors.textPrimary,
+    border: AppColors.greenPrimary,
+    selectedBorder: AppColors.greenPrimary,
+  );
+
+  EgSurfaceStyle get _style {
+    if (isEditing) return _editingStyle;
+    return isEmpty ? _emptyStyle : EgSurfaceStyle.card;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: AppDurations.instant,
-      curve: AppDurations.curve,
+    // Seleção vence hover: uma é onde o teclado está, a outra é onde o mouse
+    // passou, e quando coincidem a que importa é a do teclado. Quem garante
+    // essa ordem é a matriz, não este arquivo.
+    return EgSurface(
+      state: state,
+      style: _style,
+      isSelected: isSelected,
       width: LeafCardMetrics.width,
       height: LeafCardMetrics.height,
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: _background,
-        borderRadius: AppRadii.cardAll,
-        border: Border.all(color: _borderColor),
-      ),
+      borderRadius: AppRadii.cardAll,
       child: child,
     );
-  }
-
-  Color get _background {
-    // Seleção vence hover: uma é onde o teclado está, a outra é onde o mouse
-    // passou, e quando coincidem a que importa é a do teclado.
-    if (isSelected) return AppColors.selection;
-    if (isHovered) return AppColors.hover;
-    return isEmpty ? AppColors.transparent : AppColors.card;
-  }
-
-  Color get _borderColor {
-    if (isEditing) return AppColors.greenPrimary;
-    if (isSelected) return AppColors.greenDeep;
-    return AppColors.border;
   }
 }
 
@@ -226,8 +247,12 @@ class _DeleteAffordance extends StatelessWidget {
       onTap: onTap,
       builder: (context, state) => EgIcon(
         EgIconData.trash,
-        size: 13,
-        color: state.isHovered ? AppColors.error : AppColors.textTertiary,
+        size: AppIconSizes.xs,
+        // Vermelho já sob o mouse, e não só no clique: é a única ação
+        // destrutiva do cartão, e ela precisa se anunciar antes de acontecer.
+        color: state.isHovered || state.isPressed
+            ? AppColors.error
+            : AppColors.textTertiary,
       ),
     );
   }

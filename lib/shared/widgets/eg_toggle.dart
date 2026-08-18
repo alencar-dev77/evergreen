@@ -6,13 +6,36 @@ import 'eg_hoverable.dart';
 
 /// Switch pill do design system — trilho 36x21, bolinha 15px.
 ///
-/// Ligado: trilho verde com bolinha escura à direita.
-/// Desligado: trilho `border` com bolinha `textSecondary` à esquerda.
-///
 /// É a única exceção deliberada à regra de "accent em baixa opacidade, nunca
 /// preenchimento sólido": switch de macOS é verde chapado, e o usuário lê o
 /// estado ligado/desligado por essa convenção antes de ler qualquer outra
 /// pista. Registrada em `colors.md`.
+///
+/// Por isso ele também não usa a `EgSurfaceStyle` compartilhada: a matriz dele
+/// tem duas colunas (ligado e desligado) em vez de uma, e cada estado de
+/// interação existe nas duas. A tabela completa:
+///
+/// | Interação | Trilho ligado | Trilho desligado |
+/// |---|---|---|
+/// | repouso | `greenPrimary` | `border` |
+/// | hover · foco | `greenLight` | `hover` |
+/// | pressed | `greenDeep` | `pressed` |
+/// | disabled | repouso a [AppOpacities.disabled] | repouso a [AppOpacities.disabled] |
+///
+/// Quem carrega os estados é o **trilho**; a bolinha só diz de que lado está
+/// (escura sobre o verde, `textSecondary` sobre o cinza). Fazê-la clarear
+/// junto no hover foi tentado e descartado: uma bolinha branca acesa ao passar
+/// o mouse grita mais que o próprio estado ligado, e é a redundância de
+/// affordance que `anti-patterns.md` proíbe.
+///
+/// O `pressed` faltava até a componentização do design system: o switch era o
+/// único controle do app que não dava sinal nenhum entre o dedo descer e a
+/// preferência virar. Nas duas colunas ele é um degrau **na direção contrária**
+/// ao hover — escurece o verde, clareia o cinza —, que é como um controle
+/// nativo diz "estou sendo apertado" sem antecipar para qual lado vai.
+///
+/// O foco compartilha a superfície do hover: quem o distingue é o anel
+/// ([AppShadows.focusRing]), que só o teclado acende.
 class EgToggle extends StatelessWidget {
   const EgToggle({
     super.key,
@@ -37,16 +60,18 @@ class EgToggle extends StatelessWidget {
       focusable: true,
       onTap: isEnabled ? () => onChanged!(!value) : null,
       builder: (context, state) => Opacity(
-        opacity: isEnabled ? 1 : 0.5,
+        opacity: isEnabled ? 1 : AppOpacities.disabled,
         child: AnimatedContainer(
-          duration: AppDurations.instant,
+          // Como em qualquer outro controle do app, o pressed entra sem
+          // transição e a volta ao repouso é que ganha o easing.
+          duration: state.isPressed && isEnabled
+              ? Duration.zero
+              : AppDurations.instant,
           curve: AppDurations.curve,
           width: _trackWidth,
           height: _trackHeight,
           decoration: BoxDecoration(
-            color: _trackColor(
-              isActive: (state.isHovered || state.isFocused) && isEnabled,
-            ),
+            color: _trackColor(isEnabled ? state : const EgInteraction()),
             borderRadius: BorderRadius.circular(_trackHeight / 2),
             boxShadow:
                 state.isFocused && isEnabled ? AppShadows.focusRing : null,
@@ -72,8 +97,17 @@ class EgToggle extends StatelessWidget {
     );
   }
 
-  Color _trackColor({required bool isActive}) {
-    if (value) return isActive ? AppColors.greenLight : AppColors.greenPrimary;
-    return isActive ? AppColors.hover : AppColors.border;
+  Color _trackColor(EgInteraction state) {
+    if (value) {
+      if (state.isPressed) return AppColors.greenDeep;
+      return state.isHovered || state.isFocused
+          ? AppColors.greenLight
+          : AppColors.greenPrimary;
+    }
+
+    if (state.isPressed) return AppColors.pressed;
+    return state.isHovered || state.isFocused
+        ? AppColors.hover
+        : AppColors.border;
   }
 }
