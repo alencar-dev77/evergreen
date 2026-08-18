@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_gradients.dart';
@@ -11,6 +10,7 @@ import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_search_field.dart';
 import '../../models/clipboard_item.dart';
@@ -33,8 +33,7 @@ class PinOverlayView extends ConsumerStatefulWidget {
   ConsumerState<PinOverlayView> createState() => _PinOverlayViewState();
 }
 
-class _PinOverlayViewState extends ConsumerState<PinOverlayView>
-    with WindowListener, SingleTickerProviderStateMixin {
+class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -48,18 +47,6 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   /// digitado seria gravado no item errado.
   ClipboardItem? _aliasItem;
 
-  /// Fade de entrada do painel. Nasce em 1 para que a primeira construção (e os
-  /// testes, que não têm janela) já mostrem o painel pronto — quem rebobina a
-  /// animação é o `onWindowFocus`, uma vez por abertura.
-  late final _entrance = AnimationController(
-    vsync: this,
-    duration: AppDurations.entrance,
-    value: 1,
-  );
-
-  late final _entranceOpacity =
-      CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
-
   bool _isPreviewOpen = false;
 
   /// Largura do painel em cada modo, conforme as telas do design.
@@ -70,22 +57,14 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
   /// Largura da coluna da lista quando o preview está aberto.
   static const _compactListWidth = 210.0;
 
-  /// Margem para o macOS terminar a troca de foco antes de confirmarmos um
-  /// blur. Curto o bastante para o fechamento continuar parecendo instantâneo.
-  static const _blurGracePeriod = Duration(milliseconds: 150);
-
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
     _aliasFocusNode.addListener(_onAliasFocusChanged);
   }
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
-    _entranceOpacity.dispose();
-    _entrance.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _aliasFocusNode.removeListener(_onAliasFocusChanged);
@@ -94,11 +73,11 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
     super.dispose();
   }
 
-  @override
-  void onWindowFocus() {
+  /// Cada abertura começa do zero: busca em branco, cursor no campo e preview
+  /// fechado.
+  void _onShow() {
     _searchController.clear();
     _searchFocusNode.requestFocus();
-    _entrance.forward(from: 0);
 
     // O campo de apelido volta do zero: o preview fecha junto, e a abertura
     // seguinte recarrega o apelido do item que estiver selecionado então.
@@ -106,26 +85,6 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
     _aliasController.clear();
 
     setState(() => _isPreviewOpen = false);
-  }
-
-  @override
-  void onWindowBlur() => unawaited(_handleBlur());
-
-  @override
-  void onWindowClose() => _close();
-
-  /// Fecha o overlay quando o foco vai para outro aplicativo.
-  ///
-  /// Ativar a janela faz o macOS oscilar o key status por um instante, então um
-  /// `windowDidResignKey` isolado não significa que o usuário saiu: confirmamos
-  /// que o foco não voltou antes de esconder. Sem essa checagem o overlay pisca
-  /// e some logo depois de abrir.
-  Future<void> _handleBlur() async {
-    await Future<void>.delayed(_blurGracePeriod);
-    if (!mounted) return;
-    if (await windowManager.isFocused()) return;
-
-    await _close();
   }
 
   /// Guardada uma vez, na primeira construção, em vez de procurada a cada uso:
@@ -292,51 +251,30 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView>
             onCommitAlias: _finishAliasEdit,
             onCancelAlias: _cancelAliasEdit,
           ),
-          // A janela é maior que o painel para caber a sombra e o painel
-          // expandido. O resto dela é transparente, mas ainda captura cliques —
-          // então tratamos essa área como barreira: clicar fora fecha.
-          //
-          // Centralizado na janela, como todos os painéis: é a janela que se
-          // posiciona na tela (ver `OverlayWindow`), e centralizar aqui é o que
-          // faz painéis de alturas diferentes nascerem no mesmo ponto.
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _close,
-            child: Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  // Fade curto na chegada; a saída não anima — a janela
-                  // simplesmente se esconde, porque voltar ao trabalho é mais
-                  // urgente que assistir o painel sair.
-                  child: FadeTransition(
-                    opacity: _entranceOpacity,
-                    child: AnimatedContainer(
-                      duration: AppDurations.medium,
-                      curve: AppDurations.curve,
-                      width: showPreview ? _withPreviewWidth : _listOnlyWidth,
-                      constraints:
-                          const BoxConstraints(maxHeight: _maxPanelHeight),
-                      child: EgPanel(
-                        gradient: AppGradients.panelSurface,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _searchBar(),
-                            Flexible(child: _content(showPreview)),
-                            PinHintBar(
-                              isPreviewOpen: showPreview,
-                              canMovePinned: state.canMoveSelectedPinned,
-                              isEditingAlias: isEditingAlias,
-                            ),
-                          ],
-                        ),
-                      ),
+          // O painel do Pin é o único que muda de largura: abrir o preview
+          // anima a caixa em vez de trocá-la, para o painel crescer a partir do
+          // mesmo centro em que a casca o ancora.
+          child: EgOverlayShell(
+            onClose: () => unawaited(_close()),
+            onShow: _onShow,
+            child: AnimatedContainer(
+              duration: AppDurations.medium,
+              curve: AppDurations.curve,
+              width: showPreview ? _withPreviewWidth : _listOnlyWidth,
+              constraints: const BoxConstraints(maxHeight: _maxPanelHeight),
+              child: EgPanel(
+                gradient: AppGradients.panelSurface,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _searchBar(),
+                    Flexible(child: _content(showPreview)),
+                    PinHintBar(
+                      isPreviewOpen: showPreview,
+                      canMovePinned: state.canMoveSelectedPinned,
+                      isEditingAlias: isEditingAlias,
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
