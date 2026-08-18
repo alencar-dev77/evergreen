@@ -645,7 +645,9 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     queue.async { [weak self] in self?.write(copy, isMicrophone: true) }
   }
 
-  private func write(_ buffer: AVAudioPCMBuffer, isMicrophone: Bool) {
+  private func write(_ rawBuffer: AVAudioPCMBuffer, isMicrophone: Bool) {
+    // A mixagem para um canal é nossa, não do `AVAudioConverter` — ver [mono].
+    let buffer = Self.mono(rawBuffer)
     var converted: AVAudioPCMBuffer?
 
     do {
@@ -776,6 +778,61 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     }
 
     return Int(peak)
+  }
+
+  /// Soma os canais do bloco em um só, na mão.
+  ///
+  /// **É aqui que a faixa do microfone estava morrendo.** O microfone interno
+  /// de um MacBook é um arranjo de três canais, e pedir ao `AVAudioConverter`
+  /// que vá de três canais para mono devolve `status == .haveData`, o número
+  /// certo de quadros e **silêncio digital exato**: ele não recusa a conversão,
+  /// não devolve erro, só escreve zeros. Medido: um seno de meia escala nos
+  /// três canais entra, e sai um bloco de pico 0. Com a mixagem feita aqui, o
+  /// mesmo seno sai com pico 16384.
+  ///
+  /// Vale para as duas faixas. A do sistema é estéreo com layout padrão e o
+  /// conversor dá conta dela, mas a conta é a mesma e uma saída multicanal
+  /// cairia no mesmo buraco.
+  ///
+  /// Devolve o bloco original quando não há o que fazer — um canal só, ou um
+  /// formato que não é ponto flutuante. Nesses casos quem converte segue sendo
+  /// o `AVAudioConverter`, como sempre foi.
+  static func mono(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer {
+    let format = buffer.format
+
+    guard format.channelCount > 1,
+      format.commonFormat == .pcmFormatFloat32,
+      let monoFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: format.sampleRate,
+        channels: 1,
+        interleaved: false),
+      let output = AVAudioPCMBuffer(
+        pcmFormat: monoFormat, frameCapacity: buffer.frameLength),
+      let destination = output.floatChannelData?[0],
+      let source = buffer.floatChannelData
+    else { return buffer }
+
+    output.frameLength = buffer.frameLength
+
+    let frames = Int(buffer.frameLength)
+    let channels = Int(format.channelCount)
+
+    // Média, e não o primeiro canal: num arranjo de microfones cada canal é uma
+    // cápsula, e escolher uma jogaria fora o sinal das outras duas.
+    for frame in 0..<frames {
+      var sum: Float = 0
+
+      if format.isInterleaved {
+        for channel in 0..<channels { sum += source[0][frame * channels + channel] }
+      } else {
+        for channel in 0..<channels { sum += source[channel][frame] }
+      }
+
+      destination[frame] = sum / Float(channels)
+    }
+
+    return output
   }
 
   /// Uma cópia independente do bloco, com o mesmo formato e conteúdo.
