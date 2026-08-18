@@ -23,12 +23,58 @@ pessoas sai pelos alto-falantes, e capturar isso no macOS exige `SCStream` com
 `capturesAudio` (ou um driver virtual tipo BlackHole, que é pior: obriga a
 pessoa a instalar um kext).
 
-A escolha que faz o módulo funcionar é o `captureMicrophone` (macOS 15+):
-**uma única `SCStream` entrega as duas faixas como saídas distintas** —
-`.audio` para o sistema, `.microphone` para você. Uma permissão, um fluxo, sem
-mixagem.
-
 `excludesCurrentProcessAudio` impede o Evergreen de gravar a si mesmo.
+
+#### O microfone não vem pela `SCStream` — e já veio
+
+O desenho original usava `captureMicrophone` (macOS 15+): **uma única
+`SCStream` entregando as duas faixas como saídas distintas** — `.audio` para o
+sistema, `.microphone` para você. Uma permissão, um fluxo, sem mixagem. É o
+caminho óbvio, e funcionou nas primeiras reuniões.
+
+Depois parou de entregar, sem que nada no código tivesse mudado. O que o log do
+sistema mostra, numa gravação em que só a faixa do sistema saiu:
+
+- `tccd` responde **Allow** para `kTCCServiceMicrophone`;
+- o `replayd` registra `hasMicrophoneAccessWithAuditToken: TCC Allow`,
+  `SCMicAudioCaptureSession startCaptureSession`, `micCaptureSessionCount=1`, e
+  a `AVCaptureSession` interna dele entra em `running -> 1` com o
+  `AVCaptureDeviceInput` do microfone interno;
+- o `coreaudiod` registra sinal na entrada durante a gravação inteira;
+- e **nenhum bloco de tipo `.microphone` chega ao processo**. O arquivo da faixa
+  nunca chega a ser criado.
+
+Reproduzido em duas builds e duas configurações de `SCStreamConfiguration`
+diferentes, com a faixa do sistema gravando normalmente ao lado. Não há erro
+para tratar: a API inicia, diz que está capturando, e não entrega.
+
+Hoje o microfone vem de um `AVAudioEngine` com tap no `inputNode` — o caminho
+de sempre para gravar entrada no macOS, anterior ao `captureMicrophone`,
+independente do `ScreenCaptureKit` e sem piso de sistema. As duas faixas
+continuam separadas, que é o que sustenta saber quem falou; muda só quem
+entrega uma delas.
+
+O tap usa o formato do próprio dispositivo (`format: nil`) em vez de pedir um:
+o microfone interno de um MacBook é um arranjo de três canais, e pedir um
+formato que o dispositivo não tem é o tipo de desencontro que faz a entrada não
+entregar nada. A conversão para 16 kHz mono acontece depois, igual para as duas
+faixas.
+
+#### E a gravação avisa quando uma faixa fica muda
+
+Era possível — e aconteceu — a reunião sair sem a metade de quem estava
+falando, e nada na tela dizer isso. Cada faixa agora é contada e medida
+enquanto grava (quadros escritos e pico de amplitude), e o resultado do `stop`
+carrega os dois números. Com eles dá para separar as três coisas que antes
+chegavam à tela como a mesma reunião vazia:
+
+- a faixa que **não recebeu bloco nenhum** — a captura não veio;
+- a faixa que recebeu **só zeros** — o som não estava lá;
+- as duas com som, e a transcrição vazia mesmo assim — aí o problema é do
+  reconhecimento, e a tela não inventa uma causa.
+
+O caminho do arquivo só é devolvido ao Dart quando existe áudio nele. Antes ia
+sempre, e o transcritor recebia o caminho de um arquivo que nunca foi criado.
 
 ### 2. Transcrever — `SpeechAnalyzer` (macOS 26)
 

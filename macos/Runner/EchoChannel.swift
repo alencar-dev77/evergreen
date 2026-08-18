@@ -329,6 +329,68 @@ actor EchoRecorder {
   /// partir de outra thread.
   private var delegate: EchoStreamDelegate?
 
+  /// A captura do microfone, feita por fora do `ScreenCaptureKit`.
+  ///
+  /// O `SCStreamConfiguration.captureMicrophone` era o caminho óbvio, e é o que
+  /// estava aqui — mas nesta máquina ele **inicia e não entrega**: o `replayd`
+  /// registra `micCaptureSessionCount=1`, o TCC responde Allow, a
+  /// `AVCaptureSession` interna dele roda, e nenhum bloco de tipo `.microphone`
+  /// chega ao processo. Reproduzido em duas builds e duas configurações
+  /// diferentes, com a faixa do sistema gravando normalmente ao lado.
+  ///
+  /// O `AVAudioEngine` é o caminho de sempre para gravar entrada no macOS —
+  /// anterior ao `captureMicrophone`, independente do `ScreenCaptureKit` e sem
+  /// piso de sistema. As duas faixas continuam separadas, que é o que sustenta
+  /// saber quem falou; muda só quem entrega uma delas.
+  private let micEngine = AVAudioEngine()
+  private var micError: String?
+
+  /// Liga o microfone e entrega cada bloco ao [output].
+  ///
+  /// Devolve `nil` quando deu certo, ou o motivo de não ter dado — que sobe até
+  /// a tela em vez de virar uma faixa muda sem explicação.
+  ///
+  /// O tap usa o formato do próprio dispositivo (`format: nil`): o microfone
+  /// interno de um MacBook é um arranjo de três canais, e pedir um formato que
+  /// ele não tem é justamente o tipo de desencontro que faz a entrada não
+  /// entregar nada. A conversão para 16 kHz mono acontece depois, igual para as
+  /// duas faixas.
+  private static func startMicrophone(
+    engine: AVAudioEngine,
+    output: EchoStreamOutput
+  ) -> String? {
+    let input = engine.inputNode
+    let format = input.inputFormat(forBus: 0)
+
+    guard format.sampleRate > 0, format.channelCount > 0 else {
+      return "Nenhum dispositivo de entrada de áudio disponível."
+    }
+
+    input.removeTap(onBus: 0)
+    input.installTap(onBus: 0, bufferSize: 4_096, format: nil) { buffer, _ in
+      output.appendMicrophone(buffer)
+    }
+
+    engine.prepare()
+
+    do {
+      try engine.start()
+      return nil
+    } catch {
+      input.removeTap(onBus: 0)
+      return error.localizedDescription
+    }
+  }
+
+  private func stopMicrophone() {
+    guard micEngine.isRunning else { return }
+
+    // Tirar o tap antes de parar: com ele instalado, um último bloco pode
+    // chegar depois de os arquivos terem sido fechados.
+    micEngine.inputNode.removeTap(onBus: 0)
+    micEngine.stop()
+  }
+
   /// Confirma a Gravação de Tela — pedindo, se for o caso, antes de desistir.
   ///
   /// `CGPreflightScreenCaptureAccess` responder `false` não quer dizer
@@ -383,13 +445,10 @@ actor EchoRecorder {
       let configuration = SCStreamConfiguration()
       configuration.capturesAudio = true
       configuration.excludesCurrentProcessAudio = true
-      configuration.captureMicrophone = true
-      // Sem fixar taxa nem número de canais: cada bloco é convertido para
-      // `recordingFormat` a partir do formato que ele mesmo declara, então
-      // impor 48 kHz estéreo aqui não economiza nada e só restringe o que o
-      // sistema pode entregar — inclusive na faixa do microfone, que o macOS
-      // monta com uma `AVCaptureSession` própria em cima do dispositivo de
-      // entrada padrão.
+      // O microfone **não** vem por aqui — ver [startMicrophone]. Sem fixar taxa
+      // nem número de canais: cada bloco é convertido para `recordingFormat` a
+      // partir do formato que ele mesmo declara, então impor 48 kHz estéreo
+      // aqui não economiza nada e só restringe o que o sistema pode entregar.
       // O vídeo não interessa, mas a SCStream exige um filtro de tela. Dois
       // pixels a um quadro por segundo é o mais perto de "nada" que dá para
       // pedir sem abrir mão do áudio.
@@ -401,16 +460,20 @@ actor EchoRecorder {
       let delegate = EchoStreamDelegate()
       let stream = SCStream(filter: filter, configuration: configuration, delegate: delegate)
 
-      let output = EchoStreamOutput(micURL: micURL, systemURL: systemURL)
+      let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
+      let output = EchoStreamOutput(micURL: micURL, systemURL: systemURL, queue: queue)
       if liveTranscription {
         await output.enableLiveTranscription(locale: locale, channel: channel)
       }
 
-      let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
       try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: queue)
-      try stream.addStreamOutput(output, type: .microphone, sampleHandlerQueue: queue)
 
       try await stream.startCapture()
+
+      // Depois da captura de tela, e nunca no lugar dela: se o microfone não
+      // subir, a reunião continua sendo gravada pelo lado do sistema. O motivo
+      // fica guardado e sai no resultado do `stop`.
+      micError = Self.startMicrophone(engine: micEngine, output: output)
 
       self.stream = stream
       self.output = output
@@ -432,6 +495,7 @@ actor EchoRecorder {
     }
 
     try? await stream.stopCapture()
+    stopMicrophone()
     await output?.finish()
 
     let duration = startedAt.map { Int(Date().timeIntervalSince($0) * 1000) } ?? 0
@@ -454,6 +518,7 @@ actor EchoRecorder {
       "micPeak": output?.micPeak ?? 0,
       "systemPeak": output?.systemPeak ?? 0,
       "streamError": delegate?.error as Any,
+      "micError": micError as Any,
     ]
 
     reset()
@@ -464,6 +529,7 @@ actor EchoRecorder {
   func cancel(result: @escaping FlutterResult) async {
     if let stream = stream {
       try? await stream.stopCapture()
+      stopMicrophone()
       await output?.finish()
     }
 
@@ -479,6 +545,7 @@ actor EchoRecorder {
     stream = nil
     output = nil
     delegate = nil
+    micError = nil
     startedAt = nil
     micURL = nil
     systemURL = nil
@@ -533,10 +600,20 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     channels: 1,
     interleaved: true)!
 
-  init(micURL: URL, systemURL: URL) {
+  init(micURL: URL, systemURL: URL, queue: DispatchQueue) {
     self.micURL = micURL
     self.systemURL = systemURL
+    self.queue = queue
   }
+
+  /// A fila serial por onde passam as duas faixas.
+  ///
+  /// A do sistema chega por ela porque é a `sampleHandlerQueue` da `SCStream`;
+  /// a do microfone vem de uma thread de áudio do `AVAudioEngine` e salta para
+  /// cá. Uma fila só é o que mantém a ordem entre as duas — o transcritor ao
+  /// vivo recebe os blocos na sequência em que eles são escritos, e blocos
+  /// embaralhados lá dentro saem como frases embaralhadas.
+  private let queue: DispatchQueue
 
   func enableLiveTranscription(locale: String, channel: FlutterMethodChannel) async {
     live = await EchoLiveTranscriber.make(locale: locale, channel: channel)
@@ -552,13 +629,27 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   }
 
   func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-    guard type == .audio || type == .microphone else { return }
+    guard type == .audio else { return }
     guard let buffer = Self.pcmBuffer(from: sampleBuffer) else { return }
 
+    write(buffer, isMicrophone: false)
+  }
+
+  /// Recebe um bloco do microfone, vindo da thread de áudio do `AVAudioEngine`.
+  ///
+  /// O buffer do tap é reaproveitado assim que o bloco retorna, então ele é
+  /// **copiado** antes de sair dessa thread — despachar o original guardaria
+  /// um ponteiro para memória que o motor já reescreveu.
+  func appendMicrophone(_ buffer: AVAudioPCMBuffer) {
+    guard let copy = Self.copy(buffer) else { return }
+    queue.async { [weak self] in self?.write(copy, isMicrophone: true) }
+  }
+
+  private func write(_ buffer: AVAudioPCMBuffer, isMicrophone: Bool) {
     var converted: AVAudioPCMBuffer?
 
     do {
-      if type == .microphone {
+      if isMicrophone {
         if micFile == nil {
           micFile = try Self.makeFile(at: micURL)
           micConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
@@ -685,6 +776,28 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     }
 
     return Int(peak)
+  }
+
+  /// Uma cópia independente do bloco, com o mesmo formato e conteúdo.
+  static func copy(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+    guard buffer.frameLength > 0,
+      let copy = AVAudioPCMBuffer(
+        pcmFormat: buffer.format, frameCapacity: buffer.frameLength)
+    else { return nil }
+
+    copy.frameLength = buffer.frameLength
+
+    let source = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
+    let destination = UnsafeMutableAudioBufferListPointer(copy.mutableAudioBufferList)
+
+    for index in 0..<min(source.count, destination.count) {
+      guard let from = source[index].mData, let to = destination[index].mData
+      else { continue }
+
+      memcpy(to, from, Int(min(source[index].mDataByteSize, destination[index].mDataByteSize)))
+    }
+
+    return copy
   }
 
   static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {

@@ -21,6 +21,7 @@ class RecordingFiles {
     this.micPeak = 0,
     this.systemPeak = 0,
     this.streamError,
+    this.micError,
   });
 
   final String? micPath;
@@ -34,10 +35,39 @@ class RecordingFiles {
   /// O que derrubou a captura no meio, quando o macOS parou a gravação sozinho.
   final String? streamError;
 
+  /// Por que o microfone não subiu, quando não subiu.
+  final String? micError;
+
   List<String> get paths => [?micPath, ?systemPath];
 
   bool get hasMic => micPath != null;
   bool get hasSystem => systemPath != null;
+
+  /// Faixa que não trouxe som nenhum: ou não gravou, ou gravou só zeros.
+  bool get isMicSilent => !hasMic || micPeak == 0;
+  bool get isSystemSilent => !hasSystem || systemPeak == 0;
+
+  /// O aviso de uma faixa que faltou, mesmo quando a outra transcreveu bem.
+  ///
+  /// Separado da [silenceExplanation] porque o caso é outro: ali a reunião saiu
+  /// vazia e a gravação falhou; aqui saiu texto, e o que falta é **metade** da
+  /// conversa. Sem dizer nada, a pessoa só descobre relendo a transcrição e
+  /// notando que ela mesma não está lá.
+  String? get halfSilenceWarning {
+    if (isMicSilent && !isSystemSilent) {
+      return micError != null
+          ? 'A sua voz não entrou: $micError'
+          : 'A sua voz não entrou nesta reunião — só o áudio do computador foi '
+                'gravado. Confira a entrada de som em Ajustes do Sistema > Som.';
+    }
+
+    if (isSystemSilent && !isMicSilent) {
+      return 'Só a sua voz entrou: o áudio do computador veio mudo. É o '
+          'esperado se ninguém mais falou.';
+    }
+
+    return null;
+  }
 
   /// O que dizer quando a transcrição sai vazia.
   ///
@@ -48,8 +78,8 @@ class RecordingFiles {
       return 'O macOS interrompeu a captura durante a reunião: $streamError';
     }
 
-    final micQuiet = !hasMic || micPeak == 0;
-    final systemQuiet = !hasSystem || systemPeak == 0;
+    final micQuiet = isMicSilent;
+    final systemQuiet = isSystemSilent;
 
     if (micQuiet && systemQuiet) {
       return 'Nenhuma das duas faixas gravou som. Verifique a entrada de áudio '
@@ -160,6 +190,7 @@ class EchoChannel {
       micPeak: (result?['micPeak'] as num?)?.toInt() ?? 0,
       systemPeak: (result?['systemPeak'] as num?)?.toInt() ?? 0,
       streamError: result?['streamError'] as String?,
+      micError: result?['micError'] as String?,
     );
   }
 

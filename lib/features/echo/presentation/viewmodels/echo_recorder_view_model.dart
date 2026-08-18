@@ -209,16 +209,25 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       final explanation =
           segments.isEmpty ? files.silenceExplanation : null;
 
+      // Transcreveu, mas faltou uma das faixas: a reunião valeu, e ainda assim
+      // a tela precisa dizer que metade da conversa não está ali.
+      final warning = explanation ?? files.halfSilenceWarning;
+
       state = state.copyWith(
         phase: explanation == null ? EchoPhase.done : EchoPhase.failed,
         lastMeeting: meeting,
         // `clearError`, e não `errorMessage: null`: o `copyWith` trata `null`
         // como "não mexe", então a explicação da reunião anterior sobreviveria
         // a uma gravação que deu certo.
-        clearError: explanation == null,
-        errorMessage: explanation == null
-            ? null
-            : '$explanation O áudio foi preservado em disco.',
+        clearError: warning == null,
+        errorMessage: switch (warning) {
+          null => null,
+          // Só o caso de falha guarda o áudio; o aviso de meia faixa não, e
+          // prometer um arquivo que já foi apagado seria pior que não avisar.
+          _ when explanation != null =>
+            '$warning O áudio foi preservado em disco.',
+          _ => warning,
+        },
       );
     } on EchoException catch (error) {
       _startedAt = null;
