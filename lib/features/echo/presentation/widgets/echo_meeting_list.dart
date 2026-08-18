@@ -8,6 +8,7 @@ import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/meeting.dart';
 
 /// As reuniões gravadas, da mais recente para a mais antiga.
@@ -72,63 +73,60 @@ class _MeetingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EgHoverable(
-      focusable: true,
+    // Os cinco estados saem da matriz compartilhada — antes esta linha era
+    // navegável por Tab mas não mostrava nada ao receber o foco, e não dava
+    // sinal nenhum enquanto o clique estava apertado.
+    return EgInteractiveSurface(
       onTap: onTap,
-      builder: (context, state) => AnimatedContainer(
-        duration: AppDurations.instant,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.selection
-              : (state.isHovered ? AppColors.hover : AppColors.transparent),
-          borderRadius: AppRadii.listItemAll,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meeting.title,
-                    style: AppTypography.bodyCompact,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    '${DayLabel.of(meeting.startedAt)}, ${DayLabel.time(meeting.startedAt)} · '
-                    '${DurationFormat.compact(meeting.duration)}'
-                    '${meeting.hasSummary ? ' · resumida' : ''}',
-                    style: AppTypography.captionXS,
-                  ),
-                ],
-              ),
-            ),
-            // A estrela é o "guardar": a reunião marcada não entra na conta da
-            // limpeza automática. Mesma marca do item fixado no Pin, porque é
-            // exatamente a mesma ideia.
-            EgHoverable(
-              onTap: onToggleKept,
-              builder: (context, starState) => Padding(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                child: EgIcon(
-                  EgIconData.star,
-                  size: 13,
-                  color: meeting.isKept
-                      ? AppColors.greenPrimary
-                      : (starState.isHovered
-                            ? AppColors.textSecondary
-                            : AppColors.textTertiary),
+      isSelected: isSelected,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  meeting.title,
+                  style: AppTypography.bodyCompact,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  '${DayLabel.of(meeting.startedAt)}, ${DayLabel.time(meeting.startedAt)} · '
+                  '${DurationFormat.compact(meeting.duration)}'
+                  '${meeting.hasSummary ? ' · resumida' : ''}',
+                  style: AppTypography.captionXS,
+                ),
+              ],
+            ),
+          ),
+          // A estrela é o "guardar": a reunião marcada não entra na conta da
+          // limpeza automática. Mesma marca do item fixado no Pin, porque é
+          // exatamente a mesma ideia.
+          EgHoverable(
+            onTap: onToggleKept,
+            builder: (context, starState) => Padding(
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              child: EgIcon(
+                EgIconData.star,
+                size: AppIconSizes.xs,
+                // Terceiro nível em repouso, como o badge de atalho do Pin:
+                // ela aparece em toda linha, e um chip aceso por linha
+                // competiria com o título.
+                color: meeting.isKept
+                    ? AppColors.greenPrimary
+                    : (starState.isHovered || starState.isPressed
+                          ? AppColors.textSecondary
+                          : AppColors.textTertiary),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

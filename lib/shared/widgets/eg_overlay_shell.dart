@@ -5,14 +5,16 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/design/app_metrics.dart';
 
-/// A casca dos painéis flutuantes do Evergreen — Pin, Focus, Leaf e Awake.
+/// A casca dos painéis flutuantes do Evergreen — Pin, Focus, Leaf, Awake e
+/// Echo.
 ///
-/// Os quatro dividem a janela 0 (ver `OverlayWindow`) e, até a componentização
-/// do design system, dividiam também setenta linhas de infraestrutura copiadas
+/// Todos dividem a janela 0 (ver `OverlayWindow`) e, até a componentização do
+/// design system, dividiam também setenta linhas de infraestrutura copiadas
 /// entre si: registrar-se como `WindowListener`, animar a entrada, decidir o
 /// que é um blur de verdade e tratar o vazio ao redor do painel como barreira.
-/// Quatro cópias de um comportamento que precisa ser idêntico nos quatro
-/// painéis é quatro chances de ele deixar de ser.
+/// Cinco cópias de um comportamento que precisa ser idêntico nos cinco painéis
+/// são cinco chances de ele deixar de ser — e o Echo, o módulo mais novo,
+/// nasceu com a cópia porque copiar era o caminho mais curto.
 ///
 /// O que a casca garante, e por quê:
 ///
