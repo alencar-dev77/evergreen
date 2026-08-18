@@ -4,6 +4,7 @@ import FlutterMacOS
 import Foundation
 import FoundationModels
 import ScreenCaptureKit
+import Security
 import Speech
 
 /// Canal nativo do Echo: grava a reunião, transcreve e resume — tudo local.
@@ -118,14 +119,63 @@ enum EchoChannel {
     }
   }
 
-  /// Se já pedimos a gravação de tela alguma vez.
+  /// Em que build já pedimos a gravação de tela.
   ///
   /// O macOS não tem "ainda não perguntei" para essa permissão:
   /// `CGPreflightScreenCaptureAccess` responde `false` tanto para "nunca pedi"
   /// quanto para "o usuário negou", e `CGRequestScreenCaptureAccess` só abre o
-  /// diálogo na primeira vez. Sem guardar isso, não há como saber se a saída é
-  /// pedir ou mandar a pessoa para os Ajustes.
-  private static let screenAskedKey = "evergreen.echo.screenRecordingAsked"
+  /// diálogo enquanto o sistema não tiver uma decisão registrada. Sem guardar
+  /// isso, não há como saber se a saída é pedir ou mandar a pessoa para os
+  /// Ajustes.
+  ///
+  /// Guardado **por build**, e não como um sim ou não para sempre: instalar uma
+  /// versão nova troca o binário, e a Gravação de Tela é a permissão que o
+  /// macOS reconfere quando o app deixa de ser o mesmo. Com o "já pedi" eterno
+  /// que estava aqui, toda instalação levava a pessoa aos Ajustes — onde a
+  /// chave do Evergreen aparece **ligada** — em vez de deixar o sistema
+  /// perguntar de novo. Era esse o "buildei e o Echo parou de capturar".
+  private static let screenAskedBuildKey = "evergreen.echo.screenRecordingAskedBuild"
+
+  /// A chave anterior, que valia para sempre. Só existe para ser apagada.
+  private static let legacyScreenAskedKey = "evergreen.echo.screenRecordingAsked"
+
+  /// A identidade do código que está rodando: o `cdhash` da assinatura.
+  ///
+  /// Muda a cada build, e é exatamente o que o macOS compara para decidir que o
+  /// app instalado não é mais aquele que recebeu a permissão. Vazia quando não
+  /// dá para ler — e aí o "já pedi" volta a valer para sempre, que é o
+  /// comportamento antigo, não um caminho pior.
+  private static func codeIdentity() -> String {
+    var code: SecCode?
+    guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return "" }
+
+    var staticCode: SecStaticCode?
+    guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess,
+      let staticCode
+    else { return "" }
+
+    var information: CFDictionary?
+    // Flags vazias: o `cdhash` (`kSecCodeInfoUnique`) já vem no conjunto básico
+    // de informações, sem precisar pedir certificado nem entitlements.
+    guard
+      SecCodeCopySigningInformation(staticCode, [], &information) == errSecSuccess,
+      let dictionary = information as? [String: Any],
+      let hash = dictionary[kSecCodeInfoUnique as String] as? Data
+    else { return "" }
+
+    return hash.map { String(format: "%02x", $0) }.joined()
+  }
+
+  /// Se esta build já pediu a gravação de tela.
+  private static func hasAskedScreenRecording() -> Bool {
+    UserDefaults.standard.string(forKey: screenAskedBuildKey) == codeIdentity()
+  }
+
+  private static func rememberAskedScreenRecording() {
+    let defaults = UserDefaults.standard
+    defaults.set(codeIdentity(), forKey: screenAskedBuildKey)
+    defaults.removeObject(forKey: legacyScreenAskedKey)
+  }
 
   /// O que esta máquina consegue fazer, para a UI não oferecer o impossível.
   @available(macOS 26.0, *)
@@ -138,10 +188,9 @@ enum EchoChannel {
     }
 
     let screenGranted = CGPreflightScreenCaptureAccess()
-    let screenAsked = UserDefaults.standard.bool(forKey: screenAskedKey)
     let screenRecording = screenGranted
       ? "granted"
-      : (screenAsked ? "denied" : "notDetermined")
+      : (hasAskedScreenRecording() ? "denied" : "notDetermined")
 
     var summaries = "unavailable"
     switch SystemLanguageModel.default.availability {
@@ -187,9 +236,10 @@ enum EchoChannel {
   ///
   /// Duas diferenças cruéis em relação ao microfone, e as duas parecem bug:
   ///
-  /// 1. `CGRequestScreenCaptureAccess` só abre o diálogo **uma vez na vida** do
-  ///    app. Da segunda em diante ele responde `false` sem mostrar nada — por
-  ///    isso guardamos que já pedimos e mandamos a pessoa para os Ajustes.
+  /// 1. `CGRequestScreenCaptureAccess` só abre o diálogo enquanto o sistema não
+  ///    tem uma decisão registrada para esta build. Depois disso ele responde
+  ///    `false` sem mostrar nada — por isso guardamos que já pedimos (ver
+  ///    [screenAskedBuildKey]) e mandamos a pessoa para os Ajustes.
   /// 2. Conceder **não vale imediatamente**: o macOS só entrega a permissão a
   ///    um processo que subiu depois dela. Enquanto o app não for reaberto, a
   ///    resposta continua sendo `false` mesmo com a chave ligada nos Ajustes —
@@ -202,13 +252,13 @@ enum EchoChannel {
       return
     }
 
-    if UserDefaults.standard.bool(forKey: screenAskedKey) {
+    if hasAskedScreenRecording() {
       openSettings(pane: "Privacy_ScreenCapture")
       result(capabilities())
       return
     }
 
-    UserDefaults.standard.set(true, forKey: screenAskedKey)
+    rememberAskedScreenRecording()
     CGRequestScreenCaptureAccess()
     result(capabilities())
   }
@@ -269,6 +319,27 @@ actor EchoRecorder {
   private var micURL: URL?
   private var systemURL: URL?
 
+  /// Confirma a Gravação de Tela — pedindo, se for o caso, antes de desistir.
+  ///
+  /// `CGPreflightScreenCaptureAccess` responder `false` não quer dizer
+  /// "negado". Toda instalação nova troca o binário, e esta é a permissão que o
+  /// macOS **reconfere** quando o app deixa de ser o mesmo: até a pessoa
+  /// responder, o preflight diz que não há acesso. Recusar ali mesmo, como
+  /// estava, era o que fazia o Echo parar de capturar depois de cada build — o
+  /// diálogo do sistema nunca aparecia porque ninguém chegava a pedi-lo.
+  ///
+  /// Na main thread porque é ela que apresenta o diálogo; fora dela a chamada
+  /// volta calada.
+  private static func ensureScreenRecordingAccess() async -> Bool {
+    if CGPreflightScreenCaptureAccess() { return true }
+
+    return await withCheckedContinuation { continuation in
+      DispatchQueue.main.async {
+        continuation.resume(returning: CGRequestScreenCaptureAccess())
+      }
+    }
+  }
+
   func start(
     liveTranscription: Bool,
     locale: String,
@@ -280,7 +351,7 @@ actor EchoRecorder {
       return
     }
 
-    guard CGPreflightScreenCaptureAccess() else {
+    guard await Self.ensureScreenRecordingAccess() else {
       result(FlutterError(
         code: "screen_recording_denied",
         message: "Sem permissão de Gravação de Tela não dá para capturar o áudio da reunião.",

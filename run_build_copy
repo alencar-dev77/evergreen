@@ -23,12 +23,40 @@
 # Assinando com um certificado de verdade, a permissão passa a ser guardada
 # contra a identidade, não contra o hash, e sobrevive às builds seguintes.
 #
-# Qual certificado: o do `EVERGREEN_SIGN_IDENTITY`, se estiver definido; senão
-# o primeiro que aparecer no chaveiro. Sem nenhum, o script segue com a
-# assinatura ad-hoc e avisa — dá para instalar e usar, só a permissão é que
-# precisará ser concedida de novo a cada vez.
+# Qual certificado, em ordem:
+#
+#   1. o do `EVERGREEN_SIGN_IDENTITY`, se estiver definido;
+#   2. **o mesmo com que a cópia instalada foi assinada** — lido do app que
+#      ainda está em /Applications, antes de ele ser apagado;
+#   3. o primeiro que aparecer no chaveiro.
+#
+# O passo 2 é o que faz a escolha parar de andar sozinha. Este chaveiro tem
+# quatro certificados de desenvolvimento, e "o primeiro" é posição, não
+# identidade: basta o `security find-identity` listar em outra ordem — um
+# certificado renovado, um novo perfil baixado — para a instalação seguinte sair
+# com outra identidade, e aí **todas** as permissões caem de uma vez, sem aviso.
+#
+# Sem certificado nenhum, o script segue com a assinatura ad-hoc e avisa — dá
+# para instalar e usar, só a permissão é que precisará ser concedida de novo a
+# cada vez.
+#
+# Gravação de Tela é caso à parte
+# -------------------------------
+# Assinatura estável resolve Acessibilidade e Microfone, que o macOS guarda
+# contra a identidade do app. A Gravação de Tela — de onde o Echo tira o áudio
+# da reunião — não: o sistema a reconfere quando o binário muda, e toda
+# instalação nova muda o binário. Até a pessoa responder de novo, a chave
+# aparece **ligada** nos Ajustes e a captura não acontece.
+#
+# Quem trata disso é o app (`EchoChannel.ensureScreenRecordingAccess`): ao
+# gravar, ele pede a permissão em vez de desistir no primeiro "não". Quando
+# mesmo assim o Echo insistir que falta permissão, `EVERGREEN_RESET_TCC=1`
+# apaga o registro guardado e força o macOS a perguntar do zero.
 #
 # Uso: ./run_build_copy
+#      EVERGREEN_RESET_TCC=1   ./run_build_copy   # zera a Gravação de Tela
+#      EVERGREEN_RESET_TCC=all ./run_build_copy   # zera também Microfone e
+#                                                 # Acessibilidade
 
 set -euo pipefail
 
@@ -64,6 +92,17 @@ else
   echo "   nada pra remover."
 fi
 
+# Antes de apagar: com que identidade a cópia instalada foi assinada. É ela que
+# as permissões do sistema conhecem — reusá-la é o que impede a escolha de
+# andar sozinha entre uma instalação e a seguinte.
+# O `|| true` segura o `set -e`: app ausente ou assinado ad-hoc é caminho
+# previsto, não erro.
+INSTALLED_AUTHORITY=""
+if [[ -d "$DEST_APP" ]]; then
+  INSTALLED_AUTHORITY="$(codesign -dvv "$DEST_APP" 2>&1 \
+    | awk -F'=' '/^Authority=/ { print $2; exit }' || true)"
+fi
+
 echo "🧹 Removendo cópia antiga em ${DEST_DIR}…"
 if [[ -d "$DEST_APP" ]]; then
   rm -rf "$DEST_APP"
@@ -81,15 +120,41 @@ if [[ ! -d "$BUILT_APP" ]]; then
 fi
 
 echo "🔏 Assinando…"
+
+# O hash em vez do nome: dois certificados podem ter o mesmo nome, e aí o
+# codesign recusa por ambiguidade.
+# O `|| true` em toda leitura do chaveiro segura o `set -e`: chaveiro sem
+# certificado nenhum é um caminho previsto, tratado logo abaixo.
+identity_hash_for() {
+  security find-identity -v -p codesigning 2>/dev/null \
+    | grep -F -- "\"$1\"" | awk '{ print $2 }' || true
+}
+
 SIGN_IDENTITY="${EVERGREEN_SIGN_IDENTITY:-}"
 
+if [[ -z "$SIGN_IDENTITY" && -n "$INSTALLED_AUTHORITY" ]]; then
+  MATCHES="$(identity_hash_for "$INSTALLED_AUTHORITY")"
+
+  if [[ "$(printf '%s' "$MATCHES" | grep -c .)" == "1" ]]; then
+    SIGN_IDENTITY="$MATCHES"
+    echo "   reusando a identidade da cópia instalada."
+  elif [[ -n "$MATCHES" ]]; then
+    echo "   ⚠️  Mais de um certificado chamado \"$INSTALLED_AUTHORITY\"."
+    echo "      Defina EVERGREEN_SIGN_IDENTITY com o hash do certo."
+  else
+    echo "   ⚠️  O certificado da cópia instalada não está mais no chaveiro:"
+    echo "      \"$INSTALLED_AUTHORITY\". As permissões do sistema vão cair."
+  fi
+fi
+
 if [[ -z "$SIGN_IDENTITY" ]]; then
-  # O hash em vez do nome: dois certificados podem ter o mesmo nome, e aí o
-  # codesign recusa por ambiguidade.
-  # O `|| true` segura o `set -e`: chaveiro sem certificado nenhum é um caminho
-  # previsto, tratado logo abaixo, não um erro que deva abortar a instalação.
   SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
     | awk 'NR==1 && /\)/ { print $2 }' || true)"
+
+  if [[ -n "$SIGN_IDENTITY" ]]; then
+    echo "   ⚠️  Escolhendo o primeiro certificado do chaveiro — posição, não"
+    echo "      identidade. Defina EVERGREEN_SIGN_IDENTITY para fixá-lo."
+  fi
 fi
 
 if [[ -z "$SIGN_IDENTITY" ]]; then
@@ -111,7 +176,35 @@ fi
 echo "📦 Copiando pra ${DEST_DIR}…"
 cp -R "$BUILT_APP" "$DEST_APP"
 
+# Lido do pacote, e não escrito à mão: se o identificador mudar no Xcode, o
+# `tccutil` abaixo continua falando do app certo.
+BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+  "$DEST_APP/Contents/Info.plist" 2>/dev/null || echo "com.alencardev.evergreen")"
+
+if [[ -n "${EVERGREEN_RESET_TCC:-}" ]]; then
+  # Antes de abrir o app: um registro de permissão só some enquanto ninguém
+  # está usando aquilo que ele guarda.
+  echo "🔐 Apagando a permissão de Gravação de Tela guardada…"
+  tccutil reset ScreenCapture "$BUNDLE_ID" > /dev/null 2>&1 || true
+
+  if [[ "$EVERGREEN_RESET_TCC" == "all" ]]; then
+    tccutil reset Microphone "$BUNDLE_ID" > /dev/null 2>&1 || true
+    tccutil reset Accessibility "$BUNDLE_ID" > /dev/null 2>&1 || true
+    echo "   Microfone e Acessibilidade também."
+  fi
+
+  echo "   o macOS vai perguntar de novo na primeira gravação."
+fi
+
 echo "✅ Pronto! $DEST_APP atualizado."
 
 echo "🚀 Abrindo o app…"
 open -a "$DEST_APP"
+
+# A Gravação de Tela é reconferida a cada binário novo (ver o cabeçalho): o
+# lembrete evita a caça ao bug quando o Echo pedir a permissão de novo.
+echo
+echo "ℹ️  Na primeira gravação depois desta instalação o macOS pode pedir a"
+echo "   Gravação de Tela outra vez — é ele reconferindo o binário novo, não o"
+echo "   Echo perdendo a permissão. Se insistir que falta, rode:"
+echo "   EVERGREEN_RESET_TCC=1 ./run_build_copy"
