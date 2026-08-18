@@ -134,6 +134,28 @@ enum HubWindowChannel {
   /// Largura mínima da janela sem a região aberta.
   static let baseMinWidth: CGFloat = 720
 
+  /// O que a abertura da região ficou devendo à janela: quanto ela não
+  /// conseguiu crescer (a tela era mais estreita que a soma) e quanto precisou
+  /// andar de lado para não vazar da borda.
+  ///
+  /// Pago de volta no fechamento. Sem isso, abrir e fechar a região deixava a
+  /// janela um pouco mais estreita e um pouco mais para o lado a cada volta —
+  /// era daí que vinha o "expande centralizado, mas não volta centralizado":
+  /// o desenho antigo devolvia a largura pelo mesmo delta que somou, mas nunca
+  /// desfazia o passo lateral que deu para caber na tela.
+  private static var widthDebt: CGFloat = 0
+  private static var originDebt: CGFloat = 0
+
+  /// Para onde a janela está indo, enquanto a animação corre.
+  ///
+  /// `window.frame` durante uma animação devolve o quadro **do meio do
+  /// caminho**. Quem abre uma reunião e aperta `esc` antes dos 220ms terminarem
+  /// faria a conta de fechar em cima de uma largura que não é nem a de antes
+  /// nem a de depois — e a janela terminaria num tamanho que ninguém pediu.
+  /// `nil` fora da animação, quando quem manda é o quadro real (a pessoa pode
+  /// ter redimensionado a janela na mão).
+  private static var animatedFrame: NSRect?
+
   /// Abre ou fecha a região dedicada, alargando a própria janela.
   ///
   /// A alternativa seria a região dividir a largura que já existe — foi o
@@ -143,16 +165,27 @@ enum HubWindowChannel {
   ///
   /// Animado porque o contrário se lê como "a janela piscou": um salto de 480px
   /// sem transição não parece a mesma janela do quadro anterior.
+  ///
+  /// A janela cresce **em torno do próprio centro**, metade para cada lado, e
+  /// volta pelo mesmo caminho. O primeiro desenho crescia só para a direita e
+  /// devolvia a largura sem desfazer o passo lateral que deu para caber na
+  /// tela: a janela saía do meio ao abrir a reunião e voltava torta ao fechar,
+  /// como se tivesse sido arrastada sozinha. Quem abre o Hub o vê centralizado;
+  /// abrir e fechar uma reunião não é motivo para ele deixar de estar.
   private static func setDetailWidth(_ width: CGFloat) {
     guard let window = window else { return }
 
     let delta = width - detailWidth
     if abs(delta) < 1 { return }
+
+    // Fechar é o momento de acertar as contas: a janela volta ao tamanho e ao
+    // lugar de antes, não a um lugar parecido.
+    let isClosing = width <= 0
     detailWidth = width
 
     let screen = window.screen ?? activeScreen()
     let visible = screen.visibleFrame
-    var frame = window.frame
+    var frame = animatedFrame ?? window.frame
 
     // Com a região aberta, a janela não pode ser arrastada para uma largura em
     // que ela não caiba: abaixo disso é a área de conteúdo que se espreme, e
@@ -162,22 +195,48 @@ enum HubWindowChannel {
       width > 0 ? baseMinWidth + width : baseMinWidth,
       visible.width)
 
-    // Nunca mais larga que a área útil: num monitor estreito, crescer 480px
-    // jogaria metade da janela para fora da tela.
-    frame.size.width = min(frame.width + delta, visible.width)
-    frame.size.width = max(frame.width, window.minSize.width)
+    // O centro de agora é o centro depois: é ele que a janela preserva ao
+    // crescer e ao voltar. Lido do quadro atual, e não guardado da abertura,
+    // para que arrastar a janela com a região aberta continue valendo.
+    let center = frame.midX
 
-    // Cresce para a direita enquanto couber; encostando na borda, é a janela
-    // que anda para a esquerda, e não a região que encolhe.
-    if frame.maxX > visible.maxX {
-      frame.origin.x = max(visible.minX, visible.maxX - frame.width)
+    var targetWidth = frame.width + delta
+    if isClosing {
+      targetWidth += widthDebt
+      widthDebt = 0
     }
 
-    NSAnimationContext.runAnimationGroup { context in
+    // Nunca mais larga que a área útil: num monitor estreito, crescer 480px
+    // jogaria metade da janela para fora da tela.
+    frame.size.width = min(targetWidth, visible.width)
+    frame.size.width = max(frame.width, window.minSize.width)
+    if !isClosing { widthDebt += targetWidth - frame.width }
+
+    var targetX = center - frame.width / 2
+    if isClosing {
+      targetX -= originDebt
+      originDebt = 0
+    }
+
+    // Encostando numa borda, é a janela que anda para dentro da tela — a região
+    // não encolhe por isso. O mínimo vem por último porque, numa tela mais
+    // estreita que a janela, é a borda esquerda que precisa ganhar.
+    frame.origin.x = min(targetX, visible.maxX - frame.width)
+    frame.origin.x = max(frame.origin.x, visible.minX)
+    if !isClosing { originDebt += frame.origin.x - targetX }
+
+    animatedFrame = frame
+
+    NSAnimationContext.runAnimationGroup({ context in
       context.duration = 0.22
       context.timingFunction = CAMediaTimingFunction(name: .easeOut)
       window.animator().setFrame(frame, display: true)
-    }
+    }, completionHandler: {
+      // A partir daqui quem manda é o quadro real: a pessoa pode redimensionar
+      // ou arrastar a janela, e a próxima conta precisa partir de onde ela
+      // está de verdade.
+      if animatedFrame == frame { animatedFrame = nil }
+    })
   }
 
   /// Guarda a janela recém-criada e já a posiciona — na criação ela ainda está
@@ -187,6 +246,9 @@ enum HubWindowChannel {
     // Janela nova nasce sem região de leitura aberta: o Hub é recriado a cada
     // abertura, e um resto de estado aqui somaria a largura duas vezes.
     detailWidth = 0
+    widthDebt = 0
+    originDebt = 0
+    animatedFrame = nil
     moveToActiveDisplay()
   }
 
