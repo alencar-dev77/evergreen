@@ -353,8 +353,14 @@ void main() {
     container.read(focusTimerViewModelProvider.notifier).dismiss();
   });
 
-  testWidgets('Hub — detalhe de uma sessão', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1400));
+  /// A sessão do histórico aberta na região de leitura.
+  ///
+  /// Larga pelo mesmo motivo da reunião do Echo: abrir uma sessão faz a
+  /// **janela crescer** (`HubWindowChannel.setDetailWidth`), e sob `flutter
+  /// test` não há janela nativa para crescer — o tamanho já entra aqui somado.
+  /// Era um diálogo modal por cima da tela até a v0.4.
+  testWidgets('Hub — Focus, a sessão aberta', (tester) async {
+    await pump(tester, const HubView(), const Size(2720, 1400));
 
     await tester.tap(find.text(EvergreenModule.focus.name));
     await tester.pumpAndSettle();
@@ -364,10 +370,8 @@ void main() {
     await tester.tap(find.textContaining('Refatorar o módulo de auth'));
     await tester.pumpAndSettle();
 
-    // O diálogo vive na rota de cima, fora da subárvore do Hub — capturar o
-    // app inteiro é o que traz o véu e o painel para a imagem.
     await expectLater(
-      find.byType(MaterialApp),
+      find.byType(HubView),
       matchesGoldenFile('goldens/hub_focus_session.png'),
     );
   });

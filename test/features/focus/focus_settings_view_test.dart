@@ -3,7 +3,6 @@ import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/focus/data/focus_session_repository.dart';
 import 'package:evergreen/features/focus/models/focus_session.dart';
 import 'package:evergreen/features/focus/models/focus_session_note.dart';
-import 'package:evergreen/features/focus/presentation/widgets/focus_session_dialog.dart';
 import 'package:evergreen/features/focus/presentation/views/focus_settings_view.dart';
 import 'package:evergreen/features/focus/presentation/widgets/focus_week_strip.dart';
 import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
@@ -127,37 +126,6 @@ void main() {
     expect(find.text('Sessão'), findsOneWidget);
   });
 
-  testWidgets('clicar na sessão abre o detalhe com anotações e resumo',
-      (tester) async {
-    await pumpSettings(tester);
-
-    await tester.tap(find.textContaining('Refatorar o módulo de auth'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(FocusSessionDialog), findsOneWidget);
-    expect(find.text('Hoje · 09:12 · 25 min'), findsOneWidget);
-    // A atividade é o título do diálogo, e não se repete dentro dele.
-    expect(
-      find.descendant(
-        of: find.byType(FocusSessionDialog),
-        matching: find.text('Refatorar o módulo de auth'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('ANOTAÇÕES'), findsOneWidget);
-    expect(
-      find.text('aos 12 min — terminei a task e comecei outra'),
-      findsOneWidget,
-    );
-    expect(find.text('RESUMO'), findsOneWidget);
-    expect(find.text('Terminei a migração'), findsOneWidget);
-
-    await tester.tap(find.text('Fechar'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(FocusSessionDialog), findsNothing);
-  });
-
   testWidgets('apenas Pomodoro desabilita as perguntas sem escondê-las',
       (tester) async {
     await pumpSettings(tester);
@@ -275,40 +243,5 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(toggleFor(tester, 'Pedir um resumo ao terminar').value, isTrue);
-  });
-
-  testWidgets('apagar uma sessão pelo detalhe não leva as outras',
-      (tester) async {
-    await pumpSettings(tester);
-
-    await tester.tap(find.textContaining('Refatorar o módulo de auth'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Apagar'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(EgConfirmDialog), findsOneWidget);
-    expect(repository.loadRecent(), hasLength(2), reason: 'só abriu o aviso');
-
-    await tester.tap(find.text('Cancelar'));
-    await tester.pumpAndSettle();
-
-    expect(repository.loadRecent(), hasLength(2));
-    expect(find.byType(FocusSessionDialog), findsOneWidget,
-        reason: 'cancelar volta para o detalhe, não fecha tudo');
-
-    // O rótulo "Apagar" existe no botão do detalhe e no do aviso; o do aviso é
-    // o último a entrar na árvore.
-    await tester.tap(find.text('Apagar'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Apagar').last);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(FocusSessionDialog), findsNothing);
-    expect(repository.loadRecent(), hasLength(1));
-    expect(find.textContaining('Refatorar o módulo de auth'), findsNothing);
-    // A outra sessão continua onde estava, e o resumo da semana acompanha.
-    expect(find.text('14:30'), findsOneWidget);
-    expect(find.text('40 min'), findsWidgets);
   });
 }

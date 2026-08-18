@@ -76,11 +76,23 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Novo módulo: registrar em `EvergreenModule`, criar
   `lib/features/<modulo>/` na estrutura padrão, ligar tela de configurações em
   `_settingsFor` (`hub_view.dart`).
-- Módulo que precisa de uma área de leitura (documento longo) não a desenha
-  dentro da própria tela: abre a região do Hub (`hubDetailProvider`) e liga o
-  conteúdo em `_detailFor` (`hub_view.dart`). Quem faz a janela crescer para
-  caber a região é o `HubWindowChannel.setDetailWidth` — dividir a largura que
-  já existe foi tentado e deixa a leitura espremida.
+- **Conteúdo longo para ler abre na região do Hub — nunca em janela nova nem em
+  diálogo modal.** É o padrão do aplicativo, e vale para módulo existente ou
+  novo: o módulo abre a região (`hubDetailProvider.open`), guarda no próprio
+  estado *qual* item está aberto, desenha um `HubDetailRegion` e liga esse
+  widget em `_region` (`hub_view.dart`); a lista que abriu marca a linha como
+  selecionada. Hoje: `EchoReader` (a reunião) e `FocusReader` (a sessão do
+  histórico) — o Focus era um diálogo modal até a v0.4, e o modal escurecia o
+  histórico atrás, prendia o teclado e obrigava a fechar para olhar a linha
+  vizinha. Modal continua sendo a forma certa de **uma pergunta de sim ou não**
+  (`EgConfirmDialog`), e só disso.
+- Quem faz a janela crescer para caber a região é o
+  `HubWindowChannel.setDetailWidth` — dividir a largura que já existe foi
+  tentado e deixa a leitura espremida. A janela cresce **em torno do próprio
+  centro** e volta pelo mesmo caminho: o lado nativo guarda o que a tela não
+  deixou crescer e o passo lateral que ele deu para não vazar da borda, e paga
+  os dois no fechamento. Sem esse acerto, abrir e fechar deixava a janela mais
+  estreita e fora do centro a cada volta.
 - Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub)
   vai para `AppSettings` e para a tela do aplicativo (`app_settings_view.dart`),
   nunca para a tela de um módulo — foi assim que "iniciar com o macOS" acabou

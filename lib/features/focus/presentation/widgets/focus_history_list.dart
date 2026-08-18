@@ -11,14 +11,13 @@ import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/focus_session.dart';
-import 'focus_session_dialog.dart';
 
 /// O histórico da semana, agrupado por dia.
 ///
 /// Uma lista, não uma tabela: a dimensão principal é o que foi feito, e o resto
 /// (quando, quanto) são metadados ao redor. A linha responde "que horas, em quê
-/// e quanto"; o conteúdo longo (anotações, resumo) mora no detalhe, a um clique
-/// ou um Enter de distância.
+/// e quanto"; o conteúdo longo (anotações, resumo) mora na região de leitura
+/// que abre ao lado, a um clique ou um Enter de distância.
 ///
 /// Três decisões que a versão anterior não tinha, e que eram o que fazia a
 /// lista parecer desalinhada:
@@ -30,9 +29,23 @@ import 'focus_session_dialog.dart';
 /// - **Hora e duração em colunas fixas.** É o que deixa comparar as sessões
 ///   correndo o olho por uma coluna, em vez de caçar o número dentro do texto.
 class FocusHistoryList extends StatelessWidget {
-  const FocusHistoryList({super.key, required this.sessions, this.now});
+  const FocusHistoryList({
+    super.key,
+    required this.sessions,
+    required this.onOpen,
+    this.selectedId,
+    this.now,
+  });
 
   final List<FocusSession> sessions;
+
+  /// Escolhe a sessão e abre a região de leitura — as duas coisas são o mesmo
+  /// gesto, porque uma sessão selecionada e fechada não serve para nada.
+  final void Function(int id) onOpen;
+
+  /// A sessão aberta na região, que a lista marca como selecionada: sem isso,
+  /// a coluna ao lado mostra um conteúdo que nada na lista reivindica.
+  final int? selectedId;
 
   /// Injetável para o teste e para os goldens não dependerem do relógio real.
   final DateTime? now;
@@ -68,7 +81,12 @@ class FocusHistoryList extends StatelessWidget {
             ),
             child: EgSectionLabel(group.label),
           ),
-          for (final session in group.items) _SessionRow(session: session),
+          for (final session in group.items)
+            _SessionRow(
+              session: session,
+              isSelected: session.id != null && session.id == selectedId,
+              onTap: () => onOpen(session.id!),
+            ),
         ],
       ],
     );
@@ -76,9 +94,15 @@ class FocusHistoryList extends StatelessWidget {
 }
 
 class _SessionRow extends StatelessWidget {
-  const _SessionRow({required this.session});
+  const _SessionRow({
+    required this.session,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   final FocusSession session;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   /// Altura fixa, como a linha do Pin: é o que mantém a coluna da direita
   /// legível quando se corre o olho por ela.
@@ -95,7 +119,8 @@ class _SessionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EgInteractiveSurface(
-      onTap: () => FocusSessionDialog.show(context, session),
+      onTap: onTap,
+      isSelected: isSelected,
       height: _height,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       child: Row(

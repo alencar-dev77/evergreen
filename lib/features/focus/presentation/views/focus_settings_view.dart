@@ -9,6 +9,8 @@ import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../home/models/evergreen_module.dart';
+import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../models/focus_settings.dart';
 import '../viewmodels/focus_history_view_model.dart';
 import '../viewmodels/focus_settings_view_model.dart';
@@ -61,7 +63,18 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
         EgSettingsSection(
           title: 'Histórico',
           children: [
-            FocusHistoryList(sessions: history.sessions),
+            FocusHistoryList(
+              sessions: history.sessions,
+              selectedId: history.selectedId,
+              onOpen: (id) {
+                ref.read(focusHistoryViewModelProvider.notifier).select(id);
+                // Escolher e abrir são o mesmo gesto: quem clica numa sessão
+                // quer relê-la, e a região ao lado é onde ela se lê.
+                ref
+                    .read(hubDetailProvider.notifier)
+                    .open(EvergreenModule.focus);
+              },
+            ),
             // Destacada da lista por um respiro, e sem divisor: encostada nela
             // como estava, a linha de limpar parecia mais uma sessão — a última
             // da semana, com um botão vermelho do lado.
@@ -183,5 +196,8 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
     if (!confirmed) return;
 
     ref.read(focusHistoryViewModelProvider.notifier).clear();
+    // Sem sessão nenhuma não há o que ler ao lado: a região fecha junto, e a
+    // janela volta ao tamanho de antes.
+    ref.read(hubDetailProvider.notifier).close();
   }
 }
