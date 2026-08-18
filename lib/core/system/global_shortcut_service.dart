@@ -59,6 +59,21 @@ class GlobalShortcutService {
   /// Representação do atalho do Leaf como key-caps.
   static const leafShortcutKeys = <String>['⌘', '⇧', 'D'];
 
+  /// Atalho padrão do Echo: `⌘⇧E`.
+  ///
+  /// `E` de Echo, e livre onde importa: `⌘⇧T` e `⌘⇧R` seriam mnemônicos de
+  /// transcrever e gravar, mas como atalho global roubariam "reabrir aba" e
+  /// "recarregar" de todo navegador — e reunião acontece dentro do navegador.
+  static final echoShortcut = HotKey(
+    identifier: 'evergreen.echo.toggle',
+    key: PhysicalKeyboardKey.keyE,
+    modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
+    scope: HotKeyScope.system,
+  );
+
+  /// Representação do atalho do Echo como key-caps.
+  static const echoShortcutKeys = <String>['⌘', '⇧', 'E'];
+
   /// Atalho padrão das preferências: `⌘⇧,`.
   ///
   /// `⌘,` é a convenção de preferências do macOS, mas como atalho global ele
@@ -105,6 +120,13 @@ class GlobalShortcutService {
   Future<void> registerLeafToggle(Future<void> Function() onPressed) async {
     await hotKeyManager.register(
       leafShortcut,
+      keyDownHandler: (_) => onPressed(),
+    );
+  }
+
+  Future<void> registerEchoToggle(Future<void> Function() onPressed) async {
+    await hotKeyManager.register(
+      echoShortcut,
       keyDownHandler: (_) => onPressed(),
     );
   }
