@@ -76,6 +76,11 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Novo módulo: registrar em `EvergreenModule`, criar
   `lib/features/<modulo>/` na estrutura padrão, ligar tela de configurações em
   `_settingsFor` (`hub_view.dart`).
+- Módulo que precisa de uma área de leitura (documento longo) não a desenha
+  dentro da própria tela: abre a região do Hub (`hubDetailProvider`) e liga o
+  conteúdo em `_detailFor` (`hub_view.dart`). Quem faz a janela crescer para
+  caber a região é o `HubWindowChannel.setDetailWidth` — dividir a largura que
+  já existe foi tentado e deixa a leitura espremida.
 - Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub)
   vai para `AppSettings` e para a tela do aplicativo (`app_settings_view.dart`),
   nunca para a tela de um módulo — foi assim que "iniciar com o macOS" acabou

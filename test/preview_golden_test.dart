@@ -438,11 +438,33 @@ void main() {
     );
   });
 
-  testWidgets('Hub — Echo, a transcrição', (tester) async {
-    await pump(tester, const HubView(), const Size(2400, 1400));
+  /// A janela do Hub com a região de leitura aberta.
+  ///
+  /// Larga porque é assim que ela fica no uso: abrir uma reunião faz a **janela
+  /// crescer** (`HubWindowChannel.setDetailWidth`) em vez de espremer o que já
+  /// estava na tela. Sob `flutter test` não há janela nativa para crescer, então
+  /// o tamanho já entra aqui somado.
+  Future<void> openReader(WidgetTester tester) async {
+    await pump(tester, const HubView(), const Size(2720, 1400));
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Alinhamento de escopo'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('Hub — Echo, a reunião aberta', (tester) async {
+    await openReader(tester);
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo_reader.png'),
+    );
+  });
+
+  testWidgets('Hub — Echo, a transcrição', (tester) async {
+    await openReader(tester);
 
     // A aba que motivou o redesenho: empilhada sob o resumo, a transcrição
     // empurrava a lista de reuniões para fora da tela.
@@ -533,10 +555,7 @@ void main() {
   });
 
   testWidgets('Hub — Echo', (tester) async {
-    // Mais larga que as outras telas do Hub: a biblioteca do Echo é a única de
-    // duas colunas, e numa janela estreita a imagem mostraria a coluna de
-    // leitura espremida — um problema de tamanho de janela, não de desenho.
-    await pump(tester, const HubView(), const Size(2400, 1400));
+    await pump(tester, const HubView(), const Size(1800, 1400));
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();

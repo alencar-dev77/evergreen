@@ -23,4 +23,24 @@ abstract final class HubWindowChannel {
       // Idem — acontece em teste, onde não há lado nativo.
     }
   }
+
+  /// Alarga a janela para abrir a região de leitura à direita — ou a devolve ao
+  /// tamanho anterior, com [width] em zero.
+  ///
+  /// A largura vem do Dart porque quem sabe o tamanho da região é quem a
+  /// desenha; o lado nativo só sabe somar isso à janela sem jogá-la para fora
+  /// da tela.
+  ///
+  /// Falhas são engolidas como no [moveToActiveDisplay]: sem o lado nativo a
+  /// região ainda abre, apenas dividindo a largura que a janela já tem.
+  static Future<void> setDetailWidth(double width) async {
+    try {
+      await _channel.invokeMethod('setDetailWidth', {'width': width});
+    } on PlatformException {
+      // Sem janela nativa: a região abre dentro da largura atual.
+    } on MissingPluginException {
+      // Em teste não há lado nativo — e o golden roda com a janela do tamanho
+      // que o próprio teste pediu.
+    }
+  }
 }

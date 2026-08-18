@@ -13,6 +13,8 @@ import '../../../../shared/widgets/eg_settings_section.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../../models/echo_settings.dart';
 import '../../models/echo_capabilities.dart';
+import '../../../home/models/evergreen_module.dart';
+import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../models/transcription_language.dart';
 import '../viewmodels/echo_library_view_model.dart';
 import '../viewmodels/echo_recorder_view_model.dart';
@@ -92,10 +94,13 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
           children: [
             EchoLibrary(
               state: library,
-              onSelect: libraryViewModel.select,
+              onOpen: (id) {
+                libraryViewModel.select(id);
+                // Escolher e abrir são o mesmo gesto: quem clica numa reunião
+                // quer lê-la, e a região ao lado é onde ela se lê.
+                ref.read(hubDetailProvider.notifier).open(EvergreenModule.echo);
+              },
               onToggleKept: libraryViewModel.toggleKept,
-              onSummarize: libraryViewModel.summarize,
-              onDelete: libraryViewModel.delete,
             ),
             if (library.errorMessage != null)
               Padding(

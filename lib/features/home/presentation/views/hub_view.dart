@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
+import '../../../../core/window/hub_window_channel.dart';
 import '../../../../shared/widgets/eg_background.dart';
 import '../../../awake/presentation/views/awake_settings_view.dart';
 import '../../../echo/presentation/views/echo_settings_view.dart';
+import '../../../echo/presentation/widgets/echo_reader.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../leaf/presentation/views/leaf_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
 import '../../models/evergreen_module.dart';
+import '../viewmodels/hub_detail_view_model.dart';
+import '../widgets/hub_detail_region.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import 'app_settings_view.dart';
@@ -19,41 +25,78 @@ import 'app_settings_view.dart';
 /// Lista os módulos da suíte à esquerda e mostra as configurações do módulo
 /// selecionado à direita. É uma janela independente do overlay do Pin: fechar
 /// uma não afeta a outra.
-class HubView extends StatefulWidget {
+///
+/// Um módulo pode abrir uma **terceira região**, dedicada ao item que se está
+/// lendo (hoje só o Echo, com a reunião). Quando isso acontece a janela cresce
+/// para o lado em vez de dividir o que já existe — ver [HubDetailRegion].
+class HubView extends ConsumerStatefulWidget {
   const HubView({super.key});
 
   @override
-  State<HubView> createState() => _HubViewState();
+  ConsumerState<HubView> createState() => _HubViewState();
 }
 
-class _HubViewState extends State<HubView> {
+class _HubViewState extends ConsumerState<HubView> {
   /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
   EvergreenModule? _selected = EvergreenModule.pin;
 
+  void _select(EvergreenModule? module) {
+    // Trocar de módulo fecha a região: uma reunião aberta ao lado das
+    // preferências do Pin seria a leitura de um módulo dentro de outro.
+    ref.read(hubDetailProvider.notifier).close();
+    setState(() => _selected = module);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final detail = ref.watch(hubDetailProvider);
+    // A janela acompanha a região: cresce ao abrir, volta ao fechar. Fora do
+    // `build` (num `listen`) porque isto é efeito, não desenho.
+    ref.listen<EvergreenModule?>(hubDetailProvider, (previous, next) {
+      HubWindowChannel.setDetailWidth(next == null ? 0 : HubDetailRegion.width);
+    });
+
+    final isDetailOpen = detail != null && detail == _selected;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: EgBackground(
-        child: Row(
-          // Estica: a área de detalhe rola, e um `SingleChildScrollView` se
-          // encolhe até a altura do conteúdo quando ele cabe na tela. Com o
-          // alinhamento padrão do `Row` (center), a tela de um módulo curto —
-          // o Awake — nascia centralizada verticalmente, enquanto Pin e Focus,
-          // que enchem a janela, começavam no topo. Toda tela do Hub começa no
-          // mesmo lugar.
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ModuleSidebar(
-              selected: _selected,
-              onSelect: (module) => setState(() => _selected = module),
+      body: CallbackShortcuts(
+        // `esc` fecha a região, como fecha qualquer coisa aberta por cima no
+        // resto do aplicativo.
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              ref.read(hubDetailProvider.notifier).close(),
+        },
+        child: Focus(
+          autofocus: true,
+          child: EgBackground(
+            child: Row(
+              // Estica: a área de detalhe rola, e um `SingleChildScrollView` se
+              // encolhe até a altura do conteúdo quando ele cabe na tela. Com o
+              // alinhamento padrão do `Row` (center), a tela de um módulo curto —
+              // o Awake — nascia centralizada verticalmente, enquanto Pin e Focus,
+              // que enchem a janela, começavam no topo. Toda tela do Hub começa no
+              // mesmo lugar.
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ModuleSidebar(selected: _selected, onSelect: _select),
+                Expanded(child: _detail()),
+                if (isDetailOpen) _region(detail),
+              ],
             ),
-            Expanded(child: _detail()),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  /// A região dedicada do módulo que a abriu.
+  Widget _region(EvergreenModule module) => switch (module) {
+        EvergreenModule.echo => const EchoReader(),
+        // Nenhum outro módulo abre região hoje; o `switch` existe para que o
+        // próximo entre aqui, e não num `if` espalhado pela tela.
+        _ => const SizedBox.shrink(),
+      };
 
   Widget _detail() {
     return SingleChildScrollView(

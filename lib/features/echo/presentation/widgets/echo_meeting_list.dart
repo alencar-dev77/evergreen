@@ -12,15 +12,15 @@ import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/meeting.dart';
 
-/// A coluna das reuniões gravadas, da mais recente para a mais antiga.
+/// As reuniões gravadas, da mais recente para a mais antiga.
 ///
-/// É a metade esquerda da biblioteca: aqui se escolhe, e ao lado se lê. Linha
-/// de duas linhas — título e metadado — porque numa coluna estreita o nome da
-/// reunião já ocupa a largura toda, e espremer hora e duração na mesma linha
-/// deixaria as três coisas ilegíveis.
+/// Mesma gramática do histórico do Focus, e de propósito: dia no grupo, hora em
+/// coluna fixa à esquerda, nome no meio, duração em coluna fixa à direita. São
+/// duas listas do mesmo aplicativo respondendo à mesma pergunta ("o que
+/// aconteceu e quando"), e ler uma já ensina a ler a outra.
 ///
-/// O dia é do grupo, não da linha: a linha fica com a hora, que é o que
-/// distingue uma reunião da outra dentro do mesmo dia.
+/// A linha é uma só, de altura fixa: a reunião abre na região ao lado, então
+/// aqui não há nada para adiantar do conteúdo — só o suficiente para escolher.
 class EchoMeetingList extends StatelessWidget {
   const EchoMeetingList({
     super.key,
@@ -47,15 +47,15 @@ class EchoMeetingList extends StatelessWidget {
       now: now,
     );
 
-    return ListView(
-      padding: EdgeInsets.zero,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final group in groups) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(
+              AppSpacing.sm,
               AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
+              AppSpacing.sm,
               AppSpacing.xxs,
             ),
             child: EgSectionLabel(group.label),
@@ -86,40 +86,37 @@ class _MeetingRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggleKept;
 
+  /// As mesmas medidas da linha do histórico do Focus.
+  static const _height = 34.0;
+  static const _timeColumn = 44.0;
+  static const _durationColumn = 64.0;
+
   @override
   Widget build(BuildContext context) {
     return EgInteractiveSurface(
       onTap: onTap,
       isSelected: isSelected,
-      margin: const EdgeInsets.only(bottom: AppSpacing.xxs),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
+      height: _height,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  meeting.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyCompactEmphasis.copyWith(
-                    color: isSelected
-                        ? AppColors.greenLight
-                        : AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.hairline),
-                Text(
-                  _metadata(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.captionXS,
-                ),
-              ],
+          SizedBox(
+            width: _timeColumn,
+            child: Text(
+              DayLabel.time(meeting.startedAt),
+              style: AppTypography.monoSmall.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
+          ),
+          Expanded(child: _label()),
+          const SizedBox(width: AppSpacing.md),
+          SizedBox(
+            width: _durationColumn,
+            child: Text(
+              DurationFormat.compact(meeting.duration),
+              textAlign: TextAlign.right,
+              style: AppTypography.bodyCompactEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -133,9 +130,9 @@ class _MeetingRow extends StatelessWidget {
               child: EgIcon(
                 EgIconData.star,
                 size: AppIconSizes.xs,
-                // Terceiro nível em repouso, como o badge de atalho do Pin:
-                // ela aparece em toda linha, e um chip aceso por linha
-                // competiria com o título.
+                // Terceiro nível em repouso, como o badge de atalho do Pin: ela
+                // aparece em toda linha, e um chip aceso por linha competiria
+                // com o nome da reunião.
                 color: meeting.isKept
                     ? AppColors.greenPrimary
                     : (starState.isHovered || starState.isPressed
@@ -149,15 +146,40 @@ class _MeetingRow extends StatelessWidget {
     );
   }
 
-  /// Hora e duração, que é o que distingue duas reuniões do mesmo dia — mais o
-  /// aviso de que já existe resumo, que é o que decide se vale abrir.
-  String _metadata() {
-    final parts = <String>[
-      DayLabel.time(meeting.startedAt),
-      DurationFormat.compact(meeting.duration),
-      if (meeting.hasSummary) 'resumida',
-    ];
+  /// O nome da reunião e, atrás dele, o aviso de que já existe resumo — que é o
+  /// que decide se vale abrir. Num parágrafo só, como na linha do Focus: o
+  /// corte por ellipsis come o aviso primeiro, nunca o nome.
+  Widget _label() {
+    final style = AppTypography.bodyCompactEmphasis.copyWith(
+      color: isSelected ? AppColors.greenLight : AppColors.textPrimary,
+    );
 
-    return parts.join(' · ');
+    if (!meeting.hasSummary) {
+      return Text(
+        meeting.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: style,
+      );
+    }
+
+    return Text.rich(
+      TextSpan(
+        text: meeting.title,
+        children: [
+          TextSpan(
+            text: '   resumida',
+            style: AppTypography.captionXS.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+      style: style,
+    );
   }
 }

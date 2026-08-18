@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
-import '../../../../shared/utils/day_label.dart';
-import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../models/echo_capabilities.dart';
@@ -12,7 +10,10 @@ import '../../models/meeting.dart';
 import '../../models/meeting_segment.dart';
 import '../../models/meeting_turn.dart';
 
-/// O que a reunião escolhida tem para ler: o resumo ou a transcrição.
+/// O corpo da região de leitura: o resumo ou a transcrição da reunião aberta.
+///
+/// O título e a data ficam no cabeçalho da região (`HubDetailRegion`), ao lado
+/// do botão de fechar — aqui fica só o que se lê.
 ///
 /// **Um de cada vez, e não os dois empilhados.** Empilhados, a transcrição
 /// empurrava tudo o mais para fora da tela: a lista de reuniões sumia sob meia
@@ -32,7 +33,6 @@ class EchoMeetingDetail extends StatefulWidget {
     required this.progress,
     required this.onSummarize,
     required this.onDelete,
-    this.now,
   });
 
   final Meeting meeting;
@@ -44,9 +44,6 @@ class EchoMeetingDetail extends StatefulWidget {
 
   final VoidCallback onSummarize;
   final VoidCallback onDelete;
-
-  /// Injetável para o teste e para os goldens não dependerem do relógio real.
-  final DateTime? now;
 
   @override
   State<EchoMeetingDetail> createState() => _EchoMeetingDetailState();
@@ -73,15 +70,6 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          meeting.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: AppTypography.panelTitle,
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(_metadata(), style: AppTypography.captionXS),
-        const SizedBox(height: AppSpacing.lg),
         if (!meeting.isEmpty) ...[
           Align(
             alignment: Alignment.centerLeft,
@@ -106,14 +94,6 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         _actions(),
       ],
     );
-  }
-
-  String _metadata() {
-    final meeting = widget.meeting;
-
-    return '${DayLabel.of(meeting.startedAt, now: widget.now)} · '
-        '${DayLabel.time(meeting.startedAt)} · '
-        '${DurationFormat.compact(meeting.duration)}';
   }
 
   Widget _body() {
