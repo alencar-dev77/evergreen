@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Imagens que o `flutter test` grava quando um golden não bate — apoio de
+# revisão local, nunca versionadas.
+/test/failures/
