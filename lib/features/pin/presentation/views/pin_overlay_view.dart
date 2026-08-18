@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_colors.dart';
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
@@ -263,7 +262,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
               width: showPreview ? _withPreviewWidth : _listOnlyWidth,
               constraints: const BoxConstraints(maxHeight: _maxPanelHeight),
               child: EgPanel(
-                gradient: AppGradients.panelSurface,
+                vibrant: true,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_colors.dart';
+import '../../core/design/app_gradients.dart';
 import '../../core/design/app_metrics.dart';
 import 'eg_hoverable.dart';
 
@@ -35,6 +36,7 @@ class EgSurfaceStyle {
     required this.hover,
     required this.pressed,
     required this.foreground,
+    this.restGradient,
     this.selected,
     this.hoverForeground,
     this.selectedForeground,
@@ -45,6 +47,14 @@ class EgSurfaceStyle {
 
   /// Superfície em repouso.
   final Color rest;
+
+  /// Gradiente da superfície em repouso, quando ela tem volume próprio.
+  ///
+  /// Vale **só** no repouso: assim que o mouse chega, quem responde é o [hover]
+  /// chapado, porque o realce de interação precisa ser lido como uma cor a mais,
+  /// não como outro material. `null` mantém o [rest] sólido — que é o caso da
+  /// maioria das colunas, cuja superfície de repouso é transparente.
+  final Gradient? restGradient;
 
   /// Mouse por cima — e também a superfície que o foco de teclado adota, para
   /// que o anel tenha o que contornar.
@@ -115,6 +125,7 @@ class EgSurfaceStyle {
   /// então o hover precisa subir a partir dele, não do transparente.
   static const card = EgSurfaceStyle(
     rest: AppColors.card,
+    restGradient: AppGradients.cardSurface,
     hover: AppColors.hover,
     pressed: AppColors.pressed,
     selected: AppColors.selection,
@@ -166,6 +177,22 @@ class EgSurfaceStyle {
     if (state.isPressed) return pressed;
     if (state.isHovered || state.isFocused) return hover;
     return rest;
+  }
+
+  /// Gradiente resolvido, ou `null` quando a superfície do estado é sólida.
+  ///
+  /// Só o repouso tem material próprio — ver [restGradient].
+  Gradient? gradientFor(
+    EgInteraction state, {
+    bool isSelected = false,
+    bool isEnabled = true,
+  }) {
+    if (restGradient == null) return null;
+    if (!isEnabled) return restGradient;
+    if (isSelected && selected != null) return null;
+    if (state.isPressed || state.isHovered || state.isFocused) return null;
+
+    return restGradient;
   }
 
   /// Cor de texto e ícone resolvida para um estado.
@@ -234,6 +261,11 @@ class EgSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = style.borderFor(state, isSelected: isSelected);
+    final gradient = style.gradientFor(
+      state,
+      isSelected: isSelected,
+      isEnabled: isEnabled,
+    );
 
     return AnimatedContainer(
       // Pressed entra sem transição: o feedback de "registrei seu clique"
@@ -246,11 +278,14 @@ class EgSurface extends StatelessWidget {
       padding: padding,
       alignment: alignment,
       decoration: BoxDecoration(
-        color: style.backgroundFor(
-          state,
-          isSelected: isSelected,
-          isEnabled: isEnabled,
-        ),
+        color: gradient != null
+            ? null
+            : style.backgroundFor(
+                state,
+                isSelected: isSelected,
+                isEnabled: isEnabled,
+              ),
+        gradient: gradient,
         borderRadius: borderRadius,
         border: borderColor == null ? null : Border.all(color: borderColor),
         boxShadow: style.shadowFor(state, isEnabled: isEnabled),

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
@@ -176,7 +175,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
       child: SizedBox(
         width: LeafGrid.widthFor(LeafGrid.columnsFor(state)),
         child: EgPanel(
-          gradient: AppGradients.panelSurface,
+          vibrant: true,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

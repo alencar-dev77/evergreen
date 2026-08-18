@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
@@ -102,7 +101,7 @@ class _AwakeOverlayViewState extends ConsumerState<AwakeOverlayView> {
             focusNode: _panelFocusNode,
             child: EgPanel(
               width: _panelWidth,
-              gradient: AppGradients.panelSurface,
+              vibrant: true,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

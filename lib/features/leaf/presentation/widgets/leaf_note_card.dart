@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/design/app_colors.dart';
+import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/relative_time.dart';
@@ -204,6 +205,7 @@ class _LeafCardSurface extends StatelessWidget {
   /// do apenas-selecionado. É um degrau a mais na mesma cor, não uma cor nova.
   static const _editingStyle = EgSurfaceStyle(
     rest: AppColors.card,
+    restGradient: AppGradients.cardSurface,
     hover: AppColors.hover,
     pressed: AppColors.pressed,
     selected: AppColors.selection,
