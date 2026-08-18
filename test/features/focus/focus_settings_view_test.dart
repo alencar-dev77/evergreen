@@ -5,6 +5,7 @@ import 'package:evergreen/features/focus/models/focus_session.dart';
 import 'package:evergreen/features/focus/models/focus_session_note.dart';
 import 'package:evergreen/features/focus/presentation/widgets/focus_session_dialog.dart';
 import 'package:evergreen/features/focus/presentation/views/focus_settings_view.dart';
+import 'package:evergreen/features/focus/presentation/widgets/focus_week_strip.dart';
 import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
 import 'package:evergreen/shared/widgets/eg_settings_row.dart';
 import 'package:evergreen/shared/widgets/eg_toggle.dart';
@@ -51,6 +52,14 @@ void main() {
   });
 
   Future<void> pumpSettings(WidgetTester tester) async {
+    // Tela alta: com a faixa da semana e o histórico agrupado, a superfície
+    // padrão de 800x600 deixaria os toggles do fim da tela fora do viewport, e
+    // um `tap` neles não acertaria nada — falharia como se a preferência não
+    // respondesse.
+    tester.view.physicalSize = const Size(1800, 3200);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -84,31 +93,39 @@ void main() {
   testWidgets('o resumo soma o dia e a semana', (tester) async {
     await pumpSettings(tester);
 
-    expect(find.text('Hoje'), findsWidgets);
-    expect(find.text('Esta semana'), findsOneWidget);
+    expect(find.text('hoje'), findsOneWidget);
+    expect(find.text('na semana'), findsOneWidget);
     expect(find.text('1h 05min'), findsWidgets, reason: '25 + 40 minutos');
+    // A semana também é mostrada em barras, uma por dia.
+    expect(find.byType(FocusWeekStrip), findsOneWidget);
+    expect(find.text('seg'), findsOneWidget);
+    expect(find.text('dom'), findsOneWidget);
   });
 
   testWidgets('cada linha do histórico diz quando, quanto e o que há dentro',
       (tester) async {
     await pumpSettings(tester);
 
-    expect(find.text('Refatorar o módulo de auth'), findsOneWidget);
+    // O dia é do grupo, não da linha: a linha fica com a hora.
+    expect(find.text('HOJE'), findsOneWidget);
+    expect(find.text('09:12'), findsOneWidget);
+    // Título e anúncio num parágrafo só, como o apelido na linha do Pin — daí
+    // a busca por trecho em vez de texto exato.
+    expect(find.textContaining('Refatorar o módulo de auth'), findsOneWidget);
     expect(find.text('40 min'), findsOneWidget);
-    // A segunda linha anuncia o que o detalhe guarda, sem despejar na lista.
-    expect(
-      find.text('Hoje · 09:12 · 1 anotação · resumo'),
-      findsOneWidget,
-    );
-    // Sem atividade informada, o título é a própria data e hora.
-    expect(find.text('Hoje · 14:30'), findsOneWidget);
+    // A linha anuncia o que o detalhe guarda, sem despejar na lista.
+    expect(find.textContaining('1 anotação · resumo'), findsOneWidget);
+    // Sem atividade escrita, a linha se apresenta como o registro sem nome que
+    // é — a hora já está na coluna da esquerda.
+    expect(find.text('14:30'), findsOneWidget);
+    expect(find.text('Sessão'), findsOneWidget);
   });
 
   testWidgets('clicar na sessão abre o detalhe com anotações e resumo',
       (tester) async {
     await pumpSettings(tester);
 
-    await tester.tap(find.text('Refatorar o módulo de auth'));
+    await tester.tap(find.textContaining('Refatorar o módulo de auth'));
     await tester.pumpAndSettle();
 
     expect(find.byType(FocusSessionDialog), findsOneWidget);
@@ -258,7 +275,7 @@ void main() {
       (tester) async {
     await pumpSettings(tester);
 
-    await tester.tap(find.text('Refatorar o módulo de auth'));
+    await tester.tap(find.textContaining('Refatorar o módulo de auth'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Apagar'));
@@ -283,9 +300,9 @@ void main() {
 
     expect(find.byType(FocusSessionDialog), findsNothing);
     expect(repository.loadRecent(), hasLength(1));
-    expect(find.text('Refatorar o módulo de auth'), findsNothing);
+    expect(find.textContaining('Refatorar o módulo de auth'), findsNothing);
     // A outra sessão continua onde estava, e o resumo da semana acompanha.
-    expect(find.text('Hoje · 14:30'), findsOneWidget);
+    expect(find.text('14:30'), findsOneWidget);
     expect(find.text('40 min'), findsWidgets);
   });
 }
