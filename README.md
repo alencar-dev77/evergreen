@@ -18,6 +18,7 @@ abre janela nenhuma e não aparece no Dock**. Procure o quadrado verde na barra
 superior do macOS.
 
 - `⌘⇧C` — abre o painel do Pin, de qualquer aplicativo
+- `⌘⇧E` — abre o painel do Echo (gravar reunião)
 - Clique no ícone da barra → **Configurações** — abre o Hub
 - Clique no ícone da barra → **Encerrar Evergreen** — é a única forma de sair
 

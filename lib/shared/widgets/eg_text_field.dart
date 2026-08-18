@@ -23,6 +23,8 @@ class EgTextField extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.enabled = true,
+    this.minLines,
+    this.maxLines = 1,
   });
 
   final TextEditingController controller;
@@ -39,6 +41,21 @@ class EgTextField extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
 
   final bool enabled;
+
+  /// Altura mínima em linhas. O campo cresce a partir daí conforme se escreve.
+  ///
+  /// Um campo de uma linha para um texto de três diz a coisa errada antes de a
+  /// pessoa digitar: ele parece pedir uma palavra. Quando a resposta esperada
+  /// tem fôlego, a altura precisa anunciar isso.
+  final int? minLines;
+
+  /// Teto de linhas antes de o campo rolar por dentro. `null` cresce sem limite.
+  ///
+  /// Com mais de uma linha, o Enter passa a quebrar a linha em vez de submeter
+  /// — é o comportamento nativo de campo de várias linhas, e por isso quem usa
+  /// [maxLines] maior que 1 precisa guardar o texto por outro caminho (sair do
+  /// campo, tipicamente) em vez de depender do [onSubmitted].
+  final int? maxLines;
 
   @override
   State<EgTextField> createState() => _EgTextFieldState();
@@ -107,9 +124,13 @@ class _EgTextFieldState extends State<EgTextField> {
           enabled: widget.enabled,
           onChanged: widget.onChanged,
           onSubmitted: widget.onSubmitted,
+          minLines: widget.minLines,
+          maxLines: widget.maxLines,
           cursorColor: AppColors.greenPrimary,
           cursorWidth: 1.5,
-          cursorHeight: 16,
+          // Altura fixa só faz sentido na linha única; em campo de várias
+          // linhas ela descolaria do texto conforme ele quebra.
+          cursorHeight: (widget.maxLines ?? 2) > 1 ? null : 16,
           style: AppTypography.body,
           decoration: InputDecoration(
             isDense: true,

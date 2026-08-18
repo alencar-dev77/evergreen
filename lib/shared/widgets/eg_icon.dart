@@ -46,6 +46,9 @@ enum EgIconData {
   /// Papel com a ponta dobrada — identifica o módulo Leaf.
   note,
 
+  /// Microfone — identifica o módulo Echo.
+  microphone,
+
   /// Árvore perene — a marca do Evergreen (preenchida, como a [star]).
   evergreen,
 }
@@ -137,6 +140,7 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.timer => _timerPath(),
         EgIconData.sun => _sunPath(),
         EgIconData.note => _notePath(),
+        EgIconData.microphone => _microphonePath(),
         EgIconData.star => _starPath(),
         EgIconData.evergreen => _evergreenPath(),
       };
@@ -220,6 +224,25 @@ class _EgIconPainter extends CustomPainter {
         const Radius.circular(0.9),
       ),
     );
+
+  /// Microfone de traço: cápsula, berço e pé.
+  ///
+  /// O berço é uma curva, e não um arco de círculo: no viewBox de 16px um arco
+  /// verdadeiro fecha demais nas pontas e encosta na cápsula, o que no tamanho
+  /// de 14px da sidebar vira um borrão só.
+  Path _microphonePath() => Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(6, 1.5, 4, 7.5),
+        const Radius.circular(2),
+      ),
+    )
+    ..moveTo(3.8, 8.4)
+    ..quadraticBezierTo(8, 13.2, 12.2, 8.4)
+    ..moveTo(8, 11.4)
+    ..lineTo(8, 14)
+    ..moveTo(5.6, 14)
+    ..lineTo(10.4, 14);
 
   Path _timerPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(8, 9), radius: 5))

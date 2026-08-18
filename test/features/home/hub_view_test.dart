@@ -1,4 +1,6 @@
 import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/storage/app_database.dart';
+import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
@@ -6,17 +8,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import '../focus/fake_focus_session_repository.dart';
+import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
 
 void main() {
   late SharedPreferences preferences;
 
+  late Database echoDb;
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
+
+    echoDb = sqlite3.openInMemory();
+    AppDatabase.migrate(echoDb);
   });
+
+  tearDown(() => echoDb.close());
 
   Future<void> pumpHub(WidgetTester tester) async {
     tester.view.physicalSize = const Size(900, 600);
@@ -31,6 +42,10 @@ void main() {
           focusSessionRepositoryProvider
               .overrideWithValue(FakeFocusSessionRepository()),
           sharedPreferencesProvider.overrideWithValue(preferences),
+          // O Echo lê as reuniões do banco e pergunta ao sistema o que a
+          // máquina permite — nem um nem outro existem dentro de um teste.
+          echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),
+          echoChannelProvider.overrideWithValue(FakeEchoChannel()),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),

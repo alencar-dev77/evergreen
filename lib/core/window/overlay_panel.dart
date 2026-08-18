@@ -1,6 +1,6 @@
 /// Os painéis que podem ocupar a janela flutuante do Evergreen.
 ///
-/// Pin, Focus, Leaf e Awake dividem a mesma janela (a janela 0) em vez de cada
+/// Pin, Focus, Leaf, Awake e Echo dividem a mesma janela (a janela 0) em vez de cada
 /// um abrir a sua: só ela pode ser transparente, sem chrome e sempre no topo, e
 /// ela nunca é destruída — é o que faz os atalhos globais abrirem
 /// instantaneamente. Decisão registrada em
@@ -22,4 +22,8 @@ enum OverlayPanel {
 
   /// Trava que mantém a tela acesa (`⌘⇧X`).
   awake,
+
+  /// Gravação da reunião (`⌘⇧E`). Só começar e parar — a transcrição se lê
+  /// no Hub.
+  echo,
 }

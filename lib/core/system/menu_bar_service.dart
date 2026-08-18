@@ -8,6 +8,7 @@ enum MenuBarAction {
   openFocus('open_focus', 'Focus', '⌘⇧F'),
   openLeaf('open_leaf', 'Leaf', '⌘⇧D'),
   openAwake('open_awake', 'Awake', '⌘⇧X'),
+  openEcho('open_echo', 'Echo', '⌘⇧E'),
   openHub('open_hub', 'Preferências', '⌘⇧,'),
   quit('quit', 'Encerrar Evergreen');
 
@@ -52,6 +53,9 @@ class MenuBarService with TrayListener {
 
   /// Quanto falta da trava do Awake ("38 min", "sem limite"), quando ligada.
   String? _awakeDetail;
+
+  /// Há quanto tempo o Echo está gravando, quando está.
+  String? _echoLabel;
 
   /// Ponto que anuncia a trava do Awake ligada.
   ///
@@ -99,9 +103,28 @@ class MenuBarService with TrayListener {
     if (wasOn || detail != null) await trayManager.setContextMenu(_buildMenu());
   }
 
+  /// Anuncia a gravação do Echo na barra de menus.
+  ///
+  /// É onde a reunião vive enquanto o painel está fechado — o caso normal. O
+  /// círculo é a convenção universal de "gravando", e vem antes da contagem
+  /// porque é ele que responde "está gravando?"; o tempo só responde "há
+  /// quanto".
+  Future<void> setEchoLabel(String? label) {
+    _echoLabel = label;
+    return _applyTitle();
+  }
+
+  /// Marca da gravação em curso.
+  ///
+  /// Vazado, enquanto o do Awake é cheio: os dois podem aparecer ao mesmo
+  /// tempo (uma reunião longa é justamente quando a tela não pode apagar), e
+  /// dois pontos idênticos lado a lado não diriam qual é qual.
+  static const _recordingMark = '◉';
+
   Future<void> _applyTitle() {
     final parts = <String>[
       if (_awakeDetail != null) _awakeMark,
+      if (_echoLabel != null) '$_recordingMark $_echoLabel',
       ?_sessionLabel,
     ];
 
@@ -139,6 +162,10 @@ class MenuBarService with TrayListener {
       MenuItem(
         key: MenuBarAction.openAwake.key,
         label: _awakeMenuLabel,
+      ),
+      MenuItem(
+        key: MenuBarAction.openEcho.key,
+        label: MenuBarAction.openEcho.menuLabel,
       ),
       MenuItem(
         key: MenuBarAction.openHub.key,

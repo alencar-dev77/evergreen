@@ -41,6 +41,16 @@ enum EvergreenModule {
         'Nada de mexer nas configurações de energia por causa de uma reunião.',
     icon: EgIconData.sun,
     status: ModuleStatus.available,
+  ),
+  echo(
+    name: 'Echo',
+    tagline: 'Transcrição de reuniões',
+    description:
+        'Grava a reunião, separa a sua voz da dos outros e devolve tudo em '
+        'texto. O resumo sai do modelo do próprio Mac — nada sobe para '
+        'lugar nenhum.',
+    icon: EgIconData.microphone,
+    status: ModuleStatus.available,
   );
 
   const EvergreenModule({

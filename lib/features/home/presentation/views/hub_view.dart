@@ -5,6 +5,7 @@ import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_background.dart';
 import '../../../awake/presentation/views/awake_settings_view.dart';
+import '../../../echo/presentation/views/echo_settings_view.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../leaf/presentation/views/leaf_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
@@ -108,5 +109,6 @@ class _HubViewState extends State<HubView> {
         EvergreenModule.focus => const FocusSettingsView(),
         EvergreenModule.leaf => const LeafSettingsView(),
         EvergreenModule.awake => const AwakeSettingsView(),
+        EvergreenModule.echo => const EchoSettingsView(),
       };
 }

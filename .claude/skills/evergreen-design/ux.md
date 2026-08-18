@@ -46,6 +46,10 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `←` `→` | Awake | troca a duração, com o seletor focado |
 | `Esc` | Awake | fecha o painel; a trava continua como está |
 | `⌘⇧,` | global | abre as preferências (Hub) |
+| `⌘⇧E` | global | abre o painel do Echo (`E` de Echo: `⌘⇧T` e `⌘⇧R` roubariam "reabrir aba" e "recarregar" de todo navegador, e reunião acontece dentro do navegador) |
+| `Enter` | Echo | a ação daquele estado: gravar, parar e transcrever, abrir no Hub |
+| `⌘.` | Echo | descarta a gravação em curso e joga o áudio fora |
+| `Esc` | Echo | fecha o painel; a gravação **continua** |
 | `Enter` | Focus | executa a ação principal daquele estado (iniciar, iniciar a pausa, voltar ao foco); durante a sessão, anota a observação digitada |
 | `space` | Focus | pausa/retoma — desligado enquanto o campo de anotação tem o foco (espaço volta a ser espaço) |
 | `⌘.` | Focus | encerra a fase em andamento |
@@ -77,6 +81,11 @@ Dois detalhes de convenção que valem para atalhos futuros:
 - **Foco de campo que aparece por mudança de estado se pede à mão.** `autofocus` só vale quando **nada** no escopo tem o foco, e um painel operado por teclado sempre tem (é o nó que recebe os atalhos). Um cartão que abre para escrever precisa de `requestFocus` no quadro seguinte — sem isso ele nasce esperando um clique, e a primeira letra digitada se perde.
 - **Campo que a pessoa escreve e confirma esvazia o mapa de atalhos enquanto tem o foco.** No apelido do Pin sobram duas teclas — Enter guarda, Esc descarta — e o rodapé passa a falar só delas. Setas, `⌘⌫` e os números pertencem ao texto que está sendo digitado; um atalho que os roubasse tornaria o campo inutilizável. É a mesma regra que já desligava o `space` do Focus com o cursor na anotação, agora valendo para o mapa inteiro.
 - **Editar não é confirmar: sair do campo guarda.** O apelido é gravado quando o campo perde o foco, por qualquer caminho (Enter, clicar em outra linha, fechar o painel) — só o Esc desfaz. Painel que some do olho não pode levar junto o que a pessoa acabou de escrever.
+- **Descartar não pode morar no Esc.** No Echo o Esc fecha o painel e a reunião
+  segue gravando — é o que a pessoa quer ao voltar para a chamada. Jogar fora
+  meia hora de reunião precisa de modificadora (`⌘.`), como qualquer ação
+  destrutiva. Vale para todo painel que tenha algo em curso que custe caro
+  perder.
 - **O menu da barra ensina os atalhos globais.** Cada item mostra o seu ao lado
   do rótulo — é o único lugar permanente do app na tela, e quem clica ali com o
   mouse é justamente quem ainda não decorou a tecla.

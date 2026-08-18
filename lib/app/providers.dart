@@ -5,6 +5,9 @@ import '../core/storage/app_database.dart';
 import '../core/window/overlay_panel.dart';
 import '../features/awake/data/awake_settings_repository.dart';
 import '../features/awake/data/display_sleep_service.dart';
+import '../features/echo/data/echo_channel.dart';
+import '../features/echo/data/echo_repository.dart';
+import '../features/echo/data/echo_settings_repository.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
 import '../features/home/data/app_settings_repository.dart';
@@ -66,6 +69,24 @@ final awakeSettingsRepositoryProvider = Provider<AwakeSettingsRepository>(
 final leafRepositoryProvider = Provider<LeafRepository>(
   (ref) => SqliteLeafRepository(ref.watch(appDatabaseProvider).db),
 );
+
+final echoRepositoryProvider = Provider<EchoRepository>(
+  (ref) => SqliteEchoRepository(ref.watch(appDatabaseProvider).db),
+);
+
+final echoSettingsRepositoryProvider = Provider<EchoSettingsRepository>(
+  (ref) => EchoSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+/// A conversa com o gravador, o transcritor e o modelo de resumo.
+///
+/// Provider (e não instância global) porque é o que o teste substitui para
+/// verificar o painel do Echo sem microfone, sem reunião e sem modelo.
+final echoChannelProvider = Provider<EchoChannel>((ref) {
+  final channel = EchoChannel();
+  ref.onDispose(channel.dispose);
+  return channel;
+});
 
 /// A trava que impede o display de dormir.
 ///

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/window/overlay_panel.dart';
 import '../core/window/overlay_window.dart';
 import '../features/awake/presentation/views/awake_overlay_view.dart';
+import '../features/echo/presentation/views/echo_overlay_view.dart';
 import '../features/focus/presentation/views/focus_overlay_view.dart';
 import '../features/leaf/presentation/views/leaf_overlay_view.dart';
 import '../features/pin/presentation/views/pin_overlay_view.dart';
@@ -30,6 +31,7 @@ class OverlayHost extends ConsumerWidget {
       OverlayPanel.focus => const FocusOverlayView(),
       OverlayPanel.leaf => const LeafOverlayView(),
       OverlayPanel.awake => const AwakeOverlayView(),
+      OverlayPanel.echo => const EchoOverlayView(),
     };
 
     return ValueListenableBuilder<bool>(

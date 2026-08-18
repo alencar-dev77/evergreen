@@ -2,10 +2,11 @@
 
 Evergreen é uma suíte pessoal de produtividade para macOS, feita como agente de
 barra de menus (`LSUIElement`) — sem janela ao iniciar, sem ícone no Dock. Tudo
-roda localmente, nada é enviado para a internet. São quatro módulos: Pin
+roda localmente, nada é enviado para a internet. São cinco módulos: Pin
 (gerenciador de área de transferência, `⌘⇧C`), Focus (cronômetro de foco com
 registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
-`⌘⇧D`) e Awake (mantém a tela acesa por um prazo, `⌘⇧X`).
+`⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`) e Echo (grava,
+transcreve e resume reuniões, `⌘⇧E`).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 
@@ -30,6 +31,12 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   `IOPMAssertionCreateWithName(kIOPMAssertionTypeNoDisplaySleep)`, a mesma
   assertion do Caffeine/Amphetamine — por isso o módulo não tem canal nativo
   próprio: o Swift equivalente já vive dentro do pacote.
+- **`ScreenCaptureKit` + `Speech` + `FoundationModels`** (nativo, macOS 26) — o
+  Echo. Captura de áudio em duas faixas, transcrição e resumo local, sem
+  equivalente em Flutter puro; o porquê de cada um está em
+  [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
+  Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
+  responde `unsupportedOS` abaixo disso, e o resto do app segue no 10.15.
 - **`shared_preferences`, `path_provider`, `intl`** — persistência simples,
   paths do sistema, formatação de data/hora.
 
@@ -81,6 +88,11 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Serviços que precisam sobreviver com todas as janelas fechadas (captura de
   clipboard, cronômetro do Focus, trava do Awake) vivem no engine da janela 0 e
   são ligados no `EvergreenBootstrap`.
+- Arquivo Swift novo em `macos/Runner/` **não entra sozinho na build**: o
+  `project.pbxproj` é da era anterior aos grupos sincronizados, então cada
+  arquivo precisa de quatro entradas (`PBXBuildFile`, `PBXFileReference`, filho
+  do grupo `Runner` e a fase `Sources`). Sem as quatro, ele compila no editor e
+  some no build.
 - Preferir sempre a solução em Flutter puro a código nativo (Swift/AppKit);
   quando uma alternativa nativa for descartada, documentar em `docs/`.
 
