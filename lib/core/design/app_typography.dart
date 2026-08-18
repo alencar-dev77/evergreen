@@ -66,6 +66,17 @@ abstract final class AppTypography {
     height: 1.4,
   );
 
+  /// Corpo forte — 600 / 14px, tracking -0.2. O degrau acima do
+  /// [bodyEmphasis], reservado a nome próprio numa linha: a marca do Evergreen
+  /// no rodapé da sidebar. Tem o peso e o tracking do [screenTitle] em tamanho
+  /// de corpo — é o mesmo texto, só que dentro de uma lista.
+  static final bodyStrong = _base.copyWith(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    height: 1.4,
+  );
+
   /// Variante compacta usada dentro do overlay — 400 / 13px.
   static final bodyCompact = _base.copyWith(
     fontSize: 13,
@@ -95,6 +106,14 @@ abstract final class AppTypography {
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondary,
     height: 1.4,
+  );
+
+  /// Metadado menor enfatizado — 600 / 12px. A opção escolhida de um segmented
+  /// control. Peso 600, e não os 500 do resto da escala, porque num controle
+  /// denso a pílula selecionada precisa se separar das vizinhas sem mudar de
+  /// tamanho — e mudar de tamanho faria as pílulas dançarem a cada escolha.
+  static final captionSmallEmphasis = captionSmall.copyWith(
+    fontWeight: FontWeight.w600,
   );
 
   /// Menor metadado da interface — 400 / 11px. Timestamp de linha, rótulo de

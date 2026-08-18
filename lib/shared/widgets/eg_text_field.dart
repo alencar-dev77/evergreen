@@ -99,7 +99,7 @@ class _EgTextFieldState extends State<EgTextField> {
         ),
       ),
       child: Opacity(
-        opacity: widget.enabled ? 1 : 0.4,
+        opacity: widget.enabled ? 1 : AppOpacities.disabled,
         child: TextField(
           controller: widget.controller,
           focusNode: _node,

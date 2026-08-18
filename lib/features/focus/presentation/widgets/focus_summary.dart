@@ -49,7 +49,7 @@ class _Stat extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(value, style: AppTypography.screenTitle),
-        const SizedBox(height: 1),
+        const SizedBox(height: AppSpacing.hairline),
         Text(label, style: AppTypography.captionXS),
       ],
     );

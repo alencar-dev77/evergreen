@@ -25,6 +25,13 @@ abstract final class AppColors {
   /// Painel e card principal.
   static const surface = Color(0xFF141414);
 
+  /// Superfície da barra lateral do Hub — o [surface] a 72%.
+  ///
+  /// Translúcida para o brilho verde do fundo atravessar de leve no topo e
+  /// unificar a sidebar com a área de conteúdo, sem custo de blur: é só um
+  /// sólido com alpha sobre o gradiente da janela.
+  static final sidebar = surface.withValues(alpha: 0.72);
+
   /// Topo do gradiente de superfície do painel flutuante — um degrau acima do
   /// [surface], reforçando a sensação de vidro iluminado por cima.
   static const surfaceTop = Color(0xFF191B17);
@@ -69,6 +76,12 @@ abstract final class AppColors {
   /// Placeholders, timestamps e texto de terceiro nível — presente, mas
   /// claramente atrás do conteúdo.
   static const textTertiary = Color(0xFF6B7280);
+
+  /// Trecho de texto selecionado dentro de um campo — accent a 25%.
+  ///
+  /// Mais forte que a [selection] de linha de lista: aqui o realce precisa
+  /// sobreviver ao texto desenhado por cima dele.
+  static const textSelection = Color(0x4022C55E);
 
   /// Ações destrutivas.
   static const error = Color(0xFFEF4444);

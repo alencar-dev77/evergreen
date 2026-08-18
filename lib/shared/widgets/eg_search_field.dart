@@ -31,7 +31,7 @@ class EgSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final field = Row(
       children: [
-        const EgIcon(EgIconData.search, size: 15, strokeWidth: 1.5),
+        const EgIcon(EgIconData.search, size: AppIconSizes.md, strokeWidth: 1.5),
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: TextField(

@@ -37,6 +37,14 @@ abstract final class AppRadii {
 /// Escala de espaçamento. Múltiplos de 4 com nomes semânticos, para manter o
 /// "muito respiro" pedido no design sem números mágicos espalhados.
 abstract final class AppSpacing {
+  /// Fio de cabelo — o vão entre um título e o subtítulo colado nele, onde 4px
+  /// já leria como duas linhas separadas em vez de um bloco só.
+  static const hairline = 1.0;
+
+  /// Respiro concêntrico: o padding que um container dá ao filho encostado na
+  /// borda dele (o segmented control em volta da pílula).
+  static const xxxs = 2.0;
+
   static const xxs = 4.0;
   static const xs = 6.0;
   static const sm = 8.0;
@@ -50,6 +58,59 @@ abstract final class AppSpacing {
   /// Margem externa máxima — rodapé de janela, respiro final de scroll.
   /// Usada com parcimônia: é o topo da escala, não um preenchimento genérico.
   static const giant = 48.0;
+}
+
+/// Escala de tamanho de ícone.
+///
+/// Ícone não escolhe tamanho por widget: um glifo de 14 ao lado de um de 15 na
+/// mesma tela não é uma decisão, é um esquecimento. A escala é curta porque
+/// ícone aqui é sempre acessório de um texto — quem manda no tamanho é a linha
+/// em que ele vive.
+abstract final class AppIconSizes {
+  /// Metadado dentro de linha compacta — lixeira do cartão, estrela do preview.
+  static const xs = 13.0;
+
+  /// Ícone que acompanha um rótulo dentro de um botão.
+  static const sm = 14.0;
+
+  /// Ícone de linha de lista, de campo de busca e de item de sidebar — o
+  /// tamanho padrão da interface.
+  static const md = 15.0;
+
+  /// Ícone sozinho, sem rótulo ao lado: botão de ícone e a marca da sidebar.
+  static const lg = 16.0;
+
+  /// Ícone dentro de um badge grande — estado vazio, módulo por vir.
+  static const xl = 18.0;
+}
+
+/// Tamanho dos badges quadrados que abrigam um ícone (`EgIconBadge`).
+///
+/// São três, e cada um tem um lugar: dentro de uma linha, dentro de um bloco,
+/// sozinho no centro de um estado vazio.
+abstract final class AppBadgeSizes {
+  /// Dentro de uma linha — item de sidebar, cabeçalho do preview.
+  static const sm = 28.0;
+
+  /// Dentro de um bloco de conteúdo — o painel de módulo por vir.
+  static const md = 36.0;
+
+  /// Sozinho, acima de um texto centralizado — estado vazio.
+  static const lg = 40.0;
+}
+
+/// Opacidades de estado.
+///
+/// Existe uma só para "indisponível", e não uma por componente: um toggle a 50%
+/// ao lado de um botão a 40% na mesma tela conta duas histórias diferentes
+/// sobre a mesma condição.
+abstract final class AppOpacities {
+  /// Controle desabilitado: presente, legível, claramente fora de alcance.
+  static const disabled = 0.4;
+
+  /// Módulo ainda não lançado na sidebar. Mais forte que [disabled] porque a
+  /// linha continua clicável — ela leva à tela que conta o que vem por aí.
+  static const unavailable = 0.55;
 }
 
 /// Bordas e sombras compartilhadas.

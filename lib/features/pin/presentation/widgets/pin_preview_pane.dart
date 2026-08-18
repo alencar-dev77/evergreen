@@ -78,9 +78,9 @@ class PinPreviewPane extends StatelessWidget {
     return Row(
       children: [
         EgIconBadge(
-          size: 28,
+          size: AppBadgeSizes.sm,
           borderRadius: AppRadii.badgeAll,
-          child: EgIcon(item.type.icon, size: 14),
+          child: EgIcon(item.type.icon, size: AppIconSizes.sm),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
@@ -95,8 +95,8 @@ class PinPreviewPane extends StatelessWidget {
         EgIconButton(
           icon: EgIconData.star,
           tooltip: item.isPinned ? 'Desafixar (⌘P)' : 'Fixar (⌘P)',
-          size: 28,
-          iconSize: 13,
+          size: AppBadgeSizes.sm,
+          iconSize: AppIconSizes.xs,
           color: item.isPinned ? AppColors.greenPrimary : AppColors.textSecondary,
           hoverColor: AppColors.greenLight,
           onPressed: onTogglePin,
