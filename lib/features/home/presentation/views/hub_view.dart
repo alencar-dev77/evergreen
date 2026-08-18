@@ -53,7 +53,9 @@ class _HubViewState extends ConsumerState<HubView> {
     // A janela acompanha a região: cresce ao abrir, volta ao fechar. Fora do
     // `build` (num `listen`) porque isto é efeito, não desenho.
     ref.listen<EvergreenModule?>(hubDetailProvider, (previous, next) {
-      HubWindowChannel.setDetailWidth(next == null ? 0 : HubDetailRegion.width);
+      HubWindowChannel.setDetailWidth(
+        next == null ? 0 : HubDetailRegion.preferredWidth,
+      );
     });
 
     final isDetailOpen = detail != null && detail == _selected;
@@ -70,19 +72,22 @@ class _HubViewState extends ConsumerState<HubView> {
         child: Focus(
           autofocus: true,
           child: EgBackground(
-            child: Row(
-              // Estica: a área de detalhe rola, e um `SingleChildScrollView` se
-              // encolhe até a altura do conteúdo quando ele cabe na tela. Com o
-              // alinhamento padrão do `Row` (center), a tela de um módulo curto —
-              // o Awake — nascia centralizada verticalmente, enquanto Pin e Focus,
-              // que enchem a janela, começavam no topo. Toda tela do Hub começa no
-              // mesmo lugar.
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ModuleSidebar(selected: _selected, onSelect: _select),
-                Expanded(child: _detail()),
-                if (isDetailOpen) _region(detail),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) => Row(
+                // Estica: a área de detalhe rola, e um `SingleChildScrollView` se
+                // encolhe até a altura do conteúdo quando ele cabe na tela. Com o
+                // alinhamento padrão do `Row` (center), a tela de um módulo curto —
+                // o Awake — nascia centralizada verticalmente, enquanto Pin e Focus,
+                // que enchem a janela, começavam no topo. Toda tela do Hub começa no
+                // mesmo lugar.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ModuleSidebar(selected: _selected, onSelect: _select),
+                  Expanded(child: _detail()),
+                  if (isDetailOpen)
+                    _region(detail, _regionWidth(constraints.maxWidth)),
+                ],
+              ),
             ),
           ),
         ),
@@ -90,9 +95,33 @@ class _HubViewState extends ConsumerState<HubView> {
     );
   }
 
+  /// Piso da área de conteúdo.
+  ///
+  /// Abaixo disto as linhas de configuração estouram: um `EgSettingsRow` tem
+  /// rótulo que quebra linha e um controle de largura fixa ao lado, e o
+  /// controle não encolhe. É o número que manda na conta da região.
+  static const _contentFloor = 560.0;
+
+  /// Quanto a região pode ocupar sem espremer o conteúdo.
+  ///
+  /// A janela cresce para caber a região, mas a resposta do lado nativo é
+  /// **animada** (220ms) e pode ser limitada pela tela: durante esses quadros —
+  /// e para sempre, num monitor pequeno — a janela é mais estreita do que a
+  /// região gostaria. Quem cede é a região, nunca o conteúdo: uma região
+  /// estreita só fica estreita, enquanto uma tela de preferências espremida
+  /// estoura o layout.
+  ///
+  /// O efeito colateral é bem-vindo: com a largura seguindo o que existe, a
+  /// região *abre deslizando* junto com a janela em vez de aparecer inteira
+  /// sobre um conteúdo espremido.
+  double _regionWidth(double available) {
+    final free = available - ModuleSidebar.width - _contentFloor;
+    return free.clamp(0.0, HubDetailRegion.preferredWidth);
+  }
+
   /// A região dedicada do módulo que a abriu.
-  Widget _region(EvergreenModule module) => switch (module) {
-        EvergreenModule.echo => const EchoReader(),
+  Widget _region(EvergreenModule module, double width) => switch (module) {
+        EvergreenModule.echo => EchoReader(width: width),
         // Nenhum outro módulo abre região hoje; o `switch` existe para que o
         // próximo entre aqui, e não num `if` espalhado pela tela.
         _ => const SizedBox.shrink(),

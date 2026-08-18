@@ -93,9 +93,15 @@ void main() {
   testWidgets('o resumo soma o dia e a semana', (tester) async {
     await pumpSettings(tester);
 
-    expect(find.text('hoje'), findsOneWidget);
-    expect(find.text('na semana'), findsOneWidget);
-    expect(find.text('1h 05min'), findsWidgets, reason: '25 + 40 minutos');
+    // Os dois totais vivem num parágrafo só, para se alinharem pela linha de
+    // base e quebrarem linha numa janela estreita — daí a busca por trecho.
+    expect(find.textContaining('hoje'), findsOneWidget);
+    expect(find.textContaining('na semana'), findsOneWidget);
+    expect(
+      find.textContaining('1h 05min'),
+      findsWidgets,
+      reason: '25 + 40 minutos',
+    );
     // A semana também é mostrada em barras, uma por dia.
     expect(find.byType(FocusWeekStrip), findsOneWidget);
     expect(find.text('seg'), findsOneWidget);
@@ -221,7 +227,7 @@ void main() {
 
     expect(find.text('Coisa da semana passada'), findsNothing);
     expect(
-      find.text('1h 05min'),
+      find.textContaining('1h 05min'),
       findsWidgets,
       reason: 'o total da semana ignora o que ficou para trás',
     );

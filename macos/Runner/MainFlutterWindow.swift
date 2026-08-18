@@ -65,7 +65,7 @@ class MainFlutterWindow: NSWindow {
   private static func applyHubGeometry(to window: NSWindow?) {
     guard let window = window else { return }
 
-    window.minSize = NSSize(width: 720, height: 480)
+    window.minSize = NSSize(width: HubWindowChannel.baseMinWidth, height: 480)
     window.setContentSize(NSSize(width: 880, height: 620))
     HubWindowChannel.adopt(window)
   }
@@ -131,6 +131,9 @@ enum HubWindowChannel {
   /// que o Dart imagina que a janela tem.
   private static var detailWidth: CGFloat = 0
 
+  /// Largura mínima da janela sem a região aberta.
+  static let baseMinWidth: CGFloat = 720
+
   /// Abre ou fecha a região dedicada, alargando a própria janela.
   ///
   /// A alternativa seria a região dividir a largura que já existe — foi o
@@ -150,6 +153,14 @@ enum HubWindowChannel {
     let screen = window.screen ?? activeScreen()
     let visible = screen.visibleFrame
     var frame = window.frame
+
+    // Com a região aberta, a janela não pode ser arrastada para uma largura em
+    // que ela não caiba: abaixo disso é a área de conteúdo que se espreme, e
+    // linha de configuração espremida estoura o layout. Limitado à tela porque
+    // um mínimo maior que o monitor deixaria a janela pendurada para fora dele.
+    window.minSize.width = min(
+      width > 0 ? baseMinWidth + width : baseMinWidth,
+      visible.width)
 
     // Nunca mais larga que a área útil: num monitor estreito, crescer 480px
     // jogaria metade da janela para fora da tela.

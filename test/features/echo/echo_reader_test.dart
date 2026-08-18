@@ -134,6 +134,28 @@ void main() {
     expect(find.byType(HubDetailRegion), findsNothing);
   });
 
+  /// A janela cresce para caber a região, mas a resposta do lado nativo é
+  /// animada — e num monitor pequeno ela pode nem crescer o bastante. Nesses
+  /// quadros o Hub tem menos largura do que a região gostaria, e quem precisa
+  /// ceder é a região: foi assim que a primeira versão estourou o layout de
+  /// todas as linhas de configuração da tela do Echo.
+  ///
+  /// Não há `expect`: um `RenderFlex overflowed` já reprova o teste sozinho.
+  testWidgets('a região cede largura em vez de espremer o conteúdo',
+      (tester) async {
+    await pumpHub(tester);
+    await openMeeting(tester);
+
+    // Da janela que ainda não cresceu (880 é a largura de partida do Hub) até a
+    // já expandida.
+    for (final width in [880.0, 1000.0, 1100.0, 1360.0, 1440.0]) {
+      tester.view.physicalSize = Size(width, 900);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HubDetailRegion), findsOneWidget);
+    }
+  });
+
   testWidgets('apagar a última reunião fecha a região', (tester) async {
     await pumpHub(tester);
     await openMeeting(tester);

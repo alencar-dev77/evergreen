@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 import '../../../../core/design/app_metrics.dart';
@@ -22,6 +24,7 @@ class HubDetailRegion extends StatelessWidget {
     required this.header,
     required this.child,
     required this.onClose,
+    this.width = preferredWidth,
   });
 
   /// O que identifica o que está aberto — título e metadados. Fica ao lado do
@@ -31,46 +34,77 @@ class HubDetailRegion extends StatelessWidget {
   final Widget child;
   final VoidCallback onClose;
 
-  /// Largura da região. Um documento se lê confortavelmente nessa medida: umas
+  /// Largura desejada. Um documento se lê confortavelmente nessa medida: umas
   /// 70 colunas de texto no corpo de 13px, que é o alvo de legibilidade de
   /// qualquer texto corrido.
-  static const width = 480.0;
+  static const preferredWidth = 480.0;
+
+  /// A largura que a região realmente recebeu.
+  ///
+  /// Menor que a [preferredWidth] enquanto a janela ainda está crescendo (a
+  /// animação nativa leva 220ms) e em tela pequena demais para crescer o
+  /// bastante. Quem decide é o `HubView`, que é quem sabe quanto sobra — e a
+  /// conta protege primeiro a área de conteúdo: uma tela de preferências
+  /// espremida estoura o layout, uma região estreita só fica estreita.
+  final double width;
+
+  /// Abaixo disto o conteúdo da região não cabe de jeito nenhum: o seletor de
+  /// abas tem largura própria e o botão de fechar precisa ficar ao lado do
+  /// título. Recebendo menos que isto, a região desenha neste tamanho e é
+  /// **recortada** — que é o que acontece nos 220ms em que a janela ainda está
+  /// crescendo, e o que faz a região abrir deslizando em vez de piscar inteira
+  /// por cima de um conteúdo espremido.
+  static const _minLayoutWidth = 320.0;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(border: Border(left: AppBorders.subtle)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xxl,
-            AppSpacing.xxl,
-            AppSpacing.xxl,
-            AppSpacing.huge,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: header),
-                  const SizedBox(width: AppSpacing.sm),
-                  // Fechar tem atalho (`esc`) e alvo de mouse, como toda ação
-                  // do Evergreen. O ícone fica no topo da região, alinhado com
-                  // o título do que está aberto.
-                  EgIconButton(
-                    icon: EgIconData.close,
-                    tooltip: 'Fechar (esc)',
-                    onPressed: onClose,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Expanded(child: child),
-            ],
-          ),
+      child: ClipRect(
+        child: OverflowBox(
+          // Ancorada à esquerda: a borda esquerda da região é a que fica parada
+          // (ela encosta na área de conteúdo), e é a direita que acompanha a
+          // janela crescendo.
+          alignment: Alignment.centerLeft,
+          minWidth: math.max(width, _minLayoutWidth),
+          maxWidth: math.max(width, _minLayoutWidth),
+          child: _content(),
+        ),
+      ),
+    );
+  }
+
+  Widget _content() {
+    return DecoratedBox(
+      decoration: const BoxDecoration(border: Border(left: AppBorders.subtle)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xxl,
+          AppSpacing.xxl,
+          AppSpacing.xxl,
+          AppSpacing.huge,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: header),
+                const SizedBox(width: AppSpacing.sm),
+                // Fechar tem atalho (`esc`) e alvo de mouse, como toda ação do
+                // Evergreen. O ícone fica no topo da região, alinhado com o
+                // título do que está aberto.
+                EgIconButton(
+                  icon: EgIconData.close,
+                  tooltip: 'Fechar (esc)',
+                  onPressed: onClose,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Expanded(child: child),
+          ],
         ),
       ),
     );

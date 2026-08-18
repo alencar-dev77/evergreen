@@ -74,8 +74,15 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
           border: AppBorders.all,
           boxShadow: _isFocused ? AppShadows.focusRing : null,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        // `Wrap`, e não `Row`: com cinco opções (as durações do Focus) o
+        // controle pede uns 460px, e numa janela estreita ele sozinho não cabe
+        // na coluna. Quebrando linha, as opções continuam todas visíveis e
+        // clicáveis — rolar ou recortar esconderia opção, que num seletor é o
+        // mesmo que apagá-la. Onde há largura, nada muda: a fila cabe inteira
+        // numa linha só.
+        child: Wrap(
+          spacing: 0,
+          runSpacing: AppSpacing.xxxs,
           children: [
             for (final option in widget.options)
               _Segment(

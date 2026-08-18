@@ -153,6 +153,11 @@ class _Day extends StatelessWidget {
 /// Numa linha só, e não em duas colunas de números do mesmo tamanho: os dois
 /// respondem perguntas diferentes ("como está hoje" e "como está a semana"), e
 /// dar o mesmo peso aos dois obriga a ler os dois para achar o que se queria.
+///
+/// Um parágrafo, e não um `Row` de textos: assim os tamanhos diferentes se
+/// alinham pela linha de base sozinhos, e numa janela estreita a frase **quebra
+/// em duas linhas** em vez de estourar o layout — foi exatamente o que
+/// aconteceu com a versão em `Row` na largura mínima da janela.
 class FocusTotals extends StatelessWidget {
   const FocusTotals({super.key, required this.today, required this.week});
 
@@ -161,20 +166,22 @@ class FocusTotals extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Text(DurationFormat.compact(today), style: AppTypography.screenTitle),
-        const SizedBox(width: AppSpacing.xs),
-        Text('hoje', style: AppTypography.captionXS),
-        const SizedBox(width: AppSpacing.md),
-        Text('·', style: AppTypography.captionXS),
-        const SizedBox(width: AppSpacing.md),
-        Text(DurationFormat.compact(week), style: AppTypography.bodyEmphasis),
-        const SizedBox(width: AppSpacing.xs),
-        Text('na semana', style: AppTypography.captionXS),
-      ],
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: DurationFormat.compact(today),
+            style: AppTypography.screenTitle,
+          ),
+          TextSpan(text: '  hoje', style: AppTypography.captionXS),
+          TextSpan(text: '   ·   ', style: AppTypography.captionXS),
+          TextSpan(
+            text: DurationFormat.compact(week),
+            style: AppTypography.bodyEmphasis,
+          ),
+          TextSpan(text: '  na semana', style: AppTypography.captionXS),
+        ],
+      ),
     );
   }
 }

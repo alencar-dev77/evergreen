@@ -32,31 +32,64 @@ class EgSettingsRow extends StatelessWidget {
   final String? description;
   final bool showDivider;
 
+  /// Largura abaixo da qual o controle desce para baixo do rótulo.
+  ///
+  /// O controle mais largo do aplicativo — o seletor de cinco durações do Focus
+  /// — pede uns 460px, e numa janela estreita ele sozinho já não deixa espaço
+  /// para o rótulo: a linha estourava com uma faixa listrada atravessando a
+  /// tela. Descer o controle é o que a tela do Echo já fazia à mão com o campo
+  /// de instrução do resumo ("um seletor cabe ao lado do rótulo, um texto de
+  /// três linhas não"); aqui a regra passa a valer para qualquer linha, sem
+  /// ninguém precisar lembrar dela.
+  static const _stackBelow = 520.0;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-      decoration: BoxDecoration(
-        border: showDivider ? AppBorders.bottom : null,
+    return LayoutBuilder(
+      builder: (context, constraints) => Container(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        decoration: BoxDecoration(
+          border: showDivider ? AppBorders.bottom : null,
+        ),
+        child: constraints.maxWidth < _stackBelow ? _stacked() : _inline(),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: AppTypography.bodyCompactEmphasis),
-                if (description != null) ...[
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(description!, style: AppTypography.captionSmall),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xl),
-          trailing,
+    );
+  }
+
+  Widget _inline() {
+    return Row(
+      children: [
+        Expanded(child: _label()),
+        const SizedBox(width: AppSpacing.xl),
+        trailing,
+      ],
+    );
+  }
+
+  Widget _stacked() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(),
+        const SizedBox(height: AppSpacing.md),
+        // Alinhado à esquerda, sob o rótulo que ele responde — e não centrado
+        // nem à direita, que seria o controle procurando um lugar em vez de
+        // pertencer a um.
+        Align(alignment: Alignment.centerLeft, child: trailing),
+      ],
+    );
+  }
+
+  Widget _label() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTypography.bodyCompactEmphasis),
+        if (description != null) ...[
+          const SizedBox(height: AppSpacing.xxs),
+          Text(description!, style: AppTypography.captionSmall),
         ],
-      ),
+      ],
     );
   }
 }

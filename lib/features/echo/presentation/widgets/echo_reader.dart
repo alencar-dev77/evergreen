@@ -18,7 +18,11 @@ import 'echo_meeting_detail.dart';
 /// espremida; antes ainda, vinha empilhada embaixo e empurrava a lista para
 /// fora da tela.
 class EchoReader extends ConsumerWidget {
-  const EchoReader({super.key});
+  const EchoReader({super.key, this.width = HubDetailRegion.preferredWidth});
+
+  /// Largura concedida pelo Hub — menor que a preferida enquanto a janela
+  /// cresce, e em tela pequena demais para crescer o bastante.
+  final double width;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,6 +36,7 @@ class EchoReader extends ConsumerWidget {
     final viewModel = ref.read(echoLibraryViewModelProvider.notifier);
 
     return HubDetailRegion(
+      width: width,
       onClose: () => ref.read(hubDetailProvider.notifier).close(),
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
