@@ -9,9 +9,12 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | Componente | Arquivo | Papel | Estados cobertos |
 |---|---|---|---|
 | `EgHoverable` | `eg_hoverable.dart` | primitiva de interação: entrega `EgInteraction` (hover/pressed/focus) ao builder | é a fonte dos estados dos demais |
+| `EgSurfaceStyle` | `eg_surface.dart` | **a matriz de estado**: uma coluna por papel de superfície (`row`, `ghost`, `card`, `segment`, `primary`, `secondary`, `destructive`) | resolve fundo, conteúdo, borda e anel de foco |
+| `EgSurface` | `eg_surface.dart` | a caixa já pintada pela matriz, recebendo o estado de fora | todos os da matriz |
+| `EgInteractiveSurface` | `eg_surface.dart` | `EgHoverable` + `EgSurface`: o que todo elemento clicável deveria usar | default · hover · pressed · focus · selected · disabled |
 | `EgButton` | `eg_button.dart` | botão em 3 variantes (`primary`, `secondary`, `destructive`) | default · hover · pressed · focus · disabled |
 | `EgIconButton` | `eg_button.dart` | botão só de ícone, 36×36, com `tooltip` opcional | default · hover · pressed · focus · disabled |
-| `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · focus · disabled · on/off |
+| `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · pressed · focus · disabled · on/off |
 | `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado | default · hover · pressed · focus · selected |
 | `EgSearchField` | `eg_search_field.dart` | campo de busca (`bare` para a linha do topo do overlay) | default · focus (borda accent) · placeholder |
 | `EgTextField` | `eg_text_field.dart` | campo de texto de uma linha que a pessoa escreve e confirma (atividade e resumo do Focus) | default · focus (borda accent) · disabled |
@@ -21,6 +24,9 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgConfirmDialog` | `eg_confirm_dialog.dart` | confirmação de ação irreversível (360px, ações à direita, Esc = cancelar) | — |
 | `EgSettingsSection` | `eg_settings_section.dart` | agrupa linhas de configuração sob um label em caps | — |
 | `EgSettingsRow` | `eg_settings_row.dart` | linha de configuração: rótulo + descrição + controle | `showDivider` on/off |
+| `EgNavTile` | `eg_nav_tile.dart` | item de navegação: badge de ícone + título + linha de apoio | default · hover · pressed · focus · selected |
+| `EgDivider` | `eg_divider.dart` | fio de 1px entre linhas de lista, por fora da linha | — |
+| `EgOverlayShell` | `eg_overlay_shell.dart` | casca dos painéis flutuantes: entrada, blur, clique fora, centralização | — |
 | `EgSectionLabel` | `eg_section_label.dart` | label de grupo em caixa alta | — |
 | `EgKeyCap` / `EgShortcutDisplay` | `eg_key_cap.dart` | tecla e sequência de teclas | — |
 | `EgEmptyState` | `eg_empty_state.dart` | estado vazio discreto (ícone pequeno + título + mensagem) | — |
@@ -32,6 +38,7 @@ Regras de manutenção deste inventário:
 
 - Componente novo compartilhado nasce com prefixo `Eg`, em `lib/shared/widgets/`, e entra nesta tabela junto do commit que o cria.
 - Estado de interação vem do `EgHoverable`, nunca de um `MouseRegion` próprio — é o que garante que hover, pressed e foco se comportem igual em todo o app.
+- **A aparência de cada estado vem da matriz (`EgSurfaceStyle`), nunca de uma cadeia de `if`s escrita no widget.** Se o componente precisa de uma combinação que a matriz não tem, ele compõe uma `EgSurfaceStyle` própria a partir dos tokens (é o que o cartão do Leaf faz com a vaga livre e com o cartão em edição) — não reescreve a ordem de precedência. Antes da matriz a mesma cadeia existia copiada em seis arquivos, e as cópias já tinham divergido: um componente sem `pressed`, outro sem reação ao foco, e a ordem entre "selecionado" e "pressionado" mudando de um para o outro.
 - Componente específico de um módulo (por exemplo `PinListItem`) **não** ganha prefixo `Eg` e não entra aqui; se um segundo módulo precisar dele, aí sim ele é promovido a `Eg*`.
 
 ## Padrões de tela já estabelecidos (reusar, não reinventar)
@@ -60,6 +67,24 @@ Estas decisões foram tomadas no v0.1 e valem como padrão do produto. Um módul
 - **Controle desabilitado mostra o valor efetivo, não o guardado.** Quando "Utilizar apenas Pomodoro" anula as duas perguntas, os toggles delas aparecem **desligados** e apagados — não ligados e apagados. Um controle ligado promete um comportamento; se ele não vai acontecer, exibi-lo ligado é mentira, e a opacidade sozinha não desfaz a promessa. Desligar o modo devolve as escolhas guardadas.
 - **O que é título não se repete no corpo.** O diálogo de detalhe usa a atividade como título, então ela sai da lista de anotações — a mesma frase duas vezes na mesma tela é ruído, não reforço.
 - **Um painel que muda de estado mantém o esqueleto.** No Focus, partida/contando/concluído usam o mesmo bloco (rótulo da fase → número grande → ação principal): o que muda é o conteúdo, não o layout, e o olho não precisa reencontrar nada.
+
+## A matriz de estado (`EgSurfaceStyle`)
+
+Precedência, do mais forte para o mais fraco — vale para **todo** componente interativo do app:
+
+| Estado | Vence quem | Por quê |
+|---|---|---|
+| `disabled` | todos | o controle não responde: nenhum outro estado é verdade |
+| `selected` | pressed, hover, focus | é onde o teclado está, a informação mais durável da tela |
+| `pressed` | hover, focus | feedback do clique acontecendo agora |
+| `hover` = `focus` | rest | mesma superfície: o anel de foco precisa de fundo opaco sob ele |
+| `rest` | — | repouso |
+
+Duas consequências que não se negociam: `hover` e `focus` compartilham a superfície (quem os distingue é o anel, que só o teclado acende), e `selected` **nunca** é a mesma cor que `hover` (seleção é accent em baixa opacidade; hover é neutro).
+
+Colunas disponíveis: `row` (linha de lista, item de sidebar), `ghost` (botão de ícone — sem superfície em repouso, então é o conteúdo que reage), `card` (superfície própria em repouso), `segment` (pílula do segmented control), `primary`, `secondary` e `destructive` (botões).
+
+A tabela inteira, desenhada, mora no golden `test/goldens/design_state_matrix.png` — a folha de estados do design system, com as sete colunas em seis estados e os componentes reais abaixo, hover e pressed inclusive. Regenerar com `flutter test --run-skipped -t preview --update-goldens`.
 
 ## Botões
 
