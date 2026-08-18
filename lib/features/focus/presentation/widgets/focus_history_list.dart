@@ -5,9 +5,10 @@ import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
+import '../../../../shared/widgets/eg_divider.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
-import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/focus_session.dart';
 import 'focus_session_dialog.dart';
 
@@ -45,24 +46,9 @@ class FocusHistoryList extends StatelessWidget {
       children: [
         for (final session in sessions) ...[
           _SessionRow(session: session),
-          if (showLastDivider || session != sessions.last) const _Divider(),
+          if (showLastDivider || session != sessions.last) const EgDivider(),
         ],
       ],
-    );
-  }
-}
-
-/// Divisor entre linhas. Separado da linha porque o fundo de hover dela tem
-/// cantos arredondados — uma borda dentro dele acompanharia a curva e ficaria
-/// torta sob o mouse.
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(border: AppBorders.bottom),
-      child: SizedBox(height: 0, width: double.infinity),
     );
   }
 }
@@ -74,50 +60,42 @@ class _SessionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EgHoverable(
-      focusable: true,
+    // A linha não tem estado selecionado: ela abre um diálogo e volta. Os
+    // outros quatro estados vêm da matriz compartilhada.
+    return EgInteractiveSurface(
       onTap: () => FocusSessionDialog.show(context, session),
-      builder: (context, state) => AnimatedContainer(
-        duration: AppDurations.instant,
-        curve: AppDurations.curve,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.md,
-        ),
-        decoration: BoxDecoration(
-          color: _background(state),
-          borderRadius: AppRadii.listItemAll,
-          boxShadow: state.isFocused ? AppShadows.focusRing : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _title()),
-                const SizedBox(width: AppSpacing.xl),
-                // Duração à direita, sempre na mesma coluna: é o número que se
-                // compara entre linhas ao correr o olho pela lista.
-                Text(
-                  DurationFormat.compact(session.duration),
-                  style: AppTypography.bodyCompactEmphasis,
-                ),
-              ],
-            ),
-            if (_metadata() case final metadata?) ...[
-              const SizedBox(height: AppSpacing.xxs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _title()),
+              const SizedBox(width: AppSpacing.xl),
+              // Duração à direita, sempre na mesma coluna: é o número que se
+              // compara entre linhas ao correr o olho pela lista.
               Text(
-                metadata,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.captionXS.copyWith(
-                  color: AppColors.textTertiary,
-                ),
+                DurationFormat.compact(session.duration),
+                style: AppTypography.bodyCompactEmphasis,
               ),
             ],
+          ),
+          if (_metadata() case final metadata?) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              metadata,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.captionXS.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -151,11 +129,5 @@ class _SessionRow extends StatelessWidget {
     ];
 
     return parts.isEmpty ? null : parts.join(' · ');
-  }
-
-  Color _background(EgInteraction state) {
-    if (state.isPressed) return AppColors.pressed;
-    if (state.isHovered || state.isFocused) return AppColors.hover;
-    return AppColors.transparent;
   }
 }
