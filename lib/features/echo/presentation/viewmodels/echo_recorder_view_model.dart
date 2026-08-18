@@ -201,7 +201,25 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       if (segments.isNotEmpty) await _channel.deleteAudio(files.paths);
 
       _startedAt = null;
-      state = state.copyWith(phase: EchoPhase.done, lastMeeting: meeting);
+
+      // Reunião vazia não é sucesso silencioso. Quando dá para dizer o que
+      // faltou — uma faixa que não gravou, a captura interrompida pelo sistema
+      // — a tela diz, em vez de mostrar uma transcrição muda e deixar a pessoa
+      // adivinhar entre permissão, entrada de som e reconhecimento.
+      final explanation =
+          segments.isEmpty ? files.silenceExplanation : null;
+
+      state = state.copyWith(
+        phase: explanation == null ? EchoPhase.done : EchoPhase.failed,
+        lastMeeting: meeting,
+        // `clearError`, e não `errorMessage: null`: o `copyWith` trata `null`
+        // como "não mexe", então a explicação da reunião anterior sobreviveria
+        // a uma gravação que deu certo.
+        clearError: explanation == null,
+        errorMessage: explanation == null
+            ? null
+            : '$explanation O áudio foi preservado em disco.',
+      );
     } on EchoException catch (error) {
       _startedAt = null;
       state = state.copyWith(

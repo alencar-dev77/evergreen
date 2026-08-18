@@ -319,6 +319,16 @@ actor EchoRecorder {
   private var micURL: URL?
   private var systemURL: URL?
 
+  /// Quem escuta a `SCStream` parar sozinha.
+  ///
+  /// A stream nascia com `delegate: nil`, e um `didStopWithError` no meio da
+  /// reunião não chegava a lugar nenhum: a gravação virava silêncio e só se
+  /// descobria na transcrição vazia, sem nada que dissesse o que aconteceu. O
+  /// erro fica guardado no próprio delegate — ele é chamado de fora do ator, e
+  /// escrever daqui num campo do gravador seria escrever no estado do ator a
+  /// partir de outra thread.
+  private var delegate: EchoStreamDelegate?
+
   /// Confirma a Gravação de Tela — pedindo, se for o caso, antes de desistir.
   ///
   /// `CGPreflightScreenCaptureAccess` responder `false` não quer dizer
@@ -374,8 +384,12 @@ actor EchoRecorder {
       configuration.capturesAudio = true
       configuration.excludesCurrentProcessAudio = true
       configuration.captureMicrophone = true
-      configuration.sampleRate = 48_000
-      configuration.channelCount = 2
+      // Sem fixar taxa nem número de canais: cada bloco é convertido para
+      // `recordingFormat` a partir do formato que ele mesmo declara, então
+      // impor 48 kHz estéreo aqui não economiza nada e só restringe o que o
+      // sistema pode entregar — inclusive na faixa do microfone, que o macOS
+      // monta com uma `AVCaptureSession` própria em cima do dispositivo de
+      // entrada padrão.
       // O vídeo não interessa, mas a SCStream exige um filtro de tela. Dois
       // pixels a um quadro por segundo é o mais perto de "nada" que dá para
       // pedir sem abrir mão do áudio.
@@ -384,7 +398,8 @@ actor EchoRecorder {
       configuration.minimumFrameInterval = CMTime(value: 1, timescale: 1)
 
       let filter = SCContentFilter(display: display, excludingWindows: [])
-      let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+      let delegate = EchoStreamDelegate()
+      let stream = SCStream(filter: filter, configuration: configuration, delegate: delegate)
 
       let output = EchoStreamOutput(micURL: micURL, systemURL: systemURL)
       if liveTranscription {
@@ -399,6 +414,7 @@ actor EchoRecorder {
 
       self.stream = stream
       self.output = output
+      self.delegate = delegate
       self.micURL = micURL
       self.systemURL = systemURL
       self.startedAt = Date()
@@ -419,10 +435,25 @@ actor EchoRecorder {
     await output?.finish()
 
     let duration = startedAt.map { Int(Date().timeIntervalSince($0) * 1000) } ?? 0
+
+    // O caminho só sai daqui quando existe arquivo com áudio dentro. Antes ele
+    // saía sempre, e o Dart mandava transcrever um arquivo que nunca chegou a
+    // ser criado — a faixa muda passava por faixa vazia, e o resultado era uma
+    // transcrição sem explicação.
+    let micFrames = output?.micFrames ?? 0
+    let systemFrames = output?.systemFrames ?? 0
+
     let payload: [String: Any] = [
-      "micPath": micURL?.path as Any,
-      "systemPath": systemURL?.path as Any,
+      "micPath": (micFrames > 0 ? micURL?.path : nil) as Any,
+      "systemPath": (systemFrames > 0 ? systemURL?.path : nil) as Any,
       "durationMs": duration,
+      // O diagnóstico das duas faixas, para o Dart poder dizer *o que* faltou
+      // em vez de mostrar uma reunião vazia.
+      "micFrames": micFrames,
+      "systemFrames": systemFrames,
+      "micPeak": output?.micPeak ?? 0,
+      "systemPeak": output?.systemPeak ?? 0,
+      "streamError": delegate?.error as Any,
     ]
 
     reset()
@@ -447,6 +478,7 @@ actor EchoRecorder {
   private func reset() {
     stream = nil
     output = nil
+    delegate = nil
     startedAt = nil
     micURL = nil
     systemURL = nil
@@ -469,6 +501,19 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
 
   private var micConverter: AVAudioConverter?
   private var systemConverter: AVAudioConverter?
+
+  /// Quanto chegou em cada faixa, e com que amplitude.
+  ///
+  /// Existe porque as duas maneiras de a gravação sair muda são
+  /// indistinguíveis no arquivo final: uma faixa que **não recebeu bloco
+  /// nenhum** e uma que recebeu 26 minutos de zeros produzem a mesma
+  /// transcrição vazia, e cada uma tem uma causa diferente — a primeira é a
+  /// captura que não veio, a segunda é o som que não estava lá. Sem contar,
+  /// a única saída era ler o `.caf` na mão depois.
+  private(set) var micFrames: Int64 = 0
+  private(set) var systemFrames: Int64 = 0
+  private(set) var micPeak: Int = 0
+  private(set) var systemPeak: Int = 0
 
   private var live: EchoLiveTranscriber?
 
@@ -521,6 +566,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
         converted = Self.convert(buffer, with: micConverter)
         if let converted = converted {
           try micFile?.write(from: converted)
+          micFrames += Int64(converted.frameLength)
+          micPeak = max(micPeak, Self.peak(of: converted))
         }
       } else {
         if systemFile == nil {
@@ -530,6 +577,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
         converted = Self.convert(buffer, with: systemConverter)
         if let converted = converted {
           try systemFile?.write(from: converted)
+          systemFrames += Int64(converted.frameLength)
+          systemPeak = max(systemPeak, Self.peak(of: converted))
         }
       }
     } catch {
@@ -622,6 +671,22 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   ///
   /// `withAudioBufferList` segura o bloco vivo enquanto o fecho roda, que é a
   /// janela em que a cópia acontece.
+  /// A maior amplitude do bloco, em módulo — 0 é silêncio digital exato.
+  ///
+  /// Sempre sobre o buffer **já convertido** para [recordingFormat], que é
+  /// Int16 mono: um formato só para medir, em vez de um caso para cada coisa
+  /// que a captura possa entregar.
+  static func peak(of buffer: AVAudioPCMBuffer) -> Int {
+    guard let channel = buffer.int16ChannelData?[0] else { return 0 }
+
+    var peak: Int32 = 0
+    for index in 0..<Int(buffer.frameLength) {
+      peak = max(peak, Int32(channel[index].magnitude))
+    }
+
+    return Int(peak)
+  }
+
   static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
     guard let description = sampleBuffer.formatDescription,
           var streamDescription = description.audioStreamBasicDescription,
@@ -882,5 +947,32 @@ enum EchoSummarizer {
     } catch {
       result(FlutterError(code: "summary_failed", message: error.localizedDescription, details: nil))
     }
+  }
+}
+
+/// Escuta a `SCStream` só para o que ela tem de irreversível: parar sozinha.
+///
+/// Uma classe minúscula, e não o próprio `EchoRecorder`, porque o `SCStream`
+/// retém o delegate e o gravador é quem retém o stream — fechar esse ciclo
+/// seguraria a gravação inteira na memória depois de ela terminar.
+@available(macOS 26.0, *)
+final class EchoStreamDelegate: NSObject, SCStreamDelegate, @unchecked Sendable {
+  private let lock = NSLock()
+  private var stored: String?
+
+  /// O que derrubou a captura, se alguma coisa derrubou.
+  ///
+  /// Sob trava porque o `SCStream` avisa de uma thread própria e quem lê é o
+  /// gravador, ao parar.
+  var error: String? {
+    lock.lock()
+    defer { lock.unlock() }
+    return stored
+  }
+
+  func stream(_ stream: SCStream, didStopWithError error: Error) {
+    lock.lock()
+    stored = error.localizedDescription
+    lock.unlock()
   }
 }

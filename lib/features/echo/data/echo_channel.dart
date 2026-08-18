@@ -5,15 +5,71 @@ import 'package:flutter/services.dart';
 import '../models/echo_capabilities.dart';
 import '../models/meeting_segment.dart';
 
-/// O que sobrou da gravação: dois arquivos de áudio e quanto tempo durou.
+/// O que sobrou da gravação: os arquivos de áudio, quanto tempo durou e como
+/// cada faixa se saiu.
+///
+/// O caminho vem `null` quando aquela faixa não gravou nada — e as duas
+/// maneiras de sair muda ficam distinguíveis: uma faixa que **não recebeu bloco
+/// nenhum** (a captura não veio) e uma que recebeu só zeros (o som não estava
+/// lá) davam exatamente a mesma reunião vazia, sem nada que dissesse qual das
+/// duas foi.
 class RecordingFiles {
-  const RecordingFiles({this.micPath, this.systemPath, required this.durationMs});
+  const RecordingFiles({
+    this.micPath,
+    this.systemPath,
+    required this.durationMs,
+    this.micPeak = 0,
+    this.systemPeak = 0,
+    this.streamError,
+  });
 
   final String? micPath;
   final String? systemPath;
   final int durationMs;
 
+  /// Maior amplitude registrada em cada faixa. Zero é silêncio digital exato.
+  final int micPeak;
+  final int systemPeak;
+
+  /// O que derrubou a captura no meio, quando o macOS parou a gravação sozinho.
+  final String? streamError;
+
   List<String> get paths => [?micPath, ?systemPath];
+
+  bool get hasMic => micPath != null;
+  bool get hasSystem => systemPath != null;
+
+  /// O que dizer quando a transcrição sai vazia.
+  ///
+  /// `null` quando as duas faixas trouxeram som — aí o vazio é do
+  /// reconhecimento, não da captura, e a tela não deve inventar uma causa.
+  String? get silenceExplanation {
+    if (streamError != null) {
+      return 'O macOS interrompeu a captura durante a reunião: $streamError';
+    }
+
+    final micQuiet = !hasMic || micPeak == 0;
+    final systemQuiet = !hasSystem || systemPeak == 0;
+
+    if (micQuiet && systemQuiet) {
+      return 'Nenhuma das duas faixas gravou som. Verifique a entrada de áudio '
+          'em Ajustes do Sistema > Som e tente de novo.';
+    }
+
+    if (micQuiet) {
+      return 'O microfone não gravou nada nesta reunião — só o áudio do '
+          'computador entrou. Confira qual é a entrada de som em Ajustes do '
+          'Sistema > Som, e se o Evergreen tem o microfone liberado.';
+    }
+
+    if (systemQuiet) {
+      return 'O áudio do computador veio mudo — entrou só a sua voz. É o '
+          'esperado quando ninguém mais falou; se havia reunião tocando, '
+          'confira a saída de som em Ajustes do Sistema > Som.';
+    }
+
+    return null;
+  }
 }
 
 /// Erro que o lado nativo devolveu e que a interface precisa explicar.
@@ -101,6 +157,9 @@ class EchoChannel {
       micPath: result?['micPath'] as String?,
       systemPath: result?['systemPath'] as String?,
       durationMs: (result?['durationMs'] as num?)?.toInt() ?? 0,
+      micPeak: (result?['micPeak'] as num?)?.toInt() ?? 0,
+      systemPeak: (result?['systemPeak'] as num?)?.toInt() ?? 0,
+      streamError: result?['streamError'] as String?,
     );
   }
 
