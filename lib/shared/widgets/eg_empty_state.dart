@@ -31,11 +31,11 @@ class EgEmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           EgIconBadge(
-            size: 40,
+            size: AppBadgeSizes.lg,
             color: AppColors.card,
             borderRadius: AppRadii.badgeAll,
             bordered: true,
-            child: EgIcon(icon, size: 18),
+            child: EgIcon(icon, size: AppIconSizes.xl),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(

@@ -47,9 +47,22 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Estrutura por feature em `lib/features/<modulo>/{data,models,presentation}`;
   `presentation` se divide em `viewmodels/`, `views/`, `widgets/`.
 - Tokens de design (cor, tipografia, métricas) em `lib/core/design/` são a
-  **única** fonte — nenhum `Color(0x...)` fora de `app_colors.dart`.
+  **única** fonte — nenhum `Color(0x...)` fora de `app_colors.dart`, nenhum
+  tamanho de fonte, ícone, espaçamento ou opacidade escrito à mão num widget.
+  `copyWith` em estilo de texto vale só para cor; peso e tamanho são degraus da
+  escala, e degrau que falta entra em `app_typography.dart` com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
+- Estado de elemento interativo (hover, pressed, foco, selecionado, desabilitado)
+  vem da matriz `EgSurfaceStyle` (`eg_surface.dart`), via `EgInteractiveSurface`
+  ou `EgSurface` — nunca de uma cadeia de `if`s dentro do widget. Um componente
+  com combinação própria compõe uma `EgSurfaceStyle` a partir dos tokens; a
+  ordem de precedência é a mesma para todo mundo. A folha visual de todos os
+  estados é o golden `test/goldens/design_state_matrix.png`.
+- Painel flutuante novo usa `EgOverlayShell`: ela é quem registra o
+  `WindowListener`, anima a entrada, decide o que é um blur de verdade e trata o
+  vazio ao redor como barreira. O módulo só diz o que "fechar" significa para
+  ele.
 - Acesso a dados sempre atrás de repositório (ex.: `ClipboardRepository`) —
   nunca acoplar UI/ViewModel diretamente ao SQLite.
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
@@ -63,6 +76,11 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Novo módulo: registrar em `EvergreenModule`, criar
   `lib/features/<modulo>/` na estrutura padrão, ligar tela de configurações em
   `_settingsFor` (`hub_view.dart`).
+- Módulo que precisa de uma área de leitura (documento longo) não a desenha
+  dentro da própria tela: abre a região do Hub (`hubDetailProvider`) e liga o
+  conteúdo em `_detailFor` (`hub_view.dart`). Quem faz a janela crescer para
+  caber a região é o `HubWindowChannel.setDetailWidth` — dividir a largura que
+  já existe foi tentado e deixa a leitura espremida.
 - Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub)
   vai para `AppSettings` e para a tela do aplicativo (`app_settings_view.dart`),
   nunca para a tela de um módulo — foi assim que "iniciar com o macOS" acabou

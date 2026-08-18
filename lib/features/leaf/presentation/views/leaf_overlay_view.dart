@@ -2,13 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_hint_bar.dart';
+import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../viewmodels/leaf_state.dart';
 import '../viewmodels/leaf_view_model.dart';
@@ -28,8 +27,7 @@ class LeafOverlayView extends ConsumerStatefulWidget {
   ConsumerState<LeafOverlayView> createState() => _LeafOverlayViewState();
 }
 
-class _LeafOverlayViewState extends ConsumerState<LeafOverlayView>
-    with WindowListener, SingleTickerProviderStateMixin {
+class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   /// Segura o foco do painel quando nenhum cartão está sendo escrito — sem um
   /// nó focado, o `Shortcuts` não receberia tecla nenhuma.
   final _panelFocusNode = FocusNode(debugLabel: 'leaf-panel');
@@ -37,25 +35,9 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView>
   final _editorController = TextEditingController();
   final _editorFocusNode = FocusNode(debugLabel: 'leaf-editor');
 
-  /// Fade de entrada, igual ao dos outros painéis: nasce em 1 para a primeira
-  /// construção já mostrar a parede pronta; quem rebobina é o `onWindowFocus`.
-  late final _entrance = AnimationController(
-    vsync: this,
-    duration: AppDurations.entrance,
-    value: 1,
-  );
-
-  late final _entranceOpacity =
-      CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
-
-  /// Margem para o macOS terminar a troca de foco antes de confirmarmos um
-  /// blur — mesmo motivo dos outros painéis.
-  static const _blurGracePeriod = Duration(milliseconds: 150);
-
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _panelFocusNode.requestFocus();
@@ -64,35 +46,17 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView>
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
-    _entranceOpacity.dispose();
-    _entrance.dispose();
     _editorController.dispose();
     _editorFocusNode.dispose();
     _panelFocusNode.dispose();
     super.dispose();
   }
 
-  @override
-  void onWindowFocus() {
-    _entrance.forward(from: 0);
-    if (!ref.read(leafViewModelProvider).isEditing) {
-      _panelFocusNode.requestFocus();
-    }
-  }
-
-  @override
-  void onWindowBlur() => unawaited(_handleBlur());
-
-  @override
-  void onWindowClose() => unawaited(_close());
-
-  Future<void> _handleBlur() async {
-    await Future<void>.delayed(_blurGracePeriod);
-    if (!mounted) return;
-    if (await windowManager.isFocused()) return;
-
-    await _close();
+  /// O foco volta ao painel a cada abertura — a menos que um cartão tenha
+  /// ficado em edição, e nesse caso o cursor é dele.
+  void _onShow() {
+    if (ref.read(leafViewModelProvider).isEditing) return;
+    _panelFocusNode.requestFocus();
   }
 
   LeafViewModel get _viewModel => ref.read(leafViewModelProvider.notifier);
@@ -184,33 +148,14 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView>
             onCancelEdit: _viewModel.cancelEdit,
             onOpenSettings: _openSettings,
           ),
-          // A janela é maior que o painel para caber a sombra. O resto dela é
-          // transparente mas ainda captura cliques — clicar fora fecha.
-          //
-          // Centralizado na janela, como todos os painéis: quem se posiciona na
-          // tela é a janela (ver `OverlayWindow`). Para a parede, que muda de
-          // tamanho, é também o que a mantém no mesmo lugar da tela com uma ou
-          // com nove anotações.
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _close,
-            child: Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: FadeTransition(
-                    opacity: _entranceOpacity,
-                    child: Focus(
-                      focusNode: _panelFocusNode,
-                      child: _panel(state),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          // Para a parede, que muda de tamanho, a centralização da casca é
+          // também o que a mantém no mesmo lugar da tela com uma ou com nove
+          // anotações.
+          child: EgOverlayShell(
+            onClose: () => unawaited(_close()),
+            onShow: _onShow,
+            focusNode: _panelFocusNode,
+            child: _panel(state),
           ),
         ),
       ),
@@ -230,7 +175,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView>
       child: SizedBox(
         width: LeafGrid.widthFor(LeafGrid.columnsFor(state)),
         child: EgPanel(
-          gradient: AppGradients.panelSurface,
+          vibrant: true,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

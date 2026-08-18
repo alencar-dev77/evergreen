@@ -53,6 +53,30 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Nenhuma tela do Hub pode estourar na largura mínima da janela (720px, em
+  /// `MainFlutterWindow.swift`). É a largura em que a pessoa pode deixar a
+  /// janela, e uma linha de configuração que não cabe vira uma faixa listrada
+  /// atravessando a tela.
+  ///
+  /// Não há `expect`: um `RenderFlex overflowed` já reprova o teste sozinho.
+  testWidgets('nenhuma tela estoura na largura mínima da janela',
+      (tester) async {
+    await pumpHub(tester);
+
+    tester.view.physicalSize = const Size(720, 900);
+    await tester.pumpAndSettle();
+
+    for (final module in EvergreenModule.values) {
+      // `.first` é o item da barra lateral: o módulo aberto tem o mesmo nome no
+      // cabeçalho da tela, e a barra vem antes na árvore.
+      await tester.tap(find.text(module.name).first);
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.pumpAndSettle();
+  });
+
   /// A tela de um módulo curto (o Awake) tem menos conteúdo que a janela, e a
   /// área de detalhe rola: sem esticar a linha do Hub, ela encolhia até a altura
   /// do conteúdo e o `Row` a centralizava verticalmente — o módulo abria com o

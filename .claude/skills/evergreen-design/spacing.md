@@ -29,7 +29,9 @@ A escala do produto tem nomes, não números soltos. Nenhum valor de espaçament
 
 | Token | Valor | Papel |
 |---|---|---|
-| `xxs` | 4 | ícone e seu label, título e subtítulo colados |
+| `hairline` | 1 | título e subtítulo colados num bloco só |
+| `xxxs` | 2 | respiro concêntrico de um container em volta do filho (segmented control) |
+| `xxs` | 4 | ícone e seu label |
 | `xs` | 6 | padding de key-cap, respiro mínimo de grupo |
 | `sm` | 8 | gap padrão dentro de um grupo, padding vertical de botão |
 | `md` | 10 | padding horizontal de linha de lista, gap de ícone→texto |
@@ -39,6 +41,27 @@ A escala do produto tem nomes, não números soltos. Nenhum valor de espaçament
 | `xxxl` | 24 | separação entre cabeçalho e conteúdo |
 | `huge` | 32 | margem externa da área de conteúdo do Hub, fim de seção de configuração |
 | `giant` | 48 | rodapé de scroll da janela — o topo da escala, usado com parcimônia |
+
+### Tamanho de ícone e de badge (`AppIconSizes`, `AppBadgeSizes`)
+
+Ícone não escolhe tamanho por widget — um glifo de 14 ao lado de um de 15 na mesma tela não é decisão, é esquecimento. A escala é curta porque ícone aqui é sempre acessório de um texto: quem manda no tamanho é a linha em que ele vive.
+
+| Token | Valor | Papel |
+|---|---|---|
+| `AppIconSizes.xs` | 13 | metadado dentro de linha compacta (lixeira do cartão, estrela do preview) |
+| `AppIconSizes.sm` | 14 | ícone que acompanha um rótulo dentro de um botão |
+| `AppIconSizes.md` | 15 | linha de lista, campo de busca, item de sidebar — o padrão |
+| `AppIconSizes.lg` | 16 | ícone sozinho, sem rótulo (botão de ícone, marca) |
+| `AppIconSizes.xl` | 18 | dentro de um badge grande (estado vazio, módulo por vir) |
+| `AppBadgeSizes.sm` | 28 | badge dentro de uma linha |
+| `AppBadgeSizes.md` | 36 | badge dentro de um bloco; botão de ícone |
+| `AppBadgeSizes.lg` | 40 | badge sozinho acima de um texto centralizado |
+
+Geometria de um componente só (o trilho do switch, o cartão do Leaf, a altura da linha do Pin) **não** vira token: fica no próprio componente, com o motivo escrito ao lado. Token é o que atravessa arquivos.
+
+### Opacidade de estado (`AppOpacities`)
+
+`disabled` (0.4) é uma só para o app inteiro — um toggle a 50% ao lado de um botão a 40% na mesma tela conta duas histórias diferentes sobre a mesma condição. `unavailable` (0.55) é mais forte de propósito: o módulo que ainda não existe continua clicável, e o que há para ver é justamente a tela que conta quando ele chega.
 
 ## Grid e alinhamento
 

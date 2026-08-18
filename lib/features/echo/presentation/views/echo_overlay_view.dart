@@ -2,10 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../../../core/design/app_colors.dart';
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../core/window/hub_window.dart';
@@ -13,6 +11,7 @@ import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_countdown.dart';
 import '../../../../shared/widgets/eg_hint_bar.dart';
+import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../models/echo_capabilities.dart';
 import '../viewmodels/echo_recorder_state.dart';
@@ -36,29 +35,16 @@ class EchoOverlayView extends ConsumerStatefulWidget {
   ConsumerState<EchoOverlayView> createState() => _EchoOverlayViewState();
 }
 
-class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
-    with WindowListener, SingleTickerProviderStateMixin {
+class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
   final _panelFocusNode = FocusNode(debugLabel: 'echo-panel');
-
-  late final _entrance = AnimationController(
-    vsync: this,
-    duration: AppDurations.entrance,
-    value: 1,
-  );
-
-  late final _entranceOpacity =
-      CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
 
   /// Mesma largura do Focus e do Awake: os três mostram um número grande e uma
   /// ação, e larguras diferentes fariam a troca de painel parecer troca de app.
   static const _panelWidth = 380.0;
 
-  static const _blurGracePeriod = Duration(milliseconds: 150);
-
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _panelFocusNode.requestFocus();
@@ -67,31 +53,8 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
-    _entranceOpacity.dispose();
-    _entrance.dispose();
     _panelFocusNode.dispose();
     super.dispose();
-  }
-
-  @override
-  void onWindowFocus() {
-    _entrance.forward(from: 0);
-    _panelFocusNode.requestFocus();
-  }
-
-  @override
-  void onWindowBlur() => unawaited(_handleBlur());
-
-  @override
-  void onWindowClose() => _close();
-
-  Future<void> _handleBlur() async {
-    await Future<void>.delayed(_blurGracePeriod);
-    if (!mounted) return;
-    if (await windowManager.isFocused()) return;
-
-    await _close();
   }
 
   EchoRecorderViewModel get _viewModel =>
@@ -162,38 +125,23 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView>
             onClose: _close,
             onOpenSettings: _openHub,
           ),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _close,
-            child: Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: FadeTransition(
-                    opacity: _entranceOpacity,
-                    child: Focus(
-                      focusNode: _panelFocusNode,
-                      child: EgPanel(
-                        width: _panelWidth,
-                        gradient: AppGradients.panelSurface,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(AppSpacing.xxl),
-                              child: _body(state),
-                            ),
-                            _hintBar(state),
-                          ],
-                        ),
-                      ),
-                    ),
+          child: EgOverlayShell(
+            onClose: () => unawaited(_close()),
+            onShow: _panelFocusNode.requestFocus,
+            focusNode: _panelFocusNode,
+            child: EgPanel(
+              width: _panelWidth,
+              vibrant: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xxl),
+                    child: _body(state),
                   ),
-                ),
+                  _hintBar(state),
+                ],
               ),
             ),
           ),

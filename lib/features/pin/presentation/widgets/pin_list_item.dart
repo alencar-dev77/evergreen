@@ -6,6 +6,7 @@ import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/pin_quick_shortcut.dart';
 
@@ -40,6 +41,11 @@ class PinListItem extends StatelessWidget {
   /// Altura da linha em qualquer um dos dois modos.
   static const height = 34.0;
 
+  /// Coluna fixa do ícone de tipo — o glifo mais o respiro que alinha todos os
+  /// títulos no mesmo x, em cada um dos dois modos.
+  static const _iconColumn = 18.0;
+  static const _compactIconColumn = 16.0;
+
   @override
   Widget build(BuildContext context) {
     return EgHoverable(
@@ -47,16 +53,17 @@ class PinListItem extends StatelessWidget {
       builder: (context, state) {
         return GestureDetector(
           onDoubleTap: onDoubleTap,
-          child: AnimatedContainer(
-            duration: AppDurations.instant,
-            curve: AppDurations.curve,
+          // Selecionado ganha a cor de destaque em baixa opacidade — distinto
+          // do hover neutro, para que a posição do teclado nunca se confunda
+          // com o mouse só passando por cima. Quem resolve isso é a matriz de
+          // estado compartilhada (`EgSurfaceStyle.row`), a mesma da sidebar e
+          // do segmented control.
+          child: EgSurface(
+            state: state,
+            isSelected: isSelected,
             height: height,
             padding: EdgeInsets.symmetric(
               horizontal: compact ? AppSpacing.sm : AppSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: _backgroundColor(state),
-              borderRadius: AppRadii.listItemAll,
             ),
             child: Row(
               children: [
@@ -65,10 +72,10 @@ class PinListItem extends StatelessWidget {
                 // container cinza por linha só somaria ruído. Recua no repouso e
                 // acompanha o texto quando a linha está selecionada.
                 SizedBox(
-                  width: compact ? 16 : 18,
+                  width: compact ? _compactIconColumn : _iconColumn,
                   child: EgIcon(
                     item.type.icon,
-                    size: compact ? 13 : 15,
+                    size: compact ? AppIconSizes.xs : AppIconSizes.md,
                     color: isSelected
                         ? AppColors.textPrimary
                         : AppColors.textSecondary,
@@ -140,16 +147,6 @@ class PinListItem extends StatelessWidget {
       softWrap: false,
       style: AppTypography.captionXS.copyWith(color: AppColors.textTertiary),
     );
-  }
-
-  /// Selecionado ganha a cor de destaque em baixa opacidade — distinto do
-  /// hover neutro, para que a posição do teclado nunca se confunda com o
-  /// mouse só passando por cima.
-  Color _backgroundColor(EgInteraction state) {
-    if (isSelected) return AppColors.selection;
-    if (state.isPressed) return AppColors.pressed;
-    if (state.isHovered) return AppColors.hover;
-    return AppColors.transparent;
   }
 }
 

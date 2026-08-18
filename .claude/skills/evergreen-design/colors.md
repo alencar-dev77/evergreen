@@ -117,7 +117,9 @@ Notas de aplicação:
 
 - **`selection` e `hover` nunca são a mesma cor.** Seleção é "onde o teclado está" (accent); hover é "onde o mouse passou" (neutro). Quando os dois coincidem na mesma linha, a seleção vence.
 - **`focusRing` é sombra, não borda** (`AppShadows.focusRing`): assim o componente não muda de tamanho ao receber foco. Isso exige fundo opaco sob o anel — um componente transparente em repouso (botão de ícone, item de sidebar) adota a superfície de hover ao ganhar foco.
-- **Exceção registrada — `EgToggle`:** o switch usa trilho **verde chapado** quando ligado, contrariando a regra de "accent sempre em baixa opacidade". É convenção nativa de macOS: o usuário lê ligado/desligado por essa cor antes de ler qualquer outra pista, e um trilho a 14% ficaria ambíguo. É a única exceção do design system; qualquer outra precisa da mesma justificativa de convenção do sistema, não de estética.
+- **`sidebar`** é o `surface` a 72%: translúcido para o brilho verde do fundo atravessar e unificar sidebar e conteúdo, sem custo de blur. **`textSelection`** é o accent a 25% — mais forte que a `selection` de linha porque ali o realce precisa sobreviver ao texto desenhado por cima.
+- **A resolução desses estados é uma só, e mora em `EgSurfaceStyle`** (`lib/shared/widgets/eg_surface.dart`). A tabela de precedência está em `components.md`; nenhum widget deve reimplementá-la.
+- **Exceção registrada — `EgToggle`:** o switch usa trilho **verde chapado** quando ligado, contrariando a regra de "accent sempre em baixa opacidade". É convenção nativa de macOS: o usuário lê ligado/desligado por essa cor antes de ler qualquer outra pista, e um trilho a 14% ficaria ambíguo. É a única exceção do design system; qualquer outra precisa da mesma justificativa de convenção do sistema, não de estética. A matriz dele tem duas colunas (ligado e desligado) e quem carrega os estados é o **trilho** — `greenPrimary`→`greenLight`→`greenDeep` ligado, `border`→`hover`→`pressed` desligado. A bolinha só diz de que lado está: fazê-la clarear no hover foi tentado e descartado por redundância de affordance.
 
 ## Estados de cor (checklist rápido)
 

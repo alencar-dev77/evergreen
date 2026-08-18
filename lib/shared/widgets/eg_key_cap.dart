@@ -10,12 +10,17 @@ class EgKeyCap extends StatelessWidget {
 
   final String label;
 
+  /// Altura interna da tecla — ver a nota no `padding`.
+  static const _capPadding = 3.0;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xs,
-        vertical: 3,
+        // Meio degrau da escala: com [AppSpacing.xxs] a tecla fica alta demais
+        // para uma linha de dicas de 11px, e com 2 ela vira um retângulo.
+        vertical: _capPadding,
       ),
       decoration: BoxDecoration(
         color: AppColors.card,

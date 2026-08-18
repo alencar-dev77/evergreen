@@ -48,10 +48,12 @@ Nada de `copyWith(fontSize: ...)` em widget: se falta um degrau, ele entra aqui 
 | `panelTitle` | 15 / 600 | título de painel compacto e de diálogo |
 | `body` | 14 / 400 | corpo padrão, texto digitado no campo de busca |
 | `bodyEmphasis` | 14 / 500 | título dentro de uma linha, valor em vez de rótulo |
+| `bodyStrong` | 14 / 600, tracking -0.2 | nome próprio numa linha — a marca no rodapé da sidebar |
 | `bodyCompact` | 13 / 400 | corpo dentro do overlay, conteúdo do preview |
 | `bodyCompactEmphasis` | 13 / 500 | título de linha de lista, rótulo de configuração, título de empty state |
 | `caption` | 13 / 400, secundário | tagline de módulo, texto de apoio |
 | `captionSmall` | 12 / 400, secundário | descrição de linha de configuração, texto de empty state |
+| `captionSmallEmphasis` | 12 / 600, secundário | a opção escolhida de um segmented control |
 | `captionXS` | 11 / 400, secundário | timestamp de linha, rótulo de dica de atalho, subtítulo de sidebar |
 | `overline` | 11 / 600, caps, tracking +0.66 | label de seção ("FIXADOS", "GERAL") |
 | `button` | 14 / 600 | rótulo de botão |
@@ -97,5 +99,7 @@ Em uma interface densa, texto que não cabe é constante — trate isso com inte
 - Placeholder, desabilitado, timestamp discreto → `text/tertiary` (`AppColors.textTertiary`).
 
 Os tokens de `caption*` já nascem em `textSecondary`; para o terceiro nível, componha (`captionXS.copyWith(color: AppColors.textTertiary)`), como faz o timestamp da linha do Pin.
+
+`copyWith` em widget vale **só para cor** — tamanho, peso e tracking são degraus da escala, e degrau novo entra aqui com nome. Foi assim que `bodyStrong` e `captionSmallEmphasis` nasceram: os dois já existiam escritos à mão dentro de um widget, que é como um degrau aparece no produto sem ninguém ter decidido que ele existe.
 
 Nunca use a cor de destaque (accent) em texto corrido apenas para chamar atenção — reserve accent em texto para links/referências clicáveis reais, mantendo o princípio de "cor como significado" também na tipografia.

@@ -30,7 +30,7 @@ abstract final class AppTheme {
       ),
       textSelectionTheme: const TextSelectionThemeData(
         cursorColor: AppColors.greenPrimary,
-        selectionColor: Color(0x4022C55E),
+        selectionColor: AppColors.textSelection,
         selectionHandleColor: AppColors.greenPrimary,
       ),
       scrollbarTheme: ScrollbarThemeData(

@@ -13,12 +13,13 @@ import '../../../../shared/widgets/eg_settings_section.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../../models/echo_settings.dart';
 import '../../models/echo_capabilities.dart';
+import '../../../home/models/evergreen_module.dart';
+import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../models/transcription_language.dart';
 import '../viewmodels/echo_library_view_model.dart';
 import '../viewmodels/echo_recorder_view_model.dart';
 import '../viewmodels/echo_settings_view_model.dart';
-import '../widgets/echo_meeting_detail.dart';
-import '../widgets/echo_meeting_list.dart';
+import '../widgets/echo_library.dart';
 import '../widgets/echo_permission_row.dart';
 
 /// Tela do Echo dentro do Hub.
@@ -84,7 +85,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
 
     final library = ref.watch(echoLibraryViewModelProvider);
     final libraryViewModel = ref.read(echoLibraryViewModelProvider.notifier);
-    final selected = library.selected;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -92,10 +92,14 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
         EgSettingsSection(
           title: 'Reuniões',
           children: [
-            EchoMeetingList(
-              meetings: library.meetings,
-              selectedId: library.selectedId,
-              onSelect: libraryViewModel.select,
+            EchoLibrary(
+              state: library,
+              onOpen: (id) {
+                libraryViewModel.select(id);
+                // Escolher e abrir são o mesmo gesto: quem clica numa reunião
+                // quer lê-la, e a região ao lado é onde ela se lê.
+                ref.read(hubDetailProvider.notifier).open(EvergreenModule.echo);
+              },
               onToggleKept: libraryViewModel.toggleKept,
             ),
             if (library.errorMessage != null)
@@ -106,17 +110,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   style: AppTypography.captionSmall,
                 ),
               ),
-            if (selected != null) ...[
-              const SizedBox(height: AppSpacing.xl),
-              EchoMeetingDetail(
-                meeting: selected,
-                summaries: library.summaries,
-                isSummarizing: library.summarizingId == selected.id,
-                progress: library.progress,
-                onSummarize: () => libraryViewModel.summarize(selected.id!),
-                onDelete: () => libraryViewModel.delete(selected.id!),
-              ),
-            ],
           ],
         ),
         EgSettingsSection(

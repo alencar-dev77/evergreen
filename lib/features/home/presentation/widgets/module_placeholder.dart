@@ -24,10 +24,10 @@ class ModulePlaceholder extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           EgIconBadge(
-            size: 36,
+            size: AppBadgeSizes.md,
             color: AppColors.hover,
             borderRadius: AppRadii.badgeAll,
-            child: EgIcon(module.icon, size: 18),
+            child: EgIcon(module.icon, size: AppIconSizes.xl),
           ),
           const SizedBox(width: AppSpacing.xl),
           Expanded(

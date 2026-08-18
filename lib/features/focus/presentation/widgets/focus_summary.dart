@@ -1,56 +1,41 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
-import '../../../../shared/utils/duration_format.dart';
 import '../../data/focus_session_repository.dart';
+import '../../models/focus_session.dart';
+import 'focus_week_strip.dart';
 
-/// Os dois números do Focus: hoje e os últimos 7 dias.
+/// O bloco "Tempo focado": os dois números e a semana em barras.
 ///
-/// Sem card, sem borda, sem ícone — dois valores e seus rótulos, alinhados à
-/// esquerda como o resto da tela. A hierarquia vem do tamanho do número contra
-/// o rótulo, que é tudo de que uma estatística de duas medidas precisa.
+/// Sem card, sem borda, sem ícone — o que estrutura o bloco é a hierarquia
+/// entre o número de hoje, o da semana e a faixa, que é tudo de que uma
+/// estatística de duas medidas precisa.
 class FocusSummary extends StatelessWidget {
-  const FocusSummary({super.key, required this.stats});
+  const FocusSummary({
+    super.key,
+    required this.stats,
+    required this.sessions,
+    this.now,
+  });
 
   final FocusStats stats;
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xxs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Stat(label: 'Hoje', value: DurationFormat.compact(stats.today)),
-          const SizedBox(width: AppSpacing.giant),
-          // "Esta semana" e não "últimos 7 dias": o histórico do Focus zera na
-          // segunda-feira, então uma janela deslizante contaria tempo que já
-          // não está mais na lista abaixo.
-          _Stat(
-            label: 'Esta semana',
-            value: DurationFormat.compact(stats.week),
-          ),
-        ],
-      ),
-    );
-  }
-}
+  /// As sessões da semana, de onde saem as sete barras. Vêm prontas da tela —
+  /// são as mesmas que a lista abaixo mostra, e reler o banco para desenhar a
+  /// faixa daria duas leituras da mesma coisa.
+  final List<FocusSession> sessions;
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-
-  final String label;
-  final String value;
+  /// Injetável para o teste e para os goldens não dependerem do relógio real.
+  final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: AppTypography.screenTitle),
-        const SizedBox(height: 1),
-        Text(label, style: AppTypography.captionXS),
+        FocusTotals(today: stats.today, week: stats.week),
+        const SizedBox(height: AppSpacing.xl),
+        FocusWeekStrip(sessions: sessions, now: now),
       ],
     );
   }

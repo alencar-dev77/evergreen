@@ -1,8 +1,6 @@
 @Tags(['preview'])
 library;
 
-import 'dart:io';
-
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/design/app_colors.dart';
@@ -43,6 +41,7 @@ import 'features/echo/fake_echo_channel.dart';
 import 'features/focus/fake_focus_session_repository.dart';
 import 'features/leaf/fake_leaf_repository.dart';
 import 'features/pin/fake_clipboard_repository.dart';
+import 'golden_fonts.dart';
 
 /// Goldens usados como conferência visual do design durante o desenvolvimento.
 ///
@@ -50,7 +49,7 @@ import 'features/pin/fake_clipboard_repository.dart';
 /// imagens em `test/goldens/`. Não fazem parte da suíte padrão: são um apoio de
 /// revisão, não uma trava de regressão.
 void main() {
-  setUpAll(_loadFonts);
+  setUpAll(loadGoldenFonts);
 
   // A versão da barra lateral do Hub sai do bundle, que não existe em teste.
   // Fixá-la aqui mantém os goldens estáveis quando o pubspec mudar de versão —
@@ -360,7 +359,9 @@ void main() {
     await tester.tap(find.text(EvergreenModule.focus.name));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Refatorar o módulo de auth'));
+    // Na linha do histórico o título e o anúncio do que há dentro vivem num
+    // parágrafo só, como o apelido do Pin — daí a busca por trecho.
+    await tester.tap(find.textContaining('Refatorar o módulo de auth'));
     await tester.pumpAndSettle();
 
     // O diálogo vive na rota de cima, fora da subárvore do Hub — capturar o
@@ -434,6 +435,45 @@ void main() {
     await expectLater(
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_leaf.png'),
+    );
+  });
+
+  /// A janela do Hub com a região de leitura aberta.
+  ///
+  /// Larga porque é assim que ela fica no uso: abrir uma reunião faz a **janela
+  /// crescer** (`HubWindowChannel.setDetailWidth`) em vez de espremer o que já
+  /// estava na tela. Sob `flutter test` não há janela nativa para crescer, então
+  /// o tamanho já entra aqui somado.
+  Future<void> openReader(WidgetTester tester) async {
+    await pump(tester, const HubView(), const Size(2720, 1400));
+
+    await tester.tap(find.text(EvergreenModule.echo.name));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Alinhamento de escopo'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('Hub — Echo, a reunião aberta', (tester) async {
+    await openReader(tester);
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo_reader.png'),
+    );
+  });
+
+  testWidgets('Hub — Echo, a transcrição', (tester) async {
+    await openReader(tester);
+
+    // A aba que motivou o redesenho: empilhada sob o resumo, a transcrição
+    // empurrava a lista de reuniões para fora da tela.
+    await tester.tap(find.text('Transcrição'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo_transcript.png'),
     );
   });
 
@@ -515,7 +555,7 @@ void main() {
   });
 
   testWidgets('Hub — Echo', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1200));
+    await pump(tester, const HubView(), const Size(1800, 1400));
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();
@@ -544,32 +584,4 @@ void _loadHistory(WidgetTester tester) {
   ProviderScope.containerOf(element)
       .read(pinOverlayViewModelProvider.notifier)
       .load();
-}
-
-/// Carrega uma fonte real do sistema para que os goldens mostrem texto de
-/// verdade — a fonte padrão dos testes desenha cada glifo como um quadrado.
-Future<void> _loadFonts() async {
-  const faces = {
-    'Inter': [
-      '/System/Library/Fonts/Supplemental/Arial.ttf',
-      '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-    ],
-    // Sem uma mono real, os key-caps mediriam errado e esconderiam problemas de
-    // largura na barra de dicas.
-    'SF Mono': ['/System/Library/Fonts/Supplemental/Andale Mono.ttf'],
-  };
-
-  for (final entry in faces.entries) {
-    final loader = FontLoader(entry.key);
-    var loaded = false;
-
-    for (final path in entry.value) {
-      final file = File(path);
-      if (!file.existsSync()) continue;
-      loader.addFont(Future.value(file.readAsBytesSync().buffer.asByteData()));
-      loaded = true;
-    }
-
-    if (loaded) await loader.load();
-  }
 }

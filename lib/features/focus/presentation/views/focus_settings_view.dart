@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/app_metrics.dart';
 import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
@@ -53,16 +54,19 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
         // diferentes na mesma tela confunde.
         EgSettingsSection(
           title: 'Tempo focado',
-          children: [FocusSummary(stats: history.stats)],
+          children: [
+            FocusSummary(stats: history.stats, sessions: history.sessions),
+          ],
         ),
         EgSettingsSection(
           title: 'Histórico',
           children: [
-            FocusHistoryList(
-              sessions: history.sessions,
-              showLastDivider: !history.isEmpty,
-            ),
-            if (!history.isEmpty)
+            FocusHistoryList(sessions: history.sessions),
+            // Destacada da lista por um respiro, e sem divisor: encostada nela
+            // como estava, a linha de limpar parecia mais uma sessão — a última
+            // da semana, com um botão vermelho do lado.
+            if (!history.isEmpty) ...[
+              const SizedBox(height: AppSpacing.xxl),
               EgSettingsRow(
                 label: 'Limpar histórico',
                 description: 'Remove as sessões desta semana.',
@@ -72,6 +76,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
                   onPressed: () => _clearHistory(context),
                 ),
               ),
+            ],
           ],
         ),
         EgSettingsSection(

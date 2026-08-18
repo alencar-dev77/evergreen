@@ -2,15 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_countdown.dart';
 import '../../../../shared/widgets/eg_hint_bar.dart';
+import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../models/awake_duration.dart';
@@ -33,36 +32,19 @@ class AwakeOverlayView extends ConsumerStatefulWidget {
   ConsumerState<AwakeOverlayView> createState() => _AwakeOverlayViewState();
 }
 
-class _AwakeOverlayViewState extends ConsumerState<AwakeOverlayView>
-    with WindowListener, SingleTickerProviderStateMixin {
+class _AwakeOverlayViewState extends ConsumerState<AwakeOverlayView> {
   /// Segura o foco dentro do painel — sem um nó focado, o `Shortcuts` não
   /// receberia tecla nenhuma. Não há campo de texto aqui, então ele é o único.
   final _panelFocusNode = FocusNode(debugLabel: 'awake-panel');
-
-  /// Fade de entrada, igual ao do Pin e ao do Focus: nasce em 1 para a primeira
-  /// construção já mostrar o painel pronto; quem rebobina é o `onWindowFocus`.
-  late final _entrance = AnimationController(
-    vsync: this,
-    duration: AppDurations.entrance,
-    value: 1,
-  );
-
-  late final _entranceOpacity =
-      CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
 
   /// Mesma largura do painel do Focus: os dois mostram um número grande e uma
   /// ação, e larguras diferentes para o mesmo arranjo fariam a troca de painel
   /// parecer uma troca de aplicativo.
   static const _panelWidth = 380.0;
 
-  /// Margem para o macOS terminar a troca de foco antes de confirmarmos um
-  /// blur — mesmo motivo dos outros painéis.
-  static const _blurGracePeriod = Duration(milliseconds: 150);
-
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _panelFocusNode.requestFocus();
@@ -71,31 +53,8 @@ class _AwakeOverlayViewState extends ConsumerState<AwakeOverlayView>
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
-    _entranceOpacity.dispose();
-    _entrance.dispose();
     _panelFocusNode.dispose();
     super.dispose();
-  }
-
-  @override
-  void onWindowFocus() {
-    _entrance.forward(from: 0);
-    _panelFocusNode.requestFocus();
-  }
-
-  @override
-  void onWindowBlur() => unawaited(_handleBlur());
-
-  @override
-  void onWindowClose() => _close();
-
-  Future<void> _handleBlur() async {
-    await Future<void>.delayed(_blurGracePeriod);
-    if (!mounted) return;
-    if (await windowManager.isFocused()) return;
-
-    await _close();
   }
 
   AwakeViewModel get _viewModel => ref.read(awakeViewModelProvider.notifier);
@@ -136,43 +95,23 @@ class _AwakeOverlayViewState extends ConsumerState<AwakeOverlayView>
             onClose: _close,
             onOpenSettings: _openSettings,
           ),
-          // A janela é maior que o painel para caber a sombra. O resto dela é
-          // transparente mas ainda captura cliques — clicar fora fecha.
-          //
-          // Centralizado na janela, como todos os painéis: quem se posiciona na
-          // tela é a janela (ver `OverlayWindow`).
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _close,
-            child: Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: FadeTransition(
-                    opacity: _entranceOpacity,
-                    child: Focus(
-                      focusNode: _panelFocusNode,
-                      child: EgPanel(
-                        width: _panelWidth,
-                        gradient: AppGradients.panelSurface,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(AppSpacing.xxl),
-                              child: _body(state),
-                            ),
-                            _hintBar(state),
-                          ],
-                        ),
-                      ),
-                    ),
+          child: EgOverlayShell(
+            onClose: () => unawaited(_close()),
+            onShow: _panelFocusNode.requestFocus,
+            focusNode: _panelFocusNode,
+            child: EgPanel(
+              width: _panelWidth,
+              vibrant: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xxl),
+                    child: _body(state),
                   ),
-                ),
+                  _hintBar(state),
+                ],
               ),
             ),
           ),

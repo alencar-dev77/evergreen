@@ -9,9 +9,12 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | Componente | Arquivo | Papel | Estados cobertos |
 |---|---|---|---|
 | `EgHoverable` | `eg_hoverable.dart` | primitiva de interação: entrega `EgInteraction` (hover/pressed/focus) ao builder | é a fonte dos estados dos demais |
+| `EgSurfaceStyle` | `eg_surface.dart` | **a matriz de estado**: uma coluna por papel de superfície (`row`, `ghost`, `card`, `segment`, `primary`, `secondary`, `destructive`) | resolve fundo, conteúdo, borda e anel de foco |
+| `EgSurface` | `eg_surface.dart` | a caixa já pintada pela matriz, recebendo o estado de fora | todos os da matriz |
+| `EgInteractiveSurface` | `eg_surface.dart` | `EgHoverable` + `EgSurface`: o que todo elemento clicável deveria usar | default · hover · pressed · focus · selected · disabled |
 | `EgButton` | `eg_button.dart` | botão em 3 variantes (`primary`, `secondary`, `destructive`) | default · hover · pressed · focus · disabled |
 | `EgIconButton` | `eg_button.dart` | botão só de ícone, 36×36, com `tooltip` opcional | default · hover · pressed · focus · disabled |
-| `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · focus · disabled · on/off |
+| `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · pressed · focus · disabled · on/off |
 | `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado | default · hover · pressed · focus · selected |
 | `EgSearchField` | `eg_search_field.dart` | campo de busca (`bare` para a linha do topo do overlay) | default · focus (borda accent) · placeholder |
 | `EgTextField` | `eg_text_field.dart` | campo de texto de uma linha que a pessoa escreve e confirma (atividade e resumo do Focus) | default · focus (borda accent) · disabled |
@@ -21,6 +24,8 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgConfirmDialog` | `eg_confirm_dialog.dart` | confirmação de ação irreversível (360px, ações à direita, Esc = cancelar) | — |
 | `EgSettingsSection` | `eg_settings_section.dart` | agrupa linhas de configuração sob um label em caps | — |
 | `EgSettingsRow` | `eg_settings_row.dart` | linha de configuração: rótulo + descrição + controle | `showDivider` on/off |
+| `EgNavTile` | `eg_nav_tile.dart` | item de navegação: badge de ícone + título + linha de apoio | default · hover · pressed · focus · selected |
+| `EgOverlayShell` | `eg_overlay_shell.dart` | casca dos painéis flutuantes: entrada, blur, clique fora, centralização | — |
 | `EgSectionLabel` | `eg_section_label.dart` | label de grupo em caixa alta | — |
 | `EgKeyCap` / `EgShortcutDisplay` | `eg_key_cap.dart` | tecla e sequência de teclas | — |
 | `EgEmptyState` | `eg_empty_state.dart` | estado vazio discreto (ícone pequeno + título + mensagem) | — |
@@ -32,6 +37,7 @@ Regras de manutenção deste inventário:
 
 - Componente novo compartilhado nasce com prefixo `Eg`, em `lib/shared/widgets/`, e entra nesta tabela junto do commit que o cria.
 - Estado de interação vem do `EgHoverable`, nunca de um `MouseRegion` próprio — é o que garante que hover, pressed e foco se comportem igual em todo o app.
+- **A aparência de cada estado vem da matriz (`EgSurfaceStyle`), nunca de uma cadeia de `if`s escrita no widget.** Se o componente precisa de uma combinação que a matriz não tem, ele compõe uma `EgSurfaceStyle` própria a partir dos tokens (é o que o cartão do Leaf faz com a vaga livre e com o cartão em edição) — não reescreve a ordem de precedência. Antes da matriz a mesma cadeia existia copiada em seis arquivos, e as cópias já tinham divergido: um componente sem `pressed`, outro sem reação ao foco, e a ordem entre "selecionado" e "pressionado" mudando de um para o outro.
 - Componente específico de um módulo (por exemplo `PinListItem`) **não** ganha prefixo `Eg` e não entra aqui; se um segundo módulo precisar dele, aí sim ele é promovido a `Eg*`.
 
 ## Padrões de tela já estabelecidos (reusar, não reinventar)
@@ -48,18 +54,47 @@ Estas decisões foram tomadas no v0.1 e valem como padrão do produto. Um módul
 - **Nome dado pelo usuário vem à frente do dado, sem escondê-lo.** No Pin o apelido ocupa o lugar do título da linha e o conteúdo continua atrás dele, menor e em `text/tertiary`, no mesmo parágrafo — o corte por ellipsis come o conteúdo primeiro e nunca o apelido. Substituir o conteúdo por completo faria a lista prometer algo que a cópia não cumpre; mostrar os dois em colunas separadas viraria tabela.
 - **Lista longa se agrupa com `EgSectionLabel`,** não com card nem fundo colorido (no Pin: "FIXADOS" e "RECENTES").
 - **Painel operado por teclado leva uma barra de dicas no rodapé** (`EgHintBar`) com os atalhos daquele contexto, variando conforme o estado da tela. É documentação embutida no lugar onde a dúvida aparece. A dica que não pode sumir (tipicamente o `esc`) vai no `trailing`, ancorada à direita.
-- **Painel flutuante é um só, compartilhado.** Pin, Focus, Leaf e Awake dividem a janela 0 e trocam de conteúdo por `OverlayPanel`; um módulo novo com atalho global entra ali, não em uma janela nova. Consequência de design: cada painel escolhe a própria largura (Pin 420/560, Focus 380, Awake 380 — mesmo arranjo do Focus, mesma largura; Leaf 528/778, a única que acompanha o conteúdo — e a única cuja largura é calculada, não escolhida: são os cartões, os vãos, o respiro e a borda do `EgPanel` somados, porque um pixel a menos recorta a última coluna), mas nenhum escolhe onde nasce. O tamanho da janela 0 (920x800) é ditado pelo maior painel e cresce sem mexer nos outros: todos são centralizados nela, que é transparente.
+- **Painel flutuante é um só, compartilhado.** Pin, Focus, Leaf, Awake e Echo dividem a janela 0 e trocam de conteúdo por `OverlayPanel`; um módulo novo com atalho global entra ali, não em uma janela nova. Consequência de design: cada painel escolhe a própria largura (Pin 420/560, Focus 380, Awake e Echo 380 — mesmo arranjo do Focus, mesma largura; Leaf 528/778, a única que acompanha o conteúdo — e a única cuja largura é calculada, não escolhida: são os cartões, os vãos, o respiro e a borda do `EgPanel` somados, porque um pixel a menos recorta a última coluna), mas nenhum escolhe onde nasce, e nenhum implementa a própria casca: entrada, blur, clique fora e centralização vêm do `EgOverlayShell`. O tamanho da janela 0 (920x800) é ditado pelo maior painel e cresce sem mexer nos outros: todos são centralizados nela, que é transparente.
 - **Cartão em grade só quando os itens são comparáveis lado a lado e poucos.** O Leaf é a exceção à preferência por lista: nove anotações curtas que precisam ser lidas *todas de uma vez*, sem rolar, não são uma lista — são um mural. A grade é **contígua e encolhe**: apagar um cartão faz os seguintes subirem uma vaga e o painel diminuir, com a mudança de tamanho animada nos dois eixos. A alternativa (vagas fixas, buraco preservado, `⌘N` estável para sempre) foi implementada e descartada no uso — um mural que não diminui quando se joga papel fora parece quebrado, e o ganho de memória muscular não paga olhar para vagas vazias. **Estabilidade de atalho numérico só vale a pena quando a lista é longa demais para ser lida de relance** (é o caso do Pin, não o do Leaf).
 - **Painel que muda de tamanho usa `AnimatedSize`, não corte seco.** Um salto de 200px lê-se como "piscou", não como "encolheu". Ancorar no centro (`alignment: center`), a mesma âncora com que o painel se posiciona na janela, para que a parede do Leaf com uma anotação e com nove ocupem o mesmo ponto da tela; e envolver o conteúdo num viewport sem rolagem para que o quadro intermediário seja recortado em silêncio em vez de acusar estouro de layout.
 - **Painel flutuante abre sempre no mesmo ponto da tela, seja qual for a altura dele.** A janela 0 nasce com o centro a 42% da altura útil da tela do cursor (um pouco acima do centro, como o Spotlight — o centro exato parece baixo demais para algo que se lê de relance) e cada painel se centraliza dentro dela. Foi assim que o Leaf deixou de abrir grudado no topo: enquanto cada painel escolhia a própria fração de âncora, um painel alto só cabia na tela nascendo mais alto, e o mesmo atalho apertado duas vezes seguidas em módulos diferentes jogava o conteúdo em alturas diferentes. A janela é presa dentro da área útil para que a parede cheia do Leaf, que ocupa quase toda a altura dela, nunca saia pela borda de baixo. Exceção legítima à regra de não centralizar de `spacing.md`: a referência aqui é a tela inteira, um ponto fixo, não a largura variável de um conteúdo.
 - **Janela que aparece por atalho abre na tela onde está o cursor.** Vale para o painel flutuante (`OverlayWindow`) e para o Hub (`HubWindowChannel`): com dois monitores, uma janela que abre no outro monitor é indistinguível de um aplicativo travado — ela ainda rouba o foco do teclado, e quem apertou o atalho fica digitando no vazio. O Hub só é reposicionado quando vem de escondido; arrastá-lo para um monitor e vê-lo pular de volta no próximo atalho seria pior que o problema.
 - **Trocar de painel nunca mostra o painel anterior.** A janela guarda o último quadro desenhado e o reexibe antes de o Flutter desenhar o novo, então `OverlayWindow.hide` apaga o painel e espera um quadro antes de esconder. Piscar o módulo errado por um quadro é o tipo de detalhe que faz a suíte parecer três apps mal colados em vez de um.
 - **Módulo que só tem um interruptor ainda tem painel.** O Awake poderia viver só no menu da barra, mas o painel é onde a duração é escolhida no momento de ligar — e é o que mantém a promessa de que todo módulo se opera pelo teclado, do atalho global ao Enter.
-- **Lista com detalhe vai para um diálogo de consulta, não para uma linha que expande.** No histórico do Focus, a linha responde "quando, quanto e em quê" e anuncia o que há dentro ("1 anotação · resumo"); o conteúdo longo abre em um diálogo (`FocusSessionDialog`) que só se lê e se fecha. Expandir a linha na própria lista empurraria todo o resto da tela para baixo a cada clique.
+- **Lista com detalhe nunca expande a linha; o que muda é para onde o detalhe vai.** Expandir a linha empurra todo o resto da tela para baixo a cada clique, então a escolha é entre duas superfícies, decidida pelo **tamanho do que há para ler**:
+  - **Diálogo de consulta**, quando o detalhe são algumas linhas que se leem e se fecham — o histórico do Focus (`FocusSessionDialog`): a linha responde "quando, quanto e em quê", e as anotações e o resumo abrem por cima.
+  - **Região dedicada, com a janela crescendo para caber**, quando o detalhe é um documento — a reunião do Echo (`HubDetailRegion` + `EchoReader`): a lista continua larga na área de conteúdo, e abrir uma reunião faz a **janela do Hub crescer 480px para o lado** (`HubWindowChannel.setDetailWidth`), com a leitura ocupando a altura inteira.
+
+    Os três desenhos anteriores e por que caíram: empilhado sob a lista, meia hora de transcrição empurrava as reuniões para fora da tela; num diálogo, trocar de reunião obrigava a fechar e reabrir; dividindo a área de conteúdo com a lista, a leitura ficava espremida em ~350px, que é pior que não ter região nenhuma. **A regra que sobrou: espaço para um documento não sai de espaço que já estava ocupado — sai da janela.**
+
+    O ciclo da região é curto e fechado: abre no clique do item, fecha por `esc`, pelo ✕, ao trocar de módulo e quando o item deixa de existir. Uma região que fica aberta sozinha é uma coluna encostada na tela errada — e a janela, que cresceu para caber nela, não volta.
+  Quando o detalhe tem duas faces (resumo e transcrição), elas se alternam num `EgSegmentedControl` — **uma de cada vez**. Dois documentos longos no mesmo scroll é a definição de "informação demais numa tela só".
+- **Lista de conteúdo se agrupa por dia.** O dia é do grupo (`EgSectionLabel` com "Hoje"/"Ontem"/"23 jul", via `DayGroups`), e a linha fica com a **hora**. Repetir a data em toda linha foi o que fez o histórico do Focus escrever "Hoje ·" cinco vezes na mesma tela.
+- **Linha de lista tem altura fixa e colunas fixas.** Uma linha que cresce quando tem metadado e encolhe quando não tem deixa a lista serrilhada; um número que muda de posição a cada linha não dá para comparar correndo o olho. Hora à esquerda, nome no meio, número à direita — e o acessório ("1 anotação · resumo") entra no mesmo parágrafo do nome, atrás dele, para o corte por ellipsis comer o acessório primeiro (é a mesma solução do apelido do Pin).
+- **Ação destrutiva não encosta na lista.** "Limpar histórico" colado na última sessão, com um divisor por cima, lia-se como mais uma linha — com um botão vermelho do lado. Vai separada por um respiro, sem divisor.
+- **Gráfico só quando ele responde o que o número não responde.** A faixa de sete barras do Focus (`FocusWeekStrip`) existe porque "1h 35min hoje" não diz se a semana está indo; sem eixo, sem grade, sem legenda de valor, e com accent em um dia só — hoje. Um gráfico que só ilustra o número que já está escrito ao lado é decoração, e cai na regra de `anti-patterns.md`.
 - **Rótulo de botão descreve o que ele faz, nunca o que o usuário conseguiu.** No fim de uma sessão do Focus o botão é "Encerrar" (fecha o ciclo) e não "Concluir", que se lia como "concluí a tarefa" — uma afirmação sobre o trabalho que o app não tem como saber. Se o produto não registra o desfecho, a microcopy não pode insinuar que registra.
 - **Controle desabilitado mostra o valor efetivo, não o guardado.** Quando "Utilizar apenas Pomodoro" anula as duas perguntas, os toggles delas aparecem **desligados** e apagados — não ligados e apagados. Um controle ligado promete um comportamento; se ele não vai acontecer, exibi-lo ligado é mentira, e a opacidade sozinha não desfaz a promessa. Desligar o modo devolve as escolhas guardadas.
 - **O que é título não se repete no corpo.** O diálogo de detalhe usa a atividade como título, então ela sai da lista de anotações — a mesma frase duas vezes na mesma tela é ruído, não reforço.
 - **Um painel que muda de estado mantém o esqueleto.** No Focus, partida/contando/concluído usam o mesmo bloco (rótulo da fase → número grande → ação principal): o que muda é o conteúdo, não o layout, e o olho não precisa reencontrar nada.
+
+## A matriz de estado (`EgSurfaceStyle`)
+
+Precedência, do mais forte para o mais fraco — vale para **todo** componente interativo do app:
+
+| Estado | Vence quem | Por quê |
+|---|---|---|
+| `disabled` | todos | o controle não responde: nenhum outro estado é verdade |
+| `selected` | pressed, hover, focus | é onde o teclado está, a informação mais durável da tela |
+| `pressed` | hover, focus | feedback do clique acontecendo agora |
+| `hover` = `focus` | rest | mesma superfície: o anel de foco precisa de fundo opaco sob ele |
+| `rest` | — | repouso |
+
+Duas consequências que não se negociam: `hover` e `focus` compartilham a superfície (quem os distingue é o anel, que só o teclado acende), e `selected` **nunca** é a mesma cor que `hover` (seleção é accent em baixa opacidade; hover é neutro).
+
+Colunas disponíveis: `row` (linha de lista, item de sidebar), `ghost` (botão de ícone — sem superfície em repouso, então é o conteúdo que reage), `card` (superfície própria em repouso), `segment` (pílula do segmented control), `primary`, `secondary` e `destructive` (botões).
+
+A tabela inteira, desenhada, mora no golden `test/goldens/design_state_matrix.png` — a folha de estados do design system, com as sete colunas em seis estados e os componentes reais abaixo, hover e pressed inclusive. Regenerar com `flutter test --run-skipped -t preview --update-goldens`.
 
 ## Botões
 

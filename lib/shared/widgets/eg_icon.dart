@@ -28,6 +28,9 @@ enum EgIconData {
   /// Sinal de mais.
   plus,
 
+  /// Xis — fecha o que está aberto.
+  close,
+
   /// Engrenagem simplificada — configurações.
   gear,
 
@@ -134,6 +137,7 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.terminal => _terminalPath(),
         EgIconData.search => _searchPath(),
         EgIconData.plus => _plusPath(),
+        EgIconData.close => _closePath(),
         EgIconData.gear => _gearPath(),
         EgIconData.trash => _trashPath(),
         EgIconData.clipboard => _clipboardPath(),
@@ -194,6 +198,14 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(12, 8)
     ..moveTo(8, 4)
     ..lineTo(8, 12);
+
+  /// O mesmo traço do [_plusPath] girado 45°, e não um "x" desenhado à parte:
+  /// os dois convivem na mesma tela (no Leaf) e precisam ter o mesmo peso.
+  Path _closePath() => Path()
+    ..moveTo(4.6, 4.6)
+    ..lineTo(11.4, 11.4)
+    ..moveTo(11.4, 4.6)
+    ..lineTo(4.6, 11.4);
 
   Path _gearPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(8, 8), radius: 2.2))

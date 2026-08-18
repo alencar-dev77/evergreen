@@ -25,12 +25,37 @@ abstract final class AppColors {
   /// Painel e card principal.
   static const surface = Color(0xFF141414);
 
+  /// Superfície da barra lateral do Hub — o [surface] a 72%.
+  ///
+  /// Translúcida para o brilho verde do fundo atravessar de leve no topo e
+  /// unificar a sidebar com a área de conteúdo, sem custo de blur: é só um
+  /// sólido com alpha sobre o gradiente da janela.
+  static final sidebar = surface.withValues(alpha: 0.72);
+
   /// Topo do gradiente de superfície do painel flutuante — um degrau acima do
   /// [surface], reforçando a sensação de vidro iluminado por cima.
   static const surfaceTop = Color(0xFF191B17);
 
+  /// Topo do material translúcido do painel flutuante — o [surfaceTop] a 82%.
+  ///
+  /// O painel deixa de ser um retângulo pintado e passa a ser vidro: o que
+  /// estiver atrás dele atravessa, borrado e saturado pelo
+  /// `AppMaterials.panelVibrancy`. A opacidade é alta de propósito — o Evergreen
+  /// é dark, e vidro escuro demais some, vidro claro demais come o texto.
+  static final panelGlassTop = surfaceTop.withValues(alpha: 0.82);
+
+  /// Base do mesmo material — o [surface] a 78%.
+  static final panelGlass = surface.withValues(alpha: 0.78);
+
   /// Campos, cards internos e badges.
   static const card = Color(0xFF1A1A1A);
+
+  /// Topo do gradiente de superfície do card — um degrau acima do [card].
+  ///
+  /// A mesma ideia do [surfaceTop] em escala de card: 2% de luminância a mais no
+  /// topo é o que faz o cartão do Leaf parecer uma peça com volume em vez de um
+  /// quadrado chapado.
+  static const cardTop = Color(0xFF1F1F1F);
 
   /// Estado de hover neutro — o mouse só passando por cima.
   static const hover = Color(0xFF232323);
@@ -41,6 +66,14 @@ abstract final class AppColors {
 
   /// Bordas sutis de 1px.
   static const border = Color(0xFF262626);
+
+  /// Luz na borda de cima — branco a 6%.
+  ///
+  /// É o brilho de 1px que o macOS deixa na aresta superior de toda superfície
+  /// flutuante, como se a luz do ambiente pegasse a quina. Não substitui a
+  /// [border]: ela continua contornando a peça inteira por fora, e este fio
+  /// corre por dentro, só onde a luz bateria.
+  static const borderHighlight = Color(0x0FFFFFFF);
 
   /// Ação primária, foco e indicador de item fixado.
   static const greenPrimary = Color(0xFF22C55E);
@@ -70,14 +103,27 @@ abstract final class AppColors {
   /// claramente atrás do conteúdo.
   static const textTertiary = Color(0xFF6B7280);
 
+  /// Trecho de texto selecionado dentro de um campo — accent a 25%.
+  ///
+  /// Mais forte que a [selection] de linha de lista: aqui o realce precisa
+  /// sobreviver ao texto desenhado por cima dele.
+  static const textSelection = Color(0x4022C55E);
+
   /// Ações destrutivas.
   static const error = Color(0xFFEF4444);
 
   /// Alertas.
   static const warning = Color(0xFFF59E0B);
 
-  /// Sombra do painel flutuante: `0 24px 60px rgba(0,0,0,0.55)`.
+  /// Sombra ambiente do painel flutuante: `rgba(0,0,0,0.55)`.
   static const shadow = Color(0x8C000000);
+
+  /// Sombra de contato: `rgba(0,0,0,0.4)`.
+  ///
+  /// A camada curta e escura logo abaixo da peça. Sozinha, a sombra ambiente de
+  /// 60px de blur faz o painel flutuar sem tocar em nada; é o contato que
+  /// informa a que altura ele está.
+  static const shadowContact = Color(0x66000000);
 
   /// Véu do modal: escurece o fundo sem apagá-lo.
   static const scrim = Color(0x99000000);

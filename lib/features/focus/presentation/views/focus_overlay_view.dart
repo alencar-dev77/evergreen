@@ -2,15 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_hint_bar.dart';
+import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/focus_timer_state.dart';
@@ -35,8 +34,7 @@ class FocusOverlayView extends ConsumerStatefulWidget {
   ConsumerState<FocusOverlayView> createState() => _FocusOverlayViewState();
 }
 
-class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
-    with WindowListener, SingleTickerProviderStateMixin {
+class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
   final _activityController = TextEditingController();
   final _summaryController = TextEditingController();
   final _noteController = TextEditingController();
@@ -54,17 +52,6 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
   /// dentro do painel, o `Shortcuts` não receberia tecla nenhuma.
   final _panelFocusNode = FocusNode(debugLabel: 'focus-panel');
 
-  /// Fade de entrada, igual ao do Pin: nasce em 1 para a primeira construção já
-  /// mostrar o painel pronto; quem rebobina é o `onWindowFocus`.
-  late final _entrance = AnimationController(
-    vsync: this,
-    duration: AppDurations.entrance,
-    value: 1,
-  );
-
-  late final _entranceOpacity =
-      CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
-
   /// Largura do painel. Mais estreito que o do Pin porque não há lista para
   /// ler: o conteúdo é um número, um campo e uma ação.
   static const _panelWidth = 380.0;
@@ -73,14 +60,9 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
   /// que uma sessão muito anotada não empurre os botões para fora da tela.
   static const _logMaxHeight = 96.0;
 
-  /// Margem para o macOS terminar a troca de foco antes de confirmarmos um
-  /// blur — mesmo motivo do overlay do Pin.
-  static const _blurGracePeriod = Duration(milliseconds: 150);
-
   @override
   void initState() {
     super.initState();
-    windowManager.addListener(this);
     _noteFocusNode.addListener(_onNoteFocusChanged);
 
     // Depois do primeiro quadro: o campo de texto do estado inicial ainda não
@@ -92,9 +74,6 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
-    _entranceOpacity.dispose();
-    _entrance.dispose();
     _activityController.dispose();
     _summaryController.dispose();
     _noteController.dispose();
@@ -137,29 +116,14 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
   FocusTimerViewModel get _viewModel =>
       ref.read(focusTimerViewModelProvider.notifier);
 
-  @override
-  void onWindowFocus() {
-    _entrance.forward(from: 0);
-
+  /// Cada abertura do painel começa do zero no que é rascunho: o campo de
+  /// atividade de uma sessão que não começou, o resumo de uma que já terminou.
+  void _onShow() {
     final state = ref.read(focusTimerViewModelProvider);
     if (state.isIdle) _activityController.clear();
     if (!state.isFinished) _summaryController.clear();
 
     _syncFocus(state);
-  }
-
-  @override
-  void onWindowBlur() => unawaited(_handleBlur());
-
-  @override
-  void onWindowClose() => _close();
-
-  Future<void> _handleBlur() async {
-    await Future<void>.delayed(_blurGracePeriod);
-    if (!mounted) return;
-    if (await windowManager.isFocused()) return;
-
-    await _close();
   }
 
   /// Esconde o painel. A sessão em andamento não é afetada — é o comportamento
@@ -254,43 +218,23 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView>
             onClose: _handleEscape,
             onOpenSettings: _openSettings,
           ),
-          // A janela é maior que o painel para caber a sombra. O resto dela é
-          // transparente mas ainda captura cliques — clicar fora fecha.
-          //
-          // Centralizado na janela, como todos os painéis: quem se posiciona na
-          // tela é a janela (ver `OverlayWindow`).
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _close,
-            child: Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: FadeTransition(
-                    opacity: _entranceOpacity,
-                    child: Focus(
-                      focusNode: _panelFocusNode,
-                      child: EgPanel(
-                        width: _panelWidth,
-                        gradient: AppGradients.panelSurface,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(AppSpacing.xxl),
-                              child: _body(state),
-                            ),
-                            _hintBar(state),
-                          ],
-                        ),
-                      ),
-                    ),
+          child: EgOverlayShell(
+            onClose: () => unawaited(_close()),
+            onShow: _onShow,
+            focusNode: _panelFocusNode,
+            child: EgPanel(
+              width: _panelWidth,
+              vibrant: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xxl),
+                    child: _body(state),
                   ),
-                ),
+                  _hintBar(state),
+                ],
               ),
             ),
           ),

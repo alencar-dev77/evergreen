@@ -3,19 +3,24 @@ import 'package:flutter/widgets.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
+import '../../../../shared/utils/day_groups.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
-import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
+import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/meeting.dart';
 
 /// As reuniões gravadas, da mais recente para a mais antiga.
 ///
-/// Lista, e não tabela: a dimensão principal é o assunto da reunião, e o resto
-/// (quando, quanto tempo) são metadados ao redor dela. A transcrição fica no
-/// detalhe, logo abaixo — não numa janela à parte, porque ler a transcrição é
-/// o motivo de a pessoa estar nesta tela.
+/// Mesma gramática do histórico do Focus, e de propósito: dia no grupo, hora em
+/// coluna fixa à esquerda, nome no meio, duração em coluna fixa à direita. São
+/// duas listas do mesmo aplicativo respondendo à mesma pergunta ("o que
+/// aconteceu e quando"), e ler uma já ensina a ler a outra.
+///
+/// A linha é uma só, de altura fixa: a reunião abre na região ao lado, então
+/// aqui não há nada para adiantar do conteúdo — só o suficiente para escolher.
 class EchoMeetingList extends StatelessWidget {
   const EchoMeetingList({
     super.key,
@@ -23,6 +28,7 @@ class EchoMeetingList extends StatelessWidget {
     required this.selectedId,
     required this.onSelect,
     required this.onToggleKept,
+    this.now,
   });
 
   final List<Meeting> meetings;
@@ -30,28 +36,38 @@ class EchoMeetingList extends StatelessWidget {
   final void Function(int id) onSelect;
   final void Function(int id) onToggleKept;
 
+  /// Injetável para o teste e para os goldens não dependerem do relógio real.
+  final DateTime? now;
+
   @override
   Widget build(BuildContext context) {
-    if (meetings.isEmpty) {
-      return const EgEmptyState(
-        icon: EgIconData.microphone,
-        title: 'Nenhuma reunião gravada',
-        message:
-            'Aperte ⌘⇧E antes da próxima reunião. A transcrição aparece aqui '
-            'quando ela terminar.',
-      );
-    }
+    final groups = DayGroups.of(
+      meetings,
+      (meeting) => meeting.startedAt,
+      now: now,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final meeting in meetings)
-          _MeetingRow(
-            meeting: meeting,
-            isSelected: meeting.id == selectedId,
-            onTap: () => onSelect(meeting.id!),
-            onToggleKept: () => onToggleKept(meeting.id!),
+        for (final group in groups) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.xxs,
+            ),
+            child: EgSectionLabel(group.label),
           ),
+          for (final meeting in group.items)
+            _MeetingRow(
+              meeting: meeting,
+              isSelected: meeting.id == selectedId,
+              onTap: () => onSelect(meeting.id!),
+              onToggleKept: () => onToggleKept(meeting.id!),
+            ),
+        ],
       ],
     );
   }
@@ -70,66 +86,100 @@ class _MeetingRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggleKept;
 
+  /// As mesmas medidas da linha do histórico do Focus.
+  static const _height = 34.0;
+  static const _timeColumn = 44.0;
+  static const _durationColumn = 64.0;
+
   @override
   Widget build(BuildContext context) {
-    return EgHoverable(
-      focusable: true,
+    return EgInteractiveSurface(
       onTap: onTap,
-      builder: (context, state) => AnimatedContainer(
-        duration: AppDurations.instant,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.selection
-              : (state.isHovered ? AppColors.hover : AppColors.transparent),
-          borderRadius: AppRadii.listItemAll,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meeting.title,
-                    style: AppTypography.bodyCompact,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    '${DayLabel.of(meeting.startedAt)}, ${DayLabel.time(meeting.startedAt)} · '
-                    '${DurationFormat.compact(meeting.duration)}'
-                    '${meeting.hasSummary ? ' · resumida' : ''}',
-                    style: AppTypography.captionXS,
-                  ),
-                ],
+      isSelected: isSelected,
+      height: _height,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      child: Row(
+        children: [
+          SizedBox(
+            width: _timeColumn,
+            child: Text(
+              DayLabel.time(meeting.startedAt),
+              style: AppTypography.monoSmall.copyWith(
+                color: AppColors.textTertiary,
               ),
             ),
-            // A estrela é o "guardar": a reunião marcada não entra na conta da
-            // limpeza automática. Mesma marca do item fixado no Pin, porque é
-            // exatamente a mesma ideia.
-            EgHoverable(
-              onTap: onToggleKept,
-              builder: (context, starState) => Padding(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                child: EgIcon(
-                  EgIconData.star,
-                  size: 13,
-                  color: meeting.isKept
-                      ? AppColors.greenPrimary
-                      : (starState.isHovered
-                            ? AppColors.textSecondary
-                            : AppColors.textTertiary),
-                ),
+          ),
+          Expanded(child: _label()),
+          const SizedBox(width: AppSpacing.md),
+          SizedBox(
+            width: _durationColumn,
+            child: Text(
+              DurationFormat.compact(meeting.duration),
+              textAlign: TextAlign.right,
+              style: AppTypography.bodyCompactEmphasis,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          // A estrela é o "guardar": a reunião marcada não entra na conta da
+          // limpeza automática. Mesma marca do item fixado no Pin, porque é
+          // exatamente a mesma ideia.
+          EgHoverable(
+            onTap: onToggleKept,
+            builder: (context, starState) => Padding(
+              padding: const EdgeInsets.all(AppSpacing.xxs),
+              child: EgIcon(
+                EgIconData.star,
+                size: AppIconSizes.xs,
+                // Terceiro nível em repouso, como o badge de atalho do Pin: ela
+                // aparece em toda linha, e um chip aceso por linha competiria
+                // com o nome da reunião.
+                color: meeting.isKept
+                    ? AppColors.greenPrimary
+                    : (starState.isHovered || starState.isPressed
+                          ? AppColors.textSecondary
+                          : AppColors.textTertiary),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  /// O nome da reunião e, atrás dele, o aviso de que já existe resumo — que é o
+  /// que decide se vale abrir. Num parágrafo só, como na linha do Focus: o
+  /// corte por ellipsis come o aviso primeiro, nunca o nome.
+  Widget _label() {
+    final style = AppTypography.bodyCompactEmphasis.copyWith(
+      color: isSelected ? AppColors.greenLight : AppColors.textPrimary,
+    );
+
+    if (!meeting.hasSummary) {
+      return Text(
+        meeting.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: style,
+      );
+    }
+
+    return Text.rich(
+      TextSpan(
+        text: meeting.title,
+        children: [
+          TextSpan(
+            text: '   resumida',
+            style: AppTypography.captionXS.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+      style: style,
     );
   }
 }
