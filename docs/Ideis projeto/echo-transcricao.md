@@ -55,10 +55,13 @@ continuam separadas, que é o que sustenta saber quem falou; muda só quem
 entrega uma delas.
 
 O tap usa o formato do próprio dispositivo (`format: nil`) em vez de pedir um:
-o microfone interno de um MacBook é um arranjo de três canais, e pedir um
-formato que o dispositivo não tem é o tipo de desencontro que faz a entrada não
-entregar nada. A conversão para 16 kHz mono acontece depois, igual para as duas
-faixas.
+pedir um formato que o dispositivo não tem é o tipo de desencontro que faz a
+entrada não entregar nada. A conversão para o formato do transcritor acontece
+depois, igual para as duas faixas.
+
+A entrada sobe com o processamento de voz do sistema ligado, e é por isso que
+ela chega aqui como um canal só em vez do arranjo de três cápsulas do MacBook —
+ver "O que chega no modelo importa mais que o formato do arquivo", adiante.
 
 #### E a gravação avisa quando uma faixa fica muda
 
@@ -85,6 +88,111 @@ O `SpeechAnalyzer` do macOS 26 é feito para áudio longo, roda no dispositivo e
 tem uma conveniência decisiva: `analyzeSequence(from: audioFile)` transcreve um
 arquivo inteiro de uma vez. Cada `Result` traz `range: CMTimeRange`, e é dele
 que sai o relógio de cada fala.
+
+#### O que chega no modelo importa mais que o formato do arquivo
+
+> Acrescentado em 20/08/2026, depois de reunião transcrita com palavra trocada
+> demais — inclusive em PT-BR, e inclusive comparada lado a lado com o Notas e
+> o Gravador, que saíam melhor no mesmo Mac.
+
+A causa **não era o idioma** (ele sempre viajou intacto das preferências até o
+`SpeechTranscriber`) nem o tamanho do arquivo. Era o sinal que a gente entregava
+ao modelo, e são três coisas distintas:
+
+**1. A mixagem do arranjo de microfones.** O microfone interno do MacBook são
+três cápsulas separadas por centímetros. Somá-las e dividir por três — que foi o
+que salvou a faixa de sair muda — soma sinais que chegaram com atrasos
+diferentes: é filtro pente, com vales bem no meio da banda da fala. Modelo de
+fala com fonema borrado não erra "um pouco"; ele troca a palavra inteira pela
+vizinha mais provável do idioma.
+
+A entrada agora sobe com `setVoiceProcessingEnabled(true)`, que é o que o Notas
+e o Gravador usam. Ele usa o atraso entre as cápsulas **a favor** (formação de
+feixe), e vem com cancelamento de eco, redução de ruído e ganho automático de
+brinde. O cancelamento de eco faz na origem o trabalho que o `CrossTalkFilter`
+faz no texto — o filtro continua lá, porque nem toda entrada é a interna.
+
+Se o motor de áudio recusar subir com o processamento ligado, ele desliga e
+tenta de novo: gravar sem beamforming é pior, e é muito melhor que não gravar.
+
+**2. A reamostragem.** Descer de 48 kHz para 16 kHz é exatamente o tipo de
+conversão em que o filtro importa: o que estiver acima de 8 kHz e não for
+barrado antes **não some**, volta rebatido para dentro da banda da fala. O
+`AVAudioConverter` saía na qualidade padrão, que é um meio-termo pensado para
+tempo real. Agora sai em `AVAudioQuality.max` com o algoritmo `Mastering` — a
+conversão é de um bloco de 4.096 quadros por vez, com a máquina praticamente
+parada, e o filtro caro não custa nada que se perceba.
+
+**3. As opções do transcritor, escritas uma a uma.** Um `Preset` é uma constante
+opaca — não dá para ler o que ele liga, e existe uma opção que não pode entrar
+por acidente: `.fastResults`, que troca precisão por latência. Num arquivo já
+gravado não há pressa nenhuma. Pelo mesmo raciocínio ao contrário, a transcrição
+ao vivo deixou de pedir `.volatileResults`: o painel só mostra frase fechada, e
+pedir as revisões parciais era gastar processador durante a chamada para
+descartar o resultado.
+
+#### Por que **não** gravar em qualidade melhor
+
+A pergunta é natural — o áudio é apagado no fim, então por que economizar? A
+resposta é que não haveria ganho nenhum: o `SpeechTranscriber` consome 16 kHz, e
+gravar a 48 kHz só faz o próprio framework reamostrar para 16 kHz antes de
+ouvir. Seriam 6× o disco para entregar o mesmo sinal. A fala humana termina
+abaixo dos 8 kHz, que é justamente o teto que 16 kHz preserva.
+
+| Formato | Uma hora, as duas faixas |
+|---|---|
+| Hoje — 16 kHz mono | ~230 MB |
+| 16 kHz Float32 mono | ~460 MB |
+| 48 kHz Float32 mono | ~1,4 GB |
+| Cru, sem converter | ~2,8 GB |
+
+E há um contra que só aparece no volume alto: a pasta é `Caches`, e o macOS tem
+licença para esvaziá-la quando o disco aperta. Com 230 MB isso nunca acontece;
+com 3 GB num disco cheio, o sistema pode apagar a gravação no meio dela.
+
+O que mudou no formato foi outra coisa: em vez de uma constante escrita à mão a
+partir de uma medição feita uma vez, quem responde é o próprio analisador
+(`bestAvailableAudioFormat`). O formato preferido pode mudar entre versões do
+sistema, e entregar um que ele não aceita não devolve erro — aborta o processo
+lá dentro. A constante antiga ficou como piso.
+
+A única razão legítima para guardar áudio melhor seria retranscrever depois com
+um modelo melhor — e isso exige guardar o áudio, que é exatamente o que este
+módulo promete não fazer.
+
+#### O idioma agora é conferido, e antes da reunião
+
+`installLocale` respondia `true` mesmo quando não instalava nada: para um idioma
+que o sistema não reconhece, `assetInstallationRequest` devolve `nil` — não há o
+que baixar — e o `if` simplesmente não entrava. A tela comemorava, e o problema
+só aparecia depois, como palavra trocada.
+
+A lista de idiomas do `SpeechTranscriber` é **menor** que a do ditado antigo
+(`SFSpeechRecognizer`), então oferecer um seletor escrito por nós sem perguntar
+ao sistema é oferecer idioma que pode não existir. Agora:
+
+- quem responde é `supportedLocale(equivalentTo:)`, que também resolve o caso de
+  uma variante regional ser atendida por um modelo vizinho — a tela diz isso, em
+  vez de deixar a pessoa achando que transcreve em PT-PT;
+- a tela de preferências pergunta **exatamente o que a gravação pergunta**, e não
+  a lista de suportados: a lista responde a pergunta errada, porque um
+  identificador pode não estar nela e ainda assim ser atendido;
+- a gravação recusa começar num idioma sem modelo. Descobrir isso depois de uma
+  reunião de uma hora é tarde: o áudio já foi;
+- o modelo é reservado (`AssetInventory.reserve`), senão o sistema o recolhe
+  depois de um tempo sem uso e ele volta a ser um download no pior momento
+  possível — o começo de uma reunião.
+
+#### O vocabulário
+
+Nome de pessoa, de empresa, de produto e jargão são precisamente o que um modelo
+de fala erra: ele encaixa o som na palavra mais provável do idioma, e "Riverpod"
+não é provável em português nenhum. A lista escrita nas preferências vai como
+`contextualStrings` do `AnalysisContext` e inclina a decisão sem travar nada — o
+que não está nela continua sendo reconhecido como sempre.
+
+Vale para a transcrição e nunca para o resumo: o resumo já lê o texto pronto,
+com os nomes escritos certos.
 
 ### 3. Resumir — `FoundationModels` (macOS 26)
 

@@ -38,6 +38,15 @@ class FakeEchoChannel implements EchoChannel {
   /// não quebra nada visível no Dart: a gravação sai calada no modo de ontem.
   bool? startedWithLiveTranscription;
   String? startedWithLocale;
+  List<String>? startedWithVocabulary;
+  List<String>? transcribedWithVocabulary;
+
+  /// Com que modelo o sistema atenderia cada idioma.
+  ///
+  /// Vazio por padrão, que é o mesmo que "não deu para perguntar" — numa
+  /// máquina de teste não há transcritor nenhum, e a tela trata esse caso
+  /// calando. Um teste que queira o aviso de idioma sem modelo preenche isto.
+  Map<String, String> resolvedLocales = const {};
   List<String> deletedAudio = const [];
   List<String> summarizedTexts = [];
   List<String> summarizedInstructions = [];
@@ -82,11 +91,13 @@ class FakeEchoChannel implements EchoChannel {
   Future<void> startRecording({
     required bool liveTranscription,
     required String locale,
+    List<String> vocabulary = const [],
   }) async {
     if (failWith != null) throw failWith!;
     didStart = true;
     startedWithLiveTranscription = liveTranscription;
     startedWithLocale = locale;
+    startedWithVocabulary = vocabulary;
   }
 
   @override
@@ -103,8 +114,10 @@ class FakeEchoChannel implements EchoChannel {
   Future<List<MeetingSegment>> transcribe({
     required RecordingFiles files,
     required String locale,
+    List<String> vocabulary = const [],
   }) async {
     if (failWith != null) throw failWith!;
+    transcribedWithVocabulary = vocabulary;
     return segments;
   }
 
@@ -121,7 +134,11 @@ class FakeEchoChannel implements EchoChannel {
   }
 
   @override
-  Future<void> installLanguage(String locale) async {}
+  Future<String?> installLanguage(String locale) async => locale;
+
+  @override
+  Future<Map<String, String>> resolveLocales(List<String> locales) async =>
+      resolvedLocales;
 
   @override
   Future<void> deleteAudio(List<String> paths) async => deletedAudio = paths;

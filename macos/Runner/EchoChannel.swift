@@ -75,9 +75,11 @@ enum EchoChannel {
         // o seu, e cada um só recebe o que ele mesmo começou.
         let live = arguments["liveTranscription"] as? Bool ?? false
         let locale = arguments["locale"] as? String ?? "pt-BR"
+        let vocabulary = arguments["vocabulary"] as? [String] ?? []
         Task {
           await recorder.start(
-            liveTranscription: live, locale: locale, channel: channel, result: result)
+            liveTranscription: live, locale: locale, vocabulary: vocabulary,
+            channel: channel, result: result)
         }
 
       case "stopRecording":
@@ -90,9 +92,11 @@ enum EchoChannel {
         let micPath = arguments["micPath"] as? String
         let systemPath = arguments["systemPath"] as? String
         let locale = arguments["locale"] as? String ?? "pt-BR"
+        let vocabulary = arguments["vocabulary"] as? [String] ?? []
         Task {
           await EchoTranscriber.transcribe(
-            micPath: micPath, systemPath: systemPath, locale: locale, result: result)
+            micPath: micPath, systemPath: systemPath, locale: locale,
+            vocabulary: vocabulary, result: result)
         }
 
       case "summarize":
@@ -103,6 +107,10 @@ enum EchoChannel {
       case "installLocale":
         let locale = arguments["locale"] as? String ?? "pt-BR"
         Task { await EchoTranscriber.installLocale(locale, result: result) }
+
+      case "resolveLocales":
+        let locales = arguments["locales"] as? [String] ?? []
+        Task { result(await EchoSpeech.resolveLocales(locales)) }
 
       case "deleteAudio":
         let paths = arguments["paths"] as? [String] ?? []
@@ -353,13 +361,21 @@ actor EchoRecorder {
   /// O tap usa o formato do próprio dispositivo (`format: nil`): o microfone
   /// interno de um MacBook é um arranjo de três canais, e pedir um formato que
   /// ele não tem é justamente o tipo de desencontro que faz a entrada não
-  /// entregar nada. A conversão para 16 kHz mono acontece depois, igual para as
-  /// duas faixas.
+  /// entregar nada. A conversão para o formato do transcritor acontece depois,
+  /// igual para as duas faixas.
+  ///
+  /// **O processamento de voz é ligado antes de tudo** — ver
+  /// [enableVoiceProcessing].
   private static func startMicrophone(
     engine: AVAudioEngine,
     output: EchoStreamOutput
   ) -> String? {
     let input = engine.inputNode
+    let processed = enableVoiceProcessing(on: input)
+
+    // Depois de ligar o processamento, e nunca antes: ele troca o formato da
+    // entrada (o arranjo de cápsulas vira um canal só). Ler o formato antes
+    // daria o número de canais que a entrada tinha e não tem mais.
     let format = input.inputFormat(forBus: 0)
 
     guard format.sampleRate > 0, format.channelCount > 0 else {
@@ -377,8 +393,64 @@ actor EchoRecorder {
       try engine.start()
       return nil
     } catch {
+      // O motor pode recusar justamente por causa do processamento de voz: ele
+      // exige um par de entrada e saída que nem toda configuração de áudio
+      // oferece. Gravar sem ele é pior, mas é muito melhor que não gravar.
+      guard processed else {
+        input.removeTap(onBus: 0)
+        return error.localizedDescription
+      }
+
       input.removeTap(onBus: 0)
-      return error.localizedDescription
+      try? input.setVoiceProcessingEnabled(false)
+      input.installTap(onBus: 0, bufferSize: 4_096, format: nil) { buffer, _ in
+        output.appendMicrophone(buffer)
+      }
+
+      do {
+        try engine.start()
+        return nil
+      } catch {
+        input.removeTap(onBus: 0)
+        return error.localizedDescription
+      }
+    }
+  }
+
+  /// Liga o processamento de voz do sistema na entrada.
+  ///
+  /// É a diferença entre o que o Echo gravava e o que o Notas grava. O
+  /// microfone interno é um arranjo de três cápsulas separadas por centímetros,
+  /// e a mesma voz chega em cada uma com um atraso diferente. Somar os três
+  /// canais na mão — que é o que [EchoStreamOutput.mono] faz, e o que salvou a
+  /// faixa de sair muda — soma sinais defasados: dá filtro pente, com vales
+  /// bem no meio da banda da fala. O modelo de fala não erra "um pouco" com
+  /// fonema borrado; ele troca a palavra inteira pela vizinha mais provável.
+  ///
+  /// O processamento de voz resolve isso de outro jeito: usa o atraso entre as
+  /// cápsulas **a favor** (formação de feixe na direção de quem fala), e ainda
+  /// entrega três coisas de brinde —
+  ///
+  /// - **cancelamento de eco**: o que sai pela caixa de som não volta pela sua
+  ///   faixa. É o mesmo trabalho do `CrossTalkFilter`, feito na origem em vez
+  ///   de depois, no texto;
+  /// - **redução de ruído**: ventilador, teclado, rua;
+  /// - **ganho automático**: a fala ocupa a escala do arquivo, em vez de viver
+  ///   nos primeiros bits e chegar granulada no modelo.
+  ///
+  /// Com ele ligado a entrada passa a ser mono, e a mixagem à mão vira um
+  /// caminho que não é mais percorrido — de propósito.
+  ///
+  /// Devolve se conseguiu, porque quem chama precisa saber se ainda tem essa
+  /// carta para jogar fora quando o motor não subir.
+  @discardableResult
+  private static func enableVoiceProcessing(on input: AVAudioInputNode) -> Bool {
+    do {
+      try input.setVoiceProcessingEnabled(true)
+      return true
+    } catch {
+      // Sem ele a gravação continua — só volta a ser a média das cápsulas.
+      return false
     }
   }
 
@@ -415,6 +487,7 @@ actor EchoRecorder {
   func start(
     liveTranscription: Bool,
     locale: String,
+    vocabulary: [String],
     channel: FlutterMethodChannel,
     result: @escaping FlutterResult
   ) async {
@@ -430,6 +503,25 @@ actor EchoRecorder {
         details: nil))
       return
     }
+
+    // O idioma é conferido **antes** de gravar, e não na hora de transcrever.
+    // Descobrir que o modelo daquele idioma não existe nesta máquina depois de
+    // uma reunião de uma hora é tarde: o áudio já foi, e o que sobra é uma
+    // transcrição de palavras erradas ou um erro sem volta.
+    guard let resolved = await EchoSpeech.resolveLocale(locale) else {
+      result(FlutterError(
+        code: "locale_unsupported",
+        message: "O macOS não tem modelo de transcrição para \(locale). "
+          + "Escolha outro idioma nas preferências do Echo.",
+        details: nil))
+      return
+    }
+
+    // O formato de gravação vem do transcritor que vai ler o arquivo — o mesmo
+    // que a transcrição monta depois. É o que garante que gravamos exatamente
+    // no formato em que ele quer ouvir.
+    let recordingFormat = await EchoSpeech.audioFormat(
+      for: EchoSpeech.transcriber(locale: resolved, live: false))
 
     do {
       let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
@@ -461,9 +553,11 @@ actor EchoRecorder {
       let stream = SCStream(filter: filter, configuration: configuration, delegate: delegate)
 
       let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
-      let output = EchoStreamOutput(micURL: micURL, systemURL: systemURL, queue: queue)
+      let output = EchoStreamOutput(
+        micURL: micURL, systemURL: systemURL, queue: queue, recordingFormat: recordingFormat)
       if liveTranscription {
-        await output.enableLiveTranscription(locale: locale, channel: channel)
+        await output.enableLiveTranscription(
+          locale: resolved, vocabulary: vocabulary, channel: channel)
       }
 
       try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: queue)
@@ -584,26 +678,31 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
 
   private var live: EchoLiveTranscriber?
 
-  /// Formato em que o áudio é gravado: 16 kHz, mono, inteiro de 16 bits.
+  /// Formato em que o áudio é gravado — o que o transcritor pediu.
   ///
-  /// É o que os modelos de fala esperam — e o que a `SCStream` entrega é bem
-  /// outra coisa: 48 kHz, estéreo, ponto flutuante. Gravar cru custaria **23 MB
-  /// por minuto em cada faixa**, ou seja 2,8 GB por hora de reunião somando as
-  /// duas. Convertido, a mesma hora ocupa 230 MB.
+  /// Na prática 16 kHz, mono, e é o que os modelos de fala esperam. Quem
+  /// responde é o próprio `SpeechAnalyzer`, em vez de uma constante escrita
+  /// aqui: o formato preferido pode mudar entre versões do sistema, e entregar
+  /// ao analisador um formato que ele não aceita não devolve erro — aborta o
+  /// processo lá dentro.
+  ///
+  /// O que a `SCStream` entrega é bem outra coisa: 48 kHz, estéreo, ponto
+  /// flutuante. Gravar cru custaria **23 MB por minuto em cada faixa**, ou seja
+  /// 2,8 GB por hora de reunião somando as duas. Convertido, a mesma hora ocupa
+  /// cerca de 230 MB.
   ///
   /// A conversão não perde nada que importe aqui: a fala humana vive abaixo dos
-  /// 8 kHz, que é exatamente o teto que 16 kHz de amostragem preserva. Estéreo
-  /// então não faz falta nenhuma — cada faixa já é uma fonte só.
-  static let recordingFormat = AVAudioFormat(
-    commonFormat: .pcmFormatInt16,
-    sampleRate: 16_000,
-    channels: 1,
-    interleaved: true)!
+  /// 8 kHz, que é exatamente o teto que 16 kHz de amostragem preserva — e
+  /// gravar acima disso não melhoraria a transcrição, porque o modelo reamostra
+  /// para a taxa dele antes de ouvir. Estéreo então não faz falta nenhuma:
+  /// cada faixa já é uma fonte só.
+  let recordingFormat: AVAudioFormat
 
-  init(micURL: URL, systemURL: URL, queue: DispatchQueue) {
+  init(micURL: URL, systemURL: URL, queue: DispatchQueue, recordingFormat: AVAudioFormat) {
     self.micURL = micURL
     self.systemURL = systemURL
     self.queue = queue
+    self.recordingFormat = recordingFormat
   }
 
   /// A fila serial por onde passam as duas faixas.
@@ -615,8 +714,13 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   /// embaralhados lá dentro saem como frases embaralhadas.
   private let queue: DispatchQueue
 
-  func enableLiveTranscription(locale: String, channel: FlutterMethodChannel) async {
-    live = await EchoLiveTranscriber.make(locale: locale, channel: channel)
+  func enableLiveTranscription(
+    locale: Locale,
+    vocabulary: [String],
+    channel: FlutterMethodChannel
+  ) async {
+    live = await EchoLiveTranscriber.make(
+      locale: locale, vocabulary: vocabulary, channel: channel)
   }
 
   func finish() async {
@@ -653,10 +757,10 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     do {
       if isMicrophone {
         if micFile == nil {
-          micFile = try Self.makeFile(at: micURL)
-          micConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
+          micFile = try makeFile(at: micURL)
+          micConverter = makeConverter(from: buffer.format)
         }
-        converted = Self.convert(buffer, with: micConverter)
+        converted = convert(buffer, with: micConverter)
         if let converted = converted {
           try micFile?.write(from: converted)
           micFrames += Int64(converted.frameLength)
@@ -664,10 +768,10 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
         }
       } else {
         if systemFile == nil {
-          systemFile = try Self.makeFile(at: systemURL)
-          systemConverter = AVAudioConverter(from: buffer.format, to: Self.recordingFormat)
+          systemFile = try makeFile(at: systemURL)
+          systemConverter = makeConverter(from: buffer.format)
         }
-        converted = Self.convert(buffer, with: systemConverter)
+        converted = convert(buffer, with: systemConverter)
         if let converted = converted {
           try systemFile?.write(from: converted)
           systemFrames += Int64(converted.frameLength)
@@ -702,7 +806,7 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   /// `write(from:)` com um bloco Int16 **não devolve erro**: aborta o processo
   /// dentro do AudioToolbox, onde nenhum `catch` alcança. Dizer o formato aqui
   /// é o que faz o arquivo aceitar o que o conversor produz.
-  private static func makeFile(at url: URL) throws -> AVAudioFile {
+  private func makeFile(at url: URL) throws -> AVAudioFile {
     try AVAudioFile(
       forWriting: url,
       settings: recordingFormat.settings,
@@ -710,12 +814,31 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
       interleaved: recordingFormat.isInterleaved)
   }
 
+  /// O conversor da faixa, na melhor qualidade de reamostragem que existe.
+  ///
+  /// Não é capricho de áudio: descer de 48 kHz para 16 kHz é exatamente o tipo
+  /// de conversão em que o filtro importa. O que estiver acima de 8 kHz e não
+  /// for barrado antes de reamostrar **não some** — volta rebatido para dentro
+  /// da banda da fala, como um chiado que não existia. O modelo então tenta
+  /// interpretar como fonema uma coisa que é artefato de conta.
+  ///
+  /// O padrão do `AVAudioConverter` é um meio-termo pensado para tempo real. A
+  /// conversão aqui é de um bloco de 4.096 quadros por vez, com o processador
+  /// praticamente parado; pagar o filtro caro não custa nada que se perceba, e
+  /// é sinal limpo entregue ao reconhecimento.
+  private func makeConverter(from format: AVAudioFormat) -> AVAudioConverter? {
+    let converter = AVAudioConverter(from: format, to: recordingFormat)
+    converter?.sampleRateConverterQuality = AVAudioQuality.max.rawValue
+    converter?.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm_Mastering
+    return converter
+  }
+
   /// Reamostra o bloco para [recordingFormat].
   ///
   /// Precisa da API de bloco do `AVAudioConverter`, e não do `convert(to:from:)`
   /// simples: mudar a taxa de amostragem muda a quantidade de quadros, e a
   /// versão simples só aceita conversões que preservam a contagem.
-  static func convert(
+  func convert(
     _ buffer: AVAudioPCMBuffer,
     with converter: AVAudioConverter?
   ) -> AVAudioPCMBuffer? {
@@ -748,36 +871,32 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     return output
   }
 
-  /// Converte o bloco da `SCStream` no formato que o `AVAudioFile` e o
-  /// analisador de fala entendem.
-  ///
-  /// **Copia** as amostras, e é aí que mora a diferença. A versão anterior usava
-  /// `CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer` preenchendo a
-  /// lista do próprio `AVAudioPCMBuffer` — só que essa função não copia nada:
-  /// ela aponta a lista para a memória de um `CMBlockBuffer`, devolvido numa
-  /// variável local. Ao sair daqui, a variável morria, o bloco era liberado, e o
-  /// buffer que este método devolvia apontava para memória solta.
-  ///
-  /// O sintoma não era um estouro: era **silêncio**. Memória liberada lê como
-  /// zeros, então os arquivos saíam com a duração certa, o tamanho certo e nada
-  /// dentro — e a transcrição, corretamente, não encontrava fala nenhuma.
-  ///
-  /// `withAudioBufferList` segura o bloco vivo enquanto o fecho roda, que é a
-  /// janela em que a cópia acontece.
   /// A maior amplitude do bloco, em módulo — 0 é silêncio digital exato.
   ///
-  /// Sempre sobre o buffer **já convertido** para [recordingFormat], que é
-  /// Int16 mono: um formato só para medir, em vez de um caso para cada coisa
-  /// que a captura possa entregar.
+  /// Sempre sobre o buffer **já convertido** para [recordingFormat], e sempre
+  /// na escala de um Int16 (0 a 32.767), qualquer que seja o formato em que o
+  /// transcritor tenha pedido para gravar. A escala é fixa porque quem lê este
+  /// número é a interface, do outro lado do canal, para dizer se a faixa saiu
+  /// muda — e um limiar que mudasse de significado conforme o formato do dia
+  /// seria pior que não ter limiar nenhum.
   static func peak(of buffer: AVAudioPCMBuffer) -> Int {
-    guard let channel = buffer.int16ChannelData?[0] else { return 0 }
-
-    var peak: Int32 = 0
-    for index in 0..<Int(buffer.frameLength) {
-      peak = max(peak, Int32(channel[index].magnitude))
+    if let channel = buffer.int16ChannelData?[0] {
+      var peak: Int32 = 0
+      for index in 0..<Int(buffer.frameLength) {
+        peak = max(peak, Int32(channel[index].magnitude))
+      }
+      return Int(peak)
     }
 
-    return Int(peak)
+    if let channel = buffer.floatChannelData?[0] {
+      var peak: Float = 0
+      for index in 0..<Int(buffer.frameLength) {
+        peak = max(peak, abs(channel[index]))
+      }
+      return Int((min(peak, 1) * 32_767).rounded())
+    }
+
+    return 0
   }
 
   /// Soma os canais do bloco em um só, na mão.
@@ -857,6 +976,22 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     return copy
   }
 
+  /// Converte o bloco da `SCStream` no formato que o `AVAudioFile` e o
+  /// analisador de fala entendem.
+  ///
+  /// **Copia** as amostras, e é aí que mora a diferença. A versão anterior usava
+  /// `CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer` preenchendo a
+  /// lista do próprio `AVAudioPCMBuffer` — só que essa função não copia nada:
+  /// ela aponta a lista para a memória de um `CMBlockBuffer`, devolvido numa
+  /// variável local. Ao sair daqui, a variável morria, o bloco era liberado, e o
+  /// buffer que este método devolvia apontava para memória solta.
+  ///
+  /// O sintoma não era um estouro: era **silêncio**. Memória liberada lê como
+  /// zeros, então os arquivos saíam com a duração certa, o tamanho certo e nada
+  /// dentro — e a transcrição, corretamente, não encontrava fala nenhuma.
+  ///
+  /// `withAudioBufferList` segura o bloco vivo enquanto o fecho roda, que é a
+  /// janela em que a cópia acontece.
   static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
     guard let description = sampleBuffer.formatDescription,
           var streamDescription = description.audioStreamBasicDescription,
@@ -895,6 +1030,117 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
 
 // MARK: - Transcrição
 
+/// O que o Echo sabe sobre o modelo de fala do sistema, num lugar só.
+///
+/// Existe porque três lugares diferentes precisam montar o *mesmo*
+/// transcritor — a gravação (para descobrir em que formato gravar), a
+/// transcrição do arquivo e a transcrição ao vivo. Quando cada um montava o
+/// seu, bastava um deles divergir para o áudio ser gravado num formato e lido
+/// em outro.
+@available(macOS 26.0, *)
+enum EchoSpeech {
+  /// As opções escritas uma a uma, em vez de um `Preset` pronto.
+  ///
+  /// Um `Preset` é uma constante opaca: não dá para ler o que ele liga. E há
+  /// uma opção que **não** pode entrar aqui por acidente — `.fastResults`, que
+  /// troca precisão por latência. Numa reunião já gravada não existe pressa
+  /// nenhuma: o arquivo está no disco e ninguém está esperando a frase
+  /// aparecer. Trocar exatidão por velocidade aí é perder de graça.
+  ///
+  /// - `.audioTimeRange` é o relógio de cada trecho, e é o que permite
+  ///   intercalar as duas faixas numa conversa.
+  /// - `.alternativeTranscriptions` só no arquivo: são as outras hipóteses do
+  ///   modelo para o mesmo trecho.
+  /// - Ao vivo **não** pede `.volatileResults`. O painel só mostra trecho já
+  ///   fechado, então pedir as revisões parciais seria gastar processador
+  ///   durante a chamada para jogar o resultado fora.
+  static func transcriber(locale: Locale, live: Bool) -> SpeechTranscriber {
+    SpeechTranscriber(
+      locale: locale,
+      transcriptionOptions: [],
+      reportingOptions: live ? [] : [.alternativeTranscriptions],
+      attributeOptions: [.audioTimeRange])
+  }
+
+  /// O idioma que o modelo de fala **de fato** tem, ou `nil`.
+  ///
+  /// O seletor da interface oferece um punhado de idiomas, mas quem decide
+  /// quais existem é o sistema — e a lista do `SpeechTranscriber` é menor que a
+  /// do ditado antigo. `supportedLocale(equivalentTo:)` é o próprio framework
+  /// respondendo "para este identificador eu uso aquele modelo", o que também
+  /// resolve o caso de a pessoa pedir uma variante regional que o sistema
+  /// atende com outra.
+  ///
+  /// Devolver `nil` é informação, não falha: é a diferença entre avisar "este
+  /// idioma não existe aqui" e entregar uma transcrição que erra palavra sim,
+  /// palavra não.
+  static func resolveLocale(_ identifier: String) async -> Locale? {
+    await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: identifier))
+  }
+
+  /// Para cada idioma pedido, qual o sistema usaria — ou nada.
+  ///
+  /// A tela de preferências pergunta isto, e não a lista de idiomas
+  /// suportados, porque a lista responde a pergunta errada: um identificador
+  /// pode não estar nela e ainda assim ser atendido por um modelo equivalente.
+  /// Perguntar exatamente o que a gravação pergunta é o que impede a tela de
+  /// acusar falta de um modelo que existe — ou de calar sobre um que não
+  /// existe.
+  static func resolveLocales(_ identifiers: [String]) async -> [String: String] {
+    var resolved: [String: String] = [:]
+
+    for identifier in identifiers {
+      if let locale = await resolveLocale(identifier) {
+        resolved[identifier] = locale.identifier(.bcp47)
+      }
+    }
+
+    return resolved
+  }
+
+  /// As palavras que o reconhecimento deve esperar ouvir.
+  ///
+  /// Nome de pessoa, de empresa e jargão são justamente o que um modelo de fala
+  /// erra: ele encaixa o som na palavra mais provável do idioma, e "Riverpod"
+  /// não é provável em português nenhum. `contextualStrings` inclina a decisão
+  /// para essa lista sem travar nada — o que não estiver nela continua sendo
+  /// reconhecido normalmente.
+  static func context(vocabulary: [String]) -> AnalysisContext {
+    let context = AnalysisContext()
+
+    let cleaned = vocabulary
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .filter { !$0.isEmpty }
+
+    if !cleaned.isEmpty {
+      context.contextualStrings = [.general: cleaned]
+    }
+
+    return context
+  }
+
+  /// O formato de áudio que o próprio transcritor pede.
+  ///
+  /// Era uma constante escrita à mão (16 kHz, mono, Int16) a partir de uma
+  /// medição feita uma vez. Perguntar é melhor por dois motivos: o formato
+  /// preferido pode mudar entre versões do sistema, e gravar num formato que o
+  /// analisador não aceita não devolve erro — ele aborta o processo lá dentro.
+  ///
+  /// A constante continua existindo como piso, para o caso de a pergunta voltar
+  /// sem resposta. Gravar acima do que o modelo consome não melhora nada: ele
+  /// reamostra para a taxa dele antes de ouvir, e a fala humana termina abaixo
+  /// dos 8 kHz de qualquer jeito.
+  static func audioFormat(for transcriber: SpeechTranscriber) async -> AVAudioFormat {
+    await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) ?? fallbackFormat
+  }
+
+  static let fallbackFormat = AVAudioFormat(
+    commonFormat: .pcmFormatInt16,
+    sampleRate: 16_000,
+    channels: 1,
+    interleaved: true)!
+}
+
 enum EchoSpeaker: String {
   case me
   case others
@@ -913,16 +1159,29 @@ enum EchoTranscriber {
     micPath: String?,
     systemPath: String?,
     locale: String,
+    vocabulary: [String],
     result: @escaping FlutterResult
   ) async {
+    guard let resolved = await EchoSpeech.resolveLocale(locale) else {
+      result(FlutterError(
+        code: "locale_unsupported",
+        message: "O macOS não tem modelo de transcrição para \(locale). "
+          + "Escolha outro idioma nas preferências do Echo — o áudio desta "
+          + "reunião continua no disco até lá.",
+        details: nil))
+      return
+    }
+
     do {
       var segments: [[String: Any]] = []
 
       if let micPath = micPath, FileManager.default.fileExists(atPath: micPath) {
-        segments += try await transcribeFile(at: micPath, locale: locale, speaker: .me)
+        segments += try await transcribeFile(
+          at: micPath, locale: resolved, vocabulary: vocabulary, speaker: .me)
       }
       if let systemPath = systemPath, FileManager.default.fileExists(atPath: systemPath) {
-        segments += try await transcribeFile(at: systemPath, locale: locale, speaker: .others)
+        segments += try await transcribeFile(
+          at: systemPath, locale: resolved, vocabulary: vocabulary, speaker: .others)
       }
 
       // Intercalar por tempo é o que transforma duas transcrições paralelas em
@@ -937,15 +1196,22 @@ enum EchoTranscriber {
 
   private static func transcribeFile(
     at path: String,
-    locale: String,
+    locale: Locale,
+    vocabulary: [String],
     speaker: EchoSpeaker
   ) async throws -> [[String: Any]] {
     let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
-    let transcriber = SpeechTranscriber(
-      locale: Locale(identifier: locale),
-      preset: .timeIndexedTranscriptionWithAlternatives)
+    let transcriber = EchoSpeech.transcriber(locale: locale, live: false)
 
     let analyzer = SpeechAnalyzer(modules: [transcriber])
+
+    // O vocabulário entra antes de a análise começar — depois de
+    // `analyzeSequence` o analisador já decidiu o começo do arquivo. É a
+    // versão sem `inputSequence` do inicializador, que não recebe o contexto
+    // de fábrica; aqui ele é dito em separado.
+    if !vocabulary.isEmpty {
+      try await analyzer.setContext(EchoSpeech.context(vocabulary: vocabulary))
+    }
 
     let collector = Task { () -> [[String: Any]] in
       var collected: [[String: Any]] = []
@@ -970,16 +1236,40 @@ enum EchoTranscriber {
   }
 
   /// Garante que o modelo daquele idioma está na máquina, baixando se faltar.
+  ///
+  /// Antes isto respondia `true` mesmo quando não tinha instalado nada: para um
+  /// idioma que o sistema não reconhece, `assetInstallationRequest` devolve
+  /// `nil` — não há o que baixar — e o `if` simplesmente não entrava. A tela
+  /// comemorava, e o erro só aparecia depois, como palavra trocada no meio da
+  /// reunião. Agora o idioma é conferido primeiro, e "não existe" é uma
+  /// resposta, não um silêncio.
+  ///
+  /// Devolve qual idioma o sistema vai usar de fato: pedir uma variante
+  /// regional que ele atende com outra é normal, e a tela precisa poder dizer
+  /// isso em vez de deixar a pessoa achando que está transcrevendo em PT-PT.
   static func installLocale(_ locale: String, result: @escaping FlutterResult) async {
-    let transcriber = SpeechTranscriber(
-      locale: Locale(identifier: locale),
-      preset: .timeIndexedTranscriptionWithAlternatives)
+    guard let resolved = await EchoSpeech.resolveLocale(locale) else {
+      result(FlutterError(
+        code: "locale_unsupported",
+        message: "O macOS não tem modelo de transcrição para \(locale).",
+        details: nil))
+      return
+    }
+
+    let transcriber = EchoSpeech.transcriber(locale: resolved, live: false)
 
     do {
       if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
         try await request.downloadAndInstall()
       }
-      result(true)
+
+      // Reservar é o que impede o sistema de recolher o modelo depois de um
+      // tempo sem uso: são poucos os idiomas que ele mantém alocados por app, e
+      // o modelo recolhido volta a ser um download no pior momento — o começo
+      // de uma reunião.
+      try await AssetInventory.reserve(locale: resolved)
+
+      result(["locale": resolved.identifier(.bcp47)])
     } catch {
       result(FlutterError(code: "locale_install_failed", message: error.localizedDescription, details: nil))
     }
@@ -1004,15 +1294,20 @@ final class EchoLiveTranscriber {
   private let continuation: AsyncStream<AnalyzerInput>.Continuation
   private var pump: Task<Void, Never>?
 
-  static func make(locale: String, channel: FlutterMethodChannel) async -> EchoLiveTranscriber? {
-    let transcriber = SpeechTranscriber(
-      locale: Locale(identifier: locale),
-      preset: .timeIndexedProgressiveTranscription)
+  static func make(
+    locale: Locale,
+    vocabulary: [String],
+    channel: FlutterMethodChannel
+  ) async -> EchoLiveTranscriber? {
+    let transcriber = EchoSpeech.transcriber(locale: locale, live: true)
 
     var continuation: AsyncStream<AnalyzerInput>.Continuation!
     let stream = AsyncStream<AnalyzerInput> { continuation = $0 }
 
-    let analyzer = SpeechAnalyzer(inputSequence: stream, modules: [transcriber])
+    let analyzer = SpeechAnalyzer(
+      inputSequence: stream,
+      modules: [transcriber],
+      analysisContext: EchoSpeech.context(vocabulary: vocabulary))
     let live = EchoLiveTranscriber(
       channel: channel, transcriber: transcriber, analyzer: analyzer, continuation: continuation)
     live.startPump()
@@ -1035,10 +1330,12 @@ final class EchoLiveTranscriber {
     pump = Task { [transcriber, channel] in
       do {
         for try await result in transcriber.results {
-          // Só o que o analisador já deu por fechado. O preset progressivo
-          // reemite o mesmo trecho a cada revisão enquanto ainda está
-          // decidindo — somar todos encheria o painel da mesma frase crescendo
-          // ("olá", "olá tudo", "olá tudo bem"), que é ruído, não sinal.
+          // Só o que o analisador já deu por fechado. O painel mostra frase
+          // pronta, nunca a mesma frase crescendo ("olá", "olá tudo", "olá tudo
+          // bem") — isso é ruído, não sinal. Por isso o transcritor ao vivo
+          // nem pede as revisões parciais (`.volatileResults`): pedi-las seria
+          // gastar processador durante a chamada para descartar o resultado
+          // aqui. A guarda fica como rede, para o caso de alguma chegar.
           guard result.isFinal else { continue }
 
           let text = String(result.text.characters)
@@ -1054,12 +1351,13 @@ final class EchoLiveTranscriber {
     }
   }
 
-  /// Recebe um bloco **já convertido** para `EchoStreamOutput.recordingFormat`.
+  /// Recebe um bloco **já convertido** para o formato de gravação.
   ///
-  /// O analisador não aceita qualquer formato: `bestAvailableAudioFormat`
-  /// responde 16 kHz, mono, inteiro de 16 bits — exatamente o formato em que a
-  /// gravação já grava. Entregar o bloco cru da captura aborta o processo
-  /// dentro do Speech, sem erro que dê para capturar.
+  /// O analisador não aceita qualquer formato, e é justamente por isso que a
+  /// gravação pergunta a ele (`EchoSpeech.audioFormat`) em que formato gravar,
+  /// em vez de escolher um: o que a gravação escreve no arquivo é o mesmo que
+  /// chega aqui. Entregar o bloco cru da captura aborta o processo dentro do
+  /// Speech, sem erro que dê para capturar.
   ///
   /// Síncrono, e chamado da fila de áudio: é o que preserva a ordem dos blocos.
   func append(_ buffer: AVAudioPCMBuffer) {

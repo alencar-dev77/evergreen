@@ -6,6 +6,7 @@ class EchoSettings {
     this.liveTranscription = false,
     this.language = TranscriptionLanguage.ptBR,
     this.summaryInstructions = '',
+    this.vocabulary = '',
     this.historyLimit = 100,
   });
 
@@ -33,6 +34,29 @@ class EchoSettings {
   /// começa a ignorar no meio.
   final String summaryInstructions;
 
+  /// Palavras que o reconhecimento deve esperar ouvir, uma por linha.
+  ///
+  /// Nome de pessoa, de empresa, de produto e jargão são exatamente o que um
+  /// modelo de fala erra: ele encaixa o som na palavra mais provável do
+  /// idioma, e "Riverpod" não é provável em português nenhum. Esta lista
+  /// inclina a decisão sem travar nada — o que não está aqui continua sendo
+  /// reconhecido como sempre.
+  ///
+  /// Vale para a transcrição, nunca para o resumo: o resumo já lê o texto
+  /// pronto, com os nomes escritos certos.
+  final String vocabulary;
+
+  /// A mesma lista em termos, do jeito que o canal nativo recebe.
+  ///
+  /// Aceita uma por linha **e** separadas por vírgula, porque as duas maneiras
+  /// são o que a pessoa faz sem pensar — e nenhuma das duas é mais certa que a
+  /// outra.
+  List<String> get vocabularyTerms => vocabulary
+      .split(RegExp(r'[\n,;]'))
+      .map((term) => term.trim())
+      .where((term) => term.isNotEmpty)
+      .toList(growable: false);
+
   /// Quantas reuniões o histórico mantém.
   ///
   /// Reunião marcada com "guardar" não entra nesta conta — o teto só alcança o
@@ -47,16 +71,21 @@ class EchoSettings {
       'Escreva em tópicos curtos. Registre decisões, pendências e quem ficou '
       'responsável por cada coisa.';
 
+  /// O exemplo apagado do campo de vocabulário — nomes, não frases.
+  static const vocabularyHint = 'Evergreen, Riverpod, Diletta, Lucas Alencar';
+
   EchoSettings copyWith({
     bool? liveTranscription,
     TranscriptionLanguage? language,
     String? summaryInstructions,
+    String? vocabulary,
     int? historyLimit,
   }) {
     return EchoSettings(
       liveTranscription: liveTranscription ?? this.liveTranscription,
       language: language ?? this.language,
       summaryInstructions: summaryInstructions ?? this.summaryInstructions,
+      vocabulary: vocabulary ?? this.vocabulary,
       historyLimit: historyLimit ?? this.historyLimit,
     );
   }

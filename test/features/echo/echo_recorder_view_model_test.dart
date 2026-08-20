@@ -66,6 +66,19 @@ void main() {
     expect(state().phase, EchoPhase.recording);
   });
 
+  test('o vocabulário das preferências chega ao gravar e ao transcrever',
+      () async {
+    // As duas pontas, e não só uma: gravar leva a lista para a transcrição ao
+    // vivo, transcrever leva para a do arquivo — que é a que vira a reunião.
+    await preferences.setString('echo.vocabulary', 'Riverpod, Diletta');
+
+    await viewModel().start();
+    await viewModel().stopAndTranscribe();
+
+    expect(channel.startedWithVocabulary, ['Riverpod', 'Diletta']);
+    expect(channel.transcribedWithVocabulary, ['Riverpod', 'Diletta']);
+  });
+
   test('parar transcreve, guarda e só então apaga o áudio', () async {
     await viewModel().start();
     await viewModel().stopAndTranscribe();

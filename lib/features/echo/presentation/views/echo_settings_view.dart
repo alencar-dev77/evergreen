@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../core/system/global_shortcut_service.dart';
@@ -34,12 +35,23 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
   late final TextEditingController _instructions;
   final _instructionsFocus = FocusNode(debugLabel: 'echo-instructions');
 
+  late final TextEditingController _vocabulary;
+  final _vocabularyFocus = FocusNode(debugLabel: 'echo-vocabulary');
+
   @override
   void initState() {
     super.initState();
     _instructions = TextEditingController(
       text: ref.read(echoSettingsViewModelProvider).summaryInstructions,
     );
+    _vocabulary = TextEditingController(
+      text: ref.read(echoSettingsViewModelProvider).vocabulary,
+    );
+
+    _vocabularyFocus.addListener(() {
+      if (_vocabularyFocus.hasFocus) return;
+      _saveVocabulary();
+    });
 
     // Sair do campo guarda, por qualquer caminho — a mesma regra do apelido do
     // Pin. Uma tela de preferências que só salva no Enter perde o que a pessoa
@@ -63,12 +75,18 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
   void dispose() {
     _instructions.dispose();
     _instructionsFocus.dispose();
+    _vocabulary.dispose();
+    _vocabularyFocus.dispose();
     super.dispose();
   }
 
   void _save() => ref
       .read(echoSettingsViewModelProvider.notifier)
       .setSummaryInstructions(_instructions.text);
+
+  void _saveVocabulary() => ref
+      .read(echoSettingsViewModelProvider.notifier)
+      .setVocabulary(_vocabulary.text);
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +95,23 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
     final summaries = ref.watch(
       echoLibraryViewModelProvider.select((state) => state.summaries),
     );
+
+    // Vazio é "não deu para perguntar", não "nenhum idioma existe" — nesse
+    // caso a tela cala a boca em vez de acusar falta de um modelo que talvez
+    // esteja lá.
+    final resolvedLocales =
+        ref.watch(echoSupportedLocalesProvider).value ??
+        const <String, String>{};
+    final resolvedLanguage = resolvedLocales[settings.language.locale];
+    final unsupportedLanguage =
+        resolvedLocales.isNotEmpty && resolvedLanguage == null;
+    // O sistema atende a variante pedida com o modelo de outra. Funciona, e
+    // ainda assim precisa ser dito: senão a pessoa passa meses achando que
+    // transcreve em PT-PT e culpando o app pelo sotaque errado.
+    final substitutedLanguage =
+        resolvedLanguage != null && resolvedLanguage != settings.language.locale
+        ? resolvedLanguage
+        : null;
 
     final capabilities = ref.watch(
       echoRecorderViewModelProvider.select((state) => state.capabilities),
@@ -166,6 +201,54 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 options: TranscriptionLanguage.values,
                 labelOf: (option) => option.shortLabel,
                 onChanged: viewModel.setLanguage,
+              ),
+            ),
+            // Em cor de aviso, e não no cinza das outras legendas desta tela:
+            // as demais são ressalvas ("com fone fica melhor"), esta é um
+            // impedimento — com ela na tela, a gravação recusa começar.
+            if (unsupportedLanguage)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Text(
+                  'Este Mac não tem modelo de transcrição para '
+                  '${settings.language.label}. Escolha outro idioma: gravar '
+                  'assim devolveria palavras trocadas, não a reunião.',
+                  style: AppTypography.captionSmall.copyWith(
+                    color: AppColors.warning,
+                  ),
+                ),
+              ),
+            if (substitutedLanguage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Text(
+                  'O macOS atende ${settings.language.label} com o modelo de '
+                  '$substitutedLanguage — é ele que vai transcrever.',
+                  style: AppTypography.captionSmall,
+                ),
+              ),
+            // Mesmo desenho do campo de instruções do resumo, e pela mesma
+            // razão: uma lista de nomes não cabe na coluna estreita da direita.
+            EgSettingsRow(
+              label: 'Palavras que costumam aparecer',
+              description:
+                  'Nome de pessoa, de empresa, de produto, jargão — um por '
+                  'linha. É o que o reconhecimento mais erra, porque tenta '
+                  'encaixar o som numa palavra comum do idioma. Vale só para a '
+                  'transcrição.',
+              trailing: const SizedBox.shrink(),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(
+                top: AppSpacing.sm,
+                bottom: AppSpacing.lg,
+              ),
+              child: EgTextField(
+                controller: _vocabulary,
+                focusNode: _vocabularyFocus,
+                hintText: EchoSettings.vocabularyHint,
+                minLines: 2,
+                maxLines: 5,
               ),
             ),
             EgSettingsRow.toggle(
