@@ -120,6 +120,7 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
               label: widget.labelOf(option),
               isSelected: option == widget.value,
               onTap: () => widget.onChanged(option),
+              bare: widget.bare,
             ),
         ],
       ),
@@ -132,11 +133,20 @@ class _Segment extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.bare = false,
   });
 
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+
+  /// Sem a caixa em volta, a pílula respira menos por dentro: o vão entre as
+  /// pílulas já as separa, e o padding largo existia para elas não encostarem
+  /// na moldura. São 8px por pílula — o que decide se a fila do Pin cabe numa
+  /// linha só quando o histórico tem os seis tipos, e uma segunda linha com uma
+  /// pílula órfã custaria mais altura do que ela vale num painel que se lê de
+  /// relance.
+  final bool bare;
 
   @override
   Widget build(BuildContext context) {
@@ -154,8 +164,8 @@ class _Segment extends StatelessWidget {
       isSelected: isSelected,
       // Concêntrico com o container: 6px do pai menos os 2px de padding.
       borderRadius: AppRadii.badgeSmallAll,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
+      padding: EdgeInsets.symmetric(
+        horizontal: bare ? AppSpacing.xs : AppSpacing.md,
         vertical: AppSpacing.xxs,
       ),
       builder: (context, state) {
