@@ -12,9 +12,18 @@ class PinHintBar extends StatelessWidget {
     required this.isPreviewOpen,
     this.canMovePinned = false,
     this.isEditingAlias = false,
+    this.isFiltered = false,
   });
 
   final bool isPreviewOpen;
+
+  /// Há um tipo escolhido na fila de pílulas.
+  ///
+  /// Muda o que o Esc promete: com um filtro ativo ele desfaz o recorte antes
+  /// de fechar o painel, e o rodapé é o único lugar onde isso se aprende sem
+  /// tentar. É também o que dispensa uma dica nova só para o `⌘←→` — a fila de
+  /// pílulas já está à vista, e a 420px não haveria largura para as duas.
+  final bool isFiltered;
 
   /// O cursor está no campo de apelido.
   ///
@@ -68,7 +77,13 @@ class PinHintBar extends StatelessWidget {
       ],
       trailing: EgHint(
         keys: const ['esc'],
-        label: isPreviewOpen ? 'voltar' : 'sair',
+        // A ordem é a mesma do Esc: primeiro o preview, depois o filtro, e só
+        // então a saída.
+        label: switch ((isPreviewOpen, isFiltered)) {
+          (true, _) => 'voltar',
+          (false, true) => 'limpar filtro',
+          (false, false) => 'sair',
+        },
       ),
     );
   }

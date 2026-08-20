@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
 import '../../models/clipboard_item.dart';
+import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
 
 /// Estado renderizável do overlay do Pin.
@@ -17,6 +18,8 @@ class PinOverlayState {
     required this.pinned,
     required this.recent,
     required this.query,
+    required this.typeFilter,
+    required this.availableTypes,
     required this.selectedIndex,
     required this.isLoading,
     required Map<int, PinQuickShortcut> shortcutsByItemId,
@@ -30,6 +33,8 @@ class PinOverlayState {
   factory PinOverlayState({
     List<ClipboardItem> results = const [],
     String query = '',
+    ClipboardItemType? typeFilter,
+    List<ClipboardItemType> availableTypes = const [],
     int selectedIndex = -1,
     bool isLoading = true,
   }) {
@@ -49,6 +54,8 @@ class PinOverlayState {
       pinned: List.unmodifiable(pinned),
       recent: List.unmodifiable(recent),
       query: query,
+      typeFilter: typeFilter,
+      availableTypes: List.unmodifiable(availableTypes),
       selectedIndex: selectedIndex,
       isLoading: isLoading,
       shortcutsByItemId: Map.unmodifiable(shortcuts),
@@ -81,6 +88,16 @@ class PinOverlayState {
 
   final String query;
 
+  /// Tipo escolhido na fila de pílulas; `null` é "Tudo".
+  final ClipboardItemType? typeFilter;
+
+  /// Tipos que existem no histórico agora, na ordem do enum.
+  ///
+  /// A fila de pílulas sai daqui, e não de `ClipboardItemType.values`: um
+  /// filtro que não tem o que mostrar é uma promessa vazia — e as sete pílulas
+  /// de uma vez não caberiam nos 420px do painel.
+  final List<ClipboardItemType> availableTypes;
+
   /// Índice da seleção dentro de [results]; -1 quando não há nada selecionado.
   final int selectedIndex;
 
@@ -106,9 +123,20 @@ class PinOverlayState {
   /// Não há nada para mostrar — nem histórico, nem resultado de busca.
   bool get isEmpty => !isLoading && results.isEmpty;
 
-  /// A lista está vazia porque a busca não encontrou nada (e não porque o
-  /// histórico está vazio). Muda a mensagem do estado vazio.
-  bool get isEmptyBecauseOfSearch => isEmpty && query.isNotEmpty;
+  /// A lista está vazia porque a busca ou o filtro não encontraram nada (e não
+  /// porque o histórico está vazio). Muda a mensagem do estado vazio.
+  bool get isEmptyBecauseOfSearch =>
+      isEmpty && (query.isNotEmpty || typeFilter != null);
+
+  /// A fila de pílulas tem o que oferecer.
+  ///
+  /// Com um tipo só no histórico, "Tudo | Textos" são dois botões para a mesma
+  /// lista — a fila só aparece quando há de fato o que separar.
+  bool get hasTypeFilter => availableTypes.length > 1;
+
+  /// As opções da fila, na ordem em que aparecem: "Tudo" e os tipos presentes.
+  List<ClipboardItemType?> get typeFilterOptions =>
+      <ClipboardItemType?>[null, ...availableTypes];
 
   /// Atalho numérico do item, se ele estiver entre os primeiros do seu grupo.
   PinQuickShortcut? shortcutFor(ClipboardItem item) {
@@ -124,15 +152,25 @@ class PinOverlayState {
     return number > items.length ? null : items[number - 1];
   }
 
+  /// Cópia com campos trocados.
+  ///
+  /// `typeFilter` é o único que não segue o `?? this`: `null` ali é o valor
+  /// "Tudo", não "não mexe". Quem quer preservar o filtro passa
+  /// `keepTypeFilter: true` — que é o padrão.
   PinOverlayState copyWith({
     List<ClipboardItem>? results,
     String? query,
+    ClipboardItemType? typeFilter,
+    bool keepTypeFilter = true,
+    List<ClipboardItemType>? availableTypes,
     int? selectedIndex,
     bool? isLoading,
   }) {
     return PinOverlayState(
       results: results ?? this.results,
       query: query ?? this.query,
+      typeFilter: keepTypeFilter ? (typeFilter ?? this.typeFilter) : typeFilter,
+      availableTypes: availableTypes ?? this.availableTypes,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       isLoading: isLoading ?? this.isLoading,
     );

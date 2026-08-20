@@ -21,7 +21,9 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `↑` `↓` | overlay | move a seleção (funciona com o foco no campo de busca) |
 | `Enter` | overlay | copia o item selecionado e fecha |
 | `Tab` | overlay | abre/fecha o preview |
-| `Esc` | overlay | recolhe o preview; sem preview, fecha o overlay |
+| clique | overlay | seleciona a linha **e abre o preview** — o mouse não copia: quem copia é o botão "Copiar" de lá dentro |
+| `⌘←` `⌘→` | overlay | anda pela fila de filtros por tipo (Tudo · Textos · Links · E-mails · Telefones · CPF · Comandos) |
+| `Esc` | overlay | desfaz um recorte por vez: recolhe o preview, depois tira o filtro, e só então fecha o overlay |
 | `⌘P` | overlay | fixa/desafixa o selecionado |
 | `⌥↑` `⌥↓` | overlay | reordena o fixado selecionado dentro do grupo; nas pontas e fora dos fixados, não faz nada |
 | `⌘⌫` | overlay | apaga o selecionado, mantendo o overlay aberto e a seleção no vizinho |

@@ -161,6 +161,184 @@ void main() {
     expect(find.byType(PinPreviewPane), findsNothing);
   });
 
+  group('filtro por tipo', () {
+    testWidgets('a fila mostra só os tipos que existem no histórico',
+        (tester) async {
+      await pumpOverlay(tester);
+
+      expect(find.text('Tudo'), findsOneWidget);
+      expect(find.text('Textos'), findsOneWidget);
+      expect(find.text('Links'), findsOneWidget);
+      // Nenhum comando no histórico do fixture — a pílula não existe.
+      expect(find.text('Comandos'), findsNothing);
+    });
+
+    testWidgets('com um tipo só no histórico não há fila', (tester) async {
+      repository = FakeClipboardRepository([
+        item(1, 'Flutter'),
+        item(2, 'Senha temporária: xK9#mPz2'),
+      ]);
+
+      await pumpOverlay(tester);
+
+      expect(find.text('Tudo'), findsNothing);
+    });
+
+    testWidgets('escolher um tipo recorta a lista', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.tap(find.text('Links'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('https://pub.dev/packages/sqlite3'), findsOneWidget);
+      expect(find.text('Flutter'), findsNothing);
+      expect(find.text('Senha temporária: xK9#mPz2'), findsNothing);
+    });
+
+    testWidgets('⌘→ anda pela fila sem tirar o foco da busca', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pumpAndSettle();
+
+      // Da esquerda para a direita: "Tudo" dá lugar a "Textos".
+      expect(find.text('https://pub.dev/packages/sqlite3'), findsNothing);
+      expect(find.text('Flutter'), findsOneWidget);
+
+      await tester.enterText(find.byType(EgSearchField), 'senha');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Senha temporária: xK9#mPz2'), findsOneWidget);
+    });
+
+    testWidgets('Esc limpa o filtro antes de fechar o overlay', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.tap(find.text('Links'));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // O histórico inteiro volta, e o painel continua aberto.
+      expect(find.text('Flutter'), findsOneWidget);
+      expect(find.byType(PinListItem), findsNWidgets(3));
+    });
+
+    testWidgets('o rodapé anuncia que o Esc limpa o filtro', (tester) async {
+      await pumpOverlay(tester);
+      expect(find.text('sair'), findsOneWidget);
+
+      await tester.tap(find.text('Links'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('limpar filtro'), findsOneWidget);
+      expect(find.text('sair'), findsNothing);
+    });
+
+    testWidgets('o preview tem prioridade sobre o filtro no Esc',
+        (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.tap(find.text('Links'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // Um Esc, um recorte desfeito: o preview fecha e o filtro continua.
+      expect(find.byType(PinPreviewPane), findsNothing);
+      expect(find.byType(PinListItem), findsOneWidget);
+    });
+
+    testWidgets('a busca corre dentro do tipo escolhido', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.tap(find.text('Links'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EgSearchField), 'senha');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nenhum resultado'), findsOneWidget);
+      expect(find.text('Nada em Links corresponde à sua busca.'), findsOneWidget);
+    });
+
+    testWidgets('apagar o último item de um tipo tira a pílula e o filtro',
+        (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.tap(find.text('Links'));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pumpAndSettle();
+
+      // Sem link nenhum, a fila deixa de fazer sentido — e a lista não pode
+      // ficar vazia apontando para um filtro que não existe mais.
+      expect(find.text('Links'), findsNothing);
+      expect(find.byType(PinListItem), findsNWidgets(2));
+    });
+  });
+
+  group('clique do mouse', () {
+    testWidgets('clicar numa linha abre o preview dela', (tester) async {
+      await pumpOverlay(tester);
+      expect(find.byType(PinPreviewPane), findsNothing);
+
+      await tester.tap(find.text('https://pub.dev/packages/sqlite3'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PinPreviewPane), findsOneWidget);
+      expect(find.text('Copiar'), findsOneWidget);
+    });
+
+    testWidgets('clicar não copia nada — quem copia é o botão', (tester) async {
+      String? copiedText;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      await pumpOverlay(tester);
+
+      await tester.tap(find.text('Senha temporária: xK9#mPz2'));
+      await tester.pumpAndSettle();
+      expect(copiedText, isNull);
+
+      await tester.tap(find.text('Copiar'));
+      await tester.pumpAndSettle();
+
+      expect(copiedText, 'Senha temporária: xK9#mPz2');
+    });
+
+    testWidgets('clicar traz o apelido do item para o campo', (tester) async {
+      repository.setAlias(2, 'sqlite');
+      await pumpOverlay(tester);
+
+      await tester.tap(find.textContaining('sqlite'));
+      await tester.pumpAndSettle();
+
+      final field = find.descendant(
+        of: find.byType(EgTextField),
+        matching: find.byType(TextField),
+      );
+      expect(tester.widget<TextField>(field).controller?.text, 'sqlite');
+    });
+  });
+
   group('apelido', () {
     /// O campo do preview, distinguido do campo de busca do topo.
     Finder aliasField() => find.byType(EgTextField);

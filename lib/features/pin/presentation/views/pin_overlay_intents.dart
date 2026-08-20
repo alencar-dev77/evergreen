@@ -32,6 +32,13 @@ class PinTogglePreviewIntent extends Intent {
   const PinTogglePreviewIntent();
 }
 
+/// Anda pela fila de filtros por tipo. [delta] é -1 (⌘←) ou +1 (⌘→).
+class PinCycleFilterIntent extends Intent {
+  const PinCycleFilterIntent(this.delta);
+
+  final int delta;
+}
+
 /// Copia direto o item na posição [number] do grupo [group].
 class PinQuickCopyIntent extends Intent {
   const PinQuickCopyIntent(this.group, this.number);
@@ -111,6 +118,14 @@ abstract final class PinOverlayIntents {
     const SingleActivator(LogicalKeyboardKey.escape): const PinCloseIntent(),
     const SingleActivator(LogicalKeyboardKey.tab):
         const PinTogglePreviewIntent(),
+    // ⌘← e ⌘→ andam pela fila de tipos. As setas sem modificador pertencem ao
+    // cursor do campo de busca, e ⌥←/⌥→ ao salto por palavra dele — sobra o ⌘,
+    // que num campo de uma linha só custa o "ir para o começo/fim da linha" que
+    // ninguém usa numa busca de três letras.
+    const SingleActivator(LogicalKeyboardKey.arrowLeft, meta: true):
+        const PinCycleFilterIntent(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true):
+        const PinCycleFilterIntent(1),
     const SingleActivator(LogicalKeyboardKey.keyP, meta: true):
         const PinTogglePinIntent(),
     // ⌘⌫, e não Delete puro: o campo de busca está sempre focado, então um
@@ -157,6 +172,7 @@ abstract final class PinOverlayIntents {
     required Future<void> Function() onActivate,
     required Future<void> Function() onClose,
     required VoidCallback onTogglePreview,
+    required void Function(int delta) onCycleFilter,
     required Future<void> Function(PinShortcutGroup group, int number)
         onQuickCopy,
     required VoidCallback onTogglePin,
@@ -188,6 +204,12 @@ abstract final class PinOverlayIntents {
       PinTogglePreviewIntent: CallbackAction<PinTogglePreviewIntent>(
         onInvoke: (_) {
           onTogglePreview();
+          return null;
+        },
+      ),
+      PinCycleFilterIntent: CallbackAction<PinCycleFilterIntent>(
+        onInvoke: (intent) {
+          onCycleFilter(intent.delta);
           return null;
         },
       ),
