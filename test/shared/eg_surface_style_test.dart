@@ -100,4 +100,39 @@ void main() {
       expect(style.shadowFor(focused, isEnabled: false), isNull);
     });
   });
+
+  group('aresta de seleção', () {
+    test('só aparece no estado selecionado', () {
+      expect(style.edgeFor(rest), isNull);
+      expect(style.edgeFor(hovered), isNull);
+      expect(style.edgeFor(pressed), isNull);
+      expect(style.edgeFor(focused), isNull);
+      expect(
+        style.edgeFor(rest, isSelected: true),
+        AppColors.greenPrimary,
+      );
+    });
+
+    test('vale para as colunas que ocupam a largura de um bloco', () {
+      expect(EgSurfaceStyle.row.selectedEdge, isNotNull);
+      expect(EgSurfaceStyle.card.selectedEdge, isNotNull);
+    });
+
+    test('a pílula do segmented control não tem aresta', () {
+      // Numa pílula de 60px a aresta viraria metade do componente — ali o que
+      // marca a escolha é a superfície.
+      expect(EgSurfaceStyle.segment.selectedEdge, isNull);
+    });
+
+    test('quem não tem seleção não tem aresta', () {
+      for (final column in [
+        EgSurfaceStyle.ghost,
+        EgSurfaceStyle.primary,
+        EgSurfaceStyle.secondary,
+        EgSurfaceStyle.destructive,
+      ]) {
+        expect(column.selectedEdge, isNull);
+      }
+    });
+  });
 }

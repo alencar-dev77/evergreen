@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_colors.dart';
@@ -42,6 +44,7 @@ class EgSurfaceStyle {
     this.selectedForeground,
     this.border,
     this.selectedBorder,
+    this.selectedEdge,
     this.disabledOpacity = AppOpacities.disabled,
   });
 
@@ -85,6 +88,18 @@ class EgSurfaceStyle {
   /// Contorno do estado selecionado. `null` mantém [border].
   final Color? selectedBorder;
 
+  /// Aresta que corre pela lateral esquerda da superfície selecionada.
+  ///
+  /// É a assinatura de seleção do Evergreen: o fundo em accent a 14% diz "esta
+  /// é a linha", e a aresta diz de onde ela começa — num painel escuro, uma
+  /// superfície de baixo contraste sozinha se perde entre as vizinhas quando a
+  /// lista rola. Vale para as colunas que ocupam a largura toda de um bloco
+  /// ([row] e [card]); pílula de segmented control não tem, porque em 60px de
+  /// largura a aresta viraria metade do componente.
+  ///
+  /// `null` em quem não tem noção de seleção — botão, botão de ícone.
+  final Color? selectedEdge;
+
   /// Opacidade aplicada ao conteúdo quando o controle está indisponível.
   final double disabledOpacity;
 
@@ -97,6 +112,7 @@ class EgSurfaceStyle {
     selected: AppColors.selection,
     foreground: AppColors.textPrimary,
     selectedForeground: AppColors.greenLight,
+    selectedEdge: AppColors.greenPrimary,
   );
 
   /// Botão só de ícone e afordâncias que só aparecem sob o mouse: igual à
@@ -133,6 +149,7 @@ class EgSurfaceStyle {
     selectedForeground: AppColors.greenLight,
     border: AppColors.border,
     selectedBorder: AppColors.greenDeep,
+    selectedEdge: AppColors.greenPrimary,
   );
 
   /// Ação primária: verde chapado com texto escuro.
@@ -215,6 +232,13 @@ class EgSurfaceStyle {
     return border;
   }
 
+  /// Aresta de seleção resolvida, ou `null` quando não há o que desenhar.
+  ///
+  /// Só o estado selecionado a acende: ela responde "onde o teclado está", e um
+  /// hover que a acendesse faria o mouse parecer mover a seleção sem clicar.
+  Color? edgeFor(EgInteraction state, {bool isSelected = false}) =>
+      isSelected ? selectedEdge : null;
+
   /// Anel de foco: só com o foco de teclado e só enquanto o controle responde.
   List<BoxShadow>? shadowFor(EgInteraction state, {bool isEnabled = true}) =>
       state.isFocused && isEnabled ? AppShadows.focusRing : null;
@@ -267,6 +291,8 @@ class EgSurface extends StatelessWidget {
       isEnabled: isEnabled,
     );
 
+    final edgeColor = style.edgeFor(state, isSelected: isSelected);
+
     return AnimatedContainer(
       // Pressed entra sem transição: o feedback de "registrei seu clique"
       // precisa ser instantâneo. A volta ao repouso é que ganha o easing.
@@ -290,6 +316,13 @@ class EgSurface extends StatelessWidget {
         border: borderColor == null ? null : Border.all(color: borderColor),
         boxShadow: style.shadowFor(state, isEnabled: isEnabled),
       ),
+      // A aresta vai em primeiro plano, e não na `decoration`: o `Border` do
+      // Flutter só aceita raio de canto quando os quatro lados são iguais, e
+      // desenhá-la só à esquerda de uma caixa arredondada é justamente o caso
+      // que a asserção proíbe.
+      foregroundDecoration: edgeColor == null
+          ? null
+          : EgSelectionEdge(color: edgeColor, borderRadius: borderRadius),
       child: child,
     );
   }
@@ -372,5 +405,94 @@ class EgInteractiveSurface extends StatelessWidget {
         child: builder?.call(context, state) ?? child!,
       ),
     );
+  }
+}
+
+/// A aresta accent da superfície selecionada, pintada por cima da caixa.
+///
+/// Uma decoração própria, e não um `Border` de um lado só, porque `BoxDecoration`
+/// exige borda uniforme para aceitar raio de canto — e a aresta precisa
+/// acompanhar o arredondamento da peça, senão ela vaza pelos cantos de cima e
+/// de baixo.
+///
+/// O recorte é o mesmo `RRect` da caixa: as pontas da barra saem arredondadas
+/// de graça, sem cálculo de canto.
+@immutable
+class EgSelectionEdge extends Decoration {
+  const EgSelectionEdge({
+    required this.color,
+    required this.borderRadius,
+    this.width = AppBorders.selectionEdge,
+  });
+
+  final Color color;
+  final BorderRadius borderRadius;
+  final double width;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _EgSelectionEdgePainter(this);
+
+  /// A aresta acende e apaga junto com a superfície — daí ela saber interpolar.
+  /// Sem isso, a barra apareceria de uma vez enquanto o fundo ainda transita, e
+  /// a linha selecionada piscaria a cada seta do teclado.
+  @override
+  EgSelectionEdge? lerpFrom(Decoration? a, double t) {
+    if (a == null) return _fade(t);
+    if (a is! EgSelectionEdge) return null;
+
+    return EgSelectionEdge(
+      color: Color.lerp(a.color, color, t)!,
+      borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
+      width: lerpDouble(a.width, width, t)!,
+    );
+  }
+
+  @override
+  EgSelectionEdge? lerpTo(Decoration? b, double t) {
+    if (b == null) return _fade(1 - t);
+    if (b is! EgSelectionEdge) return null;
+
+    return b.lerpFrom(this, t);
+  }
+
+  /// A mesma aresta com [t] da opacidade — o caminho de ida e volta entre "não
+  /// há aresta" e a aresta cheia.
+  EgSelectionEdge _fade(double t) => EgSelectionEdge(
+        color: color.withValues(alpha: color.a * t.clamp(0.0, 1.0)),
+        borderRadius: borderRadius,
+        width: width,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is EgSelectionEdge &&
+      other.color == color &&
+      other.borderRadius == borderRadius &&
+      other.width == width;
+
+  @override
+  int get hashCode => Object.hash(color, borderRadius, width);
+}
+
+class _EgSelectionEdgePainter extends BoxPainter {
+  _EgSelectionEdgePainter(this.decoration);
+
+  final EgSelectionEdge decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final size = configuration.size;
+    if (size == null || size.isEmpty) return;
+
+    final rect = offset & size;
+
+    canvas.save();
+    canvas.clipRRect(decoration.borderRadius.toRRect(rect));
+    canvas.drawRect(
+      Rect.fromLTWH(rect.left, rect.top, decoration.width, rect.height),
+      Paint()..color = decoration.color,
+    );
+    canvas.restore();
   }
 }

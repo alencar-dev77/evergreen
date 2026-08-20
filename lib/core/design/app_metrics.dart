@@ -123,6 +123,16 @@ abstract final class AppBorders {
   static const all = Border.fromBorderSide(subtle);
   static const bottom = Border(bottom: subtle);
   static const right = Border(right: subtle);
+
+  /// Espessura da aresta que marca a superfície selecionada (ver
+  /// `EgSurfaceStyle.selectedEdge`).
+  ///
+  /// 3px, e não 1 ou 2: o cartão selecionado já tem contorno verde por inteiro,
+  /// e em 2px a aresta some dentro dele — o que deveria dizer "a linha começa
+  /// aqui" vira um engrossamento sem sentido de um dos lados. Em 3px ela se lê
+  /// como peça própria, e continua discreta nos 34px de altura de uma linha de
+  /// lista.
+  static const selectionEdge = 3.0;
 }
 
 abstract final class AppShadows {
