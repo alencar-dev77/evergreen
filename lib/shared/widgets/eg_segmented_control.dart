@@ -21,12 +21,29 @@ class EgSegmentedControl<T> extends StatefulWidget {
     required this.options,
     required this.labelOf,
     required this.onChanged,
+    this.bare = false,
+    this.focusable = true,
   });
 
   final T value;
   final List<T> options;
   final String Function(T option) labelOf;
   final ValueChanged<T> onChanged;
+
+  /// Sem a caixa em volta — só as pílulas.
+  ///
+  /// É a variante de dentro de um painel que já é uma superfície: a caixa ali
+  /// seria um card dentro de um card (ver `anti-patterns.md`). Mesma ideia do
+  /// `bare` do [EgSearchField], que perde a moldura ao virar a linha do topo do
+  /// overlay.
+  final bool bare;
+
+  /// Entra na navegação por Tab e responde a ← / →.
+  ///
+  /// Desligue onde o teclado já pertence a outra coisa — no overlay do Pin o
+  /// foco é sempre do campo de busca, e o Tab abre o preview; ali quem anda
+  /// pela fila é o `⌘←` / `⌘→` do próprio painel.
+  final bool focusable;
 
   @override
   State<EgSegmentedControl<T>> createState() => _EgSegmentedControlState<T>();
@@ -61,37 +78,51 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final control = _control();
+    if (!widget.focusable) return control;
+
     return Focus(
       onFocusChange: _setFocused,
       onKeyEvent: _handleKey,
-      child: AnimatedContainer(
-        duration: AppDurations.instant,
-        curve: AppDurations.curve,
-        padding: const EdgeInsets.all(AppSpacing.xxxs),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: AppRadii.badgeAll,
-          border: AppBorders.all,
-          boxShadow: _isFocused ? AppShadows.focusRing : null,
-        ),
-        // `Wrap`, e não `Row`: com cinco opções (as durações do Focus) o
-        // controle pede uns 460px, e numa janela estreita ele sozinho não cabe
-        // na coluna. Quebrando linha, as opções continuam todas visíveis e
-        // clicáveis — rolar ou recortar esconderia opção, que num seletor é o
-        // mesmo que apagá-la. Onde há largura, nada muda: a fila cabe inteira
-        // numa linha só.
-        child: Wrap(
-          spacing: 0,
-          runSpacing: AppSpacing.xxxs,
-          children: [
-            for (final option in widget.options)
-              _Segment(
-                label: widget.labelOf(option),
-                isSelected: option == widget.value,
-                onTap: () => widget.onChanged(option),
-              ),
-          ],
-        ),
+      child: control,
+    );
+  }
+
+  Widget _control() {
+    return AnimatedContainer(
+      duration: AppDurations.instant,
+      curve: AppDurations.curve,
+      padding: widget.bare
+          ? EdgeInsets.zero
+          : const EdgeInsets.all(AppSpacing.xxxs),
+      decoration: widget.bare
+          ? null
+          : BoxDecoration(
+              color: AppColors.card,
+              borderRadius: AppRadii.badgeAll,
+              border: AppBorders.all,
+              boxShadow: _isFocused ? AppShadows.focusRing : null,
+            ),
+      // `Wrap`, e não `Row`: com cinco opções (as durações do Focus) o
+      // controle pede uns 460px, e numa janela estreita ele sozinho não cabe
+      // na coluna. Quebrando linha, as opções continuam todas visíveis e
+      // clicáveis — rolar ou recortar esconderia opção, que num seletor é o
+      // mesmo que apagá-la. Onde há largura, nada muda: a fila cabe inteira
+      // numa linha só.
+      child: Wrap(
+        // Sem a caixa, as pílulas precisam de um vão entre elas: encostadas,
+        // duas superfícies de seleção vizinhas leriam como uma só.
+        spacing: widget.bare ? AppSpacing.xxs : 0,
+        runSpacing: AppSpacing.xxxs,
+        children: [
+          for (final option in widget.options)
+            _Segment(
+              label: widget.labelOf(option),
+              isSelected: option == widget.value,
+              onTap: () => widget.onChanged(option),
+              bare: widget.bare,
+            ),
+        ],
       ),
     );
   }
@@ -102,11 +133,20 @@ class _Segment extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.bare = false,
   });
 
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+
+  /// Sem a caixa em volta, a pílula respira menos por dentro: o vão entre as
+  /// pílulas já as separa, e o padding largo existia para elas não encostarem
+  /// na moldura. São 8px por pílula — o que decide se a fila do Pin cabe numa
+  /// linha só quando o histórico tem os seis tipos, e uma segunda linha com uma
+  /// pílula órfã custaria mais altura do que ela vale num painel que se lê de
+  /// relance.
+  final bool bare;
 
   @override
   Widget build(BuildContext context) {
@@ -124,8 +164,8 @@ class _Segment extends StatelessWidget {
       isSelected: isSelected,
       // Concêntrico com o container: 6px do pai menos os 2px de padding.
       borderRadius: AppRadii.badgeSmallAll,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
+      padding: EdgeInsets.symmetric(
+        horizontal: bare ? AppSpacing.xs : AppSpacing.md,
         vertical: AppSpacing.xxs,
       ),
       builder: (context, state) {

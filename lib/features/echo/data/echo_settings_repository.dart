@@ -12,6 +12,7 @@ class EchoSettingsRepository {
   static const _liveTranscriptionKey = 'echo.liveTranscription';
   static const _languageKey = 'echo.language';
   static const _instructionsKey = 'echo.summaryInstructions';
+  static const _vocabularyKey = 'echo.vocabulary';
   static const _historyLimitKey = 'echo.historyLimit';
 
   EchoSettings load() {
@@ -25,6 +26,7 @@ class EchoSettingsRepository {
       ),
       summaryInstructions:
           _preferences.getString(_instructionsKey) ?? fallback.summaryInstructions,
+      vocabulary: _preferences.getString(_vocabularyKey) ?? fallback.vocabulary,
       historyLimit: _preferences.getInt(_historyLimitKey) ?? fallback.historyLimit,
     );
   }
@@ -33,6 +35,7 @@ class EchoSettingsRepository {
     await _preferences.setBool(_liveTranscriptionKey, settings.liveTranscription);
     await _preferences.setString(_languageKey, settings.language.locale);
     await _preferences.setString(_instructionsKey, settings.summaryInstructions);
+    await _preferences.setString(_vocabularyKey, settings.vocabulary);
     await _preferences.setInt(_historyLimitKey, settings.historyLimit);
   }
 

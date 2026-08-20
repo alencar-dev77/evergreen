@@ -20,8 +20,10 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘⇧C` | global | abre o overlay do Pin |
 | `↑` `↓` | overlay | move a seleção (funciona com o foco no campo de busca) |
 | `Enter` | overlay | copia o item selecionado e fecha |
-| `Tab` | overlay | abre/fecha o preview |
-| `Esc` | overlay | recolhe o preview; sem preview, fecha o overlay |
+| `Tab` | overlay | abre **e fecha** o preview — é o único caminho de volta dele |
+| clique | overlay | seleciona a linha **e abre o preview** — o mouse não copia: quem copia é o botão "Copiar" de lá dentro |
+| `⌘←` `⌘→` | overlay | anda pela fila de filtros por tipo (Tudo · Textos · Links · E-mails · Telefones · CPF · Comandos) |
+| `Esc` | overlay | com filtro ativo, desfaz o filtro; em qualquer outro caso fecha o overlay — o preview **não** consome o Esc |
 | `⌘P` | overlay | fixa/desafixa o selecionado |
 | `⌥↑` `⌥↓` | overlay | reordena o fixado selecionado dentro do grupo; nas pontas e fora dos fixados, não faz nada |
 | `⌘⌫` | overlay | apaga o selecionado, mantendo o overlay aberto e a seleção no vizinho |
@@ -46,6 +48,7 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `←` `→` | Awake | troca a duração, com o seletor focado |
 | `Esc` | Awake | fecha o painel; a trava continua como está |
 | `⌘⇧,` | global | abre as preferências (Hub) |
+| `Esc` | Hub | sai do campo de texto que estiver em edição; sem campo, fecha a região de leitura; sem região, esconde a janela |
 | `⌘⇧E` | global | abre o painel do Echo (`E` de Echo: `⌘⇧T` e `⌘⇧R` roubariam "reabrir aba" e "recarregar" de todo navegador, e reunião acontece dentro do navegador) |
 | `Enter` | Echo | a ação daquele estado: gravar, parar e transcrever, abrir no Hub |
 | `⌘.` | Echo | descarta a gravação em curso e joga o áudio fora |
@@ -56,6 +59,15 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘+` | Focus | +5 min na sessão — só na reta final (≤5 min restantes) e uma única vez por sessão |
 | `Esc` | Focus | fecha o painel; com o ciclo concluído, encerra o ciclo antes de sair |
 | `⌘,` | Focus | abre as preferências (Hub) |
+
+**A regra do Esc, que vale para qualquer janela ou painel do Evergreen:** ele
+desfaz uma coisa por vez, do mais interno para o mais externo, e a última delas
+é sempre sair. Entram na fila os estados que **escondem** informação (o filtro
+por tipo do Pin) ou que **prendem o teclado** (um campo em edição, a região de
+leitura do Hub). Não entra o que apenas mostra mais do que já estava à vista —
+o preview do Pin é aberto e fechado pelo Tab. Foi o clique que decidiu isso:
+desde que ele passou a abrir o preview, um Esc gasto em recolhê-lo virou o
+caminho comum de quem só queria ir embora.
 
 Quatro convenções que valem para qualquer painel novo:
 

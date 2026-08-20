@@ -156,7 +156,13 @@ void main() {
     // atrás dele, em segundo plano.
     item(6, 'Senha temporária: xK9#mPz2').copyWith(alias: 'senha do roteador'),
     item(9, 'flutter pub get'),
+    // Um de cada tipo que o classificador reconhece: é o que faz a fila de
+    // filtros aparecer inteira na folha de conferência, com os sete rótulos e
+    // os ícones novos.
+    item(11, 'contato@evergreen.com.br'),
+    item(13, '(11) 98765-4321'),
     item(14, 'https://github.com/evergreen/pin'),
+    item(21, '529.982.247-25'),
     item(30, 'const AppColors.greenPrimary = Color(0xFF22C55E);'),
   ]);
 

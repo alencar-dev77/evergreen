@@ -22,7 +22,6 @@ class PinListItem extends StatelessWidget {
     required this.isSelected,
     this.shortcut,
     this.onTap,
-    this.onDoubleTap,
     this.compact = false,
   });
 
@@ -33,7 +32,6 @@ class PinListItem extends StatelessWidget {
   final PinQuickShortcut? shortcut;
 
   final VoidCallback? onTap;
-  final VoidCallback? onDoubleTap;
 
   /// Variante usada na coluna estreita, quando o preview está aberto.
   final bool compact;
@@ -48,47 +46,49 @@ class PinListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sem duplo clique para copiar: o clique simples abre o preview, e o painel
+    // muda de largura ao abrir. O segundo toque cairia numa linha que já saiu de
+    // baixo do cursor — ou, pior, no botão de excluir do preview que acabou de
+    // aparecer ali. Copiar pelo mouse é o botão "Copiar" do preview; pelo
+    // teclado, o Enter.
     return EgHoverable(
       onTap: onTap,
       builder: (context, state) {
-        return GestureDetector(
-          onDoubleTap: onDoubleTap,
-          // Selecionado ganha a cor de destaque em baixa opacidade — distinto
-          // do hover neutro, para que a posição do teclado nunca se confunda
-          // com o mouse só passando por cima. Quem resolve isso é a matriz de
-          // estado compartilhada (`EgSurfaceStyle.row`), a mesma da sidebar e
-          // do segmented control.
-          child: EgSurface(
-            state: state,
-            isSelected: isSelected,
-            height: height,
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? AppSpacing.sm : AppSpacing.md,
-            ),
-            child: Row(
-              children: [
-                // Ícone de tipo alinhado numa coluna fixa, sem o chip de fundo:
-                // o glifo já distingue texto/link/comando de relance, e um
-                // container cinza por linha só somaria ruído. Recua no repouso e
-                // acompanha o texto quando a linha está selecionada.
-                SizedBox(
-                  width: compact ? _compactIconColumn : _iconColumn,
-                  child: EgIcon(
-                    item.type.icon,
-                    size: compact ? AppIconSizes.xs : AppIconSizes.md,
-                    color: isSelected
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
-                  ),
+        // Selecionado ganha a cor de destaque em baixa opacidade e a aresta
+        // accent à esquerda — distinto do hover neutro, para que a posição do
+        // teclado nunca se confunda com o mouse só passando por cima. Quem
+        // resolve isso é a matriz de estado compartilhada
+        // (`EgSurfaceStyle.row`), a mesma da sidebar e do segmented control.
+        return EgSurface(
+          state: state,
+          isSelected: isSelected,
+          height: height,
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? AppSpacing.sm : AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              // Ícone de tipo alinhado numa coluna fixa, sem o chip de fundo: o
+              // glifo já distingue texto/link/comando de relance, e um container
+              // cinza por linha só somaria ruído. Recua no repouso e acompanha o
+              // texto quando a linha está selecionada.
+              SizedBox(
+                width: compact ? _compactIconColumn : _iconColumn,
+                child: EgIcon(
+                  item.type.icon,
+                  size: compact ? AppIconSizes.xs : AppIconSizes.md,
+                  color: isSelected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
                 ),
-                SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
-                Expanded(child: _label()),
-                if (!compact) ...[
-                  const SizedBox(width: AppSpacing.sm),
-                  _trailing(),
-                ],
+              ),
+              SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
+              Expanded(child: _label()),
+              if (!compact) ...[
+                const SizedBox(width: AppSpacing.sm),
+                _trailing(),
               ],
-            ),
+            ],
           ),
         );
       },
@@ -120,8 +120,9 @@ class PinListItem extends StatelessWidget {
         children: [
           TextSpan(
             text: '   ${item.title}',
-            style: AppTypography.captionXS
-                .copyWith(color: AppColors.textTertiary),
+            style: AppTypography.captionXS.copyWith(
+              color: AppColors.textTertiary,
+            ),
           ),
         ],
       ),

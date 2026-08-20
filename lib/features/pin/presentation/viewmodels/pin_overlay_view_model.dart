@@ -8,6 +8,7 @@ import '../../data/clipboard_repository.dart';
 import '../../data/clipboard_watcher.dart';
 import '../../data/pin_settings_repository.dart';
 import '../../models/clipboard_item.dart';
+import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
 import 'pin_overlay_state.dart';
 
@@ -46,6 +47,13 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   void startWatching() {
     _watchSubscription ??= _watcher.onCopy.listen(_onClipboardChanged);
     _watcher.start();
+
+    // Antes da primeira carga: o filtro por tipo mostra o que o classificador
+    // enxerga, e um histórico classificado por uma versão anterior apareceria
+    // inteiro como "Texto". Custa uma passada por até 500 linhas, uma única vez
+    // na vida do banco (ver `ClipboardItemClassifier.version`).
+    _repository.reclassifyOutdated();
+
     load();
   }
 
@@ -55,15 +63,53 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     _emitResults(resetSelection: true);
   }
 
-  /// Prepara o overlay para ser exibido: limpa a busca e recarrega a lista.
+  /// Prepara o overlay para ser exibido: limpa a busca, tira o filtro e
+  /// recarrega a lista.
+  ///
+  /// O filtro sai junto da busca porque ele é do mesmo tipo de coisa: um
+  /// recorte da vez, não uma preferência. Encontrar o Pin filtrado por um tipo
+  /// escolhido ontem seria encontrá-lo com metade do histórico faltando, sem
+  /// nada explicando o porquê.
   void prepareForOpen() {
-    state = state.copyWith(query: '');
+    state = state.copyWith(query: '', typeFilter: null, keepTypeFilter: false);
     load();
   }
 
   void search(String query) {
     state = state.copyWith(query: query);
     _emitResults(resetSelection: true);
+  }
+
+  /// Troca o tipo exibido. `null` é "Tudo".
+  void setTypeFilter(ClipboardItemType? type) {
+    if (type == state.typeFilter) return;
+
+    state = state.copyWith(typeFilter: type, keepTypeFilter: false);
+    _emitResults(resetSelection: true);
+  }
+
+  /// Anda pela fila de pílulas com `⌘←` / `⌘→`, parando nas pontas.
+  ///
+  /// Para nas pontas, e não dá a volta, pela mesma razão do `EgSegmentedControl`
+  /// e da lista: um seletor que volta ao começo sozinho faz duvidar de onde se
+  /// está quando a tecla é repetida sem olhar.
+  void cycleTypeFilter(int delta) {
+    if (!state.hasTypeFilter) return;
+
+    final options = state.typeFilterOptions;
+    final current = options.indexOf(state.typeFilter);
+    if (current < 0) return;
+
+    setTypeFilter(options[(current + delta).clamp(0, options.length - 1)]);
+  }
+
+  /// Tira o filtro. Devolve `false` se não havia nenhum — é assim que o Esc
+  /// sabe que não tem nada a desfazer e pode fechar o overlay.
+  bool clearTypeFilter() {
+    if (state.typeFilter == null) return false;
+
+    setTypeFilter(null);
+    return true;
   }
 
   /// Move a seleção com ↑/↓, parando nas extremidades da lista.
@@ -220,14 +266,30 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     _emitResults();
   }
 
-  /// Reaplica o filtro sobre [_allItems] e ajusta a seleção.
+  /// Reaplica busca e filtro sobre [_allItems] e ajusta a seleção.
   void _emitResults({bool resetSelection = false, int? preferredIndex}) {
+    final availableTypes = _availableTypes();
+
+    // O tipo escolhido pode ter acabado de sair do histórico — apagar o último
+    // link com o filtro em "Links" tira a própria pílula de baixo do dedo. Sem
+    // isto, o seletor ficaria apontando para uma opção que não está mais na
+    // fila, e a lista ficaria vazia sem nada explicando por quê.
+    final type = availableTypes.contains(state.typeFilter)
+        ? state.typeFilter
+        : null;
+
     final results = _allItems
-        .where((item) => item.matches(state.query))
+        .where(
+          (item) =>
+              item.matches(state.query) && (type == null || item.type == type),
+        )
         .toList(growable: false);
 
     state = state.copyWith(
       results: results,
+      typeFilter: type,
+      keepTypeFilter: false,
+      availableTypes: availableTypes,
       isLoading: false,
       selectedIndex: _resolveSelection(
         results,
@@ -235,6 +297,15 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
         preferredIndex: preferredIndex,
       ),
     );
+  }
+
+  /// Os tipos presentes no histórico, na ordem do enum.
+  List<ClipboardItemType> _availableTypes() {
+    final present = _allItems.map((item) => item.type).toSet();
+
+    return ClipboardItemType.values
+        .where(present.contains)
+        .toList(growable: false);
   }
 
   int _resolveSelection(

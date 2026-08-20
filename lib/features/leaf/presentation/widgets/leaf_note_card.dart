@@ -199,6 +199,7 @@ class _LeafCardSurface extends StatelessWidget {
     foreground: AppColors.textPrimary,
     border: AppColors.border,
     selectedBorder: AppColors.greenDeep,
+    selectedEdge: AppColors.greenPrimary,
   );
 
   /// O cartão sendo escrito: borda accent cheia, em vez do [AppColors.greenDeep]
@@ -212,6 +213,10 @@ class _LeafCardSurface extends StatelessWidget {
     foreground: AppColors.textPrimary,
     border: AppColors.greenPrimary,
     selectedBorder: AppColors.greenPrimary,
+    // A aresta acompanha o cartão para dentro da edição: ela é o "aqui está o
+    // teclado" de toda superfície selecionada do app, e sumir bem na hora em
+    // que o teclado passa a ser mesmo do cartão seria dizer o contrário.
+    selectedEdge: AppColors.greenPrimary,
   );
 
   EgSurfaceStyle get _style {

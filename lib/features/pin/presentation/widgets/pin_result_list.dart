@@ -20,17 +20,13 @@ class PinResultList extends StatefulWidget {
     super.key,
     required this.state,
     required this.onSelect,
-    required this.onActivate,
     this.compact = false,
   });
 
   final PinOverlayState state;
 
-  /// Clique simples: move a seleção.
+  /// Clique na linha: seleciona e abre o preview.
   final ValueChanged<ClipboardItem> onSelect;
-
-  /// Duplo clique / Enter: copia e fecha.
-  final ValueChanged<ClipboardItem> onActivate;
 
   /// Coluna estreita exibida ao lado do preview.
   final bool compact;
@@ -182,7 +178,6 @@ class _PinResultListState extends State<PinResultList> {
       shortcut: widget.state.shortcutFor(item),
       compact: widget.compact,
       onTap: () => widget.onSelect(item),
-      onDoubleTap: () => widget.onActivate(item),
     );
   }
 }

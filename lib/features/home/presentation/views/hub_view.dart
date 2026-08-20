@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
+import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/hub_window_channel.dart';
 import '../../../../shared/widgets/eg_background.dart';
 import '../../../awake/presentation/views/awake_settings_view.dart';
@@ -51,6 +54,33 @@ class _HubViewState extends ConsumerState<HubView> {
     setState(() => _selected = module);
   }
 
+  /// O Esc do Hub, do mais interno para o mais externo: sai do campo de texto,
+  /// fecha a região de leitura e, sem nada disso aberto, esconde a janela.
+  ///
+  /// Esconder a janela é o degrau final porque o Hub é chamado por atalho e
+  /// dispensado como qualquer painel do Evergreen — sair dele pelo teclado não
+  /// pode exigir o mouse na bolinha vermelha.
+  ///
+  /// Sair do campo antes de tudo tem a mesma razão do apelido do Pin: a tecla
+  /// que cancela uma edição não pode levar a janela junto. E sair do campo é o
+  /// que **guarda** o que foi escrito, porque toda preferência do Evergreen se
+  /// grava ao perder o foco.
+  void _handleEscape() {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus != null &&
+        focus.context?.findAncestorStateOfType<EditableTextState>() != null) {
+      focus.unfocus();
+      return;
+    }
+
+    if (ref.read(hubDetailProvider) != null) {
+      ref.read(hubDetailProvider.notifier).close();
+      return;
+    }
+
+    unawaited(HubWindow.hideSelf());
+  }
+
   @override
   Widget build(BuildContext context) {
     final detail = ref.watch(hubDetailProvider);
@@ -67,11 +97,8 @@ class _HubViewState extends ConsumerState<HubView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CallbackShortcuts(
-        // `esc` fecha a região, como fecha qualquer coisa aberta por cima no
-        // resto do aplicativo.
         bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape): () =>
-              ref.read(hubDetailProvider.notifier).close(),
+          const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
         },
         child: Focus(
           autofocus: true,

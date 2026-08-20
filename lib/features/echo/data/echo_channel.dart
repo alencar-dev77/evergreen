@@ -173,10 +173,12 @@ class EchoChannel {
   Future<void> startRecording({
     required bool liveTranscription,
     required String locale,
+    List<String> vocabulary = const [],
   }) async {
     await _invoke<Object>('startRecording', {
       'liveTranscription': liveTranscription,
       'locale': locale,
+      'vocabulary': vocabulary,
     });
   }
 
@@ -201,11 +203,13 @@ class EchoChannel {
   Future<List<MeetingSegment>> transcribe({
     required RecordingFiles files,
     required String locale,
+    List<String> vocabulary = const [],
   }) async {
     final result = await _invoke<List<Object?>>('transcribe', {
       'micPath': files.micPath,
       'systemPath': files.systemPath,
       'locale': locale,
+      'vocabulary': vocabulary,
     });
 
     return (result ?? const [])
@@ -228,8 +232,37 @@ class EchoChannel {
   }
 
   /// Baixa o modelo de fala do idioma, se ele ainda não estiver na máquina.
-  Future<void> installLanguage(String locale) =>
-      _invoke<Object>('installLocale', {'locale': locale});
+  ///
+  /// Devolve o idioma que o sistema vai usar de fato, que nem sempre é o
+  /// pedido: uma variante regional pode ser atendida por outra. Lança
+  /// `locale_unsupported` quando não existe modelo nenhum para ela — e essa é
+  /// a resposta que faltava, porque antes o nativo dizia que tinha instalado
+  /// mesmo quando não havia o que instalar.
+  Future<String?> installLanguage(String locale) async {
+    final result = await _invoke<Map<Object?, Object?>>('installLocale', {
+      'locale': locale,
+    });
+
+    return result?['locale'] as String?;
+  }
+
+  /// Para cada idioma pedido, com qual modelo o sistema o atenderia.
+  ///
+  /// Idioma ausente do resultado é idioma que esta máquina não reconhece; um
+  /// que apareça apontando para outro identificador é uma variante regional
+  /// atendida por um modelo vizinho — as duas coisas a tela precisa poder
+  /// dizer antes da reunião, e não depois.
+  Future<Map<String, String>> resolveLocales(List<String> locales) async {
+    final result = await _invoke<Map<Object?, Object?>>('resolveLocales', {
+      'locales': locales,
+    });
+
+    return {
+      for (final entry in (result ?? const {}).entries)
+        if (entry.key is String && entry.value is String)
+          entry.key as String: entry.value as String,
+    };
+  }
 
   /// Apaga o áudio. Chamado assim que a transcrição está salva — nunca antes.
   Future<void> deleteAudio(List<String> paths) =>

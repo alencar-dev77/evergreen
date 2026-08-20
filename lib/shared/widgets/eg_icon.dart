@@ -19,6 +19,15 @@ enum EgIconData {
   /// Chevron de terminal — representa um comando.
   terminal,
 
+  /// Envelope — representa um endereço de e-mail.
+  envelope,
+
+  /// Aparelho de telefone — representa um número de telefone.
+  phone,
+
+  /// Cartão com retrato e linha — representa um documento (CPF).
+  identityCard,
+
   /// Lupa do campo de busca.
   search,
 
@@ -135,6 +144,9 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.document => _documentPath(),
         EgIconData.link => _linkPath(),
         EgIconData.terminal => _terminalPath(),
+        EgIconData.envelope => _envelopePath(),
+        EgIconData.phone => _phonePath(),
+        EgIconData.identityCard => _identityCardPath(),
         EgIconData.search => _searchPath(),
         EgIconData.plus => _plusPath(),
         EgIconData.close => _closePath(),
@@ -187,6 +199,42 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(3, 12)
     ..moveTo(8.5, 12)
     ..lineTo(13, 12);
+
+  Path _envelopePath() => Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(2, 3.5, 12, 9),
+        const Radius.circular(1.5),
+      ),
+    )
+    // A aba dobrada nasce um pouco abaixo da quina para não encostar no canto
+    // arredondado — encostada, ela lê como um risco atravessando o envelope.
+    ..moveTo(2.8, 4.6)
+    ..lineTo(8, 8.6)
+    ..lineTo(13.2, 4.6);
+
+  Path _phonePath() => Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(4.5, 1.5, 7, 13),
+        const Radius.circular(1.8),
+      ),
+    )
+    ..moveTo(7, 12.2)
+    ..lineTo(9, 12.2);
+
+  Path _identityCardPath() => Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(1.5, 3.5, 13, 9),
+        const Radius.circular(1.5),
+      ),
+    )
+    ..addOval(Rect.fromCircle(center: const Offset(5.6, 7.2), radius: 1.4))
+    ..moveTo(9, 6.6)
+    ..lineTo(12.2, 6.6)
+    ..moveTo(9, 9.4)
+    ..lineTo(12.2, 9.4);
 
   Path _searchPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(7, 7), radius: 5))

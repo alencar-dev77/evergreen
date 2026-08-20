@@ -55,7 +55,9 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
 - Estado de elemento interativo (hover, pressed, foco, selecionado, desabilitado)
   vem da matriz `EgSurfaceStyle` (`eg_surface.dart`), via `EgInteractiveSurface`
-  ou `EgSurface` — nunca de uma cadeia de `if`s dentro do widget. Um componente
+  ou `EgSurface` — nunca de uma cadeia de `if`s dentro do widget. Selecionado é
+  fundo accent a 14% **mais** a aresta de 3px à esquerda (`selectedEdge`), a
+  mesma em linha de lista, item de sidebar e cartão do Leaf. Um componente
   com combinação própria compõe uma `EgSurfaceStyle` a partir dos tokens; a
   ordem de precedência é a mesma para todo mundo. A folha visual de todos os
   estados é o golden `test/goldens/design_state_matrix.png`.
@@ -65,6 +67,11 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   ele.
 - Acesso a dados sempre atrás de repositório (ex.: `ClipboardRepository`) —
   nunca acoplar UI/ViewModel diretamente ao SQLite.
+- Tipo de item do Pin (texto, link, e-mail, telefone, CPF, comando) é decidido
+  na captura e gravado na linha. Mexeu no `ClipboardItemClassifier`, suba o
+  `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já
+  guardado uma vez, na abertura seguinte. Sem isso, um tipo novo nasce vazio
+  para quem já usa o app.
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
   em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
   chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A

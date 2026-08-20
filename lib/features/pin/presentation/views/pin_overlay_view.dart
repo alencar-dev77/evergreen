@@ -13,11 +13,13 @@ import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_search_field.dart';
 import '../../models/clipboard_item.dart';
+import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
 import '../viewmodels/pin_overlay_view_model.dart';
 import '../widgets/pin_hint_bar.dart';
 import '../widgets/pin_preview_pane.dart';
 import '../widgets/pin_result_list.dart';
+import '../widgets/pin_type_filter_bar.dart';
 import 'pin_overlay_intents.dart';
 
 /// Painel flutuante do Pin — a tela que o `⌘⇧C` abre.
@@ -34,7 +36,7 @@ class PinOverlayView extends ConsumerStatefulWidget {
 
 class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   final _searchController = TextEditingController();
-  final _searchFocusNode = FocusNode();
+  final _searchFocusNode = FocusNode(debugLabel: 'pin-busca');
 
   /// Campo de apelido do preview. Enquanto ele tem o foco o overlay troca de
   /// mapa de teclado — daí o listener com `setState`.
@@ -109,6 +111,35 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   Future<void> _activate(ClipboardItem item) async {
     await _viewModel.copyItem(item);
     await _closeAfterCopy();
+  }
+
+  /// Clique na linha: seleciona e abre o preview.
+  ///
+  /// O clique não copia. Quem chega pelo mouse quer ver o que tem ali dentro
+  /// antes de decidir — o conteúdo inteiro, o apelido, o botão de copiar —, e
+  /// era isso que faltava: sem o preview, clicar numa linha só a acendia, e as
+  /// ações do item ficavam todas atrás de atalhos de teclado.
+  ///
+  /// O apelido é sincronizado à mão porque clicar na linha que já estava
+  /// selecionada não muda a seleção — e é justamente aí que o `ref.listen` do
+  /// `build` não teria o que avisar.
+  void _selectAndPreview(ClipboardItem item) {
+    _viewModel.selectItem(item);
+    _syncAliasField(item);
+
+    // O teclado volta para a busca, que é de onde o painel inteiro é operado.
+    // Sem isto, clicar numa linha enquanto o apelido estava em edição deixava o
+    // foco no campo que acabou de sumir da tela — e nenhuma tecla respondia,
+    // nem o Esc.
+    _searchFocusNode.requestFocus();
+
+    if (!_isPreviewOpen) setState(() => _isPreviewOpen = true);
+  }
+
+  /// Troca o filtro pelo clique na pílula, devolvendo o teclado à busca.
+  void _setTypeFilter(ClipboardItemType? type) {
+    _viewModel.setTypeFilter(type);
+    _searchFocusNode.requestFocus();
   }
 
   Future<void> _activateSelection() async {
@@ -204,14 +235,21 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
     await HubWindow.instance.open();
   }
 
-  /// Esc é hierárquico: recolhe o preview primeiro e só fecha o overlay quando
-  /// não há mais nada aberto dentro dele. Assim ninguém perde a busca digitada
-  /// por ter apertado Esc só para sair do preview.
+  /// Esc desfaz o filtro, se houver um, e fecha o painel em qualquer outro
+  /// caso.
+  ///
+  /// O preview **não** entra nessa fila, e a diferença entre os dois é o que
+  /// está em jogo: o filtro esconde itens — é um estado com consequência que só
+  /// a fila de pílulas denuncia, e sair dele antes de ir embora vale uma tecla.
+  /// O preview não esconde nada; ele só mostra melhor o que já estava
+  /// selecionado. Quem o abre é o Tab, e é o Tab que o fecha.
+  ///
+  /// Foi o clique que decidiu isto: desde que ele passou a abrir o preview,
+  /// exigir dois Esc para sair de um painel de acesso rápido virou o caminho
+  /// comum, não a exceção. A busca digitada também fica fora da fila — ela está
+  /// à vista no campo e se apaga digitando por cima.
   Future<void> _handleEscape() async {
-    if (_isPreviewOpen) {
-      setState(() => _isPreviewOpen = false);
-      return;
-    }
+    if (_viewModel.clearTypeFilter()) return;
 
     await _close();
   }
@@ -242,6 +280,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
             onActivate: _activateSelection,
             onClose: _handleEscape,
             onTogglePreview: _togglePreview,
+            onCycleFilter: _viewModel.cycleTypeFilter,
             onQuickCopy: _quickCopy,
             onTogglePin: _viewModel.togglePinSelected,
             onDelete: _viewModel.deleteSelected,
@@ -267,11 +306,20 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _searchBar(),
+                    // A fila fica fora da área que rola: ela é o recorte de
+                    // toda a lista, e uma fila que sumisse ao rolar deixaria o
+                    // histórico filtrado sem nada dizendo por quê.
+                    if (state.hasTypeFilter)
+                      PinTypeFilterBar(
+                        state: state,
+                        onChanged: _setTypeFilter,
+                      ),
                     Flexible(child: _content(showPreview)),
                     PinHintBar(
                       isPreviewOpen: showPreview,
                       canMovePinned: state.canMoveSelectedPinned,
                       isEditingAlias: isEditingAlias,
+                      isFiltered: state.typeFilter != null,
                     ),
                   ],
                 ),
@@ -293,6 +341,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
         hintText: 'Buscar no histórico',
         bare: true,
         autofocus: true,
+        holdsFocus: true,
       ),
     );
   }
@@ -301,13 +350,17 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
     final state = ref.watch(pinOverlayViewModelProvider);
 
     if (state.isLoading && state.results.isEmpty) return const _Loading();
-    if (state.isEmpty) return _emptyState(fromSearch: state.isEmptyBecauseOfSearch);
+    if (state.isEmpty) {
+      return _emptyState(
+        fromSearch: state.isEmptyBecauseOfSearch,
+        filterLabel: state.typeFilter?.filterLabel,
+      );
+    }
 
     final list = PinResultList(
       state: state,
       compact: showPreview,
-      onSelect: _viewModel.selectItem,
-      onActivate: _activate,
+      onSelect: _selectAndPreview,
     );
 
     if (!showPreview) return list;
@@ -339,13 +392,18 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
     );
   }
 
-  Widget _emptyState({required bool fromSearch}) {
+  /// O vazio diz onde se procurou, não só que não achou: com um tipo escolhido,
+  /// a busca correu dentro dele, e omitir isso faria parecer que o histórico
+  /// inteiro não tem o que se procura.
+  Widget _emptyState({required bool fromSearch, String? filterLabel}) {
     return EgEmptyState(
       icon: fromSearch ? EgIconData.search : EgIconData.document,
       title: fromSearch ? 'Nenhum resultado' : 'Nenhum item ainda',
-      message: fromSearch
-          ? 'Nada no histórico corresponde à sua busca.'
-          : 'Tudo que você copiar aparecerá aqui automaticamente.',
+      message: switch ((fromSearch, filterLabel)) {
+        (false, _) => 'Tudo que você copiar aparecerá aqui automaticamente.',
+        (true, final label?) => 'Nada em $label corresponde à sua busca.',
+        (true, _) => 'Nada no histórico corresponde à sua busca.',
+      },
     );
   }
 }

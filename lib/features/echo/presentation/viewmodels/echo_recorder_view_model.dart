@@ -112,6 +112,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       await _channel.startRecording(
         liveTranscription: settings.liveTranscription,
         locale: settings.language.locale,
+        vocabulary: settings.vocabularyTerms,
       );
     } on EchoException catch (error) {
       state = state.copyWith(phase: EchoPhase.failed, errorMessage: error.message);
@@ -175,6 +176,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
         await _channel.transcribe(
           files: files,
           locale: settings.language.locale,
+          vocabulary: settings.vocabularyTerms,
         ),
       );
 

@@ -18,6 +18,7 @@ class EgSearchField extends StatelessWidget {
     this.hintText = 'Pesquisar...',
     this.bare = false,
     this.autofocus = false,
+    this.holdsFocus = false,
   });
 
   final TextEditingController controller;
@@ -26,6 +27,16 @@ class EgSearchField extends StatelessWidget {
   final String hintText;
   final bool bare;
   final bool autofocus;
+
+  /// Um clique em outro lugar do painel não tira o cursor daqui.
+  ///
+  /// Ligado onde o campo é o dono do teclado da tela inteira — o overlay do
+  /// Pin. Ali as setas, o Enter, o `⌘P` e o Esc são atalhos do painel, mas só
+  /// chegam até ele porque o campo de busca segura o foco: perdido o foco, o
+  /// mapa inteiro emudece. O `TextField` no macOS desiste do foco a cada
+  /// clique fora dele, e foi isso que deixou o painel sem teclado depois de um
+  /// clique na lista.
+  final bool holdsFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +50,9 @@ class EgSearchField extends StatelessWidget {
             focusNode: focusNode,
             autofocus: autofocus,
             onChanged: onChanged,
+            // Sem `onTapOutside` o campo se desfoca sozinho ao primeiro clique
+            // em qualquer outro lugar — ver [holdsFocus].
+            onTapOutside: holdsFocus ? (_) {} : null,
             cursorColor: AppColors.greenPrimary,
             cursorWidth: 1.5,
             cursorHeight: 16,

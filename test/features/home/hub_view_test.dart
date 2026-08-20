@@ -3,8 +3,10 @@ import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
+import 'package:evergreen/features/home/presentation/viewmodels/hub_detail_view_model.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,6 +54,66 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  /// Registra o que o Hub pede à janela dele.
+  ///
+  /// `WindowController.hide` fala pelo canal do `desktop_multi_window`, que num
+  /// teste não tem lado nativo — o mock é o que deixa a intenção de esconder
+  /// observável.
+  /// Registra quando o Hub vai atrás da própria janela para escondê-la.
+  ///
+  /// O `hide` em si não acontece em teste — ele passa pelo despachante de
+  /// canais do `desktop_multi_window`, que registra um handler real e, com ele,
+  /// engole qualquer mock. O que dá para observar, e é o que importa aqui, é o
+  /// passo anterior: perguntar ao engine qual é a janela dele. Ninguém mais no
+  /// Hub faz essa pergunta, então ela só aparece quando o Esc decidiu sair.
+  List<String> watchWindowLookups() {
+    final lookups = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    const channel = MethodChannel('mixin.one/desktop_multi_window');
+
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      lookups.add(call.method);
+      return call.method == 'getWindowDefinition'
+          ? {'windowId': '1', 'windowArgument': 'hub'}
+          : null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    return lookups;
+  }
+
+  group('esc', () {
+    testWidgets('sem nada aberto, esconde a janela do Hub', (tester) async {
+      final lookups = watchWindowLookups();
+      await pumpHub(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(lookups, contains('getWindowDefinition'));
+    });
+
+    testWidgets('com a região aberta, fecha a região e a janela fica',
+        (tester) async {
+      final lookups = watchWindowLookups();
+      await pumpHub(tester);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HubView)),
+      );
+      container.read(hubDetailProvider.notifier).open(EvergreenModule.echo);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // Um Esc desfaz uma coisa só, e a de dentro vem primeiro.
+      expect(container.read(hubDetailProvider), isNull);
+      expect(lookups, isEmpty);
+    });
+  });
 
   /// Nenhuma tela do Hub pode estourar na largura mínima da janela (720px, em
   /// `MainFlutterWindow.swift`). É a largura em que a pessoa pode deixar a
