@@ -30,6 +30,13 @@ abstract interface class ClipboardRepository {
 
   void delete(int id);
 
+  /// Reclassifica os itens guardados por uma versão anterior do classificador
+  /// e devolve quantos mudaram de tipo.
+  ///
+  /// Roda uma vez por atualização do classificador (ver
+  /// [ClipboardItemClassifier.version]) e não faz nada nas aberturas seguintes.
+  int reclassifyOutdated();
+
   /// Remove os itens não fixados mais antigos que excedam [maxItems].
   void trimHistory(int maxItems);
 
@@ -64,11 +71,18 @@ class SqliteClipboardRepository implements ClipboardRepository {
 
     _db.execute(
       '''
-      INSERT INTO clipboard_items (content, type, is_pinned, copied_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO clipboard_items
+             (content, type, is_pinned, copied_at, classifier_version)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(content) DO UPDATE SET copied_at = excluded.copied_at;
       ''',
-      [item.content, item.type.name, item.isPinned ? 1 : 0, timestamp],
+      [
+        item.content,
+        item.type.name,
+        item.isPinned ? 1 : 0,
+        timestamp,
+        ClipboardItemClassifier.version,
+      ],
     );
 
     final row = _db.select(
@@ -142,6 +156,53 @@ class SqliteClipboardRepository implements ClipboardRepository {
   @override
   void delete(int id) {
     _db.execute('DELETE FROM clipboard_items WHERE id = ?;', [id]);
+  }
+
+  @override
+  int reclassifyOutdated() {
+    final rows = _db.select(
+      '''
+      SELECT id, content, type
+        FROM clipboard_items
+       WHERE classifier_version < ?;
+      ''',
+      [ClipboardItemClassifier.version],
+    );
+    if (rows.isEmpty) return 0;
+
+    var changed = 0;
+
+    // Uma transação só para o histórico inteiro: são até 500 linhas, e meia
+    // reclassificação deixaria o filtro respondendo diferente conforme o item.
+    _db.execute('BEGIN;');
+    try {
+      final update = _db.prepare(
+        'UPDATE clipboard_items SET type = ?, classifier_version = ? WHERE id = ?;',
+      );
+
+      try {
+        for (final row in rows) {
+          final type =
+              ClipboardItemClassifier.classify(row['content'] as String);
+          if (type.name != row['type'] as String) changed++;
+
+          update.execute([
+            type.name,
+            ClipboardItemClassifier.version,
+            row['id'] as int,
+          ]);
+        }
+      } finally {
+        update.close();
+      }
+
+      _db.execute('COMMIT;');
+    } catch (_) {
+      _db.execute('ROLLBACK;');
+      rethrow;
+    }
+
+    return changed;
   }
 
   @override

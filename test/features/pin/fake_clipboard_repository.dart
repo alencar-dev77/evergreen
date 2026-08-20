@@ -11,6 +11,9 @@ class FakeClipboardRepository implements ClipboardRepository {
 
   int _nextId = 1000;
 
+  /// Quantas vezes a reclassificação foi pedida.
+  int reclassifyCalls = 0;
+
   /// Reproduz o `ORDER BY is_pinned DESC, pinned_at ASC, copied_at DESC` do
   /// SQLite: fixados primeiro na ordem em que foram fixados, depois os recentes
   /// do mais novo para o mais antigo.
@@ -100,6 +103,15 @@ class FakeClipboardRepository implements ClipboardRepository {
 
   @override
   void delete(int id) => _items.removeWhere((it) => it.id == id);
+
+  /// O fake nasce com os itens já classificados pelo teste, então não há o que
+  /// reclassificar — o contador conta quantas vezes foi chamado, que é o que os
+  /// testes verificam.
+  @override
+  int reclassifyOutdated() {
+    reclassifyCalls++;
+    return 0;
+  }
 
   @override
   void trimHistory(int maxItems) {

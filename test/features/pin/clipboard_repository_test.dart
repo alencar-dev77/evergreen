@@ -1,6 +1,7 @@
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/pin/data/clipboard_repository.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
+import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -130,5 +131,50 @@ void main() {
     repository.setPinned(alfa, isPinned: true);
 
     expect(pinnedOrder(), ['beta', 'alfa']);
+  });
+
+  group('reclassificação do histórico', () {
+    /// Escreve como uma versão anterior do classificador teria escrito: tudo
+    /// "texto", sem versão nenhuma.
+    void insertAsLegacy(String content) {
+      database.execute(
+        '''
+        INSERT INTO clipboard_items
+               (content, type, is_pinned, copied_at, classifier_version)
+        VALUES (?, 'text', 0, ?, 0);
+        ''',
+        [content, DateTime.now().millisecondsSinceEpoch],
+      );
+    }
+
+    ClipboardItemType typeOf(String content) => repository
+        .loadAll()
+        .firstWhere((item) => item.content == content)
+        .type;
+
+    test('itens guardados por uma versão anterior ganham o tipo novo', () {
+      insertAsLegacy('contato@evergreen.com.br');
+      insertAsLegacy('529.982.247-25');
+      insertAsLegacy('Senha temporária: xK9#mPz2');
+
+      expect(repository.reclassifyOutdated(), 2);
+
+      expect(typeOf('contato@evergreen.com.br'), ClipboardItemType.email);
+      expect(typeOf('529.982.247-25'), ClipboardItemType.taxId);
+      expect(typeOf('Senha temporária: xK9#mPz2'), ClipboardItemType.text);
+    });
+
+    test('rodar de novo não tem mais o que fazer', () {
+      insertAsLegacy('contato@evergreen.com.br');
+      repository.reclassifyOutdated();
+
+      expect(repository.reclassifyOutdated(), 0);
+    });
+
+    test('o que foi capturado agora já nasce na versão corrente', () {
+      repository.upsert(ClipboardItem.capture('contato@evergreen.com.br'));
+
+      expect(repository.reclassifyOutdated(), 0);
+    });
   });
 }

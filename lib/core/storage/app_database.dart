@@ -74,6 +74,17 @@ class AppDatabase {
     'clipboard-alias': '''
     ALTER TABLE clipboard_items ADD COLUMN alias TEXT;
     ''',
+    // O classificador do Pin passou a reconhecer e-mail, telefone e CPF. Como
+    // o tipo é decidido na captura e gravado na linha, o histórico já guardado
+    // continuaria inteiro como "Texto" — e os filtros novos nasceriam vazios
+    // justamente para quem usa o Pin há mais tempo. A coluna guarda com qual
+    // versão do classificador cada item foi classificado; quem ficou para trás
+    // é reclassificado em Dart na primeira carga (validar dígito verificador de
+    // CPF não é trabalho para SQL). Zero é "antes de existir versão".
+    'clipboard-classifier-version': '''
+    ALTER TABLE clipboard_items
+      ADD COLUMN classifier_version INTEGER NOT NULL DEFAULT 0;
+    ''',
     // Anotações do Leaf. A vaga (1..9) é única porque ela é a identidade da
     // anotação na parede — é dela que saem o número do cartão e o `⌘N` que o
     // copia, e duas anotações na mesma vaga significariam dois cartões

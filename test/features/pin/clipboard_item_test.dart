@@ -46,6 +46,79 @@ void main() {
         ClipboardItemType.text,
       );
     });
+
+    test('reconhece e-mail', () {
+      expect(
+        ClipboardItemClassifier.classify('contato@evergreen.com.br'),
+        ClipboardItemType.email,
+      );
+    });
+
+    test('arroba solto no meio de uma frase não vira e-mail', () {
+      expect(
+        ClipboardItemClassifier.classify('fala com o @lucas amanhã'),
+        ClipboardItemType.text,
+      );
+      expect(
+        ClipboardItemClassifier.classify('usuario@servidor'),
+        ClipboardItemType.text,
+      );
+    });
+
+    test('reconhece telefone escrito de várias formas', () {
+      for (final number in [
+        '(11) 98765-4321',
+        '11 98765-4321',
+        '+55 11 98765-4321',
+        '3456-7890',
+      ]) {
+        expect(
+          ClipboardItemClassifier.classify(number),
+          ClipboardItemType.phone,
+          reason: number,
+        );
+      }
+    });
+
+    test('endereço de IP não vira telefone', () {
+      expect(
+        ClipboardItemClassifier.classify('192.168.0.1'),
+        ClipboardItemType.text,
+      );
+    });
+
+    test('reconhece CPF com e sem pontuação', () {
+      expect(
+        ClipboardItemClassifier.classify('529.982.247-25'),
+        ClipboardItemType.taxId,
+      );
+      expect(
+        ClipboardItemClassifier.classify('52998224725'),
+        ClipboardItemType.taxId,
+      );
+    });
+
+    test('onze dígitos que não fecham a conta do CPF são telefone', () {
+      // Celular com DDD tem o mesmo tamanho de um CPF sem pontos; o dígito
+      // verificador é o que separa um do outro.
+      expect(
+        ClipboardItemClassifier.classify('11987654321'),
+        ClipboardItemType.phone,
+      );
+    });
+
+    test('sequência de dígitos repetidos não é CPF', () {
+      expect(
+        ClipboardItemClassifier.classify('111.111.111-11'),
+        ClipboardItemType.text,
+      );
+    });
+
+    test('CPF ainda é CPF quando o histórico é reclassificado', () {
+      // O contrato da versão: subir o número obriga o repositório a reclassificar
+      // o que já estava guardado (ver `SqliteClipboardRepository`).
+      expect(ClipboardItemClassifier.version, greaterThanOrEqualTo(2));
+    });
   });
 
   group('ClipboardItem', () {
