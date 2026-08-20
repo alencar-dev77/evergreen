@@ -58,6 +58,28 @@ class HubWindow {
     );
   }
 
+  /// Esconde a janela do Hub a partir de dentro dela.
+  ///
+  /// Esconde, e não fecha: `open` reaproveita a janela existente, e destruí-la
+  /// custaria subir um engine Flutter inteiro na abertura seguinte — o Hub
+  /// deixaria de aparecer instantaneamente no `⌘⇧,`, que é a única coisa que se
+  /// pede dele.
+  ///
+  /// Chamada de dentro do engine do Hub, e por isso pergunta ao próprio engine
+  /// qual é a janela dele: quem fecha é quem está na tela, não quem abriu.
+  static Future<void> hideSelf() async {
+    try {
+      final window = await WindowController.fromCurrentEngine();
+      await window.hide();
+    } on WindowChannelException {
+      // O canal da janela sumiu junto com ela: não há o que esconder.
+    } on PlatformException {
+      // A janela já não existe.
+    } on MissingPluginException {
+      // Em teste não há lado nativo.
+    }
+  }
+
   /// Procura uma janela do Hub já aberta.
   Future<WindowController?> _findExisting() async {
     final windows = await WindowController.getAll();
