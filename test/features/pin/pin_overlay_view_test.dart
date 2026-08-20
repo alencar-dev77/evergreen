@@ -1,4 +1,5 @@
 import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/window/overlay_window.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
@@ -34,6 +35,10 @@ void main() {
   }
 
   setUp(() async {
+    // O overlay é um singleton, e cada Esc deixa nele o rastro de um fechamento
+    // que o ambiente de teste não tem como terminar — ver `resetForTest`.
+    OverlayWindow.instance.resetForTest();
+
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
 
@@ -43,6 +48,33 @@ void main() {
       item(3, 'Senha temporária: xK9#mPz2'),
     ]);
   });
+
+  /// Observa o fechamento do overlay.
+  ///
+  /// `OverlayWindow.hide` começa avisando o lado nativo (`beginHide`), então é
+  /// essa chamada que diz "o painel está indo embora" sem precisar de janela de
+  /// verdade no ambiente de teste.
+  List<String> watchClosing() {
+    final calls = <String>[];
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('previous_app_focus'),
+      (call) async {
+        calls.add(call.method);
+        return null;
+      },
+    );
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('previous_app_focus'),
+        null,
+      ),
+    );
+
+    return calls;
+  }
 
   Future<void> pumpOverlay(WidgetTester tester) async {
     await tester.pumpWidget(
@@ -131,7 +163,8 @@ void main() {
     expect(find.text('Copiar'), findsOneWidget);
   });
 
-  testWidgets('Esc recolhe o preview antes de fechar o overlay', (tester) async {
+  testWidgets('Esc fecha o overlay mesmo com o preview aberto', (tester) async {
+    final closing = watchClosing();
     await pumpOverlay(tester);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -141,12 +174,13 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
-    // O preview some, mas a lista continua no lugar: o overlay não fechou.
-    expect(find.byType(PinPreviewPane), findsNothing);
-    expect(find.byType(PinListItem), findsWidgets);
+    // O preview não come o Esc: quem fecha o preview é o Tab, e o Esc vale
+    // sempre a mesma coisa — sair.
+    expect(closing, contains('beginHide'));
+
   });
 
-  testWidgets('Esc mantém o texto buscado ao sair do preview', (tester) async {
+  testWidgets('Tab volta do preview mantendo o texto buscado', (tester) async {
     await pumpOverlay(tester);
 
     await tester.enterText(find.byType(TextField), 'senha');
@@ -154,7 +188,7 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
 
     expect(find.text('Senha temporária: xK9#mPz2'), findsOneWidget);
@@ -238,8 +272,9 @@ void main() {
       expect(find.text('sair'), findsNothing);
     });
 
-    testWidgets('o preview tem prioridade sobre o filtro no Esc',
+    testWidgets('com o preview aberto, o Esc ainda desfaz o filtro primeiro',
         (tester) async {
+      final closing = watchClosing();
       await pumpOverlay(tester);
 
       await tester.tap(find.text('Links'));
@@ -250,9 +285,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
-      // Um Esc, um recorte desfeito: o preview fecha e o filtro continua.
-      expect(find.byType(PinPreviewPane), findsNothing);
-      expect(find.byType(PinListItem), findsOneWidget);
+      // O filtro esconde itens, e é ele que o Esc desfaz antes de ir embora —
+      // o preview, que não esconde nada, continua onde estava.
+      expect(find.byType(PinListItem), findsNWidgets(3));
+      expect(closing, isEmpty);
     });
 
     testWidgets('a busca corre dentro do tipo escolhido', (tester) async {
@@ -296,6 +332,24 @@ void main() {
 
       expect(find.byType(PinPreviewPane), findsOneWidget);
       expect(find.text('Copiar'), findsOneWidget);
+    });
+
+    testWidgets('clicar num item e apertar Esc fecha o overlay',
+        (tester) async {
+      final closing = watchClosing();
+      await pumpOverlay(tester);
+
+      await tester.tap(find.text('https://pub.dev/packages/sqlite3'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PinPreviewPane), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // Um Esc só: o preview que o clique abriu não pode custar uma tecla a
+      // mais para sair de um painel de acesso rápido.
+      expect(closing, contains('beginHide'));
+
     });
 
     testWidgets('clicar não copia nada — quem copia é o botão', (tester) async {

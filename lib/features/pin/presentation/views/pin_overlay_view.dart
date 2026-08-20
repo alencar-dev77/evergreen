@@ -13,6 +13,7 @@ import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_search_field.dart';
 import '../../models/clipboard_item.dart';
+import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
 import '../viewmodels/pin_overlay_view_model.dart';
 import '../widgets/pin_hint_bar.dart';
@@ -35,7 +36,7 @@ class PinOverlayView extends ConsumerStatefulWidget {
 
 class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   final _searchController = TextEditingController();
-  final _searchFocusNode = FocusNode();
+  final _searchFocusNode = FocusNode(debugLabel: 'pin-busca');
 
   /// Campo de apelido do preview. Enquanto ele tem o foco o overlay troca de
   /// mapa de teclado — daí o listener com `setState`.
@@ -126,7 +127,19 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
     _viewModel.selectItem(item);
     _syncAliasField(item);
 
+    // O teclado volta para a busca, que é de onde o painel inteiro é operado.
+    // Sem isto, clicar numa linha enquanto o apelido estava em edição deixava o
+    // foco no campo que acabou de sumir da tela — e nenhuma tecla respondia,
+    // nem o Esc.
+    _searchFocusNode.requestFocus();
+
     if (!_isPreviewOpen) setState(() => _isPreviewOpen = true);
+  }
+
+  /// Troca o filtro pelo clique na pílula, devolvendo o teclado à busca.
+  void _setTypeFilter(ClipboardItemType? type) {
+    _viewModel.setTypeFilter(type);
+    _searchFocusNode.requestFocus();
   }
 
   Future<void> _activateSelection() async {
@@ -222,21 +235,20 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
     await HubWindow.instance.open();
   }
 
-  /// Esc é hierárquico: desfaz um recorte por vez, do mais interno para o mais
-  /// externo — preview, filtro e só então o overlay. Assim ninguém perde a
-  /// busca digitada por ter apertado Esc para sair do preview, nem fecha o
-  /// painel quando só queria voltar a ver o histórico inteiro.
+  /// Esc desfaz o filtro, se houver um, e fecha o painel em qualquer outro
+  /// caso.
   ///
-  /// A busca digitada não entra na fila: ela está à vista no campo e se apaga
-  /// digitando por cima, enquanto o filtro é um estado que só a fila de pílulas
-  /// denuncia. Um Esc que precisasse ser apertado quatro vezes para fechar um
-  /// painel de acesso rápido seria pior que o problema.
+  /// O preview **não** entra nessa fila, e a diferença entre os dois é o que
+  /// está em jogo: o filtro esconde itens — é um estado com consequência que só
+  /// a fila de pílulas denuncia, e sair dele antes de ir embora vale uma tecla.
+  /// O preview não esconde nada; ele só mostra melhor o que já estava
+  /// selecionado. Quem o abre é o Tab, e é o Tab que o fecha.
+  ///
+  /// Foi o clique que decidiu isto: desde que ele passou a abrir o preview,
+  /// exigir dois Esc para sair de um painel de acesso rápido virou o caminho
+  /// comum, não a exceção. A busca digitada também fica fora da fila — ela está
+  /// à vista no campo e se apaga digitando por cima.
   Future<void> _handleEscape() async {
-    if (_isPreviewOpen) {
-      setState(() => _isPreviewOpen = false);
-      return;
-    }
-
     if (_viewModel.clearTypeFilter()) return;
 
     await _close();
@@ -300,7 +312,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
                     if (state.hasTypeFilter)
                       PinTypeFilterBar(
                         state: state,
-                        onChanged: _viewModel.setTypeFilter,
+                        onChanged: _setTypeFilter,
                       ),
                     Flexible(child: _content(showPreview)),
                     PinHintBar(
@@ -329,6 +341,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
         hintText: 'Buscar no histórico',
         bare: true,
         autofocus: true,
+        holdsFocus: true,
       ),
     );
   }

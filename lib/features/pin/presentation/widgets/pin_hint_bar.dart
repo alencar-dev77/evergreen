@@ -19,7 +19,7 @@ class PinHintBar extends StatelessWidget {
 
   /// Há um tipo escolhido na fila de pílulas.
   ///
-  /// Muda o que o Esc promete: com um filtro ativo ele desfaz o recorte antes
+  /// Muda o que o Esc promete: com um filtro ativo ele desfaz o recorte em vez
   /// de fechar o painel, e o rodapé é o único lugar onde isso se aprende sem
   /// tentar. É também o que dispensa uma dica nova só para o `⌘←→` — a fila de
   /// pílulas já está à vista, e a 420px não haveria largura para as duas.
@@ -61,29 +61,24 @@ class PinHintBar extends StatelessWidget {
         if (!canMovePinned) const EgHint(keys: ['enter']),
         const EgHint(keys: ['⌘P'], label: 'fixar'),
         if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
-        // Com o preview aberto, o Esc já é o caminho de volta — anunciar o Tab
-        // também só ofereceria duas formas de fazer a mesma coisa. A largura que
-        // ele libera é o que permite anunciar o ⌘⌫, que ninguém descobre por
-        // conta própria.
         // O ⌘R só é anunciado com o preview aberto, que é onde o campo de
         // apelido existe: quem está na lista descobre o recurso abrindo o
         // preview, e é lá que a dúvida "dá para fazer isso sem o mouse?"
         // aparece. Na lista de 420px ele também não caberia.
         if (isPreviewOpen) const EgHint(keys: ['⌘R'], label: 'apelido'),
-        if (isPreviewOpen)
-          const EgHint(keys: ['⌘⌫'], label: 'excluir')
-        else
-          const EgHint(keys: ['tab'], label: 'ver'),
+        // O Tab é anunciado nos dois estados: ele abre o preview e é o único
+        // caminho de volta dele, desde que o Esc parou de recolhê-lo. A largura
+        // que ele ocupa aqui saiu do ⌘⌫ — apagar continua funcionando pela
+        // tecla, mas com o preview aberto o botão "Excluir" está à vista dois
+        // dedos ao lado, e o "como eu volto para a lista?" não tem resposta
+        // visível nenhuma.
+        EgHint(keys: const ['tab'], label: isPreviewOpen ? 'voltar' : 'ver'),
       ],
       trailing: EgHint(
         keys: const ['esc'],
-        // A ordem é a mesma do Esc: primeiro o preview, depois o filtro, e só
-        // então a saída.
-        label: switch ((isPreviewOpen, isFiltered)) {
-          (true, _) => 'voltar',
-          (false, true) => 'limpar filtro',
-          (false, false) => 'sair',
-        },
+        // O Esc promete uma coisa só, e o preview não muda o que ela é: com
+        // filtro ativo ele desfaz o recorte, e em qualquer outro caso fecha.
+        label: isFiltered ? 'limpar filtro' : 'sair',
       ),
     );
   }

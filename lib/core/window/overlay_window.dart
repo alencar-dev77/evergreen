@@ -48,6 +48,18 @@ class OverlayWindow {
   /// Ferrolho contra o fechamento que o próprio fechamento provoca — ver [hide].
   bool _isHiding = false;
 
+  /// Devolve o singleton ao estado inicial.
+  ///
+  /// Só para teste. `hide` apaga o painel e fecha o ferrolho até o quadro em
+  /// branco chegar à tela — e num teste de widget esse quadro nunca chega, porque
+  /// a árvore é desmontada antes. Sem este reset, o primeiro teste que aperta Esc
+  /// deixa o ferrolho fechado e todos os seguintes acham que o painel não fecha.
+  @visibleForTesting
+  void resetForTest() {
+    _isHiding = false;
+    isPanelHidden.value = false;
+  }
+
   /// Visibilidade real, perguntada ao sistema.
   ///
   /// Guardar isso num bool local dessincroniza: o overlay também se fecha por
