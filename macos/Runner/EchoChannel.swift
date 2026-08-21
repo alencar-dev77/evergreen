@@ -350,9 +350,6 @@ actor EchoRecorder {
   /// anterior ao `captureMicrophone`, independente do `ScreenCaptureKit` e sem
   /// piso de sistema. As duas faixas continuam separadas, que é o que sustenta
   /// saber quem falou; muda só quem entrega uma delas.
-  ///
-  /// A entrada é aberta crua, sem o processamento de voz do sistema — a razão,
-  /// e o que entrou no lugar dele, estão em [EchoStreamOutput.capsule].
   private let micEngine = AVAudioEngine()
   private var micError: String?
 
@@ -367,13 +364,18 @@ actor EchoRecorder {
   /// entregar nada. A conversão para o formato do transcritor acontece depois,
   /// igual para as duas faixas.
   ///
-  /// **A entrada é aberta crua, sem o processamento de voz do sistema** — o
-  /// porquê está em [EchoStreamOutput.capsule].
+  /// **O processamento de voz é ligado antes de tudo** — ver
+  /// [enableVoiceProcessing].
   private static func startMicrophone(
     engine: AVAudioEngine,
     output: EchoStreamOutput
   ) -> String? {
     let input = engine.inputNode
+    let processed = enableVoiceProcessing(on: input)
+
+    // Depois de ligar o processamento, e nunca antes: ele troca o formato da
+    // entrada (o arranjo de cápsulas vira um canal só). Ler o formato antes
+    // daria o número de canais que a entrada tinha e não tem mais.
     let format = input.inputFormat(forBus: 0)
 
     guard format.sampleRate > 0, format.channelCount > 0 else {
@@ -391,18 +393,108 @@ actor EchoRecorder {
       try engine.start()
       return nil
     } catch {
+      // O motor pode recusar justamente por causa do processamento de voz: ele
+      // exige um par de entrada e saída que nem toda configuração de áudio
+      // oferece. Gravar sem ele é pior, mas é muito melhor que não gravar.
+      guard processed else {
+        input.removeTap(onBus: 0)
+        return error.localizedDescription
+      }
+
       input.removeTap(onBus: 0)
-      return error.localizedDescription
+      try? input.setVoiceProcessingEnabled(false)
+      input.installTap(onBus: 0, bufferSize: 4_096, format: nil) { buffer, _ in
+        output.appendMicrophone(buffer)
+      }
+
+      do {
+        try engine.start()
+        return nil
+      } catch {
+        input.removeTap(onBus: 0)
+        return error.localizedDescription
+      }
+    }
+  }
+
+  /// Liga o processamento de voz do sistema na entrada.
+  ///
+  /// É a diferença entre o que o Echo gravava e o que o Notas grava. O
+  /// microfone interno é um arranjo de três cápsulas separadas por centímetros,
+  /// e a mesma voz chega em cada uma com um atraso diferente. Somar os três
+  /// canais na mão — que é o que [EchoStreamOutput.mono] faz, e o que salvou a
+  /// faixa de sair muda — soma sinais defasados: dá filtro pente, com vales
+  /// bem no meio da banda da fala. O modelo de fala não erra "um pouco" com
+  /// fonema borrado; ele troca a palavra inteira pela vizinha mais provável.
+  ///
+  /// O processamento de voz resolve isso de outro jeito: usa o atraso entre as
+  /// cápsulas **a favor** (formação de feixe na direção de quem fala), e ainda
+  /// entrega três coisas de brinde —
+  ///
+  /// - **cancelamento de eco**: o que sai pela caixa de som não volta pela sua
+  ///   faixa. É o mesmo trabalho do `CrossTalkFilter`, feito na origem em vez
+  ///   de depois, no texto;
+  /// - **redução de ruído**: ventilador, teclado, rua;
+  /// - **ganho automático**: a fala ocupa a escala do arquivo, em vez de viver
+  ///   nos primeiros bits e chegar granulada no modelo.
+  ///
+  /// Com ele ligado a entrada passa a ser mono, e a mixagem à mão vira um
+  /// caminho que não é mais percorrido — de propósito.
+  ///
+  /// Devolve se conseguiu, porque quem chama precisa saber se ainda tem essa
+  /// carta para jogar fora quando o motor não subir.
+  @discardableResult
+  private static func enableVoiceProcessing(on input: AVAudioInputNode) -> Bool {
+    do {
+      try input.setVoiceProcessingEnabled(true)
+
+      // O processamento de voz vem com um quarto brinde que ninguém pediu: o
+      // sistema abaixa o áudio de todos os outros apps. É a regra de uma
+      // chamada — se você fala ao telefone, a música cede o lugar — e o macOS
+      // não tem como saber que aqui a reunião está sendo *gravada* e não
+      // conversada. Sem este ajuste, mandar transcrever com um vídeo tocando
+      // deixava a saída quase muda, e o controle de volume no mesmo lugar: a
+      // atenuação acontece depois do controle, no mixer do sistema.
+      //
+      // `.min` é o piso que a API oferece — desligar de vez não existe. E a
+      // ducking avançada fica de fora de propósito: ela abaixaria os outros só
+      // quando detectasse alguém falando, o que troca um volume baixo e
+      // constante por um volume que oscila junto com a conversa.
+      input.voiceProcessingOtherAudioDuckingConfiguration = .init(
+        enableAdvancedDucking: false,
+        duckingLevel: .min
+      )
+
+      return true
+    } catch {
+      // Sem ele a gravação continua — só volta a ser a média das cápsulas.
+      return false
     }
   }
 
   private func stopMicrophone() {
-    guard micEngine.isRunning else { return }
+    let input = micEngine.inputNode
 
-    // Tirar o tap antes de parar: com ele instalado, um último bloco pode
-    // chegar depois de os arquivos terem sido fechados.
-    micEngine.inputNode.removeTap(onBus: 0)
-    micEngine.stop()
+    if micEngine.isRunning {
+      // Tirar o tap antes de parar: com ele instalado, um último bloco pode
+      // chegar depois de os arquivos terem sido fechados.
+      input.removeTap(onBus: 0)
+      micEngine.stop()
+    }
+
+    // Desligar o processamento de voz, e não só parar o motor.
+    //
+    // Ele é propriedade do nó de entrada, não do motor rodando: parado, o
+    // `micEngine` continua vivo (é `let`, dura o que durar o gravador) e a
+    // unidade de processamento continua montada nele — com a ducking dos
+    // outros apps junto. O áudio do sistema só voltava ao normal quando o
+    // processo inteiro morria, que é encerrar o aplicativo para parar de
+    // gravar. Desligar aqui devolve a entrada ao estado comum e solta o mixer.
+    //
+    // Fora do `if` porque o motor pode ter falhado ao subir *depois* de o
+    // processamento já estar ligado — o caso em que a ducking ficaria de pé
+    // sem sequer haver gravação.
+    try? input.setVoiceProcessingEnabled(false)
   }
 
   /// Confirma a Gravação de Tela — pedindo, se for o caso, antes de desistir.
@@ -620,14 +712,6 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
 
   private var live: EchoLiveTranscriber?
 
-  /// A cápsula do arranjo escolhida para a faixa do microfone.
-  ///
-  /// Decidida uma vez, no primeiro bloco que tem sinal de verdade, e mantida
-  /// até o fim — ver [capsule]. Trocar de cápsula no meio seria trocar de
-  /// posição no espaço a cada bloco: cada uma ouve a mesma voz com um atraso
-  /// diferente, e a emenda entre duas sai como estalo.
-  private var micCapsule: Int?
-
   /// Formato em que o áudio é gravado — o que o transcritor pediu.
   ///
   /// Na prática 16 kHz, mono, e é o que os modelos de fala esperam. Quem
@@ -700,19 +784,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   }
 
   private func write(_ rawBuffer: AVAudioPCMBuffer, isMicrophone: Bool) {
-    // A redução para um canal é nossa, não do `AVAudioConverter` — ver [mono].
-    //
-    // As duas faixas chegam lá por caminhos diferentes de propósito: a do
-    // sistema é estéreo de verdade e soma; a do microfone é um arranjo de
-    // cápsulas e **escolhe uma** — ver [capsule].
-    let buffer: AVAudioPCMBuffer
-
-    if isMicrophone {
-      if micCapsule == nil { micCapsule = Self.loudestCapsule(of: rawBuffer) }
-      buffer = Self.capsule(rawBuffer, at: micCapsule ?? 0)
-    } else {
-      buffer = Self.mono(rawBuffer)
-    }
+    // A mixagem para um canal é nossa, não do `AVAudioConverter` — ver [mono].
+    let buffer = Self.mono(rawBuffer)
     var converted: AVAudioPCMBuffer?
 
     do {
@@ -870,10 +943,9 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   /// três canais entra, e sai um bloco de pico 0. Com a mixagem feita aqui, o
   /// mesmo seno sai com pico 16384.
   ///
-  /// Hoje quem passa por aqui é a faixa do sistema: estéreo com layout padrão,
-  /// dois canais que carregam o mesmo som e somam sem se atrapalhar. A do
-  /// microfone segue por [capsule], porque somar cápsulas de um arranjo é
-  /// outra conta — e a errada.
+  /// Vale para as duas faixas. A do sistema é estéreo com layout padrão e o
+  /// conversor dá conta dela, mas a conta é a mesma e uma saída multicanal
+  /// cairia no mesmo buraco.
   ///
   /// Devolve o bloco original quando não há o que fazer — um canal só, ou um
   /// formato que não é ponto flutuante. Nesses casos quem converte segue sendo
@@ -899,8 +971,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     let frames = Int(buffer.frameLength)
     let channels = Int(format.channelCount)
 
-    // Média: numa saída estéreo os canais são o mesmo som visto de dois lados,
-    // e somá-los é o que reconstrói o todo.
+    // Média, e não o primeiro canal: num arranjo de microfones cada canal é uma
+    // cápsula, e escolher uma jogaria fora o sinal das outras duas.
     for frame in 0..<frames {
       var sum: Float = 0
 
@@ -914,107 +986,6 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     }
 
     return output
-  }
-
-  /// Extrai **uma** cápsula do arranjo do microfone, em vez de somar todas.
-  ///
-  /// É o que substitui o processamento de voz do sistema, e o motivo de ele ter
-  /// saído: ligar o `setVoiceProcessingEnabled` fazia o macOS aplicar a regra
-  /// de uma chamada telefônica e abaixar o áudio de todos os outros apps. Para
-  /// quem grava uma reunião isso é indiferente; para quem manda o Echo
-  /// transcrever um vídeo que está assistindo, deixava a saída quase muda. Não
-  /// existe desligar essa atenuação — `.min` é o piso que a API oferece, e
-  /// ainda se ouve. Só existe não pedir o processamento.
-  ///
-  /// Sem ele, a entrada volta a ser o arranjo de três cápsulas do MacBook, e aí
-  /// a soma de [mono] é uma armadilha: as cápsulas ficam a centímetros umas das
-  /// outras, a mesma voz chega em cada uma com um atraso diferente, e somar
-  /// sinais defasados dá filtro pente — com vales bem no meio da banda da fala.
-  /// O modelo não erra "um pouco" com um fonema borrado; troca a palavra
-  /// inteira pela vizinha mais provável.
-  ///
-  /// Uma cápsula sozinha não tem com quem se defasar. Perde-se a formação de
-  /// feixe (que usava o atraso a favor), a redução de ruído e o ganho
-  /// automático — de volta ao que o `CrossTalkFilter` e a conversão já tratam
-  /// depois. É menos do que o processamento entregava e muito mais do que a
-  /// soma entregava, e é o preço de o som do computador não abaixar.
-  ///
-  /// Devolve o bloco original quando não há o que escolher — um canal só, ou um
-  /// formato que não é ponto flutuante.
-  static func capsule(_ buffer: AVAudioPCMBuffer, at index: Int) -> AVAudioPCMBuffer {
-    let format = buffer.format
-
-    guard format.channelCount > 1,
-      format.commonFormat == .pcmFormatFloat32,
-      index < Int(format.channelCount),
-      let monoFormat = AVAudioFormat(
-        commonFormat: .pcmFormatFloat32,
-        sampleRate: format.sampleRate,
-        channels: 1,
-        interleaved: false),
-      let output = AVAudioPCMBuffer(
-        pcmFormat: monoFormat, frameCapacity: buffer.frameLength),
-      let destination = output.floatChannelData?[0],
-      let source = buffer.floatChannelData
-    else { return buffer }
-
-    output.frameLength = buffer.frameLength
-
-    let frames = Int(buffer.frameLength)
-    let channels = Int(format.channelCount)
-
-    if format.isInterleaved {
-      for frame in 0..<frames { destination[frame] = source[0][frame * channels + index] }
-    } else {
-      for frame in 0..<frames { destination[frame] = source[index][frame] }
-    }
-
-    return output
-  }
-
-  /// Qual cápsula do bloco ouviu mais — ou `nil` se o bloco for só silêncio.
-  ///
-  /// Escolher a primeira cápsula e pronto seria mais curto, mas num arranjo
-  /// nem toda cápsula aponta para quem fala, e uma tampada pela mão ou pela
-  /// tampa do notebook gravaria a reunião inteira abafada. A mais alta é a que
-  /// está de frente para a voz.
-  ///
-  /// Devolver `nil` no silêncio é o que impede a escolha de acontecer antes de
-  /// haver o que comparar: com todas as cápsulas em ruído de fundo, a "mais
-  /// alta" é sorteio. Quem chama fica com a primeira até a primeira fala
-  /// chegar, e é aí que a decisão trava.
-  static func loudestCapsule(of buffer: AVAudioPCMBuffer, floor: Float = 0.01) -> Int? {
-    let format = buffer.format
-
-    guard format.channelCount > 1,
-      format.commonFormat == .pcmFormatFloat32,
-      let source = buffer.floatChannelData
-    else { return nil }
-
-    let frames = Int(buffer.frameLength)
-    let channels = Int(format.channelCount)
-
-    var loudest = 0
-    var highest: Float = 0
-
-    for channel in 0..<channels {
-      var peak: Float = 0
-
-      for frame in 0..<frames {
-        let sample =
-          format.isInterleaved
-          ? source[0][frame * channels + channel]
-          : source[channel][frame]
-        peak = max(peak, abs(sample))
-      }
-
-      if peak > highest {
-        highest = peak
-        loudest = channel
-      }
-    }
-
-    return highest >= floor ? loudest : nil
   }
 
   /// Uma cópia independente do bloco, com o mesmo formato e conteúdo.

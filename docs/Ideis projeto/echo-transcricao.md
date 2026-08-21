@@ -106,48 +106,14 @@ diferentes: é filtro pente, com vales bem no meio da banda da fala. Modelo de
 fala com fonema borrado não erra "um pouco"; ele troca a palavra inteira pela
 vizinha mais provável do idioma.
 
-A entrada passou a subir com `setVoiceProcessingEnabled(true)`, que é o que o
-Notas e o Gravador usam: ele usa o atraso entre as cápsulas **a favor**
-(formação de feixe), e vem com cancelamento de eco, redução de ruído e ganho
-automático de brinde. Resolveu a transcrição e criou outro problema — ver
-abaixo.
+A entrada agora sobe com `setVoiceProcessingEnabled(true)`, que é o que o Notas
+e o Gravador usam. Ele usa o atraso entre as cápsulas **a favor** (formação de
+feixe), e vem com cancelamento de eco, redução de ruído e ganho automático de
+brinde. O cancelamento de eco faz na origem o trabalho que o `CrossTalkFilter`
+faz no texto — o filtro continua lá, porque nem toda entrada é a interna.
 
-##### O processamento de voz saiu, e uma cápsula entrou no lugar
-
-> Trocado em 21/08/2026, depois de mandar transcrever um vídeo que estava
-> tocando e não conseguir mais ouvir o vídeo.
-
-`setVoiceProcessingEnabled(true)` monta no nó de entrada a mesma unidade que uma
-chamada de vídeo usa (VPIO), e o macOS trata quem a monta como quem está numa
-chamada: **abaixa o áudio de todos os outros aplicativos**. Faz sentido ao
-telefone — a música cede o lugar para o outro lado te ouvir. Não faz sentido
-nenhum aqui, onde a reunião ou o vídeo estão sendo *gravados*, não conversados,
-e o som que o sistema abaixa é justamente o que se quer ouvir.
-
-Duas coisas pioravam isso. A atenuação acontece **depois** do controle de
-volume, no mixer, então o controle continuava no mesmo lugar enquanto o som
-sumia — não parecia consequência de ligar a gravação. E o processamento é
-propriedade do nó de entrada, não do motor rodando: `engine.stop()` parava a
-captura e deixava a unidade montada, então o volume só voltava quando o
-aplicativo inteiro morria.
-
-Não existe desligar a atenuação. `voiceProcessingOtherAudioDuckingConfiguration`
-com `duckingLevel: .min` é o piso que a API oferece, e no piso ainda se ouve.
-Existe só não pedir o processamento — foi o que ficou.
-
-Sem ele a entrada volta a ser o arranjo de três cápsulas, e com ela volta o
-filtro pente do item 1. A saída é não somar: **escolher uma cápsula**. Uma
-sozinha não tem com quem se defasar. A escolhida é a que ouviu mais alto no
-primeiro bloco com sinal de verdade — a primeira e pronto seria mais curto, mas
-nem toda cápsula aponta para quem fala, e uma tampada pela mão gravaria a
-reunião inteira abafada. A decisão trava aí e vale até o fim: trocar de cápsula
-no meio é trocar de posição no espaço, e a emenda sai como estalo.
-
-O que se perde é a formação de feixe, a redução de ruído e o ganho automático. O
-cancelamento de eco não faz falta: o `CrossTalkFilter` já fazia esse trabalho no
-texto antes de o processamento existir, e continua lá. É menos do que o
-processamento entregava, bem mais do que a soma entregava, e é o preço de o som
-do computador não abaixar quando se manda transcrever.
+Se o motor de áudio recusar subir com o processamento ligado, ele desliga e
+tenta de novo: gravar sem beamforming é pior, e é muito melhor que não gravar.
 
 **2. A reamostragem.** Descer de 48 kHz para 16 kHz é exatamente o tipo de
 conversão em que o filtro importa: o que estiver acima de 8 kHz e não for
