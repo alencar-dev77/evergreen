@@ -447,6 +447,24 @@ actor EchoRecorder {
   private static func enableVoiceProcessing(on input: AVAudioInputNode) -> Bool {
     do {
       try input.setVoiceProcessingEnabled(true)
+
+      // O processamento de voz vem com um quarto brinde que ninguém pediu: o
+      // sistema abaixa o áudio de todos os outros apps. É a regra de uma
+      // chamada — se você fala ao telefone, a música cede o lugar — e o macOS
+      // não tem como saber que aqui a reunião está sendo *gravada* e não
+      // conversada. Sem este ajuste, mandar transcrever com um vídeo tocando
+      // deixava a saída quase muda, e o controle de volume no mesmo lugar: a
+      // atenuação acontece depois do controle, no mixer do sistema.
+      //
+      // `.min` é o piso que a API oferece — desligar de vez não existe. E a
+      // ducking avançada fica de fora de propósito: ela abaixaria os outros só
+      // quando detectasse alguém falando, o que troca um volume baixo e
+      // constante por um volume que oscila junto com a conversa.
+      input.voiceProcessingOtherAudioDuckingConfiguration = .init(
+        enableAdvancedDucking: false,
+        duckingLevel: .min
+      )
+
       return true
     } catch {
       // Sem ele a gravação continua — só volta a ser a média das cápsulas.
@@ -455,12 +473,28 @@ actor EchoRecorder {
   }
 
   private func stopMicrophone() {
-    guard micEngine.isRunning else { return }
+    let input = micEngine.inputNode
 
-    // Tirar o tap antes de parar: com ele instalado, um último bloco pode
-    // chegar depois de os arquivos terem sido fechados.
-    micEngine.inputNode.removeTap(onBus: 0)
-    micEngine.stop()
+    if micEngine.isRunning {
+      // Tirar o tap antes de parar: com ele instalado, um último bloco pode
+      // chegar depois de os arquivos terem sido fechados.
+      input.removeTap(onBus: 0)
+      micEngine.stop()
+    }
+
+    // Desligar o processamento de voz, e não só parar o motor.
+    //
+    // Ele é propriedade do nó de entrada, não do motor rodando: parado, o
+    // `micEngine` continua vivo (é `let`, dura o que durar o gravador) e a
+    // unidade de processamento continua montada nele — com a ducking dos
+    // outros apps junto. O áudio do sistema só voltava ao normal quando o
+    // processo inteiro morria, que é encerrar o aplicativo para parar de
+    // gravar. Desligar aqui devolve a entrada ao estado comum e solta o mixer.
+    //
+    // Fora do `if` porque o motor pode ter falhado ao subir *depois* de o
+    // processamento já estar ligado — o caso em que a ducking ficaria de pé
+    // sem sequer haver gravação.
+    try? input.setVoiceProcessingEnabled(false)
   }
 
   /// Confirma a Gravação de Tela — pedindo, se for o caso, antes de desistir.
