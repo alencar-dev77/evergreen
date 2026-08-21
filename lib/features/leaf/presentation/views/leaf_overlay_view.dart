@@ -38,6 +38,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   @override
   void initState() {
     super.initState();
+    _editorFocusNode.addListener(_onEditorFocusChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _panelFocusNode.requestFocus();
@@ -47,9 +48,28 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   @override
   void dispose() {
     _editorController.dispose();
+    _editorFocusNode.removeListener(_onEditorFocusChanged);
     _editorFocusNode.dispose();
     _panelFocusNode.dispose();
     super.dispose();
+  }
+
+  /// O cartão que perde o cursor guarda o que tinha escrito e volta a ser um
+  /// cartão.
+  ///
+  /// É a convenção do produto — sair do campo guarda, por qualquer caminho —, a
+  /// mesma que o apelido do Pin segue. Aqui ela resolve o que um clique no
+  /// painel deixava pendurado: no macOS o `TextField` larga o foco a cada
+  /// clique fora dele, e sem isto o cartão continuava com a borda accent, com o
+  /// rodapé prometendo "esc descartar" e sem cursor nenhum para receber a
+  /// próxima letra.
+  ///
+  /// O Esc não passa por aqui: ele desfaz a edição **antes** de o campo sair da
+  /// árvore, e quando o foco se perde já não há edição para guardar.
+  void _onEditorFocusChanged() {
+    if (_editorFocusNode.hasFocus) return;
+
+    _commitPendingEdit();
   }
 
   /// O foco volta ao painel a cada abertura — a menos que um cartão tenha

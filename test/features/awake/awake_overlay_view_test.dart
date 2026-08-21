@@ -1,9 +1,11 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/core/window/overlay_window.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
 import 'package:evergreen/features/awake/presentation/views/awake_overlay_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +40,33 @@ void main() {
 
     return ProviderScope.containerOf(tester.element(find.byType(AwakeOverlayView)));
   }
+
+  /// O Awake não tem campo de texto — quem segura o teclado é o próprio painel
+  /// —, então o clique não tem como levar o foco embora. O teste existe para
+  /// que o Esc do painel mais simples da suíte fique preso por um teste como o
+  /// dos outros quatro, e não por herança de casca.
+  testWidgets('clicar no painel não emudece o Esc', (tester) async {
+    OverlayWindow.instance.resetForTest();
+    final closing = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    const channel = MethodChannel('previous_app_focus');
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      closing.add(call.method);
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    await pumpPanel(tester);
+
+    await tester.tapAt(tester.getCenter(find.text('1:00:00')));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(closing, contains('beginHide'));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('desligado, o painel propõe a duração padrão', (tester) async {
     await pumpPanel(tester);

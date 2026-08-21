@@ -100,24 +100,32 @@ class _HubViewState extends ConsumerState<HubView> {
         bindings: {
           const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
         },
-        child: Focus(
-          autofocus: true,
-          child: EgBackground(
-            child: LayoutBuilder(
-              builder: (context, constraints) => Row(
-                // Estica: a área de detalhe rola, e um `SingleChildScrollView` se
-                // encolhe até a altura do conteúdo quando ele cabe na tela. Com o
-                // alinhamento padrão do `Row` (center), a tela de um módulo curto —
-                // o Awake — nascia centralizada verticalmente, enquanto Pin e Focus,
-                // que enchem a janela, começavam no topo. Toda tela do Hub começa no
-                // mesmo lugar.
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ModuleSidebar(selected: _selected, onSelect: _select),
-                  Expanded(child: _detail()),
-                  if (isDetailOpen)
-                    _region(detail, _regionWidth(constraints.maxWidth)),
-                ],
+        // O escopo é o chão do teclado do Hub: no macOS o campo de texto de uma
+        // tela de preferências larga o foco a cada clique fora dele, e sem um
+        // escopo aqui esse foco cai na rota — acima do `CallbackShortcuts`, de
+        // onde nenhuma tecla volta a descer. Era o que deixava o Hub sem Esc
+        // depois de um clique num campo, e é a mesma falha do painel flutuante
+        // (ver `EgOverlayShell`).
+        child: FocusScope(
+          child: Focus(
+            autofocus: true,
+            child: EgBackground(
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  // Estica: a área de detalhe rola, e um `SingleChildScrollView`
+                  // se encolhe até a altura do conteúdo quando ele cabe na tela.
+                  // Com o alinhamento padrão do `Row` (center), a tela de um
+                  // módulo curto — o Awake — nascia centralizada verticalmente,
+                  // enquanto Pin e Focus, que enchem a janela, começavam no topo.
+                  // Toda tela do Hub começa no mesmo lugar.
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ModuleSidebar(selected: _selected, onSelect: _select),
+                    Expanded(child: _detail()),
+                    if (isDetailOpen)
+                      _region(detail, _regionWidth(constraints.maxWidth)),
+                  ],
+                ),
               ),
             ),
           ),
