@@ -95,6 +95,41 @@ void main() {
       expect(lookups, contains('getWindowDefinition'));
     });
 
+    /// Depois de sair de um campo de texto, o Esc seguinte ainda esconde.
+    ///
+    /// Só no macOS, que é onde o `TextField` larga o foco a cada clique fora
+    /// dele — e o foco largado ia parar no escopo da rota, acima do
+    /// `CallbackShortcuts` do Hub. Dali nenhuma tecla voltava a descer: um
+    /// clique num campo de preferência deixava a janela sem Esc até ser
+    /// reaberta. Nas outras plataformas o campo não larga nada, e o teste
+    /// passaria sem testar.
+    testWidgets('depois de sair de um campo, o Esc ainda esconde a janela',
+        (tester) async {
+      final lookups = watchWindowLookups();
+      await pumpHub(tester);
+
+      // O Echo é a única tela do Hub com campo de texto.
+      await tester.tap(find.text('Echo').first);
+      await tester.pumpAndSettle();
+      final field = find.byType(TextField).first;
+      await tester.dragUntilVisible(
+        field,
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -80),
+      );
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+
+      // Um clique em qualquer outro lugar da janela tira o cursor do campo.
+      await tester.tap(find.text('Evergreen').first);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(lookups, contains('getWindowDefinition'));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
     testWidgets('com a região aberta, fecha a região e a janela fica',
         (tester) async {
       final lookups = watchWindowLookups();

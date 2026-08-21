@@ -65,6 +65,19 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   `WindowListener`, anima a entrada, decide o que é um blur de verdade e trata o
   vazio ao redor como barreira. O módulo só diz o que "fechar" significa para
   ele.
+- **Toda tela com atalho de teclado precisa de um `FocusScope` logo abaixo do
+  `Shortcuts`/`CallbackShortcuts` dela.** No macOS um `TextField` larga o foco a
+  cada clique fora dele, e o foco largado sobe até o escopo da rota — que fica
+  *acima* do mapa de atalhos. Dali nenhuma tecla volta a descer: a tela inteira
+  emudece e vira só de mouse; o Esc que não fecha é o sintoma que se nota
+  primeiro. O escopo é o chão que faz esse foco cair dentro da tela. Já está
+  posto na `EgOverlayShell` (os cinco painéis) e no `hub_view.dart`; tela nova
+  fora desses dois caminhos põe o seu.
+- Campo de texto guarda ao perder o foco, por qualquer caminho — clique fora,
+  troca de item, fechamento do painel. Vale para o apelido do Pin, o cartão do
+  Leaf e os campos das telas de preferência. O Esc é a única saída que
+  descarta, e ele desfaz a edição **antes** de o campo sair da árvore, então
+  nunca colide com o commit do foco perdido.
 - Acesso a dados sempre atrás de repositório (ex.: `ClipboardRepository`) —
   nunca acoplar UI/ViewModel diretamente ao SQLite.
 - Tipo de item do Pin (texto, link, e-mail, telefone, CPF, comando) é decidido

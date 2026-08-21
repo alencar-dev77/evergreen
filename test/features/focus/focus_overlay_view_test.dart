@@ -1,5 +1,6 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/core/window/overlay_window.dart';
 import 'package:evergreen/features/focus/models/focus_session.dart';
 import 'package:evergreen/features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import 'package:evergreen/features/focus/presentation/views/focus_overlay_view.dart';
@@ -59,6 +60,38 @@ void main() {
   /// timer pendente, e o binding reclama disso com razão.
   void stop(ProviderContainer container) =>
       container.read(focusTimerViewModelProvider.notifier).dismiss();
+
+  /// O que um clique dentro do painel faz com o teclado.
+  ///
+  /// Só no macOS, que é onde o `TextField` larga o foco a cada clique fora
+  /// dele. O foco largado ia parar no escopo da rota — acima do `Shortcuts` do
+  /// painel —, e dali nenhuma tecla voltava a descer: o Esc, o space e o Enter
+  /// paravam juntos. Nas outras plataformas o campo não larga nada, e o teste
+  /// passaria sem testar.
+  testWidgets('clicar fora do campo não emudece o Esc do painel',
+      (tester) async {
+    final closing = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    const channel = MethodChannel('previous_app_focus');
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      closing.add(call.method);
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    OverlayWindow.instance.resetForTest();
+
+    await pumpOverlay(tester);
+
+    // Um clique dentro do painel, fora do campo: o número da contagem.
+    await tester.tapAt(tester.getCenter(find.text('25:00')));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(closing, contains('beginHide'));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a tela de partida propõe a sessão e pergunta a atividade',
       (tester) async {

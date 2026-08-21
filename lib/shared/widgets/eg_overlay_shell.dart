@@ -35,6 +35,15 @@ import '../../core/design/app_metrics.dart';
 /// - **O painel é centralizado na janela.** Quem se posiciona na tela é a
 ///   janela; centralizar aqui é o que faz painéis de alturas diferentes
 ///   nascerem no mesmo ponto da tela.
+/// - **O teclado não sai do painel.** No macOS um `TextField` larga o foco a
+///   cada clique fora dele, e o foco largado cai no escopo da rota — que fica
+///   *acima* do `Shortcuts` do módulo. Dali nenhuma tecla volta a descer: o
+///   mapa inteiro emudece, Esc incluído, e o painel fica só de mouse. A casca
+///   põe um `FocusScope` em volta do painel para que esse foco largado caia
+///   **dentro** do módulo, e não fora dele. É a mesma falha que o Pin corrigiu
+///   sozinho no campo de busca (`EgSearchField.holdsFocus`) e que reapareceu no
+///   Leaf e no Focus, que também têm campo de texto — por isso agora ela é
+///   resolvida uma vez, aqui.
 class EgOverlayShell extends StatefulWidget {
   const EgOverlayShell({
     super.key,
@@ -127,6 +136,9 @@ class _EgOverlayShellState extends State<EgOverlayShell>
     if (focusNode != null) {
       panel = Focus(focusNode: focusNode, child: panel);
     }
+
+    // O escopo é o chão do teclado deste painel — ver a classe.
+    panel = FocusScope(child: panel);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

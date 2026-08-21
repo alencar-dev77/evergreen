@@ -457,6 +457,32 @@ void main() {
       expect(find.byType(PinPreviewPane), findsOneWidget);
     });
 
+    /// Só no macOS, que é onde o `TextField` larga o foco a cada clique fora
+    /// dele. O campo de busca já se defende disso (`holdsFocus`), mas o do
+    /// apelido não: sem o escopo da casca, o foco largado por ele ia parar
+    /// acima do `Shortcuts` do painel e levava o teclado inteiro junto — ver
+    /// `EgOverlayShell`.
+    testWidgets('clicar fora do apelido não emudece o Esc do painel',
+        (tester) async {
+      final closing = watchClosing();
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      await tester.enterText(aliasField(), 'chave pix');
+      await tester.pumpAndSettle();
+
+      // Um clique no rodapé de dicas: dentro do painel, fora de qualquer campo
+      // e fora da lista.
+      await tester.tapAt(tester.getCenter(find.text('guardar apelido')));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(closing, contains('beginHide'));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
     testWidgets('trocar de item guarda o apelido do anterior', (tester) async {
       await pumpOverlay(tester);
 

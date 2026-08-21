@@ -1,5 +1,6 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/core/window/overlay_window.dart';
 import 'package:evergreen/features/leaf/models/leaf_note.dart';
 import 'package:evergreen/features/leaf/presentation/viewmodels/leaf_state.dart';
 import 'package:evergreen/features/leaf/presentation/viewmodels/leaf_view_model.dart';
@@ -17,7 +18,32 @@ void main() {
 
   final clock = DateTime(2026, 8, 4, 10);
 
-  setUp(() => repository = FakeLeafRepository());
+  setUp(() {
+    repository = FakeLeafRepository();
+    // O overlay é um singleton, e cada Esc deixa nele o rastro de um fechamento
+    // que o ambiente de teste não tem como terminar — ver `resetForTest`.
+    OverlayWindow.instance.resetForTest();
+  });
+
+  /// Observa o fechamento do painel.
+  ///
+  /// `OverlayWindow.hide` começa avisando o lado nativo (`beginHide`), então é
+  /// essa chamada que diz "o painel está indo embora" sem precisar de janela de
+  /// verdade no ambiente de teste.
+  List<String> watchClosing() {
+    final calls = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    const channel = MethodChannel('previous_app_focus');
+
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call.method);
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    return calls;
+  }
 
   Future<ProviderContainer> pumpPanel(WidgetTester tester) async {
     // A parede cheia tem 3 linhas de 164px mais o rodapé: a janela padrão do
@@ -188,6 +214,53 @@ void main() {
     expect(find.byType(LeafNewNoteCell), findsNothing);
     // Sem vaga livre, o rodapé não promete uma anotação nova.
     expect(find.text('nova'), findsNothing);
+  });
+
+  /// O que um clique dentro do painel faz com o teclado.
+  ///
+  /// Só no macOS, e é por isso que o grupo declara a plataforma: lá o
+  /// `TextField` larga o foco a cada clique fora dele, e o foco largado ia
+  /// parar no escopo da rota — acima do `Shortcuts` do painel, de onde tecla
+  /// nenhuma volta a descer. O painel ficava só de mouse, e o Esc era o
+  /// sintoma que se notava primeiro. Nas outras plataformas o campo não larga
+  /// nada, e o teste passaria sem testar.
+  group('o clique não leva o teclado embora', () {
+    final macOS = TargetPlatformVariant.only(TargetPlatform.macOS);
+
+    testWidgets('clicar no painel guarda o cartão e devolve o teclado', (
+      tester,
+    ) async {
+      final container = await pumpPanel(tester);
+
+      viewModelOf(container).startNote();
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'comprar café');
+
+      // Um clique dentro do painel, fora do cartão: o rodapé de dicas.
+      await tester.tapAt(tester.getCenter(find.text('guardar')));
+      await tester.pumpAndSettle();
+
+      // Sair do campo guarda, por qualquer caminho — a convenção do produto.
+      expect(repository.loadAll().single.content, 'comprar café');
+      expect(stateOf(container).isEditing, isFalse);
+    }, variant: macOS);
+
+    testWidgets('depois do clique, um Esc só fecha o painel', (tester) async {
+      final closing = watchClosing();
+      final container = await pumpPanel(tester);
+
+      viewModelOf(container).startNote();
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'comprar café');
+
+      await tester.tapAt(tester.getCenter(find.text('guardar')));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(closing, contains('beginHide'));
+    }, variant: macOS);
   });
 
   testWidgets('fechar o painel guarda o que estava sendo escrito', (
