@@ -38,6 +38,13 @@ class EvergreenBootstrap {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
     unawaited(_container.read(echoRecorderViewModelProvider.notifier).initialize());
 
+    // Antes de qualquer coisa que possa iniciar uma sessão nova: se o
+    // Evergreen morreu no meio de uma, o tempo focado até ali entra no
+    // histórico agora. Ver `FocusRun`.
+    await _container
+        .read(focusTimerViewModelProvider.notifier)
+        .recoverInterruptedSession();
+
     await _syncLaunchAtLogin();
     await _registerShortcuts();
     await _setUpMenuBar();

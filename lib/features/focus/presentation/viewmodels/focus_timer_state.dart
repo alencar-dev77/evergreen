@@ -35,6 +35,7 @@ class FocusTimerState {
     this.status = FocusStatus.idle,
     this.remaining = Duration.zero,
     this.total = Duration.zero,
+    this.focused = Duration.zero,
     this.activity = '',
     this.startedAt,
     this.lastSession,
@@ -59,6 +60,18 @@ class FocusTimerState {
 
   /// Duração total da fase atual — a base do progresso.
   final Duration total;
+
+  /// Quanto o cronômetro **realmente correu** nesta fase, quando [status] é
+  /// [FocusStatus.finished].
+  ///
+  /// Não é `total - remaining`. Os dois só coincidem quando a sessão foi do
+  /// começo ao fim com o aplicativo acordado, que é o caso comum e não o único:
+  /// se o Mac dormir no minuto 3 de uma sessão de 25, o prazo vence enquanto o
+  /// processo está suspenso e `remaining` chega a zero sem que ninguém tenha
+  /// focado 25 minutos. Este número conta só o tempo que o cronômetro esteve de
+  /// pé, e é ele que a tela de conclusão mostra e o histórico registra — os
+  /// dois precisam dizer a mesma coisa.
+  final Duration focused;
 
   /// Atividade informada para a sessão em andamento (ou para a próxima).
   final String activity;
@@ -133,6 +146,7 @@ class FocusTimerState {
     FocusStatus? status,
     Duration? remaining,
     Duration? total,
+    Duration? focused,
     String? activity,
     DateTime? startedAt,
     FocusSession? lastSession,
@@ -146,6 +160,7 @@ class FocusTimerState {
       status: status ?? this.status,
       remaining: remaining ?? this.remaining,
       total: total ?? this.total,
+      focused: focused ?? this.focused,
       activity: activity ?? this.activity,
       startedAt: startedAt ?? this.startedAt,
       lastSession: lastSession ?? this.lastSession,
