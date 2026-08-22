@@ -360,7 +360,9 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
   /// era o que faltava.
   Widget _finished(FocusTimerState state) {
     final isFocus = state.phase.isFocus;
-    final elapsed = state.total - state.remaining;
+    // O tempo que o cronômetro correu, não o que o relógio andou — é o mesmo
+    // número que foi para o histórico (ver `FocusTimerState.focused`).
+    final elapsed = state.focused;
 
     return Column(
       mainAxisSize: MainAxisSize.min,

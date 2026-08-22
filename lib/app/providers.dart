@@ -8,6 +8,7 @@ import '../features/awake/data/display_sleep_service.dart';
 import '../features/echo/data/echo_channel.dart';
 import '../features/echo/data/echo_repository.dart';
 import '../features/echo/data/echo_settings_repository.dart';
+import '../features/focus/data/focus_run_repository.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
 import '../features/home/data/app_settings_repository.dart';
@@ -60,6 +61,10 @@ final focusSessionRepositoryProvider = Provider<FocusSessionRepository>(
 
 final focusSettingsRepositoryProvider = Provider<FocusSettingsRepository>(
   (ref) => FocusSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+final focusRunRepositoryProvider = Provider<FocusRunRepository>(
+  (ref) => FocusRunRepository(ref.watch(sharedPreferencesProvider)),
 );
 
 final awakeSettingsRepositoryProvider = Provider<AwakeSettingsRepository>(

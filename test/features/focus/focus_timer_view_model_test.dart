@@ -232,6 +232,161 @@ void main() {
     expect(saved(tester).single.duration, const Duration(minutes: 30));
   });
 
+  /// Os dois jeitos que o cronômetro tinha de mentir sobre o tempo focado.
+  ///
+  /// Os dois vinham da mesma raiz: a sessão só se reconciliava com o banco no
+  /// fim, e a duração registrada era `total - restante` — o que o **relógio**
+  /// andou, não o que o cronômetro correu.
+  group('o tempo registrado é o tempo que o cronômetro correu', () {
+    /// Container com um relógio que pode dar um salto sem que os tiques
+    /// aconteçam — que é exatamente o que o Mac dormindo faz com o processo.
+    ///
+    /// O `pump` do teste não serve para isso sozinho: ele adianta o relógio
+    /// falso executando **todos** os tiques do caminho, como uma máquina
+    /// acordada. O desvio é o que separa "o tempo passou" de "o tempo passou e
+    /// alguém estava lá".
+    ({ProviderContainer container, void Function(Duration) skip}) suspendable(
+      WidgetTester tester,
+    ) {
+      var skew = Duration.zero;
+
+      final container = ProviderContainer(
+        overrides: [
+          focusSessionRepositoryProvider.overrideWithValue(repository),
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          clockProvider
+              .overrideWithValue(() => tester.binding.clock.now().add(skew)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      return (container: container, skip: (gap) => skew += gap);
+    }
+
+    testWidgets('o Mac dormindo não conta como foco', (tester) async {
+      final (:container, :skip) = suspendable(tester);
+      viewModelOf(container).start(activity: 'Revisar a PR');
+
+      await tester.pump(const Duration(minutes: 3));
+      // O Mac dorme por duas horas: nenhum tique acontece, e quando ele acorda
+      // o prazo da sessão já venceu há muito.
+      skip(const Duration(hours: 2));
+      await tester.pump(const Duration(milliseconds: 250));
+
+      final state = stateOf(container);
+      expect(state.isFinished, isTrue);
+      // Três minutos foram focados; os outros vinte e dois passaram no relógio.
+      expect(state.focused, const Duration(minutes: 3));
+      expect(saved(tester).single.duration, const Duration(minutes: 3));
+    });
+
+    testWidgets('um tique atrasado não descarta o trabalho real',
+        (tester) async {
+      final (:container, :skip) = suspendable(tester);
+      viewModelOf(container).start();
+
+      await tester.pump(const Duration(minutes: 3));
+      // Meio minuto sem tique nenhum com a pessoa trabalhando: é o App Nap
+      // atrasando o timer de um aplicativo sem janela à vista, não um cochilo.
+      // Um limiar curto jogaria esses trinta segundos fora em silêncio.
+      skip(const Duration(seconds: 30));
+      await tester.pump(const Duration(milliseconds: 250));
+
+      viewModelOf(container).stop();
+
+      expect(
+        saved(tester).single.duration,
+        greaterThanOrEqualTo(const Duration(minutes: 3, seconds: 30)),
+      );
+    });
+
+    testWidgets('a pausa não entra na conta', (tester) async {
+      final container = containerFor(tester);
+      viewModelOf(container).start();
+
+      await tester.pump(const Duration(minutes: 4));
+      viewModelOf(container).pause();
+      await tester.pump(const Duration(minutes: 30));
+      viewModelOf(container).resume();
+      await tester.pump(const Duration(minutes: 2));
+      viewModelOf(container).stop();
+
+      expect(saved(tester).single.duration, const Duration(minutes: 6));
+    });
+  });
+
+  /// A sessão vive na memória do engine, e o que está na memória morre com o
+  /// aplicativo. O rastro (`FocusRun`) é o que sobrevive.
+  group('a sessão sobrevive ao fechamento do aplicativo', () {
+    testWidgets('o tempo focado até a morte do app entra no histórico',
+        (tester) async {
+      final container = containerFor(tester);
+      viewModelOf(container).start(activity: 'Escrever o handoff');
+      viewModelOf(container).addNote('comecei pelo diagrama');
+
+      await tester.pump(const Duration(minutes: 12));
+
+      // O aplicativo morre no meio da sessão: nada de stop, nada de dismiss.
+      container.dispose();
+
+      // A abertura seguinte, com as mesmas preferências no disco.
+      final next = containerFor(tester);
+      await viewModelOf(next).recoverInterruptedSession();
+
+      final recovered = saved(tester).single;
+      expect(recovered.duration, const Duration(minutes: 12));
+      expect(recovered.activity, 'Escrever o handoff');
+      expect(recovered.notes.single.text, 'comecei pelo diagrama');
+    });
+
+    testWidgets('o batimento é o que se perde, e é pouco', (tester) async {
+      final container = containerFor(tester);
+      viewModelOf(container).start();
+
+      // 80 segundos: o último batimento foi aos 75, e o seguinte só viria aos
+      // 90. O pior caso é perder um batimento inteiro, e é ele que precisa
+      // continuar sendo aceitável.
+      await tester.pump(const Duration(seconds: 80));
+      container.dispose();
+
+      final next = containerFor(tester);
+      await viewModelOf(next).recoverInterruptedSession();
+
+      expect(saved(tester).single.duration, const Duration(seconds: 75));
+    });
+
+    testWidgets('sessão terminada normalmente não é registrada duas vezes',
+        (tester) async {
+      final container = containerFor(tester);
+      viewModelOf(container).start();
+
+      await tester.pump(const Duration(minutes: 25));
+      expect(saved(tester), hasLength(1));
+
+      container.dispose();
+
+      final next = containerFor(tester);
+      await viewModelOf(next).recoverInterruptedSession();
+
+      // O rastro foi apagado no fim: a abertura seguinte não tem o que
+      // recuperar, e a sessão continua sendo uma só.
+      expect(saved(tester), hasLength(1));
+    });
+
+    testWidgets('sessão curta demais também não é recuperada', (tester) async {
+      final container = containerFor(tester);
+      viewModelOf(container).start();
+
+      await tester.pump(const Duration(seconds: 40));
+      container.dispose();
+
+      final next = containerFor(tester);
+      await viewModelOf(next).recoverInterruptedSession();
+
+      expect(saved(tester), isEmpty);
+    });
+  });
+
   testWidgets('a serialização de notas sobrevive à ida e volta', (tester) async {
     const notes = [
       FocusSessionNote(minute: 0, text: 'começando'),
