@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+#
+# bump_version — bump manual da versão, a rede de segurança pra quando o CI
+# está fora do ar.
+#
+# Normalmente ninguém roda isto: quem bumpa é o `.github/workflows/version-bump.yml`,
+# no merge de uma PR em `main`, lendo a label `bump:` da própria PR. Mas o
+# workflow depende do GitHub Actions estar rodando, e quando o Actions para
+# (billing, incidente, greve de runner) o merge acontece e o bump não — a versão
+# congela em silêncio.
+#
+# Aqui isso custa mais caro do que parece. O `version:` do `pubspec.yaml` é o que
+# a barra lateral do Hub mostra no rodapé (via `AppInfo`/`package_info_plus`), e
+# o Evergreen é instalado pelo `./run_build_copy`, que copia por cima da cópia
+# em /Applications. Com a versão congelada, duas instalações diferentes se
+# apresentam com o mesmo número e não há como dizer qual está na máquina — que é
+# justamente a pergunta que se faz quando algo quebrou depois de uma instalação.
+#
+# Este script faz **exatamente** o que o workflow faria, do mesmo lugar: na
+# `main`, DEPOIS do merge. O Evergreen não tem branch de integração — as PRs vão
+# direto para a `main`, e é lá que a label é exigida
+# (`require-bump-label.yml`) e que a versão sobe.
+#
+# Não rode na branch da feature — o bump é ato de integração, não de feature:
+#   - duas PRs abertas ao mesmo tempo bumpariam as duas pro mesmo número e
+#     conflitariam no `pubspec.yaml`;
+#   - a versão seria decidida antes de se saber se a PR entra.
+#
+# Uso:
+#   ./bump_version                 # nível vem das PRs pendentes (label bump:*)
+#   ./bump_version patch           # nível explícito (patch|minor|major)
+#   ./bump_version --pr 29         # nível vem da label daquela PR
+#   ./bump_version --dry-run       # só mostra o que faria
+#   ./bump_version --push          # commita, tagueia E envia (padrão: não envia)
+#
+# O padrão é NÃO enviar: o script deixa commit e tag prontos e imprime os dois
+# `git push`, pra você conferir antes.
+#
+set -euo pipefail
+
+BRANCH_BUMP="main"
+
+cd "$(dirname "$0")"
+
+vermelho() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+verde()    { printf '\033[32m%s\033[0m\n' "$*"; }
+azul()     { printf '\033[34m%s\033[0m\n' "$*"; }
+amarelo()  { printf '\033[33m%s\033[0m\n' "$*"; }
+
+erro() { vermelho "❌ $*"; exit 1; }
+
+# --- Argumentos -------------------------------------------------------------
+NIVEL=""
+PR_ALVO=""
+DRY_RUN=false
+PUSH=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    patch|minor|major) NIVEL="$1"; shift ;;
+    --pr)              PR_ALVO="${2:-}"; [ -n "$PR_ALVO" ] || erro "--pr exige o número da PR."; shift 2 ;;
+    --dry-run)         DRY_RUN=true; shift ;;
+    --push)            PUSH=true; shift ;;
+    -h|--help)         awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0 ;;
+    *)                 erro "Argumento desconhecido: $1 (use --help)" ;;
+  esac
+done
+
+# --- Guardas ----------------------------------------------------------------
+branch_atual="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch_atual" != "$BRANCH_BUMP" ]; then
+  erro "O bump é feito na '$BRANCH_BUMP', depois do merge (você está em '$branch_atual'). Veja o cabeçalho do script."
+fi
+verde "✓ Branch: $branch_atual"
+
+if [ -n "$(git status --porcelain)" ]; then
+  git status --short >&2
+  erro "Há alterações não commitadas. O bump precisa entrar num commit só dele."
+fi
+verde "✓ Sem alterações pendentes"
+
+azul "→ git fetch origin $BRANCH_BUMP"
+git fetch --quiet origin "$BRANCH_BUMP"
+
+local_sha="$(git rev-parse HEAD)"
+remoto_sha="$(git rev-parse "origin/$BRANCH_BUMP")"
+base_sha="$(git merge-base HEAD "origin/$BRANCH_BUMP")"
+
+if [ "$local_sha" != "$remoto_sha" ]; then
+  if [ "$local_sha" = "$base_sha" ]; then
+    erro "Branch atrasada em relação a origin/$BRANCH_BUMP. Rode 'git pull' antes de bumpar."
+  elif [ "$remoto_sha" = "$base_sha" ]; then
+    erro "Há commits locais que não foram enviados. Rode 'git push' antes de bumpar."
+  else
+    erro "Branch divergiu de origin/$BRANCH_BUMP. Resolva antes de bumpar."
+  fi
+fi
+verde "✓ Em dia com origin/$BRANCH_BUMP ($(git rev-parse --short HEAD))"
+
+# --- Nível do bump ----------------------------------------------------------
+# Mesma precedência do workflow: major > minor > patch.
+nivel_das_labels() {
+  local labels="$1"
+  if   echo "$labels" | grep -q "bump:major"; then echo "major"
+  elif echo "$labels" | grep -q "bump:minor"; then echo "minor"
+  elif echo "$labels" | grep -q "bump:patch"; then echo "patch"
+  else echo ""
+  fi
+}
+
+if [ -n "$PR_ALVO" ]; then
+  command -v gh >/dev/null || erro "--pr precisa do 'gh' instalado."
+  labels="$(gh pr view "$PR_ALVO" --json labels -q '[.labels[].name] | join(" ")')"
+  NIVEL="$(nivel_das_labels "$labels")"
+  [ -n "$NIVEL" ] || erro "A PR #$PR_ALVO não tem label bump:patch/minor/major."
+  azul "→ PR #$PR_ALVO: label bump:$NIVEL"
+fi
+
+if [ -z "$NIVEL" ]; then
+  # Sem nível explícito: descobre o que foi mergeado na main desde o último
+  # commit de bump — que é justamente o que o CI deixou de processar.
+  command -v gh >/dev/null || erro "Sem 'gh' instalado, informe o nível: ./bump_version patch"
+
+  ultimo_bump="$(git log -1 --format='%cI' --grep='^chore: bump version to' "origin/$BRANCH_BUMP" || true)"
+  [ -n "$ultimo_bump" ] || erro "Não achei o último commit de bump. Informe o nível na mão."
+  azul "→ Último bump: $ultimo_bump"
+
+  pendentes="$(gh pr list --state merged --base "$BRANCH_BUMP" --limit 30 \
+    --json number,title,mergedAt,labels \
+    -q "[.[] | select(.mergedAt > \"$ultimo_bump\")] | .[] | \"\(.number)\t\([.labels[].name] | join(\",\"))\t\(.title)\"" || true)"
+
+  if [ -z "$pendentes" ]; then
+    amarelo "Nenhuma PR mergeada na $BRANCH_BUMP depois do último bump — nada a fazer."
+    exit 0
+  fi
+
+  echo
+  azul "PRs mergeadas sem bump:"
+  printf '%s\n' "$pendentes" | while IFS=$'\t' read -r num lbl tit; do
+    printf '  #%-5s %-12s %s\n' "$num" "${lbl:-sem label}" "$tit"
+  done
+  echo
+
+  NIVEL="$(nivel_das_labels "$(printf '%s' "$pendentes" | cut -f2 | tr '\n' ' ')")"
+  [ -n "$NIVEL" ] || erro "Nenhuma das PRs pendentes tem label bump:*. Informe o nível na mão."
+
+  # Um bump só pra todas as pendentes, com o nível mais forte entre elas: as
+  # tags marcam o que está publicável, e não há Release por feature pra
+  # justificar um número por PR (nem commit onde pendurar os intermediários).
+  amarelo "→ Um bump '$NIVEL' cobrindo as PRs acima (a mais forte manda)."
+fi
+
+# --- Cálculo da nova versão -------------------------------------------------
+# Replica o `cider bump <nível>` + `cider bump build` do workflow: o nível sobe,
+# o que vem depois dele zera e o build volta pra 1 (por isso todo o histórico
+# do projeto é `+1`).
+atual="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
+[ -n "$atual" ] || erro "Não consegui ler 'version:' do pubspec.yaml."
+
+semver="${atual%%+*}"
+IFS='.' read -r MAJOR MINOR PATCH <<< "$semver"
+case "$MAJOR$MINOR$PATCH" in
+  *[!0-9]*|"") erro "Versão em formato inesperado no pubspec.yaml: $atual" ;;
+esac
+
+case "$NIVEL" in
+  major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+  minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+  patch) PATCH=$((PATCH + 1)) ;;
+esac
+
+nova="$MAJOR.$MINOR.$PATCH+1"
+tag="v$nova"
+
+echo
+azul "→ $atual  ->  $nova   (bump $NIVEL)"
+azul "→ tag: $tag"
+
+if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+  erro "A tag $tag já existe. Alguém já bumpou pra essa versão."
+fi
+
+if [ "$DRY_RUN" = true ]; then
+  echo
+  amarelo "--dry-run: nada foi alterado."
+  exit 0
+fi
+
+# --- Aplica -----------------------------------------------------------------
+tmp="$(mktemp)"
+sed "s|^version: .*|version: $nova|" pubspec.yaml > "$tmp"
+mv "$tmp" pubspec.yaml
+
+git add pubspec.yaml
+git commit --quiet -m "chore: bump version to $nova"
+git tag "$tag"
+
+echo
+verde "✓ Commit e tag criados localmente"
+
+if [ "$PUSH" = true ]; then
+  azul "→ git push origin $BRANCH_BUMP && git push origin $tag"
+  git push --quiet origin "$BRANCH_BUMP"
+  git push --quiet origin "$tag"
+  verde "✅ $nova enviada pra origin/$BRANCH_BUMP"
+else
+  echo
+  amarelo "Nada foi enviado ainda. Confira com 'git show HEAD' e envie:"
+  echo "  git push origin $BRANCH_BUMP"
+  echo "  git push origin $tag"
+fi
+
+echo
+azul "Depois: ./run_build_copy instala a versão nova em /Applications, e o"
+azul "rodapé da barra lateral do Hub passa a mostrar $nova."
