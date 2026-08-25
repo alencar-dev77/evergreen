@@ -34,6 +34,9 @@ class EvergreenBootstrap {
   /// Fila de operações de janela, para que abrir e fechar nunca se cruzem.
   Future<void> _pending = Future<void>.value();
 
+  /// Relógio do backup automático. Ver [_scheduleBackups].
+  Timer? _backupTimer;
+
   Future<void> start() async {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
     unawaited(_container.read(echoRecorderViewModelProvider.notifier).initialize());
@@ -53,7 +56,44 @@ class EvergreenBootstrap {
     _watchFocusSession();
     _watchAwake();
     _watchEcho();
+    _scheduleBackups();
     await _openHubIfRequested();
+  }
+
+  /// Liga o backup semanal.
+  ///
+  /// Na abertura e de seis em seis horas, e não numa tarefa agendada do
+  /// sistema: o Evergreen é um agente de barra de menus que fica aberto o dia
+  /// inteiro, então uma verificação barata de tempos em tempos alcança tanto
+  /// quem reinicia o Mac todo dia quanto quem passa três semanas sem desligar.
+  /// Só a checagem é frequente — o backup em si acontece uma vez por semana
+  /// (`BackupService.isDue`).
+  ///
+  /// Aqui, e não no engine do Hub, pela mesma razão do cronômetro do Focus e da
+  /// captura do Pin: a janela de preferências passa a maior parte do tempo
+  /// fechada, e um backup que só rodasse com ela aberta não seria automático.
+  void _scheduleBackups() {
+    _runScheduledBackup();
+    _backupTimer = Timer.periodic(
+      const Duration(hours: 6),
+      (_) => _runScheduledBackup(),
+    );
+  }
+
+  void _runScheduledBackup() {
+    if (!_container.read(appSettingsViewModelProvider).automaticBackup) return;
+
+    final service = _container.read(backupServiceProvider);
+    if (!service.isDue()) return;
+
+    try {
+      service.create();
+    } catch (_) {
+      // Disco cheio, pasta sem permissão, banco travado por outro processo: o
+      // backup falhado é tentado de novo na verificação seguinte, e nada disso
+      // pode derrubar o aplicativo que está rodando. Quem precisa saber que
+      // falhou é quem apertou o botão — e esse caminho avisa na tela.
+    }
   }
 
   Future<void> _registerShortcuts() async {
@@ -243,6 +283,7 @@ class EvergreenBootstrap {
   }
 
   Future<void> _quit() async {
+    _backupTimer?.cancel();
     await GlobalShortcutService.instance.dispose();
     await MenuBarService.instance.dispose();
     exit(0);

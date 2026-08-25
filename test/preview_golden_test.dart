@@ -5,6 +5,7 @@ import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/design/app_colors.dart';
 import 'package:evergreen/core/storage/app_database.dart';
+import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
@@ -31,6 +32,8 @@ import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart'
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
 import 'package:evergreen/features/trail/data/trail_repository.dart';
 import 'package:evergreen/features/trail/presentation/widgets/trail_day_list.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,11 +74,17 @@ void main() {
   late SharedPreferences preferences;
   late Database echoDb;
   late FakeEchoChannel channel;
+  late BackupService backups;
 
   /// O "hoje" das imagens do Trail: a quinta-feira em que a reunião do Echo
   /// acontece. Fixo porque o módulo lê a semana corrente — com o relógio real
   /// as fixtures cairiam fora do recorte e a tela sairia vazia.
   final trailToday = DateTime(2026, 7, 23, 16, 20);
+
+  /// O "agora" da tela de preferências, pelo mesmo motivo do [trailToday]: a
+  /// lista de backups rotula as datas como "Hoje"/"Ontem" e a linha do último
+  /// backup diz "há N horas".
+  final backupToday = DateTime(2026, 8, 25, 16, 20);
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -152,6 +161,32 @@ void main() {
     // O Trail lê as quatro tabelas: as três primeiras são as fixtures dos
     // outros módulos, e é a soma delas que a folha de conferência mostra.
     seedTrail(echoDb, trailToday);
+
+    // A pasta de backups da conferência visual, com um histórico plausível: o
+    // de hoje de manhã e os das duas semanas anteriores. Ancorada em
+    // [backupToday], e não no relógio real, para a imagem não mudar conforme a
+    // hora em que ela for regerada.
+    final directory = Directory.systemTemp.createTempSync('evergreen-goldens');
+    addTearDown(() {
+      if (directory.existsSync()) directory.deleteSync(recursive: true);
+    });
+
+    backups = BackupService(
+      database: echoDb,
+      directory: Directory('${directory.path}/Backups'),
+    );
+
+    for (final daysAgo in [14, 7, 0]) {
+      backups.create(
+        at: DateTime(
+          backupToday.year,
+          backupToday.month,
+          backupToday.day - daysAgo,
+          9,
+          12,
+        ),
+      );
+    }
   });
 
   tearDown(() {
@@ -289,6 +324,7 @@ void main() {
           // O Trail lê o mesmo banco: ele não tem tabela própria.
           trailRepositoryProvider
               .overrideWithValue(SqliteTrailRepository(echoDb)),
+          backupServiceProvider.overrideWithValue(backups),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now())
           else if (now != null)
@@ -412,7 +448,14 @@ void main() {
   });
 
   testWidgets('Hub — preferências do aplicativo', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1200));
+    // Alta: com o backup e a restauração a tela passou a ser a mais longa do
+    // Hub, e a folha de conferência precisa mostrá-la inteira.
+    await pump(
+      tester,
+      const HubView(),
+      const Size(1800, 2400),
+      now: backupToday,
+    );
 
     await tester.tap(find.text('Preferências do aplicativo'));
     await tester.pumpAndSettle();

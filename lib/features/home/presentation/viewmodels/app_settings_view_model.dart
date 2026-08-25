@@ -40,6 +40,9 @@ class AppSettingsViewModel extends Notifier<AppSettings> {
   Future<void> setStartMinimized(bool value) =>
       _update(state.copyWith(startMinimized: value));
 
+  Future<void> setAutomaticBackup(bool value) =>
+      _update(state.copyWith(automaticBackup: value));
+
   Future<void> _update(AppSettings settings) async {
     state = settings;
     await _repository.save(settings);

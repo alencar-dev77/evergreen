@@ -1,7 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:io';
+
 import '../core/storage/app_database.dart';
+import '../core/storage/backup_service.dart';
 import '../core/window/overlay_panel.dart';
 import '../features/awake/data/awake_settings_repository.dart';
 import '../features/awake/data/display_sleep_service.dart';
@@ -31,6 +35,22 @@ final appDatabaseProvider = Provider<AppDatabase>(
 final sharedPreferencesProvider = Provider<SharedPreferences>(
   (ref) => throw StateError('sharedPreferencesProvider precisa de override no main'),
 );
+
+/// Os backups do banco, na subpasta `Backups` do próprio aplicativo.
+///
+/// Ali, e não em `~/Documents`: o backup automático precisa acontecer sozinho,
+/// e escrever na pasta de Documentos faz o macOS pedir permissão numa hora que
+/// ninguém escolheu — um pedido que, recusado, deixaria a proteção desligada
+/// sem ninguém saber. A pasta do aplicativo não pede nada, e a tela de
+/// preferências tem o botão que a abre no Finder.
+final backupServiceProvider = Provider<BackupService>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return BackupService(
+    database: database.db,
+    directory: Directory(p.join(database.directoryPath, 'Backups')),
+  );
+});
 
 final appSettingsRepositoryProvider = Provider<AppSettingsRepository>(
   (ref) => AppSettingsRepository(ref.watch(sharedPreferencesProvider)),

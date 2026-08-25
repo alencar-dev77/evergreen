@@ -16,6 +16,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../focus/fake_focus_session_repository.dart';
 import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
+import 'backup_fixture.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -53,6 +54,9 @@ void main() {
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
           // O Trail lê o mesmo banco — ele não tem tabela própria.
           trailRepositoryProvider.overrideWithValue(SqliteTrailRepository(db)),
+          // A tela do aplicativo lê a pasta de backups ao montar.
+          backupServiceProvider
+              .overrideWithValue(temporaryBackupService(database: db)),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
