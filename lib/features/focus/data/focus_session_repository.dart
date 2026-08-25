@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../../../shared/utils/day_bounds.dart';
 import '../models/focus_session.dart';
 import '../models/focus_session_note.dart';
 
@@ -141,17 +142,13 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
     );
   }
 
-  static DateTime _startOfDay(DateTime moment) =>
-      DateTime(moment.year, moment.month, moment.day);
+  static DateTime _startOfDay(DateTime moment) => DayBounds.startOfDay(moment);
 
   /// Segunda-feira desta semana, à meia-noite — a fronteira do histórico.
   ///
-  /// Construído por componentes de data (e não por `subtract`) para atravessar
-  /// mudanças de horário de verão sem escorregar uma hora.
-  static DateTime startOfWeek(DateTime moment) {
-    final daysSinceMonday = moment.weekday - DateTime.monday;
-    return DateTime(moment.year, moment.month, moment.day - daysSinceMonday);
-  }
+  /// Continua exposta aqui porque é o Focus quem define a fronteira; a conta
+  /// mora em [DayBounds] desde que o Trail passou a precisar do mesmo recorte.
+  static DateTime startOfWeek(DateTime moment) => DayBounds.startOfWeek(moment);
 
   /// Campo em branco é ausência de informação, não string vazia — o histórico
   /// distingue "sessão sem atividade" de "atividade vazia".

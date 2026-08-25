@@ -9,6 +9,14 @@ abstract final class DayLabel {
     'jul', 'ago', 'set', 'out', 'nov', 'dez',
   ];
 
+  /// Abreviações dos dias da semana, de segunda a domingo.
+  ///
+  /// Na ordem em que a faixa de barras (`EgDayBars`) as desenha — a mesma
+  /// ordem do `DateTime.weekday`, que começa na segunda.
+  static const weekdays = <String>[
+    'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom',
+  ];
+
   /// "Hoje", "Ontem" ou "23 jul" — e com o ano quando não for o corrente.
   static String of(DateTime moment, {DateTime? now}) {
     final today = _startOfDay(now ?? DateTime.now());

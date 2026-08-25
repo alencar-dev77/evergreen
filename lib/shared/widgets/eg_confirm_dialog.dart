@@ -97,8 +97,16 @@ class EgConfirmDialog extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
               Text(message, style: AppTypography.bodyCompact),
               const SizedBox(height: AppSpacing.xxl),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              // `Wrap`, e não `Row`: os dois botões têm largura própria e a
+              // do diálogo é fixa, então um par de rótulos um pouco mais longo
+              // que "Cancelar / Apagar" estoura a linha — "Cancelar /
+              // Restaurar" já estourava, por uma fração de pixel, e o que
+              // aparecia na tela era a faixa listrada de overflow. Assim o
+              // botão desce em vez de vazar, e nada muda quando os dois cabem.
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   // O caminho seguro nasce focado: numa ação irreversível, o
                   // Enter reflexo não pode ser o que apaga os dados.
@@ -107,7 +115,6 @@ class EgConfirmDialog extends StatelessWidget {
                     autofocus: true,
                     onPressed: () => Navigator.of(context).pop(false),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
                   confirm,
                 ],
               ),

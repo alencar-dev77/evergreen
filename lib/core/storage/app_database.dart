@@ -8,9 +8,17 @@ import 'package:sqlite3/sqlite3.dart';
 /// feature é dona das suas tabelas e registra as próprias migrações em
 /// [_migrations]. Nada sai da máquina.
 class AppDatabase {
-  AppDatabase._(this.db);
+  AppDatabase._(this.db, this.directoryPath);
 
   final Database db;
+
+  /// A pasta em que o `evergreen.db` mora
+  /// (`~/Library/Application Support/<bundle>`).
+  ///
+  /// Exposta porque o backup escreve numa subpasta dela, e resolvê-la de novo
+  /// lá seria um segundo `await getApplicationSupportDirectory()` para chegar
+  /// ao mesmo lugar — com o risco de os dois discordarem um dia.
+  final String directoryPath;
 
   static AppDatabase? _instance;
 
@@ -143,7 +151,7 @@ class AppDatabase {
 
     migrate(database);
 
-    return _instance = AppDatabase._(database);
+    return _instance = AppDatabase._(database, directory.path);
   }
 
   /// Aplica as migrações pendentes. Público para que os testes possam preparar

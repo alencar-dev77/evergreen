@@ -1,6 +1,7 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
+import 'package:evergreen/features/trail/data/trail_repository.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/viewmodels/hub_detail_view_model.dart';
@@ -15,21 +16,24 @@ import 'package:sqlite3/sqlite3.dart';
 import '../focus/fake_focus_session_repository.dart';
 import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
+import 'backup_fixture.dart';
 
 void main() {
   late SharedPreferences preferences;
 
-  late Database echoDb;
+  /// Um banco de verdade, em memória: o Echo lê as reuniões dele e o Trail lê
+  /// as quatro tabelas que os módulos escrevem.
+  late Database db;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
 
-    echoDb = sqlite3.openInMemory();
-    AppDatabase.migrate(echoDb);
+    db = sqlite3.openInMemory();
+    AppDatabase.migrate(db);
   });
 
-  tearDown(() => echoDb.close());
+  tearDown(() => db.close());
 
   Future<void> pumpHub(WidgetTester tester) async {
     tester.view.physicalSize = const Size(900, 600);
@@ -46,8 +50,13 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(preferences),
           // O Echo lê as reuniões do banco e pergunta ao sistema o que a
           // máquina permite — nem um nem outro existem dentro de um teste.
-          echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),
+          echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
+          // O Trail lê o mesmo banco — ele não tem tabela própria.
+          trailRepositoryProvider.overrideWithValue(SqliteTrailRepository(db)),
+          // A tela do aplicativo lê a pasta de backups ao montar.
+          backupServiceProvider
+              .overrideWithValue(temporaryBackupService(database: db)),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),

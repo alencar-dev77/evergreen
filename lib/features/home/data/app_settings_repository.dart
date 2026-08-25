@@ -13,6 +13,7 @@ class AppSettingsRepository {
 
   static const _launchAtLoginKey = 'app.launch_at_login';
   static const _startMinimizedKey = 'app.start_minimized';
+  static const _automaticBackupKey = 'app.automatic_backup';
 
   AppSettings load() {
     const defaults = AppSettings();
@@ -21,6 +22,8 @@ class AppSettingsRepository {
       launchAtLogin: _prefs.getBool(_launchAtLoginKey) ?? defaults.launchAtLogin,
       startMinimized:
           _prefs.getBool(_startMinimizedKey) ?? defaults.startMinimized,
+      automaticBackup:
+          _prefs.getBool(_automaticBackupKey) ?? defaults.automaticBackup,
     );
   }
 
@@ -28,6 +31,7 @@ class AppSettingsRepository {
     await Future.wait([
       _prefs.setBool(_launchAtLoginKey, settings.launchAtLogin),
       _prefs.setBool(_startMinimizedKey, settings.startMinimized),
+      _prefs.setBool(_automaticBackupKey, settings.automaticBackup),
     ]);
   }
 }

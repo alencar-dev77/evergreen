@@ -1,7 +1,10 @@
-# Sugestão futura — Trail, o dia reconstruído
+# Trail, o dia reconstruído
 
-> Status: **proposta**, não agendada. Nenhum código foi escrito.
-> Registrado em 22/08/2026, a partir de uma conversa sobre features novas.
+> Status: **implementado** em 25/08/2026, em `lib/features/trail/`.
+> Registrado como proposta em 22/08/2026, a partir de uma conversa sobre
+> features novas. O que está escrito daqui até "Escopo" é o documento original,
+> preservado porque é o argumento do módulo; o que mudou na implementação está
+> em "O que a construção decidiu", no fim.
 
 ---
 
@@ -93,9 +96,51 @@ A regra do módulo, então:
 
 ---
 
-## Próximo passo, se decidir seguir
+## O que a construção decidiu
 
-Rodar as queries à mão contra o `evergreen.db` de um dia real de uso e olhar o
-resultado. Se os números de um dia qualquer já contarem uma história sem nenhuma
-tela desenhada, o módulo se paga. Se não contarem, o problema é falta de dado, e
-nenhuma UI conserta isso.
+Seis pontos que o documento não previa, e que só apareceram ao desenhar a tela.
+
+**A medida do Trail é "tempo registrado", não tempo focado.** A coluna da
+direita de cada dia e a altura de cada barra da semana somam foco **mais**
+reunião (`TrailDay.registered`). Uma manhã inteira de reunião é uma manhã de
+trabalho, e uma faixa que só contasse foco a desenharia como um dia vazio. É o
+que distingue esta faixa da do Focus, e o que justifica as duas existirem.
+
+**O recorte manda na tela inteira, e a faixa da semana some no recorte de hoje.**
+Uma barra sozinha não compara nada com nada. No recorte de hoje sobra a frase do
+balanço, que é o suficiente para um dia só.
+
+**Hoje tem linha mesmo sem nada registrado.** Os outros dias vazios ficam de
+fora — uma quarta-feira de folga não precisa de linha para dizer que foi folga —,
+mas uma lista que começa em "Ontem" às dez da manhã parece um módulo quebrado.
+
+**A lista de dias e o dia aberto correm em sentidos opostos.** A lista é uma
+lista: hoje na primeira linha. Um dia aberto é uma história, e história se lê do
+começo — a sessão das nove antes da das três, que é o que reconstrói o dia.
+
+**A região não tem nenhuma ação, nem apagar.** Cada registro se edita no módulo
+que o criou: sessão no Focus, reunião no Echo, item no Pin. Um botão de apagar
+aqui apagaria dado de outro módulo pelas costas dele.
+
+**O módulo não tem preferência nenhuma.** Não havia o que ajustar que não fosse
+invenção: o recorte é um controle da tela, não uma configuração guardada.
+
+E o risco principal do documento virou uma fronteira de código: a consulta em
+`SqliteTrailRepository` pede `copied_at` e `type` da tabela do Pin, e mais nada.
+O conteúdo copiado não sai do banco — não é uma escolha da tela, é a única coisa
+que o repositório sabe ler. O que segue para o modelo é o agregado, e o teste
+`o conteúdo copiado não sai do banco` é o que prende isso.
+
+## Onde o código está
+
+| Peça | Arquivo |
+|---|---|
+| Leitura agregada das quatro tabelas | `lib/features/trail/data/trail_repository.dart` |
+| O parágrafo do modelo, com degradação silenciosa | `lib/features/trail/data/trail_summarizer.dart` |
+| Estado da tela, recorte e cache do resumo | `lib/features/trail/presentation/viewmodels/trail_view_model.dart` |
+| Tela do Hub | `lib/features/trail/presentation/views/trail_view.dart` |
+| Região de leitura do dia | `lib/features/trail/presentation/widgets/trail_reader.dart` |
+| Faixa de barras, compartilhada com o Focus | `lib/shared/widgets/eg_day_bars.dart` |
+
+Conferência visual: `test/goldens/hub_trail.png` e
+`test/goldens/hub_trail_day.png`.
