@@ -28,6 +28,9 @@ import 'package:evergreen/features/leaf/presentation/views/leaf_overlay_view.dar
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
+import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
+import 'package:evergreen/features/trail/data/trail_repository.dart';
+import 'package:evergreen/features/trail/presentation/widgets/trail_day_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,6 +70,12 @@ void main() {
 
   late SharedPreferences preferences;
   late Database echoDb;
+  late FakeEchoChannel channel;
+
+  /// O "hoje" das imagens do Trail: a quinta-feira em que a reunião do Echo
+  /// acontece. Fixo porque o módulo lê a semana corrente — com o relógio real
+  /// as fixtures cairiam fora do recorte e a tela sairia vazia.
+  final trailToday = DateTime(2026, 7, 23, 16, 20);
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -131,6 +140,18 @@ void main() {
         ],
       ),
     );
+
+    channel = FakeEchoChannel()
+      ..summaryValue =
+          'Você passou a maior parte do dia no módulo de autenticação, em três '
+          'sessões de foco que somaram quase duas horas, e ainda gravou o '
+          'alinhamento de escopo da manhã. O que passou pela área de '
+          'transferência foi sobretudo link e comando — dia de leitura e '
+          'terminal.';
+
+    // O Trail lê as quatro tabelas: as três primeiras são as fixtures dos
+    // outros módulos, e é a soma delas que a folha de conferência mostra.
+    seedTrail(echoDb, trailToday);
   });
 
   tearDown(() {
@@ -238,12 +259,15 @@ void main() {
   /// [fakeClock] troca o relógio da aplicação pelo do binding, que anda com
   /// `tester.pump`. Só o painel em sessão precisa disso; nas telas do Hub o
   /// relógio falso jogaria as datas para 2015 e o histórico perderia o "Hoje".
+  /// [now] fixa o relógio numa data escolhida — é o que o Trail precisa, porque
+  /// ele lê a semana corrente e as fixtures dele têm data fixa.
   Future<void> pump(
     WidgetTester tester,
     Widget home,
     Size size, {
     VoidCallback? beforeSettle,
     bool fakeClock = false,
+    DateTime? now,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 2.0;
@@ -261,9 +285,14 @@ void main() {
           leafRepositoryProvider.overrideWithValue(notes),
           sharedPreferencesProvider.overrideWithValue(preferences),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),
-          echoChannelProvider.overrideWithValue(FakeEchoChannel()),
+          echoChannelProvider.overrideWithValue(channel),
+          // O Trail lê o mesmo banco: ele não tem tabela própria.
+          trailRepositoryProvider
+              .overrideWithValue(SqliteTrailRepository(echoDb)),
           if (fakeClock)
-            clockProvider.overrideWithValue(() => tester.binding.clock.now()),
+            clockProvider.overrideWithValue(() => tester.binding.clock.now())
+          else if (now != null)
+            clockProvider.overrideWithValue(() => now),
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -587,6 +616,139 @@ void main() {
       matchesGoldenFile('goldens/hub_awake.png'),
     );
   });
+
+  testWidgets('Hub — Trail', (tester) async {
+    await pump(
+      tester,
+      const HubView(),
+      const Size(1800, 1400),
+      now: trailToday,
+    );
+
+    await tester.tap(find.text(EvergreenModule.trail.name));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_trail.png'),
+    );
+  });
+
+  /// O dia aberto na região de leitura.
+  ///
+  /// Larga pelo mesmo motivo da reunião do Echo e da sessão do Focus: abrir um
+  /// dia faz a **janela crescer** (`HubWindowChannel.setDetailWidth`), e sob
+  /// `flutter test` não há janela nativa para crescer — o tamanho já entra aqui
+  /// somado.
+  testWidgets('Hub — Trail, o dia aberto', (tester) async {
+    await pump(
+      tester,
+      const HubView(),
+      const Size(2720, 1400),
+      now: trailToday,
+    );
+
+    await tester.tap(find.text(EvergreenModule.trail.name));
+    await tester.pumpAndSettle();
+
+    // "Hoje" também é o nome de uma pílula do recorte — o `find` precisa dizer
+    // que quer a linha da lista.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(TrailDayList),
+        matching: find.text('Hoje'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_trail_day.png'),
+    );
+  });
+}
+
+/// Enche as tabelas que o Trail lê, na semana de [today].
+///
+/// Escreve direto em SQL, e não pelos repositórios dos outros módulos: o Trail
+/// não tem escrita própria, e o que a folha de conferência precisa é do dado
+/// como ele fica no banco depois que Focus, Echo, Pin e Leaf passaram por ali.
+///
+/// A distribuição do dia é a do documento que originou o módulo — quarenta
+/// itens copiados, nove deles links e seis comandos.
+void seedTrail(Database db, DateTime today) {
+  DateTime at(int daysAgo, int hour, int minute) =>
+      DateTime(today.year, today.month, today.day - daysAgo, hour, minute);
+
+  void focus(DateTime startedAt, int minutes, [String? activity]) {
+    db.execute(
+      'INSERT INTO focus_sessions (started_at, duration_seconds, activity) '
+      'VALUES (?, ?, ?);',
+      [startedAt.millisecondsSinceEpoch, minutes * 60, activity],
+    );
+  }
+
+  void meeting(DateTime startedAt, int minutes, String title) {
+    db.execute(
+      'INSERT INTO echo_meetings '
+      '(title, started_at, duration_ms, language, transcript) '
+      'VALUES (?, ?, ?, ?, ?);',
+      [
+        title,
+        startedAt.millisecondsSinceEpoch,
+        Duration(minutes: minutes).inMilliseconds,
+        'pt-BR',
+        '[]',
+      ],
+    );
+  }
+
+  void copies(DateTime day, ClipboardItemType type, int count) {
+    for (var index = 0; index < count; index++) {
+      db.execute(
+        'INSERT INTO clipboard_items (content, type, is_pinned, copied_at) '
+        'VALUES (?, ?, 0, ?);',
+        [
+          '${type.name}-${day.day}-$index',
+          type.name,
+          day.add(Duration(minutes: index)).millisecondsSinceEpoch,
+        ],
+      );
+    }
+  }
+
+  void note(int slot, DateTime createdAt) {
+    db.execute(
+      'INSERT INTO leaf_notes (slot, content, created_at) VALUES (?, ?, ?);',
+      [slot, 'anotação $slot', createdAt.millisecondsSinceEpoch],
+    );
+  }
+
+  focus(at(0, 9, 12), 25, 'Refatorar o módulo de auth');
+  focus(at(0, 11, 20), 40, 'Revisar a PR do Echo');
+  focus(at(0, 15, 5), 50);
+  focus(at(1, 9, 40), 50, 'Escrever a proposta');
+  focus(at(1, 14, 10), 25, 'Ajustar o classificador do Pin');
+  focus(at(2, 10, 15), 45, 'Corrigir o bug da janela');
+  focus(at(3, 8, 50), 50, 'Planejar a semana');
+  focus(at(3, 16, 0), 25, 'Responder e-mails');
+
+  // A reunião de hoje já entrou no `setUp`, com transcrição — é a mesma que o
+  // Echo mostra.
+  meeting(at(2, 15, 0), 28, 'Retrospectiva da sprint');
+
+  copies(at(0, 8, 30), ClipboardItemType.text, 22);
+  copies(at(0, 10, 0), ClipboardItemType.link, 9);
+  copies(at(0, 13, 0), ClipboardItemType.command, 6);
+  copies(at(0, 14, 0), ClipboardItemType.email, 2);
+  copies(at(0, 16, 0), ClipboardItemType.phone, 1);
+  copies(at(1, 11, 0), ClipboardItemType.text, 12);
+  copies(at(1, 12, 0), ClipboardItemType.link, 4);
+  copies(at(3, 9, 0), ClipboardItemType.text, 7);
+
+  note(1, at(0, 10, 40));
+  note(2, at(0, 15, 55));
+  note(3, at(1, 9, 10));
 }
 
 void _loadHistory(WidgetTester tester) {

@@ -51,6 +51,16 @@ enum EvergreenModule {
         'lugar nenhum.',
     icon: EgIconData.microphone,
     status: ModuleStatus.available,
+  ),
+  trail(
+    name: 'Trail',
+    tagline: 'O dia reconstruído',
+    description:
+        'Responde "o que eu fiz hoje" com o que os outros módulos já '
+        'gravaram: quanto você focou, quantas reuniões gravou e o que passou '
+        'pela área de transferência. Não captura nada — só lê.',
+    icon: EgIconData.trail,
+    status: ModuleStatus.available,
   );
 
   const EvergreenModule({

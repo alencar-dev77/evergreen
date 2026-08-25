@@ -1,0 +1,178 @@
+import 'package:flutter/widgets.dart';
+
+import '../../../../core/design/app_colors.dart';
+import '../../../../core/design/app_metrics.dart';
+import '../../../../core/design/app_typography.dart';
+import '../../../../shared/utils/day_label.dart';
+import '../../../../shared/utils/duration_format.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
+import '../../models/trail_day.dart';
+import '../viewmodels/trail_view_model.dart';
+import 'trail_copied_breakdown.dart';
+
+/// O corpo da região de leitura do Trail: o dia inteiro, de cima a baixo.
+///
+/// O rótulo do dia e os números ficam no cabeçalho da região
+/// (`HubDetailRegion`), ao lado do botão de fechar — aqui fica só o que se lê.
+///
+/// É consulta pura, sem nenhuma ação: o Trail não escreve nada e não apaga
+/// nada. Quem quiser mexer numa sessão vai ao Focus, numa reunião vai ao Echo,
+/// num item copiado vai ao Pin — cada registro se edita no módulo que o criou,
+/// e um botão de apagar aqui apagaria dado de outro módulo pelas costas dele.
+class TrailDayDetail extends StatelessWidget {
+  const TrailDayDetail({
+    super.key,
+    required this.day,
+    required this.summary,
+  });
+
+  final TrailDay day;
+
+  /// O parágrafo do modelo local, quando existe. Nem toda máquina tem um —
+  /// abaixo do macOS 26 ele simplesmente não aparece, e o resto da região fica
+  /// igual.
+  final TrailSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    // A leitura rola dentro da região, não na página: é o que mantém a lista de
+    // dias ao lado sempre à vista.
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _blocks(),
+      ),
+    );
+  }
+
+  List<Widget> _blocks() {
+    if (day.isEmpty) {
+      return [
+        Text(
+          'Nada foi registrado neste dia.',
+          style: AppTypography.captionSmall,
+        ),
+      ];
+    }
+
+    return [
+      ..._summary(),
+      if (day.focus.isNotEmpty) ...[
+        const EgSectionLabel(
+          'Foco',
+          padding: EdgeInsets.only(bottom: AppSpacing.sm),
+        ),
+        for (final entry in day.focus)
+          _EntryRow(entry: entry, fallbackLabel: 'Sessão'),
+        const SizedBox(height: AppSpacing.xxl),
+      ],
+      if (day.meetings.isNotEmpty) ...[
+        const EgSectionLabel(
+          'Reuniões',
+          padding: EdgeInsets.only(bottom: AppSpacing.sm),
+        ),
+        for (final entry in day.meetings)
+          _EntryRow(entry: entry, fallbackLabel: 'Reunião'),
+        const SizedBox(height: AppSpacing.xxl),
+      ],
+      if (day.copiedTotal > 0) ...[
+        const EgSectionLabel(
+          'Copiado',
+          padding: EdgeInsets.only(bottom: AppSpacing.sm),
+        ),
+        TrailCopiedBreakdown(copied: day.copied),
+        const SizedBox(height: AppSpacing.xxl),
+      ],
+      if (day.notesWritten > 0)
+        Text(
+          '${TrailCounts.of(day.notesWritten, 'anotação escrita', 'anotações escritas')} no Leaf.',
+          style: AppTypography.captionSmall,
+        ),
+    ];
+  }
+
+  /// O parágrafo, quando há um — e nada quando não há.
+  ///
+  /// Sem aviso de "resumo indisponível" e sem espaço reservado: o resumo é
+  /// enfeite, o dado é o produto, e uma tela que anuncia o que não tem só chama
+  /// atenção para a falta.
+  List<Widget> _summary() {
+    if (summary.isWriting) {
+      return [
+        Text(
+          'Escrevendo o resumo do dia…',
+          style: AppTypography.captionSmall.copyWith(
+            color: AppColors.textTertiary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxl),
+      ];
+    }
+
+    if (!summary.hasText) return const [];
+
+    return [
+      Text(summary.text!, style: AppTypography.reading),
+      const SizedBox(height: AppSpacing.xxl),
+    ];
+  }
+}
+
+/// Uma sessão ou uma reunião: hora, nome e duração, nas mesmas colunas da lista
+/// de dias — é o que deixa correr o olho por uma coluna só.
+class _EntryRow extends StatelessWidget {
+  const _EntryRow({required this.entry, required this.fallbackLabel});
+
+  final TrailEntry entry;
+
+  /// Como chamar o registro que nasceu sem nome — uma sessão iniciada sem dizer
+  /// em quê.
+  final String fallbackLabel;
+
+  static const _height = 28.0;
+  static const _timeColumn = 44.0;
+  static const _durationColumn = 60.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _height,
+      child: Row(
+        children: [
+          SizedBox(
+            width: _timeColumn,
+            child: Text(
+              DayLabel.time(entry.at),
+              style: AppTypography.monoSmall.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              entry.hasLabel ? entry.label!.trim() : fallbackLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: entry.hasLabel
+                  ? AppTypography.bodyCompact
+                  : AppTypography.bodyCompact.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          SizedBox(
+            width: _durationColumn,
+            child: Text(
+              DurationFormat.compact(entry.duration),
+              textAlign: TextAlign.right,
+              style: AppTypography.captionSmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

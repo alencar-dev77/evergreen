@@ -2,11 +2,12 @@
 
 Evergreen é uma suíte pessoal de produtividade para macOS, feita como agente de
 barra de menus (`LSUIElement`) — sem janela ao iniciar, sem ícone no Dock. Tudo
-roda localmente, nada é enviado para a internet. São cinco módulos: Pin
+roda localmente, nada é enviado para a internet. São seis módulos: Pin
 (gerenciador de área de transferência, `⌘⇧C`), Focus (cronômetro de foco com
 registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
-`⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`) e Echo (grava,
-transcreve e resume reuniões, `⌘⇧E`).
+`⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`), Echo (grava,
+transcreve e resume reuniões, `⌘⇧E`) e Trail (reconstrói o dia a partir do que
+os outros gravaram — só tela do Hub, sem atalho global e sem painel).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 
@@ -96,6 +97,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Novo módulo: registrar em `EvergreenModule`, criar
   `lib/features/<modulo>/` na estrutura padrão, ligar tela de configurações em
   `_settingsFor` (`hub_view.dart`).
+- **Módulo que só lê o que os outros gravaram** (hoje, o Trail) não cria tabela,
+  não escreve linha e não faz migração: ele é um repositório de leitura sobre as
+  tabelas alheias. Consequência prática: cada módulo novo o alimenta de graça, e
+  a única obrigação é a do lado dele — **nunca ler o conteúdo de um item do
+  Pin**. A consulta do Trail pede `copied_at` e `type`, e mais nada, porque o
+  Pin registra tudo o que passa pela área de transferência, senha inclusive.
+  O mesmo vale para o que segue ao modelo local: só o agregado.
+- Módulo que usa o modelo local (`FoundationModels`, pelo canal do Echo) trata a
+  resposta dele como **enfeite**: abaixo do macOS 26 ou sem Apple Intelligence o
+  canal responde `unsupportedOS`, e a tela precisa ficar inteira sem o texto —
+  sem aviso, sem espaço reservado, sem bloquear o que já está desenhado.
 - **Conteúdo longo para ler abre na região do Hub — nunca em janela nova nem em
   diálogo modal.** É o padrão do aplicativo, e vale para módulo existente ou
   novo: o módulo abre a região (`hubDetailProvider.open`), guarda no próprio
