@@ -6,6 +6,7 @@ import 'dart:io';
 
 import '../core/storage/app_database.dart';
 import '../core/storage/backup_service.dart';
+import '../core/storage/export_service.dart';
 import '../core/window/overlay_panel.dart';
 import '../features/awake/data/awake_settings_repository.dart';
 import '../features/awake/data/display_sleep_service.dart';
@@ -49,6 +50,21 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService(
     database: database.db,
     directory: Directory(p.join(database.directoryPath, 'Backups')),
+  );
+});
+
+/// A exportação em JSON, na subpasta `Exports` do próprio aplicativo.
+///
+/// Pasta separada da dos backups pela mesma razão que os dois existem lado a
+/// lado: um `.db` é para o Evergreen ler de volta e um `.json` é para outra
+/// ferramenta abrir. Misturados na mesma pasta, a lista de "restaurar" e a de
+/// "exportar" passariam a explicar uma à outra.
+final exportServiceProvider = Provider<ExportService>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return ExportService(
+    database: database.db,
+    directory: Directory(p.join(database.directoryPath, 'Exports')),
   );
 });
 

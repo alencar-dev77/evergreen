@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
+import 'package:evergreen/core/storage/export_service.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/app_settings_view.dart';
@@ -21,6 +24,7 @@ import '../pin/fake_clipboard_repository.dart';
 void main() {
   late SharedPreferences preferences;
   late BackupService backup;
+  late ExportService export;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -36,6 +40,7 @@ void main() {
     );
     await AppInfo.load();
     backup = temporaryBackupService();
+    export = temporaryExportService();
   });
 
   Future<void> pumpHub(WidgetTester tester) async {
@@ -56,8 +61,10 @@ void main() {
             FakeFocusSessionRepository(),
           ),
           sharedPreferencesProvider.overrideWithValue(preferences),
-          // A seção de backup lê a pasta ao montar — em teste ela é temporária.
+          // As seções de backup e de exportação leem a pasta delas ao montar —
+          // em teste as duas são temporárias.
           backupServiceProvider.overrideWithValue(backup),
+          exportServiceProvider.overrideWithValue(export),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -99,6 +106,45 @@ void main() {
 
   /// O backup é do banco inteiro, e por isso mora aqui e não na tela de módulo
   /// nenhum — a mesma razão pela qual "iniciar com o macOS" saiu do Pin.
+  group('exportar', () {
+    Future<void> openSettings(WidgetTester tester) async {
+      await pumpHub(tester);
+      await tester.tap(find.text('Preferências do aplicativo'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a tela diz o que sai e onde os arquivos ficam', (tester) async {
+      await openSettings(tester);
+
+      expect(find.text('Exportar tudo em JSON'), findsOneWidget);
+      expect(find.text('Pasta das exportações'), findsOneWidget);
+      expect(find.text(export.directoryLabel), findsOneWidget);
+      // O aviso não é letra miúda: o arquivo sai sem cifra e o histórico do Pin
+      // registra tudo o que foi copiado.
+      expect(find.textContaining('sem cifra nenhuma'), findsOneWidget);
+    });
+
+    testWidgets('exportar escreve o arquivo e diz qual foi', (tester) async {
+      await openSettings(tester);
+
+      expect(export.directory.existsSync(), isFalse);
+
+      await tester.tap(find.text('Exportar'));
+      await tester.pumpAndSettle();
+
+      final arquivos = export.directory
+          .listSync()
+          .whereType<File>()
+          .map((file) => file.path)
+          .toList();
+
+      expect(arquivos, hasLength(1));
+      // Exportar não tem feedback visível por si — o arquivo nasce numa pasta
+      // que não está na tela. A frase é a única prova de que algo aconteceu.
+      expect(find.textContaining('Exportado para evergreen-'), findsOneWidget);
+    });
+  });
+
   group('backup', () {
     Future<void> openSettings(WidgetTester tester) async {
       await pumpHub(tester);

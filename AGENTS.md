@@ -102,13 +102,18 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já
   guardado uma vez, na abertura seguinte. Sem isso, um tipo novo nasce vazio
   para quem já usa o app.
-- Backup e restauração do banco (`lib/core/storage/backup_service.dart`)
-  **descobrem as tabelas pelo `sqlite_master`** — a tabela de um módulo novo
-  entra nos dois sozinha, sem ninguém vir aqui. A única que fica de fora é
-  `schema_migrations`, que é do banco que está rodando. O snapshot é
+- Backup, restauração (`lib/core/storage/backup_service.dart`) e exportação
+  (`export_service.dart`) **descobrem as tabelas pelo `sqlite_master`** — a
+  tabela de um módulo novo entra nos três sozinha, sem ninguém vir aqui. A única
+  que fica de fora é `schema_migrations`, que é do banco que está rodando. O snapshot é
   `VACUUM INTO`, nunca cópia do arquivo: o banco roda em WAL com duas conexões
   abertas, e o arquivo no disco não tem o que ainda está no log. Ver
   [docs/Ideis projeto/backup-do-banco.md](docs/Ideis%20projeto/backup-do-banco.md).
+- Backup e exportação respondem a perguntas diferentes e por isso são dois: o
+  `.db` é para o Evergreen ler de volta (e sai por `VACUUM INTO`), o `.json` é
+  para outro programa abrir. Pastas separadas (`Backups/` e `Exports/`) dentro
+  da pasta do aplicativo — ali o macOS não pede permissão, e o botão "Mostrar no
+  Finder" é a interface. Diálogo de "salvar como" exigiria um pacote novo.
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
   em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
   chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A
