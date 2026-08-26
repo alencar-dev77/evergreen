@@ -2,7 +2,9 @@
 
 Suíte pessoal de produtividade para macOS. Tudo local, nada vai para a internet.
 
-**v0.1 — módulo Pin** (gerenciador de área de transferência).
+Seis módulos em um app só: **Pin** (área de transferência), **Focus**
+(cronômetro), **Leaf** (anotações), **Awake** (tela acesa), **Echo** (reuniões)
+e **Track** (o dia reconstruído).
 
 ---
 
@@ -17,10 +19,49 @@ O Evergreen é um **agente de barra de menus** (`LSUIElement`): ao iniciar, **n�
 abre janela nenhuma e não aparece no Dock**. Procure o quadrado verde na barra
 superior do macOS.
 
-- `⌘⇧C` — abre o painel do Pin, de qualquer aplicativo
-- `⌘⇧E` — abre o painel do Echo (gravar reunião)
-- Clique no ícone da barra → **Configurações** — abre o Hub
-- Clique no ícone da barra → **Encerrar Evergreen** — é a única forma de sair
+### Instalando de verdade
+
+```bash
+./run_build_copy
+```
+
+Builda em release, reassina com uma identidade estável e copia para
+`/Applications`. A reassinatura importa: o projeto builda com assinatura ad-hoc,
+cujo hash muda a cada build — e a cada mudança o macOS descarta as permissões
+guardadas para o app, entre elas a Acessibilidade que sustenta o auto-colar do
+Pin. O cabeçalho do script explica a ordem em que ele escolhe o certificado.
+
+---
+
+## Os módulos
+
+| Módulo | O que faz | Atalho global |
+|---|---|---|
+| **Pin** | Histórico da área de transferência, com busca, apelidos e itens fixados | `⌘⇧C` |
+| **Focus** | Ciclos de foco e pausa, com o registro do que foi feito em cada sessão | `⌘⇧F` |
+| **Leaf** | Parede de até nove anotações curtas, todas à vista de uma vez | `⌘⇧D` |
+| **Awake** | Impede o Mac de apagar a tela pelo prazo escolhido | `⌘⇧X` |
+| **Echo** | Grava a reunião, separa as vozes, transcreve e resume — tudo local | `⌘⇧E` |
+| **Track** | Responde "o que eu fiz hoje" a partir do que os outros gravaram | — (só no Hub) |
+| **Hub** | Painel principal: lista os módulos e concentra as configurações | `⌘⇧,` |
+
+O Hub também abre pelo menu da barra → **Configurações**. Sair do app é pelo
+mesmo menu → **Encerrar Evergreen**.
+
+O **Echo exige macOS 26** (é de lá que vêm `SpeechAnalyzer` e o modelo de resumo
+local). Abaixo disso o módulo se recusa a gravar e o resto do app segue normal.
+
+O painel do Echo é o único que **se arrasta**: pegue por qualquer área vazia
+dele e puxe para tirar a transcrição da frente da reunião. E, enquanto grava ou
+transcreve, ele **não some quando você clica na reunião** — dá para acompanhar o
+texto e a chamada ao mesmo tempo. Esc e o botão continuam fechando, e a
+gravação não para com o painel fechado. A posição não fica guardada: o próximo
+`⌘⇧E` abre de volta no centro.
+
+O **Track** não tem atalho nem painel de propósito: ele não grava nada, só lê o
+que os outros cinco módulos já gravaram.
+
+---
 
 ### Atalhos dentro do painel do Pin
 
@@ -30,13 +71,26 @@ superior do macOS.
 | `enter` | Copia o item selecionado e fecha |
 | `⌘1`…`⌘5` | Copia direto o 1º…5º **recente** e fecha |
 | `⌥1`…`⌥5` | Copia direto o 1º…5º **fixado** e fecha |
+| `⌘←` `⌘→` | Anda pela fila de filtros por tipo |
 | `⌘P` | Fixa/desafixa o item selecionado |
+| `⌥↑` `⌥↓` | Reordena o fixado selecionado dentro do grupo |
+| `⌘⌫` | Apaga o item selecionado, sem fechar o painel |
 | `⌘R` | Dá um apelido ao item selecionado |
 | `tab` | Abre o preview do item |
+| `⌘,` | Abre as preferências e fecha o painel |
 | `esc` | Fecha o preview; se não houver preview, fecha o painel |
+
+A busca está sempre focada, por isso apagar é `⌘⌫` e não `Delete` puro — um
+Backspace solto precisa continuar apagando o texto digitado.
 
 O badge à direita de cada linha mostra o atalho dela — não é preciso contar
 posições.
+
+#### Tipos de item
+
+Cada item é classificado na captura como **texto**, **link**, **e-mail**,
+**telefone**, **CPF** ou **comando**, e o tipo vira uma pílula de filtro na
+busca. Imagens, arquivos e rich text continuam de fora.
 
 #### Apelidos
 
@@ -61,14 +115,32 @@ Pela **ordem em que você fixa**: o primeiro item fixado vira `⌥1`, o segundo
 `⌥2`, e assim por diante. Essa ordem é estável — recopiar um item fixado
 atualiza a data dele mas não muda a posição, então `⌥1` continua sendo `⌥1`.
 
-Para reatribuir, desafixe e fixe de novo na ordem desejada. (Reordenar
-arrastando é um passo natural daqui — ainda não existe.)
+Para reatribuir, use `⌥↑`/`⌥↓` com um fixado selecionado: ele troca de lugar com
+o vizinho e leva o número junto. Nas pontas do grupo, e fora dos fixados, as
+teclas não fazem nada. Reordenar **arrastando** ainda não existe.
 
-### Primeira execução
+No overlay o `⌥` é sempre "os fixados": ele os alcança no `⌥1`…`⌥5` e os
+reordena no `⌥↑`/`⌥↓`.
 
-O macOS vai pedir permissão de **Acessibilidade** para o atalho global
-(Ajustes → Privacidade e Segurança → Acessibilidade). Sem ela, o `⌘⇧C` não
-dispara; o resto funciona normalmente.
+#### Colar automaticamente
+
+Desligado por padrão. Ligado (Configurações → Pin → "Colar automaticamente"), o
+Evergreen devolve o foco ao app anterior e dispara um `⌘V` sintético — o item
+não só vai para a área de transferência, ele chega no campo.
+
+Isso exige a permissão de **Acessibilidade**. Sem ela o item é apenas copiado,
+sem erro: o `⌘V` fica manual, como antes.
+
+---
+
+## Permissões do macOS
+
+| Permissão | Para quê | Sem ela |
+|---|---|---|
+| **Acessibilidade** | Atalhos globais e o auto-colar do Pin | Os atalhos não disparam; o auto-colar só copia |
+| **Microfone** e **Gravação de tela** | O Echo captura as duas faixas de áudio | O Echo não grava |
+
+Ficam em Ajustes → Privacidade e Segurança.
 
 ### "Iniciar com o macOS" em build de desenvolvimento
 
@@ -77,27 +149,31 @@ registro enquanto o app roda de `build/macos/...`, sem assinatura estável e for
 de `/Applications`. Nesse caso o toggle volta sozinho para desligado — é
 intencional: ele reflete o estado real do sistema, não a intenção.
 
-Para testar de verdade, copie o `.app` para `/Applications` e rode de lá.
+Para testar de verdade, instale com `./run_build_copy` e rode de
+`/Applications`.
 
 ---
 
 ## As duas janelas
 
-O Evergreen tem dois painéis **independentes** — abrir ou fechar um não afeta o
-outro:
+O Evergreen tem duas janelas, cada uma em um engine Flutter próprio:
 
-| Painel | O que é | Como abre |
+| Janela | O que é | Como abre |
 |---|---|---|
-| **Overlay do Pin** | Painel flutuante estilo Spotlight com o histórico da área de transferência | `⌘⇧C` |
-| **Hub** | Painel principal: lista os módulos da suíte e concentra as configurações de cada um | menu da barra → Configurações |
+| **Painel flutuante** | Painel estilo Spotlight, compartilhado por Pin, Focus, Leaf, Awake e Echo — um painel de cada vez | `⌘⇧C` `⌘⇧F` `⌘⇧D` `⌘⇧X` `⌘⇧E` |
+| **Hub** | Painel principal: módulos, configurações e as telas de leitura | `⌘⇧,` ou o menu da barra |
 
-Cada um roda em um engine Flutter próprio. A janela do overlay nunca é
-destruída, só escondida — por isso ela abre instantaneamente e é ela quem
-hospeda a captura da área de transferência, o atalho global e o ícone da barra
-de menus, mesmo com tudo fechado.
+O painel flutuante nunca é destruído, só escondido — por isso abre
+instantaneamente, e é ele quem hospeda a captura da área de transferência, o
+cronômetro do Focus, a trava do Awake, os atalhos globais e o ícone da barra de
+menus, mesmo com tudo fechado.
+
+Ele é um `NSPanel` não-ativante: recebe o teclado **sem** tirar da frente o app
+em que você estava.
 
 O porquê desse arranjo (e o que ele custa) está em
-[docs/Ideis projeto/sugestoes-futuras-migracao-nativa.md](docs/Ideis%20projeto/sugestoes-futuras-migracao-nativa.md).
+[docs/Ideis projeto/sugestoes-futuras-migracao-nativa.md](docs/Ideis%20projeto/sugestoes-futuras-migracao-nativa.md)
+e em [docs/Ideis projeto/focus-janela-compartilhada.md](docs/Ideis%20projeto/focus-janela-compartilhada.md).
 
 ---
 
@@ -109,28 +185,34 @@ se conecta a ele automaticamente via *native assets* — sem CocoaPods extra, se
 
 > O plano original citava Isar. Ele foi trocado por SQLite direto: o Isar está
 > sem manutenção ativa e o codegen dele quebra no Dart 3.11. O acesso está
-> isolado atrás da interface `ClipboardRepository`, então trocar de motor no
-> futuro não toca a UI nem as ViewModels.
+> isolado atrás de repositórios, então trocar de motor no futuro não toca a UI
+> nem as ViewModels.
 
-### Onde fica o arquivo
+Um arquivo só, com uma tabela por módulo que grava (`clipboard_items`,
+`focus_sessions`, `leaf_notes`, `echo_meetings`):
 
 ```
-~/Library/Application Support/com.example.evergreen/evergreen.db
+~/Library/Application Support/com.alencardev.evergreen/evergreen.db
 ```
 
 Para inspecionar com o app rodando (WAL permite leitura concorrente):
 
 ```bash
-sqlite3 ~/Library/Application\ Support/com.example.evergreen/evergreen.db \
+sqlite3 ~/Library/Application\ Support/com.alencardev.evergreen/evergreen.db \
   "SELECT id, type, is_pinned, substr(content,1,60) FROM clipboard_items ORDER BY copied_at DESC LIMIT 20;"
 ```
 
 Para começar do zero, feche o app e apague `evergreen.db*` (os três arquivos:
 `.db`, `.db-shm`, `.db-wal`).
 
-Convenções de schema e detalhes do código nativo do Runner (o que não pode ser
-removido de `MainFlutterWindow.swift` e por quê) estão documentados no
-`AGENTS.md`.
+### Backup
+
+Como nada sai da máquina, não há servidor de onde puxar o banco de volta — então
+o app guarda ele mesmo. Configurações → Aplicativo tem o backup manual, a lista
+dos automáticos e a restauração; ficam os **cinco** mais recentes.
+
+O snapshot é um `VACUUM INTO`: um arquivo único, consistente e compactado, sem
+`-wal` nem `-shm` para acompanhar. Dá para copiar para onde quiser.
 
 ---
 
@@ -141,16 +223,16 @@ lib/
   app/          composição: providers, raiz do app, bootstrap dos serviços
   core/
     design/     tokens: cores, tipografia, métricas, tema
-    storage/    banco SQLite e migrações
-    system/     barra de menus, atalho global, iniciar com o macOS
+    storage/    banco SQLite, migrações e backup
+    system/     barra de menus, atalhos globais, foco do app anterior, autostart
     window/     criação e controle das duas janelas
   shared/
     widgets/    design system (prefixo Eg*) — reutilizável entre módulos
     utils/
   features/
-    home/       o Hub
-    pin/
-      data/         repositórios e captura da área de transferência
+    home/       o Hub e as configurações do aplicativo
+    pin/  focus/  leaf/  awake/  echo/  track/
+      data/         repositórios e serviços do módulo
       models/       entidades
       presentation/
         viewmodels/ estado e regras (Notifier do Riverpod)
@@ -158,8 +240,9 @@ lib/
         widgets/    componentes do módulo
 ```
 
-Convenções de arquitetura (regra do MVVM, como adicionar um módulo, design
-system em `lib/core/design/` e `lib/shared/widgets/`) estão no `AGENTS.md`.
+As convenções de arquitetura — a regra do MVVM, como adicionar um módulo, o
+design system, as migrações de schema e o que não pode sair de
+`MainFlutterWindow.swift` — estão no [AGENTS.md](AGENTS.md).
 
 ---
 
@@ -167,6 +250,7 @@ system em `lib/core/design/` e `lib/shared/widgets/`) estão no `AGENTS.md`.
 
 ```bash
 flutter test
+flutter analyze
 ```
 
 Além dos testes de unidade e de widget, há **goldens de conferência visual** —
@@ -181,14 +265,19 @@ As imagens são geradas em [test/goldens/](test/goldens/).
 
 ---
 
+## Versão
+
+O `version:` do `pubspec.yaml` é o que a sidebar do Hub mostra no rodapé. Quem
+bumpa é o GitHub Actions no merge de uma PR em `main`, lendo a label `bump:` da
+própria PR. Quando o Actions está fora do ar, `./bump_version` faz o mesmo à mão
+— na `main`, depois do merge.
+
+---
+
 ## O que ainda não está pronto
 
-- **"Colar novamente" copia, mas não cola.** O item volta para a área de
-  transferência; o `⌘V` no app de destino ainda é manual. Colar de verdade exige
-  simular evento de teclado via Accessibility API.
-- **Atalho global fixo** em `⌘⇧C`. A tela de configurações mostra o atalho, mas
-  ainda não permite regravá-lo.
-- **Só texto e links.** Imagens, arquivos e rich text estão no plano, não na v0.1.
-- **Bundle identifier ainda é `com.example.evergreen`**, o padrão do template.
-  Vale trocar em `macos/Runner/Configs/AppInfo.xcconfig` antes de distribuir —
-  ele define o caminho do banco, então trocar depois "esconde" o histórico atual.
+- **Atalhos globais fixos.** As telas de configuração mostram o atalho de cada
+  módulo, mas ainda não permitem regravá-lo.
+- **Pin só guarda texto.** Imagens, arquivos e rich text estão no plano.
+- **Fixados não se reordenam arrastando.** Por teclado (`⌥↑`/`⌥↓`) já funciona;
+  o arrasto com o mouse é que falta.
