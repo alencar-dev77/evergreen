@@ -144,8 +144,20 @@ enum OverlayWindowChannel {
   private static weak var panel: NSPanel?
 
   /// Guarda a janela 0. Chamada pelo `MainFlutterWindow`, que é ela mesma.
+  ///
+  /// Também é aqui que o realinhamento das modificadoras se pendura — ver
+  /// [resyncModifiers]. Pela notificação, e não pelo `show` deste canal, porque
+  /// o que importa é o painel *ganhar o teclado*, seja pelo atalho global ou
+  /// por um clique nele. O delegate da janela é do `window_manager`, então a
+  /// notificação é o caminho que não disputa com ele.
   static func adopt(_ window: NSPanel) {
     panel = window
+
+    NotificationCenter.default.addObserver(
+      forName: NSWindow.didBecomeKeyNotification,
+      object: window,
+      queue: .main
+    ) { _ in resyncModifiers() }
   }
 
   static func register(with messenger: FlutterBinaryMessenger) {
@@ -184,6 +196,81 @@ enum OverlayWindowChannel {
     panel.orderFrontRegardless()
     panel.makeKey()
     result(nil)
+  }
+
+  /// Código de tecla propositalmente fora do mapa do Flutter — ver
+  /// [resyncModifiers].
+  ///
+  /// O evento sintético precisa de um `keyCode`, e ele não pode ser o de uma
+  /// tecla de verdade: o engine olha se aquela tecla está no registro de
+  /// pressionadas e, se estiver, emite um "soltou" por conta dela. Com `⌘` ou
+  /// com uma letra que a pessoa esteja segurando, o realinhamento arrancaria a
+  /// tecla da mão dela. Um código que não existe nunca está no registro, então
+  /// a única coisa que o evento provoca é o acerto de contas.
+  private static let resyncKeyCode: UInt16 = 0xFF
+
+  /// Realinha o registro de modificadoras do Flutter com o teclado físico.
+  ///
+  /// Sem isto, `⌘2`, `⌥1`, `⌘P` e companhia falham calados no painel aberto
+  /// pelo atalho global, e o macOS responde com o bipe de comando inexistente.
+  ///
+  /// O motivo: `SingleActivator` não olha as modificadoras do evento que
+  /// chegou — ele compara com `HardwareKeyboard.logicalKeysPressed`, o estado
+  /// que o Flutter foi acumulando tecla a tecla. E a janela 0 só presencia as
+  /// modificadoras que sobem e descem **enquanto ela é a key window**. O
+  /// `⌘⇧C` acontece antes disso: o Carbon come o atalho com outro app na
+  /// frente, e o painel nasce depois, com as teclas já afundadas e sem
+  /// registro nenhum delas. O `⌘` do `⌘2` seguinte é, para o Flutter, um `2`
+  /// sozinho — e nenhum atalho casa. O Esc continua funcionando porque ele é o
+  /// único que não exige modificadora alguma, e foi esse contraste que
+  /// entregou o diagnóstico.
+  ///
+  /// Até a v0.4 isso não acontecia: o `show()` do `window_manager` chamava
+  /// `NSApp.activate(ignoringOtherApps: true)`, e ativar o aplicativo é o que
+  /// faz o AppKit entregar o ciclo inteiro das teclas a ele. O painel
+  /// não-ativante trouxe de volta o app que não pisca — e junto o teclado que
+  /// a janela 0 só enxerga pela metade.
+  ///
+  /// A correção é um `flagsChanged` sintético com o estado real das
+  /// modificadoras. Ele atravessa `FlutterViewController.flagsChanged:` e cai
+  /// no `synchronizeModifiers` do engine, que é a rotina que o próprio Flutter
+  /// usa para reconciliar esse registro (ela roda em todo evento de mouse, e é
+  /// por isso que clicar no painel também conserta). Consertar do lado Dart não
+  /// é possível: `HardwareKeyboard.syncKeyboardState` só *acrescenta* teclas, e
+  /// `clearState` é de teste e leva os handlers do teclado junto.
+  private static func resyncModifiers() {
+    guard let panel = panel else { return }
+
+    guard
+      let event = NSEvent.keyEvent(
+        with: .flagsChanged,
+        location: .zero,
+        modifierFlags: currentModifierFlags(),
+        timestamp: ProcessInfo.processInfo.systemUptime,
+        windowNumber: panel.windowNumber,
+        context: nil,
+        characters: "",
+        charactersIgnoringModifiers: "",
+        isARepeat: false,
+        keyCode: resyncKeyCode)
+    else { return }
+
+    // Postado, e não entregue no braço: aqui ainda estamos dentro da virada de
+    // key status, e o primeiro respondedor pode não ser o do Flutter ainda.
+    NSApp.postEvent(event, atStart: false)
+  }
+
+  /// O que está pressionado agora, de verdade.
+  ///
+  /// As duas fontes somadas porque contam metades diferentes da mesma história:
+  /// `NSEvent.modifierFlags` traz os bits genéricos (⌘, ⇧, ⌥) e o
+  /// `CGEventSource` traz os de esquerda e direita — que são justamente os que
+  /// o engine compara para decidir *qual* tecla sintetizar.
+  private static func currentModifierFlags() -> NSEvent.ModifierFlags {
+    let sided = CGEventSource.flagsState(.combinedSessionState).rawValue
+
+    return NSEvent.ModifierFlags(
+      rawValue: NSEvent.modifierFlags.rawValue | UInt(sided))
   }
 }
 

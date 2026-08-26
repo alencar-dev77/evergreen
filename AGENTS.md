@@ -156,6 +156,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   janela, que faz o app anterior piscar. Pelo mesmo motivo o nível e o
   `collectionBehavior` moram no `MainFlutterWindow`: `setAlwaysOnTop` os
   rebaixaria para `.floating`, abaixo de um app em tela cheia.
+- O preço do painel que não ativa o app: a janela 0 só presencia as
+  modificadoras que sobem e descem **enquanto ela é a key window**, e o atalho
+  global acontece antes disso. Como `SingleActivator` decide pelo estado
+  acumulado (`HardwareKeyboard.logicalKeysPressed`), e não pelas modificadoras
+  do evento que chegou, todo atalho com `⌘` ou `⌥` falharia calado no painel
+  recém-aberto — só o Esc, que não exige modificadora, continuaria de pé. Por
+  isso o `OverlayWindowChannel` posta um `flagsChanged` sintético a cada
+  `didBecomeKey` (`resyncModifiers`): é ele que realinha o registro do Flutter
+  com o teclado físico. Não há como fazer isso do lado Dart —
+  `HardwareKeyboard.syncKeyboardState` só acrescenta teclas e `clearState` é de
+  teste, e leva os handlers do teclado junto.
 - Sub-janela (hoje só o Hub) nasce escondida e **se exibe sozinha** depois do
   primeiro quadro, em `main.dart` — quem pediu a janela roda em outro engine e
   não tem como saber quando este subiu. Exibi-la de fora mostrava uma janela em
