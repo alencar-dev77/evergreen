@@ -90,6 +90,13 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   nunca colide com o commit do foco perdido.
 - Acesso a dados sempre atrás de repositório (ex.: `ClipboardRepository`) —
   nunca acoplar UI/ViewModel diretamente ao SQLite.
+- A busca do Pin mora inteira em `PinSearch` — casar e pontuar são a mesma
+  conta, e ela é do domínio, nunca do widget. Duas regras que não se negociam
+  por conveniência: **os fixados nunca são reordenados pela busca** (são a
+  camada `⌥`, e `⌥2` precisa apontar para o mesmo item enquanto se digita), e a
+  **subsequência não é solta sobre o conteúdo inteiro** — só sobre o apelido e a
+  linha exibida. Solta, ela devolve o histórico inteiro para qualquer coisa
+  digitada; o casamento literal é que continua alcançando o conteúdo todo.
 - Tipo de item do Pin (texto, link, e-mail, telefone, CPF, comando) é decidido
   na captura e gravado na linha. Mexeu no `ClipboardItemClassifier`, suba o
   `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já

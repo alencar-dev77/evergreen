@@ -175,6 +175,7 @@ class _PinResultListState extends State<PinResultList> {
     return PinListItem(
       item: item,
       isSelected: row.resultIndex == widget.state.selectedIndex,
+      query: widget.state.query,
       shortcut: widget.state.shortcutFor(item),
       compact: widget.compact,
       onTap: () => widget.onSelect(item),
