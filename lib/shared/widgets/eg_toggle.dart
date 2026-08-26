@@ -56,6 +56,9 @@ class EgToggle extends StatelessWidget {
     final isEnabled = onChanged != null;
 
     return EgHoverable(
+      // Interruptor, não botão: o que precisa ser lido é o estado. Quem dá o
+      // nome é a linha em volta (`EgSettingsRow`), que tem o rótulo na tela.
+      toggled: value,
       enabled: isEnabled,
       focusable: true,
       onTap: isEnabled ? () => onChanged!(!value) : null,

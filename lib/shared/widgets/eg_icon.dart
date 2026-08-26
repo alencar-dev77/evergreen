@@ -69,6 +69,16 @@ enum EgIconData {
 }
 
 /// Renderiza um [EgIconData] no tamanho e cor pedidos.
+///
+/// **Decorativo por padrão**, e isso é de propósito: o ícone é um `CustomPaint`
+/// sem texto nenhum, então ele não põe nada na árvore de acessibilidade — e
+/// quase sempre é isso o certo, porque quem nomeia é o pai. Numa linha do Pin o
+/// glifo repete o tipo que o rótulo da linha já anuncia; num botão com texto
+/// ele repete o texto. Nomear os dois faria o leitor de tela dizer "ícone de
+/// fixar, fixar".
+///
+/// [semanticLabel] é para o caso em que o ícone **é** a informação e ninguém
+/// mais a diz — hoje, o indicador de um estado que só o desenho comunica.
 class EgIcon extends StatelessWidget {
   const EgIcon(
     this.icon, {
@@ -76,6 +86,7 @@ class EgIcon extends StatelessWidget {
     this.size = 14,
     this.color = AppColors.textSecondary,
     this.strokeWidth = 1.3,
+    this.semanticLabel,
   });
 
   final EgIconData icon;
@@ -83,18 +94,25 @@ class EgIcon extends StatelessWidget {
   final Color color;
   final double strokeWidth;
 
+  /// O que este ícone significa, quando ele é a única coisa que diz isso.
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
+    final icon = SizedBox.square(
       dimension: size,
       child: CustomPaint(
         painter: _EgIconPainter(
-          icon: icon,
+          icon: this.icon,
           color: color,
           strokeWidth: strokeWidth,
         ),
       ),
     );
+
+    if (semanticLabel == null) return icon;
+
+    return Semantics(label: semanticLabel, image: true, child: icon);
   }
 }
 

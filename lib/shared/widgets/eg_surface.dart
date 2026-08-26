@@ -350,6 +350,8 @@ class EgInteractiveSurface extends StatelessWidget {
     this.height,
     this.alignment,
     this.builder,
+    this.semanticLabel,
+    this.mergeDescendants = true,
   }) : assert(
           child != null || builder != null,
           'Informe child ou builder — a superfície precisa de conteúdo.',
@@ -381,6 +383,13 @@ class EgInteractiveSurface extends StatelessWidget {
   /// Um dos dois é obrigatório.
   final Widget Function(BuildContext context, EgInteraction state)? builder;
 
+  /// Como o elemento se anuncia quando o que está desenhado não basta — o caso
+  /// do botão que é só um ícone. Ver [EgHoverable.semanticLabel].
+  final String? semanticLabel;
+
+  /// Funde o conteúdo numa etiqueta só. Ver [EgHoverable.mergeDescendants].
+  final bool mergeDescendants;
+
   @override
   Widget build(BuildContext context) {
     final isEnabled = onTap != null;
@@ -391,6 +400,13 @@ class EgInteractiveSurface extends StatelessWidget {
       focusable: focusable,
       focusNode: focusNode,
       autofocus: autofocus,
+      semanticLabel: semanticLabel,
+      mergeDescendants: mergeDescendants,
+      // `true` ou nada, nunca `false`: quem está num grupo de escolha anuncia
+      // que está escolhido, e quem não está fica calado. Passar `false` daria
+      // a todo botão do aplicativo um "não selecionado" que ninguém pediu — o
+      // padrão de lista do macOS é o leitor anunciar só o item escolhido.
+      selected: isSelected ? true : null,
       builder: (context, state) => EgSurface(
         state: state,
         style: style,

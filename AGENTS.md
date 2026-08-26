@@ -63,6 +63,18 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   com combinação própria compõe uma `EgSurfaceStyle` a partir dos tokens; a
   ordem de precedência é a mesma para todo mundo. A folha visual de todos os
   estados é o golden `test/goldens/design_state_matrix.png`.
+- **Quem se anuncia ao leitor de tela é o `EgHoverable`**, não cada componente
+  — mesmo raciocínio da matriz `EgSurfaceStyle`: ele é o único que sabe que algo
+  é clicável, focável e ativável por Enter. Ele dá papel de botão, estado de
+  habilitado e funde o conteúdo numa etiqueta só; `semanticLabel` **substitui**
+  o que os filhos diriam (para a linha do Pin, que precisa de uma frase), e
+  `selected`/`toggled` põem na árvore o que hoje só a cor mostra. Duas regras:
+  `selected` é `true` ou nada, nunca `false` (um "não selecionado" em todo botão
+  é ruído), e `mergeDescendants: false` é obrigatório quando há outro clicável
+  dentro — a linha do Echo tem a estrela, e fundir engoliria ela junto. `EgIcon`
+  é decorativo por padrão: quem nomeia é o pai, senão o leitor diz "ícone de
+  fixar, fixar". O que prende isso é `test/shared/semantics_test.dart` — rótulo
+  que some não quebra pixel nenhum e não falha nenhum outro teste.
 - Painel flutuante novo usa `EgOverlayShell`: ela é quem registra o
   `WindowListener`, anima a entrada, decide o que é um blur de verdade e trata o
   vazio ao redor como barreira. O módulo só diz o que "fechar" significa para

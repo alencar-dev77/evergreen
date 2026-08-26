@@ -98,6 +98,10 @@ class _MeetingRow extends StatelessWidget {
       isSelected: isSelected,
       height: _height,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      // A estrela é clicável e mora dentro da linha: fundir a linha numa
+      // etiqueta só a engoliria junto, e guardar uma reunião deixaria de ter
+      // alcance por leitor de tela.
+      mergeDescendants: false,
       child: Row(
         children: [
           SizedBox(
@@ -125,6 +129,12 @@ class _MeetingRow extends StatelessWidget {
           // exatamente a mesma ideia.
           EgHoverable(
             onTap: onToggleKept,
+            // Uma estrela desenhada não diz o que faz, e o que ela decide —
+            // se a reunião escapa da limpeza automática — não está escrito em
+            // lugar nenhum da linha.
+            semanticLabel: meeting.isKept
+                ? 'Guardada, deixar de guardar'
+                : 'Guardar esta reunião',
             builder: (context, starState) => Padding(
               padding: const EdgeInsets.all(AppSpacing.xxs),
               child: EgIcon(

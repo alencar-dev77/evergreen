@@ -46,6 +46,21 @@ class EgCountdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = this.detail;
 
+    return MergeSemantics(
+      child: _column(detail),
+    );
+  }
+
+  /// O bloco é lido como uma frase só — "Foco, 24:13, escrever a PR" —, e não
+  /// como três textos avulsos: separados, o número sai sem dizer de quê.
+  ///
+  /// **Não é `liveRegion`, de propósito.** O número muda a cada segundo, e uma
+  /// região viva o faria ser reanunciado a cada segundo: um leitor de tela
+  /// tagarela, falando por cima de tudo o que a pessoa está tentando fazer —
+  /// exatamente o oposto de um cronômetro de foco. Quem quer saber quanto falta
+  /// pergunta; o `accessibility.md` pede parcimônia aqui, e parcimônia neste
+  /// caso é zero.
+  Widget _column(String? detail) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -64,6 +64,8 @@ class PinListItem extends StatelessWidget {
     // teclado, o Enter.
     return EgHoverable(
       onTap: onTap,
+      semanticLabel: _semanticLabel,
+      selected: isSelected ? true : null,
       builder: (context, state) {
         // Selecionado ganha a cor de destaque em baixa opacidade e a aresta
         // accent à esquerda — distinto do hover neutro, para que a posição do
@@ -104,6 +106,33 @@ class PinListItem extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// A linha inteira numa frase, para quem não vê a tela.
+  ///
+  /// Precisa existir escrita porque **nada** do que distingue uma linha da
+  /// outra é texto: o tipo é um glifo desenhado, o estado de fixado é a posição
+  /// no grupo, a seleção é uma cor de fundo com uma aresta, e o atalho é um
+  /// badge de dois caracteres. Lida crua, a lista sai como uma sequência de
+  /// conteúdos sem nada em volta — e é justamente o em volta que faz escolher.
+  ///
+  /// A ordem é a da decisão: primeiro o que é (o apelido, ou o conteúdo quando
+  /// não há apelido), depois o que ele guarda, e só então tipo, fixado e
+  /// atalho. O horário fica de fora — ele está na tela para dar contexto de
+  /// relance, e numa frase falada viraria cauda em toda linha.
+  String get _semanticLabel {
+    final parts = <String>[
+      if (item.hasAlias) '${item.alias!.trim()}: ${item.title}' else item.title,
+      item.type.label,
+      if (item.isPinned) 'fixado',
+      // O atalho vai por extenso: `⌥2` lido caractere a caractere não ensina
+      // nada, e ensinar o atalho é a razão de o badge existir.
+      if (shortcut != null)
+        'atalho ${shortcut!.group == PinShortcutGroup.pinned ? 'Option' : 'Command'} '
+            '${shortcut!.number}',
+    ];
+
+    return parts.join(', ');
   }
 
   /// Texto da linha: o apelido à frente e, atrás dele, o começo do conteúdo em
