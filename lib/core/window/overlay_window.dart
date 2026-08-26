@@ -4,6 +4,7 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../system/previous_app_focus_channel.dart';
+import 'overlay_window_channel.dart';
 
 /// Controla a janela nativa que hospeda os painéis flutuantes do Evergreen.
 ///
@@ -12,6 +13,11 @@ import '../system/previous_app_focus_channel.dart';
 /// destruída — apenas escondida —, o que faz `⌘⇧C` e `⌘⇧F` abrirem
 /// instantaneamente. Pin e Focus compartilham esta janela; quem escolhe o
 /// painel é o `overlayPanelProvider`, no lado Dart.
+///
+/// Nível, Spaces e exibição são do lado nativo (`MainFlutterWindow`,
+/// `OverlayWindowChannel`): a janela é um `NSPanel` não-ativante, que aparece
+/// sem tirar o app anterior da frente. O `window_manager` continua cuidando de
+/// tudo o que não depende disso — tamanho, posição, chrome, esconder.
 class OverlayWindow {
   OverlayWindow._();
 
@@ -85,12 +91,12 @@ class OverlayWindow {
       await windowManager.setHasShadow(false);
       await windowManager.setResizable(false);
       await windowManager.setMovable(false);
-      await windowManager.setAlwaysOnTop(true);
       await windowManager.setSkipTaskbar(true);
-      await windowManager.setVisibleOnAllWorkspaces(
-        true,
-        visibleOnFullScreen: true,
-      );
+      // Nem `setAlwaysOnTop` nem `setVisibleOnAllWorkspaces` aqui: os dois já
+      // foram aplicados no lado nativo, e o primeiro *rebaixaria* a janela —
+      // ele fixa o nível em `.floating`, abaixo de um app em tela cheia, que é
+      // exatamente onde o painel precisa aparecer.
+
       // Fechar o overlay deve escondê-lo, nunca encerrar o Evergreen.
       await windowManager.setPreventClose(true);
       await windowManager.hide();
@@ -102,9 +108,11 @@ class OverlayWindow {
   /// Reposicionar a cada abertura é o que mantém o painel sempre no monitor que
   /// o usuário está usando, em vez de onde ele foi aberto da última vez.
   Future<void> show() async {
-    // Precisa vir antes do `windowManager.show()`: é o instante em que o app
-    // anterior ainda é o frontmost do sistema, antes do `NSApp.activate` que
-    // o `window_manager` dispara em seguida roubar o foco dele.
+    // Quem está na frente agora é para quem o auto-colar vai colar depois. O
+    // painel não-ativante não tira ninguém da frente, então esta foto tende a
+    // continuar valendo quando o item for escolhido — mas ela é tirada aqui,
+    // antes de qualquer coisa aparecer, porque é o único instante em que a
+    // resposta é certamente a de antes do atalho.
     await PreviousAppFocusChannel.capture();
 
     await reposition();
@@ -115,12 +123,13 @@ class OverlayWindow {
     // transparente. Ver [hide].
     isPanelHidden.value = false;
 
-    // Só `show()`, nunca seguido de `focus()`: o `show()` do window_manager já
-    // agenda `makeKeyAndOrderFront` + `NSApp.activate(ignoringOtherApps: true)`
-    // num bloco assíncrono. Um `focus()` aqui dispara uma segunda ativação
-    // (com `ignoringOtherApps: false`) que corre contra a primeira; a janela
-    // perde e retoma o key status, e o `windowDidResignKey` no meio do caminho
-    // fecha o overlay logo depois de abri-lo.
+    // Pelo canal nativo, e não por `windowManager.show()`: aquele ativa o
+    // aplicativo (`NSApp.activate(ignoringOtherApps: true)`) e é a origem do
+    // pisca no app anterior. Ver `OverlayWindowChannel`.
+    if (await OverlayWindowChannel.show()) return;
+
+    // Sem o lado nativo, o caminho antigo. Ele pisca, mas um pisca é melhor que
+    // um atalho que não abre nada.
     await windowManager.show();
   }
 
