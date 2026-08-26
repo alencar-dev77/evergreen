@@ -116,16 +116,24 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     final meeting = widget.meeting;
 
     if (meeting.hasSummary) {
-      return SelectableText(meeting.summary!, style: AppTypography.reading);
+      // Refazendo: o progresso entra **acima** do resumo que já existe, sem
+      // apagá-lo. Trocar o texto antigo por "Resumindo…" tiraria da tela a
+      // única coisa que a pessoa tem para ler enquanto espera — e ela pediu um
+      // resumo novo justamente para comparar com este.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.isSummarizing) ...[
+            Text(_summarizingLabel(), style: AppTypography.captionSmall),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          SelectableText(meeting.summary!, style: AppTypography.reading),
+        ],
+      );
     }
 
     if (widget.isSummarizing) {
-      final progress = widget.progress;
-      final label = progress == null || progress.$2 <= 1
-          ? 'Resumindo…'
-          : 'Resumindo — bloco ${progress.$1} de ${progress.$2}';
-
-      return Text(label, style: AppTypography.captionSmall);
+      return Text(_summarizingLabel(), style: AppTypography.captionSmall);
     }
 
     final explanation = widget.summaries.explanation;
@@ -140,6 +148,17 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       'a partir da transcrição, e leva alguns segundos.',
       style: AppTypography.captionSmall,
     );
+  }
+
+  /// "bloco 2 de 4" quando o texto é longo o bastante para ser resumido em
+  /// partes; "Resumindo…" quando é uma só. Progresso real vale mais que uma
+  /// ampulheta — é a razão de o estado carregar essa contagem.
+  String _summarizingLabel() {
+    final progress = widget.progress;
+
+    return progress == null || progress.$2 <= 1
+        ? 'Resumindo…'
+        : 'Resumindo — bloco ${progress.$1} de ${progress.$2}';
   }
 
   Widget _transcript() {
@@ -162,9 +181,16 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
   /// não há o que refazer nela.
   Widget _actions() {
     final meeting = widget.meeting;
+
+    // `isSummarizing` **não** entra aqui. Entrava, e o efeito era o botão sair
+    // da árvore no instante em que a pessoa o apertava: a linha subia, o
+    // "Apagar" pulava para a esquerda e nada na tela dizia que o resumo estava
+    // sendo feito. Refazendo era pior ainda — o corpo da aba volta o resumo
+    // antigo, porque `_summary` trata "já tem resumo" antes de "está
+    // resumindo", então não sobrava indicação nenhuma. Agora o botão fica, e é
+    // ele que carrega a espera.
     final canSummarize = !meeting.isEmpty &&
         widget.summaries.isAvailable &&
-        !widget.isSummarizing &&
         _tab == _DetailTab.summary;
 
     return Row(
@@ -176,8 +202,13 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
               ? EgButton.secondary(
                   label: 'Refazer resumo',
                   onPressed: widget.onSummarize,
+                  isLoading: widget.isSummarizing,
                 )
-              : EgButton(label: 'Resumir', onPressed: widget.onSummarize),
+              : EgButton(
+                  label: 'Resumir',
+                  onPressed: widget.onSummarize,
+                  isLoading: widget.isSummarizing,
+                ),
         const Spacer(),
         EgButton.destructive(label: 'Apagar', onPressed: widget.onDelete),
       ],
