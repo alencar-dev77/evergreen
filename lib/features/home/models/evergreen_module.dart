@@ -52,14 +52,14 @@ enum EvergreenModule {
     icon: EgIconData.microphone,
     status: ModuleStatus.available,
   ),
-  trail(
-    name: 'Trail',
+  track(
+    name: 'Track',
     tagline: 'O dia reconstruído',
     description:
         'Responde "o que eu fiz hoje" com o que os outros módulos já '
         'gravaram: quanto você focou, quantas reuniões gravou e o que passou '
         'pela área de transferência. Não captura nada — só lê.',
-    icon: EgIconData.trail,
+    icon: EgIconData.track,
     status: ModuleStatus.available,
   );
 

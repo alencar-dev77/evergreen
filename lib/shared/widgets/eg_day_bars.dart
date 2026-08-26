@@ -12,7 +12,7 @@ import '../../core/design/app_typography.dart';
 /// sem grade, sem legenda de valor. Quem quer precisão lê o número acima.
 ///
 /// A altura é proporcional ao **dia mais cheio da faixa**, e não a uma meta
-/// fixa: nem o Focus nem o Trail perguntam quanto você pretende trabalhar,
+/// fixa: nem o Focus nem o Track perguntam quanto você pretende trabalhar,
 /// então não há régua que signifique alguma coisa.
 ///
 /// Accent só no dia destacado ([highlight], que é sempre hoje em quem a usa).
@@ -21,7 +21,7 @@ import '../../core/design/app_typography.dart';
 /// está na altura da barra.
 ///
 /// Vive em `shared/` porque a mesma faixa é a semana do Focus e a semana do
-/// Trail, medindo coisas diferentes: duas cópias divergiriam na primeira vez
+/// Track, medindo coisas diferentes: duas cópias divergiriam na primeira vez
 /// que alguém acertasse a altura de uma delas.
 class EgDayBars extends StatelessWidget {
   const EgDayBars({

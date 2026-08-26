@@ -30,8 +30,8 @@ import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
-import 'package:evergreen/features/trail/data/trail_repository.dart';
-import 'package:evergreen/features/trail/presentation/widgets/trail_day_list.dart';
+import 'package:evergreen/features/track/data/track_repository.dart';
+import 'package:evergreen/features/track/presentation/widgets/track_day_list.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -76,12 +76,12 @@ void main() {
   late FakeEchoChannel channel;
   late BackupService backups;
 
-  /// O "hoje" das imagens do Trail: a quinta-feira em que a reunião do Echo
+  /// O "hoje" das imagens do Track: a quinta-feira em que a reunião do Echo
   /// acontece. Fixo porque o módulo lê a semana corrente — com o relógio real
   /// as fixtures cairiam fora do recorte e a tela sairia vazia.
-  final trailToday = DateTime(2026, 7, 23, 16, 20);
+  final trackToday = DateTime(2026, 7, 23, 16, 20);
 
-  /// O "agora" da tela de preferências, pelo mesmo motivo do [trailToday]: a
+  /// O "agora" da tela de preferências, pelo mesmo motivo do [trackToday]: a
   /// lista de backups rotula as datas como "Hoje"/"Ontem" e a linha do último
   /// backup diz "há N horas".
   final backupToday = DateTime(2026, 8, 25, 16, 20);
@@ -158,9 +158,9 @@ void main() {
           'transferência foi sobretudo link e comando — dia de leitura e '
           'terminal.';
 
-    // O Trail lê as quatro tabelas: as três primeiras são as fixtures dos
+    // O Track lê as quatro tabelas: as três primeiras são as fixtures dos
     // outros módulos, e é a soma delas que a folha de conferência mostra.
-    seedTrail(echoDb, trailToday);
+    seedTrack(echoDb, trackToday);
 
     // A pasta de backups da conferência visual, com um histórico plausível: o
     // de hoje de manhã e os das duas semanas anteriores. Ancorada em
@@ -294,7 +294,7 @@ void main() {
   /// [fakeClock] troca o relógio da aplicação pelo do binding, que anda com
   /// `tester.pump`. Só o painel em sessão precisa disso; nas telas do Hub o
   /// relógio falso jogaria as datas para 2015 e o histórico perderia o "Hoje".
-  /// [now] fixa o relógio numa data escolhida — é o que o Trail precisa, porque
+  /// [now] fixa o relógio numa data escolhida — é o que o Track precisa, porque
   /// ele lê a semana corrente e as fixtures dele têm data fixa.
   Future<void> pump(
     WidgetTester tester,
@@ -321,9 +321,9 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(preferences),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),
           echoChannelProvider.overrideWithValue(channel),
-          // O Trail lê o mesmo banco: ele não tem tabela própria.
-          trailRepositoryProvider
-              .overrideWithValue(SqliteTrailRepository(echoDb)),
+          // O Track lê o mesmo banco: ele não tem tabela própria.
+          trackRepositoryProvider
+              .overrideWithValue(SqliteTrackRepository(echoDb)),
           backupServiceProvider.overrideWithValue(backups),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now())
@@ -660,20 +660,20 @@ void main() {
     );
   });
 
-  testWidgets('Hub — Trail', (tester) async {
+  testWidgets('Hub — Track', (tester) async {
     await pump(
       tester,
       const HubView(),
       const Size(1800, 1400),
-      now: trailToday,
+      now: trackToday,
     );
 
-    await tester.tap(find.text(EvergreenModule.trail.name));
+    await tester.tap(find.text(EvergreenModule.track.name));
     await tester.pumpAndSettle();
 
     await expectLater(
       find.byType(HubView),
-      matchesGoldenFile('goldens/hub_trail.png'),
+      matchesGoldenFile('goldens/hub_track.png'),
     );
   });
 
@@ -683,22 +683,22 @@ void main() {
   /// dia faz a **janela crescer** (`HubWindowChannel.setDetailWidth`), e sob
   /// `flutter test` não há janela nativa para crescer — o tamanho já entra aqui
   /// somado.
-  testWidgets('Hub — Trail, o dia aberto', (tester) async {
+  testWidgets('Hub — Track, o dia aberto', (tester) async {
     await pump(
       tester,
       const HubView(),
       const Size(2720, 1400),
-      now: trailToday,
+      now: trackToday,
     );
 
-    await tester.tap(find.text(EvergreenModule.trail.name));
+    await tester.tap(find.text(EvergreenModule.track.name));
     await tester.pumpAndSettle();
 
     // "Hoje" também é o nome de uma pílula do recorte — o `find` precisa dizer
     // que quer a linha da lista.
     await tester.tap(
       find.descendant(
-        of: find.byType(TrailDayList),
+        of: find.byType(TrackDayList),
         matching: find.text('Hoje'),
       ),
     );
@@ -706,20 +706,20 @@ void main() {
 
     await expectLater(
       find.byType(HubView),
-      matchesGoldenFile('goldens/hub_trail_day.png'),
+      matchesGoldenFile('goldens/hub_track_day.png'),
     );
   });
 }
 
-/// Enche as tabelas que o Trail lê, na semana de [today].
+/// Enche as tabelas que o Track lê, na semana de [today].
 ///
-/// Escreve direto em SQL, e não pelos repositórios dos outros módulos: o Trail
+/// Escreve direto em SQL, e não pelos repositórios dos outros módulos: o Track
 /// não tem escrita própria, e o que a folha de conferência precisa é do dado
 /// como ele fica no banco depois que Focus, Echo, Pin e Leaf passaram por ali.
 ///
 /// A distribuição do dia é a do documento que originou o módulo — quarenta
 /// itens copiados, nove deles links e seis comandos.
-void seedTrail(Database db, DateTime today) {
+void seedTrack(Database db, DateTime today) {
   DateTime at(int daysAgo, int hour, int minute) =>
       DateTime(today.year, today.month, today.day - daysAgo, hour, minute);
 

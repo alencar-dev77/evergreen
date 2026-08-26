@@ -2,14 +2,14 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../../../shared/utils/day_bounds.dart';
 import '../../pin/models/clipboard_item_type.dart';
-import '../models/trail_day.dart';
+import '../models/track_day.dart';
 
-/// Contrato de leitura do Trail.
+/// Contrato de leitura do Track.
 ///
-/// Só leitura, de propósito: o Trail não tem tabela, não escreve linha nenhuma
+/// Só leitura, de propósito: o Track não tem tabela, não escreve linha nenhuma
 /// e não faz migração. Ele é uma consulta sobre o que os outros quatro módulos
 /// já gravaram — e é isso que faz cada módulo novo alimentá-lo de graça.
-abstract interface class TrailRepository {
+abstract interface class TrackRepository {
   /// Os dias com registro desde [since], do mais recente para o mais antigo —
   /// e o que aconteceu **dentro** de cada dia na ordem inversa, da manhã para a
   /// noite.
@@ -22,7 +22,7 @@ abstract interface class TrailRepository {
   /// Dias em que nada aconteceu não vêm na lista: quem monta a tela é quem
   /// decide se um dia vazio merece uma linha (hoje merece, uma quarta-feira de
   /// folga não).
-  List<TrailDay> loadDays({required DateTime since});
+  List<TrackDay> loadDays({required DateTime since});
 }
 
 /// Implementação sobre SQLite.
@@ -33,13 +33,13 @@ abstract interface class TrailRepository {
 /// colada inclusive, e uma tela que mostrasse "o que você copiou hoje" seria,
 /// sem esse cuidado, uma tela de senhas em texto puro — que ainda por cima
 /// seguiria para o modelo que escreve o resumo.
-class SqliteTrailRepository implements TrailRepository {
-  SqliteTrailRepository(this._db);
+class SqliteTrackRepository implements TrackRepository {
+  SqliteTrackRepository(this._db);
 
   final Database _db;
 
   @override
-  List<TrailDay> loadDays({required DateTime since}) {
+  List<TrackDay> loadDays({required DateTime since}) {
     final from = DayBounds.startOfDay(since).millisecondsSinceEpoch;
     final days = <DateTime, _DayBucket>{};
 
@@ -65,7 +65,7 @@ class SqliteTrailRepository implements TrailRepository {
     )) {
       final at = row['started_at'] as int;
       bucketOf(at).focus.add(
-            TrailEntry(
+            TrackEntry(
               at: DateTime.fromMillisecondsSinceEpoch(at),
               duration: Duration(seconds: row['duration_seconds'] as int),
               label: row['activity'] as String?,
@@ -84,7 +84,7 @@ class SqliteTrailRepository implements TrailRepository {
     )) {
       final at = row['started_at'] as int;
       bucketOf(at).meetings.add(
-            TrailEntry(
+            TrackEntry(
               at: DateTime.fromMillisecondsSinceEpoch(at),
               duration: Duration(milliseconds: row['duration_ms'] as int),
               label: row['title'] as String?,
@@ -123,12 +123,12 @@ class SqliteTrailRepository implements TrailRepository {
 
 /// O dia sendo montado, enquanto as quatro varreduras acontecem.
 class _DayBucket {
-  final focus = <TrailEntry>[];
-  final meetings = <TrailEntry>[];
+  final focus = <TrackEntry>[];
+  final meetings = <TrackEntry>[];
   final copied = <ClipboardItemType, int>{};
   int notesWritten = 0;
 
-  TrailDay freeze(DateTime date) => TrailDay(
+  TrackDay freeze(DateTime date) => TrackDay(
         date: date,
         focus: List.unmodifiable(focus),
         meetings: List.unmodifiable(meetings),

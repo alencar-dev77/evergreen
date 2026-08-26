@@ -16,8 +16,8 @@ import '../../../pin/models/clipboard_item_type.dart';
 /// A barrinha existe porque aqui a **proporção** é o conteúdo — "foi um dia de
 /// links" é a leitura, e ela não sai de uma coluna de números. Neutra e de 4px:
 /// é uma medida dentro de uma linha, não um gráfico.
-class TrailCopiedBreakdown extends StatelessWidget {
-  const TrailCopiedBreakdown({super.key, required this.copied});
+class TrackCopiedBreakdown extends StatelessWidget {
+  const TrackCopiedBreakdown({super.key, required this.copied});
 
   final Map<ClipboardItemType, int> copied;
 
@@ -81,7 +81,7 @@ class TrailCopiedBreakdown extends StatelessWidget {
           ),
         const SizedBox(height: AppSpacing.xxs),
         Text(
-          'Só o tipo e a contagem — o Trail nunca lê o que foi copiado.',
+          'Só o tipo e a contagem — o Track nunca lê o que foi copiado.',
           style: AppTypography.captionXS.copyWith(
             color: AppColors.textTertiary,
           ),

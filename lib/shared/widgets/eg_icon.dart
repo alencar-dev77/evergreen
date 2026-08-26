@@ -61,8 +61,8 @@ enum EgIconData {
   /// Microfone — identifica o módulo Echo.
   microphone,
 
-  /// Trilha sinuosa com o marco no fim — identifica o módulo Trail.
-  trail,
+  /// Trilha sinuosa com o marco no fim — identifica o módulo Track.
+  track,
 
   /// Árvore perene — a marca do Evergreen (preenchida, como a [star]).
   evergreen,
@@ -160,7 +160,7 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.sun => _sunPath(),
         EgIconData.note => _notePath(),
         EgIconData.microphone => _microphonePath(),
-        EgIconData.trail => _trailPath(),
+        EgIconData.track => _trackPath(),
         EgIconData.star => _starPath(),
         EgIconData.evergreen => _evergreenPath(),
       };
@@ -308,12 +308,12 @@ class _EgIconPainter extends CustomPainter {
     ..moveTo(5.6, 14)
     ..lineTo(10.4, 14);
 
-  /// Trilha que sobe serpenteando até um marco — o Trail.
+  /// Trilha que sobe serpenteando até um marco — o Track.
   ///
   /// O marco solto no fim (e não colado na curva) é o que a distingue de uma
   /// onda: com ele o desenho tem destino, que é o que o módulo faz — reconstrói
   /// o caminho até onde a pessoa está hoje.
-  Path _trailPath() => Path()
+  Path _trackPath() => Path()
     ..moveTo(2.6, 13.2)
     ..cubicTo(5.6, 13.2, 4.6, 8.4, 8.0, 8.4)
     ..cubicTo(10.2, 8.4, 10.4, 5.6, 11.3, 4.4)

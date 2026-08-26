@@ -6,7 +6,7 @@ import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_surface.dart';
-import '../../models/trail_day.dart';
+import '../../models/track_day.dart';
 
 /// Os dias do recorte, um por linha.
 ///
@@ -17,8 +17,8 @@ import '../../models/trail_day.dart';
 ///
 /// Sem rótulo de grupo por cima: aqui a linha **é** o dia, e um cabeçalho de
 /// data acima de uma linha de data seria a mesma informação duas vezes.
-class TrailDayList extends StatelessWidget {
-  const TrailDayList({
+class TrackDayList extends StatelessWidget {
+  const TrackDayList({
     super.key,
     required this.days,
     required this.onOpen,
@@ -26,7 +26,7 @@ class TrailDayList extends StatelessWidget {
     this.now,
   });
 
-  final List<TrailDay> days;
+  final List<TrackDay> days;
 
   /// Escolhe o dia e abre a região de leitura — as duas coisas são o mesmo
   /// gesto, porque um dia selecionado e fechado não serve para nada.
@@ -64,7 +64,7 @@ class _DayRow extends StatelessWidget {
     this.now,
   });
 
-  final TrailDay day;
+  final TrackDay day;
   final bool isSelected;
   final VoidCallback onTap;
   final DateTime? now;

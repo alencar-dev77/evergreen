@@ -1,7 +1,7 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
-import 'package:evergreen/features/trail/data/trail_repository.dart';
+import 'package:evergreen/features/track/data/track_repository.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/viewmodels/hub_detail_view_model.dart';
@@ -21,7 +21,7 @@ import 'backup_fixture.dart';
 void main() {
   late SharedPreferences preferences;
 
-  /// Um banco de verdade, em memória: o Echo lê as reuniões dele e o Trail lê
+  /// Um banco de verdade, em memória: o Echo lê as reuniões dele e o Track lê
   /// as quatro tabelas que os módulos escrevem.
   late Database db;
 
@@ -52,8 +52,8 @@ void main() {
           // máquina permite — nem um nem outro existem dentro de um teste.
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
-          // O Trail lê o mesmo banco — ele não tem tabela própria.
-          trailRepositoryProvider.overrideWithValue(SqliteTrailRepository(db)),
+          // O Track lê o mesmo banco — ele não tem tabela própria.
+          trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
           // A tela do aplicativo lê a pasta de backups ao montar.
           backupServiceProvider
               .overrideWithValue(temporaryBackupService(database: db)),

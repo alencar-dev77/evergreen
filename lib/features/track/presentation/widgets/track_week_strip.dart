@@ -3,18 +3,18 @@ import 'package:flutter/widgets.dart';
 import '../../../../shared/utils/day_bounds.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/widgets/eg_day_bars.dart';
-import '../../models/trail_day.dart';
+import '../../models/track_day.dart';
 
 /// O tempo registrado em cada dia da semana, em sete barras.
 ///
-/// A barra mede **foco mais reunião** (`TrailDay.registered`), não só o foco:
+/// A barra mede **foco mais reunião** (`TrackDay.registered`), não só o foco:
 /// é a diferença entre esta faixa e a do Focus, e é o que a torna a faixa do
-/// Trail — uma manhã inteira de reunião é uma manhã de trabalho, e uma semana
+/// Track — uma manhã inteira de reunião é uma manhã de trabalho, e uma semana
 /// que só mostrasse foco a contaria como vazia.
-class TrailWeekStrip extends StatelessWidget {
-  const TrailWeekStrip({super.key, required this.days, this.now});
+class TrackWeekStrip extends StatelessWidget {
+  const TrackWeekStrip({super.key, required this.days, this.now});
 
-  final List<TrailDay> days;
+  final List<TrackDay> days;
 
   /// Injetável para o teste e para os goldens não dependerem do relógio real.
   final DateTime? now;

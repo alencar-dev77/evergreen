@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../../../shared/utils/day_bounds.dart';
-import '../../data/trail_repository.dart';
-import '../../data/trail_summarizer.dart';
-import '../../models/trail_day.dart';
-import '../../models/trail_range.dart';
+import '../../data/track_repository.dart';
+import '../../data/track_summarizer.dart';
+import '../../models/track_day.dart';
+import '../../models/track_range.dart';
 
 /// O parágrafo de um dia, e em que pé ele está.
 ///
@@ -16,61 +16,61 @@ import '../../models/trail_range.dart';
 /// (uma linha discreta dizendo isso), escrito (o parágrafo) e indisponível
 /// (nada — nem aviso, nem espaço reservado).
 @immutable
-class TrailSummary {
-  const TrailSummary._(this.text, this.signature, {required this.isWriting});
+class TrackSummary {
+  const TrackSummary._(this.text, this.signature, {required this.isWriting});
 
-  const TrailSummary.writing(String signature)
+  const TrackSummary.writing(String signature)
       : this._(null, signature, isWriting: true);
 
-  const TrailSummary.written(String text, String signature)
+  const TrackSummary.written(String text, String signature)
       : this._(text, signature, isWriting: false);
 
-  const TrailSummary.unavailable(String signature)
+  const TrackSummary.unavailable(String signature)
       : this._(null, signature, isWriting: false);
 
   final String? text;
   final bool isWriting;
 
   /// A assinatura do dia no momento em que este parágrafo foi pedido — ver
-  /// `TrailDay.signature`. É o que faz um resumo envelhecido ser descartado em
+  /// `TrackDay.signature`. É o que faz um resumo envelhecido ser descartado em
   /// vez de continuar na tela contradizendo os números ao lado.
   final String signature;
 
   bool get hasText => text != null;
 }
 
-/// O que a tela do Trail mostra.
+/// O que a tela do Track mostra.
 @immutable
-class TrailState {
-  const TrailState({
+class TrackState {
+  const TrackState({
     required this.range,
     required this.days,
     this.selectedDate,
     this.summaries = const {},
   });
 
-  final TrailRange range;
+  final TrackRange range;
 
   /// Os dias do recorte, do mais recente para o mais antigo.
-  final List<TrailDay> days;
+  final List<TrackDay> days;
 
   /// O dia aberto na região de leitura do Hub, se houver.
   ///
   /// Guardado por data, e não como objeto: a lista é relida do banco a cada
-  /// [TrailViewModel.refresh], e um objeto guardado aqui envelheceria em
+  /// [TrackViewModel.refresh], e um objeto guardado aqui envelheceria em
   /// silêncio enquanto a lista ao lado já mostra os números novos.
   final DateTime? selectedDate;
 
   /// O parágrafo de cada dia que já foi aberto uma vez.
-  final Map<DateTime, TrailSummary> summaries;
+  final Map<DateTime, TrackSummary> summaries;
 
-  TrailTotals get totals => TrailTotals.of(days);
+  TrackTotals get totals => TrackTotals.of(days);
 
   bool get isEmpty => days.every((day) => day.isEmpty);
 
   /// O dia aberto, ou `null` quando nenhum está — inclusive quando o que
   /// estava aberto saiu do recorte.
-  TrailDay? get selected {
+  TrackDay? get selected {
     if (selectedDate == null) return null;
 
     for (final day in days) {
@@ -81,17 +81,17 @@ class TrailState {
   }
 
   /// O parágrafo do dia aberto.
-  TrailSummary get selectedSummary =>
-      summaries[selectedDate] ?? const TrailSummary.unavailable('');
+  TrackSummary get selectedSummary =>
+      summaries[selectedDate] ?? const TrackSummary.unavailable('');
 
-  TrailState copyWith({
-    TrailRange? range,
-    List<TrailDay>? days,
+  TrackState copyWith({
+    TrackRange? range,
+    List<TrackDay>? days,
     DateTime? selectedDate,
     bool clearSelection = false,
-    Map<DateTime, TrailSummary>? summaries,
+    Map<DateTime, TrackSummary>? summaries,
   }) {
-    return TrailState(
+    return TrackState(
       range: range ?? this.range,
       days: days ?? this.days,
       selectedDate: clearSelection ? null : selectedDate ?? this.selectedDate,
@@ -100,30 +100,30 @@ class TrailState {
   }
 }
 
-final trailViewModelProvider = NotifierProvider<TrailViewModel, TrailState>(
-  TrailViewModel.new,
+final trackViewModelProvider = NotifierProvider<TrackViewModel, TrackState>(
+  TrackViewModel.new,
 );
 
 /// O dia reconstruído, lido sob demanda.
 ///
-/// Como o Focus e o Echo, o Trail roda no engine do Hub e lê tabelas que os
+/// Como o Focus e o Echo, o Track roda no engine do Hub e lê tabelas que os
 /// outros módulos escrevem no engine da janela flutuante: nada aqui é avisado
 /// de nada, e por isso a tela pede [refresh] ao ser montada.
-class TrailViewModel extends Notifier<TrailState> {
-  late final TrailRepository _repository;
-  late final TrailSummarizer _summarizer;
+class TrackViewModel extends Notifier<TrackState> {
+  late final TrackRepository _repository;
+  late final TrackSummarizer _summarizer;
   late final DateTime Function() _now;
 
   @override
-  TrailState build() {
-    _repository = ref.watch(trailRepositoryProvider);
-    _summarizer = ref.watch(trailSummarizerProvider);
+  TrackState build() {
+    _repository = ref.watch(trackRepositoryProvider);
+    _summarizer = ref.watch(trackSummarizerProvider);
     _now = ref.watch(clockProvider);
 
     // A semana, e não o dia, é o que abre a tela: com "Hoje" a lista teria uma
     // linha só, e o valor do módulo é justamente ver a sexta-feira ao lado da
     // segunda. "Hoje" continua sendo a primeira linha da lista.
-    return _read(TrailRange.week);
+    return _read(TrackRange.week);
   }
 
   void refresh() => state = _read(
@@ -132,7 +132,7 @@ class TrailViewModel extends Notifier<TrailState> {
         summaries: state.summaries,
       );
 
-  void setRange(TrailRange range) {
+  void setRange(TrackRange range) {
     if (range == state.range) return;
 
     // A seleção sobrevive à troca de recorte quando o dia continua na lista —
@@ -161,12 +161,12 @@ class TrailViewModel extends Notifier<TrailState> {
 
   /// Pede o parágrafo ao modelo e guarda o resultado.
   ///
-  /// O resultado fica em memória e some ao fechar a janela: o Trail não cria
+  /// O resultado fica em memória e some ao fechar a janela: o Track não cria
   /// tabela nenhuma, e um parágrafo gerado por um modelo local se refaz em
   /// segundos.
-  Future<void> _write(TrailDay day) async {
+  Future<void> _write(TrackDay day) async {
     final signature = day.signature;
-    _setSummary(day.date, TrailSummary.writing(signature));
+    _setSummary(day.date, TrackSummary.writing(signature));
 
     final text = await _summarizer.write(day);
     // A tela pode ter trocado de recorte — ou a janela ter fechado — enquanto o
@@ -176,21 +176,21 @@ class TrailViewModel extends Notifier<TrailState> {
     _setSummary(
       day.date,
       text == null
-          ? TrailSummary.unavailable(signature)
-          : TrailSummary.written(text, signature),
+          ? TrackSummary.unavailable(signature)
+          : TrackSummary.written(text, signature),
     );
   }
 
-  void _setSummary(DateTime date, TrailSummary summary) {
+  void _setSummary(DateTime date, TrackSummary summary) {
     state = state.copyWith(
       summaries: {...state.summaries, date: summary},
     );
   }
 
-  TrailState _read(
-    TrailRange range, {
+  TrackState _read(
+    TrackRange range, {
     DateTime? selectedDate,
-    Map<DateTime, TrailSummary> summaries = const {},
+    Map<DateTime, TrackSummary> summaries = const {},
   }) {
     final now = _now();
     final today = DayBounds.startOfDay(now);
@@ -201,10 +201,10 @@ class TrailViewModel extends Notifier<TrailState> {
     // módulo quebrado. Os outros dias vazios ficam de fora — uma quarta-feira
     // de folga não precisa de linha para dizer que foi folga.
     if (days.every((day) => day.date != today)) {
-      days.insert(0, TrailDay(date: today));
+      days.insert(0, TrackDay(date: today));
     }
 
-    return TrailState(
+    return TrackState(
       range: range,
       days: List.unmodifiable(days),
       selectedDate: days.any((day) => day.date == selectedDate)
@@ -219,9 +219,9 @@ class TrailViewModel extends Notifier<TrailState> {
   /// Um resumo que diz "três sessões" ao lado de uma lista com quatro é pior
   /// que resumo nenhum — e é exatamente o que acontece quando uma sessão é
   /// registrada com o Hub aberto.
-  static Map<DateTime, TrailSummary> _pruneSummaries(
-    Map<DateTime, TrailSummary> summaries,
-    List<TrailDay> days,
+  static Map<DateTime, TrackSummary> _pruneSummaries(
+    Map<DateTime, TrackSummary> summaries,
+    List<TrackDay> days,
   ) {
     if (summaries.isEmpty) return summaries;
 
