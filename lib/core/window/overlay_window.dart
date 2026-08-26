@@ -90,7 +90,12 @@ class OverlayWindow {
       await windowManager.setBackgroundColor(Colors.transparent);
       await windowManager.setHasShadow(false);
       await windowManager.setResizable(false);
-      await windowManager.setMovable(false);
+      // Movível, mas não arrastável por conta própria: `isMovable` é só a
+      // permissão que o `startDragging` do painel precisa para o macOS aceitar
+      // conduzir a janela. Arrastar continua sendo opt-in de quem desenha o
+      // painel (`EgOverlayShell.draggable`, hoje só o Echo) — nenhum dos outros
+      // pede o gesto, e nada aqui liga o arrasto pelo fundo da janela.
+      await windowManager.setMovable(true);
       await windowManager.setSkipTaskbar(true);
       // Nem `setAlwaysOnTop` nem `setVisibleOnAllWorkspaces` aqui: os dois já
       // foram aplicados no lado nativo, e o primeiro *rebaixaria* a janela —

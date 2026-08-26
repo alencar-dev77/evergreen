@@ -85,6 +85,19 @@ Quatro convenções que valem para qualquer painel novo:
 - **Fechar o painel não cancela o que está em curso.** Por isso a dica do Focus
   em sessão diz "fechar", e não "sair" — e a contagem passa para a barra de
   menus, que é onde o macOS espera encontrar um estado de segundo plano.
+- **Clicar fora fecha o painel — menos quando o painel é o trabalho.** O padrão
+  vale para os cinco: o painel é de passagem, e quem clica fora quer o que está
+  fora. O Echo é a exceção, e só enquanto grava ou transcreve: ali o conteúdo
+  nasce *durante* a reunião, e fechar ao clicar na reunião esconderia justamente
+  o texto que se quer acompanhar. Esc e o botão continuam fechando — o que sai é
+  o fechamento que ninguém pediu. Um painel novo só ganha essa exceção se tiver
+  conteúdo que muda sozinho enquanto a pessoa olha para outra coisa.
+- **Arrastar é para o painel que disputa espaço com outra janela.** O Echo é o
+  único, e pelo mesmo motivo: ele fica na frente de uma reunião que estava ali
+  primeiro. Pega-se pelo fundo do painel, sem alça visível — arrastar janela
+  pelo corpo é idioma do macOS, e uma alça desenhada seria affordance
+  redundante para um gesto que já se tenta por instinto. A posição não persiste:
+  a próxima abertura recentraliza, que é o que mantém os cinco previsíveis.
 
 Dois detalhes de convenção que valem para atalhos futuros:
 
