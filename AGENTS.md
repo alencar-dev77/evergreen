@@ -140,6 +140,13 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   valor a `OverlayPanel`, desenhe o painel em `OverlayHost` e registre o atalho
   global no `EvergreenBootstrap`. Só a janela 0 pode ser borderless/sempre no
   topo (motivo em `docs/Ideis projeto/`).
+- A janela 0 é um `NSPanel` **não-ativante**: ela recebe o teclado sem tirar da
+  frente o app em que a pessoa estava. Quem a exibe é o `OverlayWindowChannel`,
+  nunca `windowManager.show()` — o `show()` do pacote chama
+  `NSApp.activate(ignoringOtherApps: true)`, e é essa chamada, não o estilo da
+  janela, que faz o app anterior piscar. Pelo mesmo motivo o nível e o
+  `collectionBehavior` moram no `MainFlutterWindow`: `setAlwaysOnTop` os
+  rebaixaria para `.floating`, abaixo de um app em tela cheia.
 - Sub-janela (hoje só o Hub) nasce escondida e **se exibe sozinha** depois do
   primeiro quadro, em `main.dart` — quem pediu a janela roda em outro engine e
   não tem como saber quando este subiu. Exibi-la de fora mostrava uma janela em

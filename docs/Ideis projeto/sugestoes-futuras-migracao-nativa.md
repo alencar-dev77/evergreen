@@ -45,6 +45,9 @@ todas as janelas fechadas.
 
 ### 1. O overlay rouba o foco do app anterior
 
+> **Resolvido em 25/08/2026.** Ver "Alternativa intermediária", no fim deste
+> documento — foi ela que acabou sendo feita.
+
 Um painel estilo Spotlight de verdade é um `NSPanel` com
 `styleMask: .nonactivatingPanel`: ele recebe teclado **sem** desativar o
 aplicativo que estava em foco. O `window_manager` cria uma `NSWindow` comum e
@@ -55,9 +58,16 @@ retoma o foco. Some com o efeito de "camada flutuante sobre o sistema".
 
 ### 2. Sem controle fino de nível e de Spaces
 
-`setAlwaysOnTop` mapeia para um nível fixo. Um `NSPanel` permitiria escolher
-`.statusBar` ou `.popUpMenu`, garantindo que o overlay fique acima inclusive de
-apps em tela cheia e de outros utilitários.
+> **Resolvido em 25/08/2026**, junto com o item 1. O nível saiu do lado Dart e
+> passou a ser `.statusBar`, escolhido no `MainFlutterWindow`.
+
+`setAlwaysOnTop` mapeia para um nível fixo (`.floating`). Um `NSPanel` permitiria
+escolher `.statusBar` ou `.popUpMenu`, garantindo que o overlay fique acima
+inclusive de apps em tela cheia e de outros utilitários.
+
+O `collectionBehavior`, ao contrário do que este item dava a entender, nunca foi
+o problema: `canJoinAllSpaces` e `fullScreenAuxiliary` já vinham do
+`setVisibleOnAllWorkspaces` desde a v0.1.
 
 ### 3. Polling da área de transferência
 
@@ -170,13 +180,42 @@ Moderado. O grosso é `PinPanelController` e a criação manual dos engines; o r
 
 ---
 
-## Alternativa intermediária
+## Alternativa intermediária — feita em 25/08/2026
 
-Dá para pegar o maior ganho (item 1 e 2 acima) sem migrar tudo: manter os
-pacotes e adicionar **um** arquivo Swift que converte a janela 0 em `NSPanel`
-não-ativante logo após o lançamento. Isso resolve o roubo de foco e o nível da
-janela, mantendo `tray_manager`, `hotkey_manager` e `desktop_multi_window` no
-lugar.
+Era o caminho recomendado como primeiro passo, e foi o que se fez quando o
+incômodo apareceu: com três módulos dividindo a janela 0, o Focus passou a abrir
+e fechar várias vezes por sessão, e cada visita era uma piscada no app em que a
+pessoa estava tentando focar.
 
-É o caminho recomendado como primeiro passo, se o incômodo aparecer antes da
-vontade de reescrever.
+Os quatro pacotes ficaram no lugar. O que mudou:
+
+- `MainFlutterWindow` herda de `NSPanel` em vez de `NSWindow`, e ganha
+  `.nonactivatingPanel`, `level = .statusBar`, `hidesOnDeactivate = false` e
+  `becomesKeyOnlyIfNeeded = false`.
+- `OverlayWindowChannel` (canal `overlay_window`) exibe a janela com
+  `orderFrontRegardless` + `makeKey`, e `OverlayWindow.show` passou a usá-lo.
+- `setAlwaysOnTop` e `setVisibleOnAllWorkspaces` saíram do lado Dart: o primeiro
+  *rebaixaria* a janela para `.floating`.
+
+### Três coisas que a proposta original errava
+
+**Não é "um arquivo Swift aplicado depois do lançamento".** `.nonactivatingPanel`
+só é honrado por `NSPanel`, e não se troca a classe de uma instância já criada —
+a herança precisa mudar antes, na classe que o nib instancia.
+
+**O `styleMask` sozinho não tira o pisca.** Ele decide o que acontece quando
+alguém *clica* no painel; o `show()` do `window_manager` chama
+`NSApp.activate(ignoringOtherApps: true)` de qualquer forma. Sem trocar quem
+exibe a janela, a conversão para painel não muda nada do que se vê.
+
+**O `MainMenu.xib` continua com `<window>`.** O documento está no formato do
+Xcode 8 e o `ibtool` recusa um elemento `<panel>` nele. Não faz diferença: quem
+o nib instancia é o `customClass`.
+
+### O que sobrou para depois
+
+O `PreviousAppFocusChannel` continua inteiro. Com o painel não-ativante o foco
+não chega a sair do app anterior, então `capture`/`restore` viraram quase
+sempre um par de chamadas sem efeito — mas `restoreAndPaste` (o auto-colar) e a
+permissão de Acessibilidade seguem dependendo dele, e o custo de mantê-lo é uma
+foto do frontmost por abertura. Vale medir antes de mexer.

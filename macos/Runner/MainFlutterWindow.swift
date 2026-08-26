@@ -7,12 +7,29 @@ import ServiceManagement
 import desktop_multi_window
 import window_manager
 
-/// Janela 0 do Evergreen: hospeda o overlay do Pin.
+/// Janela 0 do Evergreen: hospeda os painéis flutuantes (Pin, Focus, Leaf,
+/// Awake e Echo).
 ///
 /// Nasce transparente e sem chrome porque tudo que ela mostra é o painel
-/// flutuante desenhado pelo Flutter. O restante da configuração (posição,
-/// nível, visibilidade) fica no lado Dart, em `PinOverlayWindow`.
-class MainFlutterWindow: NSWindow {
+/// flutuante desenhado pelo Flutter. Posição e visibilidade continuam vindo do
+/// lado Dart, em `OverlayWindow`.
+///
+/// É um `NSPanel`, e não uma `NSWindow`, por causa de um único bit do
+/// `styleMask`: `.nonactivatingPanel`, que só existe em painel. Sem ele, o
+/// painel que recebe o teclado **desativa** o aplicativo que estava na frente —
+/// e abrir o Focus no meio de uma sessão de 25 minutos fazia piscar justamente
+/// o app em que a pessoa estava tentando focar.
+///
+/// O bit sozinho não basta: ele governa o que acontece quando alguém *clica* no
+/// painel, e o `show()` do `window_manager` ativa o aplicativo por conta
+/// própria. Por isso quem exibe a janela é o `OverlayWindowChannel`, não o
+/// pacote. Os dois lados são necessários; um sem o outro não muda nada.
+///
+/// O `MainMenu.xib` continua com um elemento `<window>`: o documento está no
+/// formato do Xcode 8 e o `ibtool` recusa `<panel>` nele ("Unknown element
+/// name"). Não faz diferença — quem o nib instancia é o `customClass`, esta
+/// classe, e o `styleMask` de painel é aplicado em `makeNonActivating`.
+class MainFlutterWindow: NSPanel {
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
@@ -40,6 +57,34 @@ class MainFlutterWindow: NSWindow {
     self.isOpaque = false
     self.backgroundColor = .clear
     self.hasShadow = false
+
+    Self.makeNonActivating(self)
+    OverlayWindowChannel.adopt(self)
+  }
+
+  /// Faz da janela 0 um painel que não tira ninguém da frente.
+  ///
+  /// - `.nonactivatingPanel`: recebe teclado sem ativar o Evergreen.
+  /// - `becomesKeyOnlyIfNeeded = false`: o painel precisa virar key assim que
+  ///   aparece, senão a primeira tecla digitada (a busca do Pin, o Esc) se
+  ///   perde — o padrão do `NSPanel` é o contrário, esperar um campo de texto
+  ///   ser clicado.
+  /// - `hidesOnDeactivate = false`: o padrão do painel é sumir quando o app sai
+  ///   da frente, e aqui o app **está sempre** fora da frente. Quem esconde a
+  ///   janela é o `OverlayWindow`, mais ninguém.
+  /// - `level = .statusBar`: acima de app em tela cheia, que é o cenário de
+  ///   quem está numa sessão de foco ou numa reunião com o Awake ligado.
+  ///   `setAlwaysOnTop` do `window_manager` só alcança `.floating`, por isso o
+  ///   nível saiu do lado Dart e passou a morar aqui.
+  /// - `collectionBehavior`: aparecer em qualquer Space sem arrastar o Space
+  ///   de volta junto.
+  private static func makeNonActivating(_ panel: NSPanel) {
+    panel.styleMask.insert(.nonactivatingPanel)
+    panel.isFloatingPanel = true
+    panel.becomesKeyOnlyIfNeeded = false
+    panel.hidesOnDeactivate = false
+    panel.level = .statusBar
+    panel.collectionBehavior.insert([.canJoinAllSpaces, .fullScreenAuxiliary])
   }
 
   private static func registerChannels(for controller: FlutterViewController) {
@@ -47,6 +92,7 @@ class MainFlutterWindow: NSWindow {
     LaunchAtLoginChannel.register(with: controller.engine.binaryMessenger)
     PreviousAppFocusChannel.register(with: controller.engine.binaryMessenger)
     HubWindowChannel.register(with: controller.engine.binaryMessenger)
+    OverlayWindowChannel.register(with: controller.engine.binaryMessenger)
     PasteboardWatcherChannel.register(with: controller.engine.binaryMessenger)
     EchoChannel.register(with: controller.engine.binaryMessenger)
   }
@@ -75,6 +121,69 @@ class MainFlutterWindow: NSWindow {
   override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
     super.order(place, relativeTo: otherWin)
     hiddenWindowAtLaunch()
+  }
+}
+
+/// Exibe a janela 0 sem ativar o Evergreen.
+///
+/// Não tem equivalente em Flutter puro, e nem sequer é resolvido pelo
+/// `styleMask` do painel: o `show()` do `window_manager` chama
+/// `NSApp.activate(ignoringOtherApps: true)` de forma incondicional, e é essa
+/// chamada — não o estilo da janela — que tira o app anterior da frente. Um
+/// `NSPanel` não-ativante só decide o que acontece quando alguém clica no
+/// painel; uma ativação pedida no braço acontece do mesmo jeito.
+///
+/// O que sobra aqui é o mínimo: pôr a janela na tela e entregar o teclado a
+/// ela. É o que faz o painel se comportar como uma camada sobre o sistema, em
+/// vez de um app que chega empurrando.
+enum OverlayWindowChannel {
+  private static let channelName = "overlay_window"
+
+  /// Fraca por simetria com o `HubWindowChannel`: quem retém a janela 0 é o
+  /// `NSApp`, e ela nunca é destruída — só escondida.
+  private static weak var panel: NSPanel?
+
+  /// Guarda a janela 0. Chamada pelo `MainFlutterWindow`, que é ela mesma.
+  static func adopt(_ window: NSPanel) {
+    panel = window
+  }
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "show":
+        show(result: result)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// Põe o painel na frente e entrega o teclado a ele, sem ativar o aplicativo.
+  ///
+  /// `orderFrontRegardless`, e não `orderFront`: com o Evergreen inativo — que
+  /// aqui é o caso normal, e não a exceção — o `orderFront` fica na fila
+  /// esperando uma ativação que não vem, e o atalho pareceria não fazer nada.
+  ///
+  /// `makeKey` sem `orderFront` junto: o `makeKeyAndOrderFront` reordena de
+  /// novo, com a regra que acabamos de contornar.
+  private static func show(result: @escaping FlutterResult) {
+    guard let panel = panel else {
+      result(
+        FlutterError(
+          code: "no_overlay_window",
+          message: "A janela do overlay ainda não existe.",
+          details: nil))
+      return
+    }
+
+    panel.setIsVisible(true)
+    panel.orderFrontRegardless()
+    panel.makeKey()
+    result(nil)
   }
 }
 
