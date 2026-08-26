@@ -5,6 +5,7 @@ import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
 import '../../core/design/app_typography.dart';
 import 'eg_icon.dart';
+import 'eg_spinner.dart';
 import 'eg_surface.dart';
 
 /// Variantes de botão previstas no design system.
@@ -31,7 +32,8 @@ enum EgButtonVariant {
 /// As três variantes compartilham geometria (padding 16x8, radius 8) e só
 /// divergem na coluna da matriz de estado ([EgSurfaceStyle]), mantendo o padrão
 /// único pedido no design. Todas cobrem os cinco estados obrigatórios: repouso,
-/// hover, pressed, foco e disabled.
+/// hover, pressed, foco e disabled — mais [isLoading], que é o sexto e não se
+/// confunde com nenhum deles: o botão está trabalhando, não indisponível.
 class EgButton extends StatelessWidget {
   const EgButton({
     super.key,
@@ -41,6 +43,7 @@ class EgButton extends StatelessWidget {
     this.icon,
     this.expand = false,
     this.autofocus = false,
+    this.isLoading = false,
   });
 
   const EgButton.secondary({
@@ -50,6 +53,7 @@ class EgButton extends StatelessWidget {
     this.icon,
     this.expand = false,
     this.autofocus = false,
+    this.isLoading = false,
   }) : variant = EgButtonVariant.secondary;
 
   const EgButton.destructive({
@@ -59,6 +63,7 @@ class EgButton extends StatelessWidget {
     this.icon,
     this.expand = false,
     this.autofocus = false,
+    this.isLoading = false,
   }) : variant = EgButtonVariant.destructive;
 
   final String label;
@@ -72,13 +77,30 @@ class EgButton extends StatelessWidget {
   /// Recebe o foco ao aparecer. Só faz sentido no botão seguro de um diálogo.
   final bool autofocus;
 
+  /// O botão está executando a própria ação.
+  ///
+  /// O rótulo dá lugar a um spinner **sem o botão mudar de tamanho** — o
+  /// rótulo continua ocupando o lugar dele, invisível, porque um botão que
+  /// encolhe ao ser apertado empurra o que está ao lado e faz a tela pular
+  /// justamente no instante em que a pessoa olha para ela.
+  ///
+  /// Enquanto carrega, o toque não passa: a ação já está em curso, e um
+  /// segundo disparo faria o mesmo trabalho duas vezes. Isso é diferente de
+  /// desabilitar — o botão **não** esmaece, porque ele não está indisponível.
+  ///
+  /// Quem chama continua responsável por não sumir com o botão: trocar
+  /// `if (podeAgir)` por este sinalizador é o que faz a espera ter onde
+  /// aparecer. Ver `EchoMeetingDetail`, que era exatamente esse caso.
+  final bool isLoading;
+
   @override
   Widget build(BuildContext context) {
-    final isEnabled = onPressed != null;
+    // Só o desabilitado de verdade esmaece; carregando, o botão segue inteiro.
+    final isDisabled = onPressed == null;
     final style = variant.style;
 
     final button = EgInteractiveSurface(
-      onTap: onPressed,
+      onTap: isLoading ? null : onPressed,
       style: style,
       borderRadius: AppRadii.buttonAll,
       padding: const EdgeInsets.symmetric(
@@ -86,34 +108,52 @@ class EgButton extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       builder: (context, state) => Opacity(
-        opacity: isEnabled ? 1 : style.disabledOpacity,
-        child: Row(
-          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              EgIcon(icon!, size: AppIconSizes.sm, color: style.foreground),
-              const SizedBox(width: AppSpacing.sm),
-            ],
-            // Sob largura apertada o rótulo trunca em vez de estourar o
-            // layout do painel que contém o botão.
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: AppTypography.button.copyWith(color: style.foreground),
-              ),
-            ),
-          ],
-        ),
+        opacity: isDisabled ? style.disabledOpacity : 1,
+        child: _content(style),
       ),
       autofocus: autofocus,
     );
 
     return expand ? SizedBox(width: double.infinity, child: button) : button;
   }
+
+  /// O miolo do botão. Carregando, o rótulo vira o molde que segura a largura
+  /// e o spinner ocupa o centro dele.
+  Widget _content(EgSurfaceStyle style) {
+    final label = _label(style);
+
+    if (!isLoading) return label;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Opacity(opacity: 0, child: label),
+        EgSpinner(size: AppIconSizes.sm, color: style.foreground),
+      ],
+    );
+  }
+
+  Widget _label(EgSurfaceStyle style) => Row(
+        mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (icon != null) ...[
+            EgIcon(icon!, size: AppIconSizes.sm, color: style.foreground),
+            const SizedBox(width: AppSpacing.sm),
+          ],
+          // Sob largura apertada o rótulo trunca em vez de estourar o
+          // layout do painel que contém o botão.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: AppTypography.button.copyWith(color: style.foreground),
+            ),
+          ),
+        ],
+      );
 }
 
 /// Botão apenas de ícone: 36x36, transparente, com hover discreto.

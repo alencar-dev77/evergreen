@@ -1,6 +1,6 @@
 # Backup do banco — o que foi decidido e o que foi descartado
 
-> Status: **implementado** em 25/08/2026, junto com o Trail.
+> Status: **implementado** em 25/08/2026, junto com o Track.
 > Preferências do aplicativo → seções "Backup" e "Restaurar".
 
 ---

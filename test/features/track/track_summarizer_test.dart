@@ -1,7 +1,7 @@
 import 'package:evergreen/features/echo/data/echo_channel.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
-import 'package:evergreen/features/trail/data/trail_summarizer.dart';
-import 'package:evergreen/features/trail/models/trail_day.dart';
+import 'package:evergreen/features/track/data/track_summarizer.dart';
+import 'package:evergreen/features/track/models/track_day.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../echo/fake_echo_channel.dart';
@@ -9,7 +9,7 @@ import '../echo/fake_echo_channel.dart';
 /// O parágrafo do dia — e as duas regras que valem mais que ele.
 ///
 /// A primeira: **o resumo é enfeite, o dado é o produto.** Sem macOS 26, sem
-/// Apple Intelligence, ou com qualquer falha no meio, o Trail continua inteiro
+/// Apple Intelligence, ou com qualquer falha no meio, o Track continua inteiro
 /// e só não escreve o parágrafo.
 ///
 /// A segunda: o que vai para o modelo é o agregado. Contagem de itens
@@ -17,13 +17,13 @@ import '../echo/fake_echo_channel.dart';
 void main() {
   final date = DateTime(2026, 8, 19);
 
-  TrailDay dayWith({
-    List<TrailEntry> focus = const [],
-    List<TrailEntry> meetings = const [],
+  TrackDay dayWith({
+    List<TrackEntry> focus = const [],
+    List<TrackEntry> meetings = const [],
     Map<ClipboardItemType, int> copied = const {},
     int notes = 0,
   }) {
-    return TrailDay(
+    return TrackDay(
       date: date,
       focus: focus,
       meetings: meetings,
@@ -34,21 +34,21 @@ void main() {
 
   group('os fatos que vão para o modelo', () {
     test('trazem os totais e os nomes que a pessoa deu', () {
-      final facts = TrailSummarizer.factsOf(
+      final facts = TrackSummarizer.factsOf(
         dayWith(
           focus: [
-            TrailEntry(
+            TrackEntry(
               at: date.add(const Duration(hours: 9)),
               duration: const Duration(minutes: 25),
               label: 'Refatorar o auth',
             ),
-            TrailEntry(
+            TrackEntry(
               at: date.add(const Duration(hours: 14)),
               duration: const Duration(minutes: 40),
             ),
           ],
           meetings: [
-            TrailEntry(
+            TrackEntry(
               at: date.add(const Duration(hours: 10)),
               duration: const Duration(minutes: 45),
               label: 'Weekly do time',
@@ -65,7 +65,7 @@ void main() {
     });
 
     test('da área de transferência levam número e tipo, nunca conteúdo', () {
-      final facts = TrailSummarizer.factsOf(
+      final facts = TrackSummarizer.factsOf(
         dayWith(
           copied: const {
             ClipboardItemType.link: 9,
@@ -80,7 +80,7 @@ void main() {
     });
 
     test('não existem num dia sem nada', () {
-      expect(TrailSummarizer.factsOf(dayWith()), isNull);
+      expect(TrackSummarizer.factsOf(dayWith()), isNull);
     });
   });
 
@@ -88,10 +88,10 @@ void main() {
     test('devolve o que o modelo escreveu', () async {
       final channel = FakeEchoChannel()..summaryValue = 'Foi um dia de foco.';
 
-      final text = await TrailSummarizer(channel).write(
+      final text = await TrackSummarizer(channel).write(
         dayWith(
           focus: [
-            TrailEntry(at: date, duration: const Duration(minutes: 25)),
+            TrackEntry(at: date, duration: const Duration(minutes: 25)),
           ],
         ),
       );
@@ -107,10 +107,10 @@ void main() {
           'O Echo precisa do macOS 26 ou superior.',
         );
 
-      final text = await TrailSummarizer(channel).write(
+      final text = await TrackSummarizer(channel).write(
         dayWith(
           focus: [
-            TrailEntry(at: date, duration: const Duration(minutes: 25)),
+            TrackEntry(at: date, duration: const Duration(minutes: 25)),
           ],
         ),
       );
@@ -121,10 +121,10 @@ void main() {
     test('um retorno vazio é o mesmo que não ter parágrafo', () async {
       final channel = FakeEchoChannel()..summaryValue = '   ';
 
-      final text = await TrailSummarizer(channel).write(
+      final text = await TrackSummarizer(channel).write(
         dayWith(
           focus: [
-            TrailEntry(at: date, duration: const Duration(minutes: 25)),
+            TrackEntry(at: date, duration: const Duration(minutes: 25)),
           ],
         ),
       );
@@ -135,7 +135,7 @@ void main() {
     test('não incomoda o modelo com um dia vazio', () async {
       final channel = FakeEchoChannel();
 
-      expect(await TrailSummarizer(channel).write(dayWith()), isNull);
+      expect(await TrackSummarizer(channel).write(dayWith()), isNull);
       expect(channel.summarizedTexts, isEmpty);
     });
   });

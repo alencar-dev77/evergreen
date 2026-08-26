@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
@@ -12,6 +11,7 @@ import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_overlay_shell.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_search_field.dart';
+import '../../../../shared/widgets/eg_spinner.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
@@ -445,15 +445,7 @@ class _LoadingState extends State<_Loading> {
     return SizedBox(
       height: _spinnerBoxHeight,
       child: Center(
-        child: _isVisible
-            ? const SizedBox.square(
-                dimension: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.textSecondary,
-                ),
-              )
-            : null,
+        child: _isVisible ? const EgSpinner() : null,
       ),
     );
   }

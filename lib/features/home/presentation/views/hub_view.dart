@@ -17,8 +17,8 @@ import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../focus/presentation/widgets/focus_reader.dart';
 import '../../../leaf/presentation/views/leaf_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
-import '../../../trail/presentation/views/trail_view.dart';
-import '../../../trail/presentation/widgets/trail_reader.dart';
+import '../../../track/presentation/views/track_view.dart';
+import '../../../track/presentation/widgets/track_reader.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
 import '../widgets/hub_detail_region.dart';
@@ -164,7 +164,7 @@ class _HubViewState extends ConsumerState<HubView> {
   Widget _region(EvergreenModule module, double width) => switch (module) {
         EvergreenModule.echo => EchoReader(width: width),
         EvergreenModule.focus => FocusReader(width: width),
-        EvergreenModule.trail => TrailReader(width: width),
+        EvergreenModule.track => TrackReader(width: width),
         // Os outros módulos ainda não têm nada longo para ler; o `switch`
         // existe para que o próximo entre aqui, e não num `if` espalhado pela
         // tela.
@@ -226,6 +226,6 @@ class _HubViewState extends ConsumerState<HubView> {
         EvergreenModule.leaf => const LeafSettingsView(),
         EvergreenModule.awake => const AwakeSettingsView(),
         EvergreenModule.echo => const EchoSettingsView(),
-        EvergreenModule.trail => const TrailView(),
+        EvergreenModule.track => const TrackView(),
       };
 }

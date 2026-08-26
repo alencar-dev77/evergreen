@@ -1,10 +1,10 @@
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
-import 'package:evergreen/features/trail/data/trail_repository.dart';
+import 'package:evergreen/features/track/data/track_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// A leitura que o Trail faz das tabelas dos outros módulos.
+/// A leitura que o Track faz das tabelas dos outros módulos.
 ///
 /// O que estes testes prendem é a promessa do módulo: ele agrupa por dia o que
 /// já estava gravado, não inventa dia nenhum, e **nunca toca no conteúdo
@@ -12,7 +12,7 @@ import 'package:sqlite3/sqlite3.dart';
 /// inclusive, e é essa consulta que separa "quantos itens" de "quais itens".
 void main() {
   late Database db;
-  late TrailRepository repository;
+  late TrackRepository repository;
 
   /// Quarta-feira, para que "ontem" caia na mesma semana.
   final now = DateTime(2026, 8, 19, 15, 30);
@@ -22,7 +22,7 @@ void main() {
   setUp(() {
     db = sqlite3.openInMemory();
     AppDatabase.migrate(db);
-    repository = SqliteTrailRepository(db);
+    repository = SqliteTrackRepository(db);
   });
 
   tearDown(() => db.close());
@@ -82,7 +82,7 @@ void main() {
     expect(today.meetingTotal, const Duration(minutes: 45));
     expect(today.copiedTotal, 1);
     expect(today.notesWritten, 1);
-    // Tempo registrado é foco mais reunião — a medida do Trail.
+    // Tempo registrado é foco mais reunião — a medida do Track.
     expect(today.registered, const Duration(minutes: 110));
   });
 

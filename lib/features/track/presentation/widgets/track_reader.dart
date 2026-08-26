@@ -7,8 +7,8 @@ import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../../home/presentation/widgets/hub_detail_region.dart';
-import '../viewmodels/trail_view_model.dart';
-import 'trail_day_detail.dart';
+import '../viewmodels/track_view_model.dart';
+import 'track_day_detail.dart';
 
 /// O dia aberto, na região dedicada do Hub.
 ///
@@ -16,8 +16,8 @@ import 'trail_day_detail.dart';
 /// Evergreen, conteúdo longo para reler abre na coluna que a janela cresce para
 /// caber, nunca num diálogo por cima da tela — assim a lista de dias continua à
 /// vista e trocar de dia é um clique.
-class TrailReader extends ConsumerWidget {
-  const TrailReader({super.key, this.width = HubDetailRegion.preferredWidth});
+class TrackReader extends ConsumerWidget {
+  const TrackReader({super.key, this.width = HubDetailRegion.preferredWidth});
 
   /// Largura concedida pelo Hub — menor que a preferida enquanto a janela
   /// cresce, e em tela pequena demais para crescer o bastante.
@@ -25,7 +25,7 @@ class TrailReader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(trailViewModelProvider);
+    final state = ref.watch(trackViewModelProvider);
     final day = state.selected;
     // O mesmo relógio da lista: sem ele o cabeçalho diria "23 jul" ao lado de
     // uma linha marcada como "Hoje".
@@ -38,7 +38,7 @@ class TrailReader extends ConsumerWidget {
     return HubDetailRegion(
       width: width,
       onClose: () {
-        ref.read(trailViewModelProvider.notifier).closeSelection();
+        ref.read(trackViewModelProvider.notifier).closeSelection();
         ref.read(hubDetailProvider.notifier).close();
       },
       header: Column(
@@ -59,7 +59,7 @@ class TrailReader extends ConsumerWidget {
           ),
         ],
       ),
-      child: TrailDayDetail(day: day, summary: state.selectedSummary),
+      child: TrackDayDetail(day: day, summary: state.selectedSummary),
     );
   }
 }

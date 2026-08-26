@@ -15,7 +15,7 @@ class EgSettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  /// Controle que manda no que a seção mostra — o recorte de período do Trail.
+  /// Controle que manda no que a seção mostra — o recorte de período do Track.
   ///
   /// Na linha do header, e não acima do conteúdo: ele governa a seção inteira,
   /// e uma linha própria para ele o faria parecer mais um item da lista abaixo.

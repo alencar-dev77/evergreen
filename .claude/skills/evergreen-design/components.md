@@ -12,7 +12,7 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgSurfaceStyle` | `eg_surface.dart` | **a matriz de estado**: uma coluna por papel de superfície (`row`, `ghost`, `card`, `segment`, `primary`, `secondary`, `destructive`) | resolve fundo, conteúdo, borda e anel de foco |
 | `EgSurface` | `eg_surface.dart` | a caixa já pintada pela matriz, recebendo o estado de fora | todos os da matriz |
 | `EgInteractiveSurface` | `eg_surface.dart` | `EgHoverable` + `EgSurface`: o que todo elemento clicável deveria usar | default · hover · pressed · focus · selected · disabled |
-| `EgButton` | `eg_button.dart` | botão em 3 variantes (`primary`, `secondary`, `destructive`) | default · hover · pressed · focus · disabled |
+| `EgButton` | `eg_button.dart` | botão em 3 variantes (`primary`, `secondary`, `destructive`) | default · hover · pressed · focus · disabled · `isLoading` |
 | `EgIconButton` | `eg_button.dart` | botão só de ícone, 36×36, com `tooltip` opcional | default · hover · pressed · focus · disabled |
 | `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · pressed · focus · disabled · on/off |
 | `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado; `bare` tira a caixa (fila de filtros do Pin) | default · hover · pressed · focus · selected |
@@ -30,12 +30,15 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgKeyCap` / `EgShortcutDisplay` | `eg_key_cap.dart` | tecla e sequência de teclas | — |
 | `EgEmptyState` | `eg_empty_state.dart` | estado vazio discreto (ícone pequeno + título + mensagem) | — |
 | `EgCountdown` | `eg_countdown.dart` | bloco de painel que conta tempo: situação em caps + número grande + progresso | `isMuted` on/off |
+| `EgSpinner` | `eg_spinner.dart` | indicador de trabalho em curso: 16px por padrão, traço de 2px, monocromático | `size` · `color` |
 | `EgIcon` | `eg_icon.dart` | ícone de path customizado (não Material Icons) | — |
 | `EgBackground` | `eg_background.dart` | fundo de janela com vinheta + brilho verde | — |
 
 Regras de manutenção deste inventário:
 
 - Componente novo compartilhado nasce com prefixo `Eg`, em `lib/shared/widgets/`, e entra nesta tabela junto do commit que o cria.
+- **Botão que dispara trabalho demorado usa `isLoading` — nunca sai da tela.** Trocar o botão por nada enquanto a ação corre tira do lugar o único elemento que a pessoa estava olhando: a linha sobe, o que estava ao lado escorrega para debaixo do cursor, e não sobra nada dizendo que algo acontece. Carregando, o rótulo continua segurando a largura e o spinner ocupa o centro dele, então o botão não muda de tamanho. Isso **não** é o estado desabilitado: ocupado não esmaece, porque o botão não está indisponível — está trabalhando. Era o defeito do "Refazer resumo" do Echo até a v0.4.10.
+- **Progresso com número ganha de spinner sempre que o número existe.** Se a operação acontece em partes contáveis, a tela diz "bloco 2 de 4" em vez de girar uma ampulheta — e diz isso **sem apagar** o conteúdo anterior, quando há um (refazer um resumo mantém o resumo antigo legível enquanto o novo não chega). O spinner é o que sobra quando não há nada a contar.
 - Estado de interação vem do `EgHoverable`, nunca de um `MouseRegion` próprio — é o que garante que hover, pressed e foco se comportem igual em todo o app.
 - **A aparência de cada estado vem da matriz (`EgSurfaceStyle`), nunca de uma cadeia de `if`s escrita no widget.** Se o componente precisa de uma combinação que a matriz não tem, ele compõe uma `EgSurfaceStyle` própria a partir dos tokens (é o que o cartão do Leaf faz com a vaga livre e com o cartão em edição) — não reescreve a ordem de precedência. Antes da matriz a mesma cadeia existia copiada em seis arquivos, e as cópias já tinham divergido: um componente sem `pressed`, outro sem reação ao foco, e a ordem entre "selecionado" e "pressionado" mudando de um para o outro.
 - Componente específico de um módulo (por exemplo `PinListItem`) **não** ganha prefixo `Eg` e não entra aqui; se um segundo módulo precisar dele, aí sim ele é promovido a `Eg*`.

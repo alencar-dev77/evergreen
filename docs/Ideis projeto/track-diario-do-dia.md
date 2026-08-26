@@ -1,6 +1,6 @@
-# Trail, o dia reconstruído
+# Track, o dia reconstruído
 
-> Status: **implementado** em 25/08/2026, em `lib/features/trail/`.
+> Status: **implementado** em 25/08/2026, em `lib/features/track/`.
 > Registrado como proposta em 22/08/2026, a partir de uma conversa sobre
 > features novas. O que está escrito daqui até "Escopo" é o documento original,
 > preservado porque é o argumento do módulo; o que mudou na implementação está
@@ -27,7 +27,7 @@ as duas coisas porque os cinco módulos já escrevem no mesmo banco local.
 
 É a feature que só existe porque a suíte existe — e é o que faz o Evergreen
 deixar de ser cinco aplicativos dentro de um ícone e virar **um produto**. Todo
-módulo novo que entrar depois passa a alimentar o Trail de graça.
+módulo novo que entrar depois passa a alimentar o Track de graça.
 
 ---
 
@@ -36,7 +36,7 @@ módulo novo que entrar depois passa a alimentar o Trail de graça.
 Zero código nativo. Zero permissão nova. Zero tabela nova. As três fontes já
 estão em `lib/core/storage/app_database.dart`:
 
-| Tabela | O que o Trail tira dela |
+| Tabela | O que o Track tira dela |
 |---|---|
 | `focus_sessions` | Sessões do dia, duração somada, o campo `notes` (o registro de atividade) |
 | `clipboard_items` | Volume copiado e a distribuição por `type` — o classificador já separa link, e-mail, telefone, CPF e comando |
@@ -63,13 +63,13 @@ Usa `FoundationModels`, que já está linkado no Runner pelo Echo
 macOS 26.
 
 **Mas o módulo não pode depender dele.** Abaixo do macOS 26, ou sem Apple
-Intelligence disponível, o Trail mostra os números e as listas normalmente e
+Intelligence disponível, o Track mostra os números e as listas normalmente e
 apenas não escreve o parágrafo. O canal do Echo já responde `unsupportedOS` nesse
-caso; o Trail segue o mesmo padrão. O resumo é enfeite, o dado é o produto.
+caso; o Track segue o mesmo padrão. O resumo é enfeite, o dado é o produto.
 
 ---
 
-## Risco principal: o Trail não pode vazar o que o Pin guardou
+## Risco principal: o Track não pode vazar o que o Pin guardou
 
 O Pin registra **tudo** o que passa pela área de transferência, senha colada
 inclusive. Uma tela que mostra "o que você copiou hoje" é, sem cuidado, uma tela
@@ -77,7 +77,7 @@ que exibe senhas em texto puro — e ainda manda esse texto para o modelo.
 
 A regra do módulo, então:
 
-- O Trail trabalha com **tipos e contagens**, não com conteúdo bruto.
+- O Track trabalha com **tipos e contagens**, não com conteúdo bruto.
 - O que for para o prompt do modelo é o agregado ("40 itens, 9 links, 6
   comandos"), nunca o texto dos itens.
 - Conteúdo de item só aparece se o usuário pedir, e a partir da tela do Pin,
@@ -100,9 +100,9 @@ A regra do módulo, então:
 
 Seis pontos que o documento não previa, e que só apareceram ao desenhar a tela.
 
-**A medida do Trail é "tempo registrado", não tempo focado.** A coluna da
+**A medida do Track é "tempo registrado", não tempo focado.** A coluna da
 direita de cada dia e a altura de cada barra da semana somam foco **mais**
-reunião (`TrailDay.registered`). Uma manhã inteira de reunião é uma manhã de
+reunião (`TrackDay.registered`). Uma manhã inteira de reunião é uma manhã de
 trabalho, e uma faixa que só contasse foco a desenharia como um dia vazio. É o
 que distingue esta faixa da do Focus, e o que justifica as duas existirem.
 
@@ -126,7 +126,7 @@ aqui apagaria dado de outro módulo pelas costas dele.
 invenção: o recorte é um controle da tela, não uma configuração guardada.
 
 E o risco principal do documento virou uma fronteira de código: a consulta em
-`SqliteTrailRepository` pede `copied_at` e `type` da tabela do Pin, e mais nada.
+`SqliteTrackRepository` pede `copied_at` e `type` da tabela do Pin, e mais nada.
 O conteúdo copiado não sai do banco — não é uma escolha da tela, é a única coisa
 que o repositório sabe ler. O que segue para o modelo é o agregado, e o teste
 `o conteúdo copiado não sai do banco` é o que prende isso.
@@ -135,12 +135,12 @@ que o repositório sabe ler. O que segue para o modelo é o agregado, e o teste
 
 | Peça | Arquivo |
 |---|---|
-| Leitura agregada das quatro tabelas | `lib/features/trail/data/trail_repository.dart` |
-| O parágrafo do modelo, com degradação silenciosa | `lib/features/trail/data/trail_summarizer.dart` |
-| Estado da tela, recorte e cache do resumo | `lib/features/trail/presentation/viewmodels/trail_view_model.dart` |
-| Tela do Hub | `lib/features/trail/presentation/views/trail_view.dart` |
-| Região de leitura do dia | `lib/features/trail/presentation/widgets/trail_reader.dart` |
+| Leitura agregada das quatro tabelas | `lib/features/track/data/track_repository.dart` |
+| O parágrafo do modelo, com degradação silenciosa | `lib/features/track/data/track_summarizer.dart` |
+| Estado da tela, recorte e cache do resumo | `lib/features/track/presentation/viewmodels/track_view_model.dart` |
+| Tela do Hub | `lib/features/track/presentation/views/track_view.dart` |
+| Região de leitura do dia | `lib/features/track/presentation/widgets/track_reader.dart` |
 | Faixa de barras, compartilhada com o Focus | `lib/shared/widgets/eg_day_bars.dart` |
 
-Conferência visual: `test/goldens/hub_trail.png` e
-`test/goldens/hub_trail_day.png`.
+Conferência visual: `test/goldens/hub_track.png` e
+`test/goldens/hub_track_day.png`.

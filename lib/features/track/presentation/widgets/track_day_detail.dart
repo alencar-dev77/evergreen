@@ -6,32 +6,32 @@ import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
-import '../../models/trail_day.dart';
-import '../viewmodels/trail_view_model.dart';
-import 'trail_copied_breakdown.dart';
+import '../../models/track_day.dart';
+import '../viewmodels/track_view_model.dart';
+import 'track_copied_breakdown.dart';
 
-/// O corpo da região de leitura do Trail: o dia inteiro, de cima a baixo.
+/// O corpo da região de leitura do Track: o dia inteiro, de cima a baixo.
 ///
 /// O rótulo do dia e os números ficam no cabeçalho da região
 /// (`HubDetailRegion`), ao lado do botão de fechar — aqui fica só o que se lê.
 ///
-/// É consulta pura, sem nenhuma ação: o Trail não escreve nada e não apaga
+/// É consulta pura, sem nenhuma ação: o Track não escreve nada e não apaga
 /// nada. Quem quiser mexer numa sessão vai ao Focus, numa reunião vai ao Echo,
 /// num item copiado vai ao Pin — cada registro se edita no módulo que o criou,
 /// e um botão de apagar aqui apagaria dado de outro módulo pelas costas dele.
-class TrailDayDetail extends StatelessWidget {
-  const TrailDayDetail({
+class TrackDayDetail extends StatelessWidget {
+  const TrackDayDetail({
     super.key,
     required this.day,
     required this.summary,
   });
 
-  final TrailDay day;
+  final TrackDay day;
 
   /// O parágrafo do modelo local, quando existe. Nem toda máquina tem um —
   /// abaixo do macOS 26 ele simplesmente não aparece, e o resto da região fica
   /// igual.
-  final TrailSummary summary;
+  final TrackSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -81,12 +81,12 @@ class TrailDayDetail extends StatelessWidget {
           'Copiado',
           padding: EdgeInsets.only(bottom: AppSpacing.sm),
         ),
-        TrailCopiedBreakdown(copied: day.copied),
+        TrackCopiedBreakdown(copied: day.copied),
         const SizedBox(height: AppSpacing.xxl),
       ],
       if (day.notesWritten > 0)
         Text(
-          '${TrailCounts.of(day.notesWritten, 'anotação escrita', 'anotações escritas')} no Leaf.',
+          '${TrackCounts.of(day.notesWritten, 'anotação escrita', 'anotações escritas')} no Leaf.',
           style: AppTypography.captionSmall,
         ),
     ];
@@ -124,7 +124,7 @@ class TrailDayDetail extends StatelessWidget {
 class _EntryRow extends StatelessWidget {
   const _EntryRow({required this.entry, required this.fallbackLabel});
 
-  final TrailEntry entry;
+  final TrackEntry entry;
 
   /// Como chamar o registro que nasceu sem nome — uma sessão iniciada sem dizer
   /// em quê.

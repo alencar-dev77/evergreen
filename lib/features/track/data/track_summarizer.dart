@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../shared/utils/day_label.dart';
 import '../../../shared/utils/duration_format.dart';
 import '../../echo/data/echo_channel.dart';
-import '../models/trail_day.dart';
+import '../models/track_day.dart';
 
 /// O parágrafo em linguagem natural que abre o dia.
 ///
@@ -11,16 +11,16 @@ import '../models/trail_day.dart';
 /// `macos/Runner/EchoChannel.swift` —, e por isso herda o piso de macOS 26 dele.
 ///
 /// **O módulo não depende disso.** Abaixo do macOS 26, sem Apple Intelligence
-/// disponível, ou se qualquer coisa der errado no caminho, o Trail mostra os
+/// disponível, ou se qualquer coisa der errado no caminho, o Track mostra os
 /// números e as listas normalmente e só não escreve o parágrafo: o resumo é
 /// enfeite, o dado é o produto.
 ///
 /// O que vai para o modelo é o **agregado** — totais, contagens por tipo e os
 /// nomes que a própria pessoa deu às sessões e às reuniões. Conteúdo copiado
 /// nunca: ele nem chega até aqui, porque o repositório não o lê (ver
-/// [TrailRepository]).
-class TrailSummarizer {
-  const TrailSummarizer(this._channel);
+/// [TrackRepository]).
+class TrackSummarizer {
+  const TrackSummarizer(this._channel);
 
   final EchoChannel _channel;
 
@@ -32,7 +32,7 @@ class TrailSummarizer {
       'introdução: devolva só o parágrafo.';
 
   /// Escreve o parágrafo do dia, ou `null` quando não dá para escrever.
-  Future<String?> write(TrailDay day) async {
+  Future<String?> write(TrackDay day) async {
     final facts = factsOf(day);
     if (facts == null) return null;
 
@@ -61,7 +61,7 @@ class TrailSummarizer {
   /// `null` num dia sem nada: não há o que resumir, e pedir mesmo assim só
   /// convidaria o modelo a inventar um dia.
   @visibleForTesting
-  static String? factsOf(TrailDay day) {
+  static String? factsOf(TrackDay day) {
     if (day.isEmpty) return null;
 
     final lines = <String>['Dia: ${DayLabel.of(day.date)}.'];
@@ -69,7 +69,7 @@ class TrailSummarizer {
     if (day.focus.isNotEmpty) {
       lines.add(
         'Foco: ${DurationFormat.compact(day.focusTotal)} em '
-        '${TrailCounts.of(day.focus.length, 'sessão', 'sessões')}.',
+        '${TrackCounts.of(day.focus.length, 'sessão', 'sessões')}.',
       );
 
       final activities = day.focus
@@ -111,7 +111,7 @@ class TrailSummarizer {
     if (day.notesWritten > 0) {
       lines.add(
         'Anotações escritas: '
-        '${TrailCounts.of(day.notesWritten, 'anotação', 'anotações')}.',
+        '${TrackCounts.of(day.notesWritten, 'anotação', 'anotações')}.',
       );
     }
 

@@ -147,7 +147,7 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
   /// Segunda-feira desta semana, à meia-noite — a fronteira do histórico.
   ///
   /// Continua exposta aqui porque é o Focus quem define a fronteira; a conta
-  /// mora em [DayBounds] desde que o Trail passou a precisar do mesmo recorte.
+  /// mora em [DayBounds] desde que o Track passou a precisar do mesmo recorte.
   static DateTime startOfWeek(DateTime moment) => DayBounds.startOfWeek(moment);
 
   /// Campo em branco é ausência de informação, não string vazia — o histórico

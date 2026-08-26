@@ -9,8 +9,8 @@ import '../../pin/models/clipboard_item_type.dart';
 /// quanto`. O que muda entre elas é de qual tabela vieram, e isso é assunto do
 /// repositório, não da linha.
 @immutable
-class TrailEntry {
-  const TrailEntry({required this.at, required this.duration, this.label});
+class TrackEntry {
+  const TrackEntry({required this.at, required this.duration, this.label});
 
   final DateTime at;
   final Duration duration;
@@ -24,13 +24,13 @@ class TrailEntry {
 
 /// Um dia reconstruído a partir do que os módulos já gravaram.
 ///
-/// O Trail não captura nada: cada campo aqui é a leitura de uma tabela que já
+/// O Track não captura nada: cada campo aqui é a leitura de uma tabela que já
 /// existia. E [copied] guarda **contagem por tipo**, nunca o conteúdo — a
 /// regra do módulo, porque o Pin registra tudo que passa pela área de
 /// transferência, senha colada inclusive.
 @immutable
-class TrailDay {
-  const TrailDay({
+class TrackDay {
+  const TrackDay({
     required this.date,
     this.focus = const [],
     this.meetings = const [],
@@ -42,10 +42,10 @@ class TrailDay {
   final DateTime date;
 
   /// Sessões do Focus, da mais recente para a mais antiga.
-  final List<TrailEntry> focus;
+  final List<TrackEntry> focus;
 
   /// Reuniões do Echo, da mais recente para a mais antiga.
-  final List<TrailEntry> meetings;
+  final List<TrackEntry> meetings;
 
   /// Quantos itens de cada tipo passaram pela área de transferência. Só a
   /// contagem — o conteúdo nunca sai do banco.
@@ -68,7 +68,7 @@ class TrailDay {
 
   /// Tempo do dia que ficou registrado em algum lugar — foco mais reunião.
   ///
-  /// É a medida do Trail, e não a do Focus: o módulo pergunta "o que eu fiz
+  /// É a medida do Track, e não a do Focus: o módulo pergunta "o que eu fiz
   /// hoje", e uma hora de reunião é uma hora de trabalho tanto quanto uma hora
   /// de foco. É o número que a linha do dia mostra à direita e a altura que a
   /// barra da semana desenha.
@@ -87,13 +87,13 @@ class TrailDay {
   /// modelo) e três cópias da mesma pluralização divergiriam na primeira que
   /// alguém corrigisse.
   List<String> get highlights => [
-        if (focus.isNotEmpty) TrailCounts.of(focus.length, 'sessão', 'sessões'),
+        if (focus.isNotEmpty) TrackCounts.of(focus.length, 'sessão', 'sessões'),
         if (meetings.isNotEmpty)
-          TrailCounts.of(meetings.length, 'reunião', 'reuniões'),
+          TrackCounts.of(meetings.length, 'reunião', 'reuniões'),
         if (copiedTotal > 0)
-          TrailCounts.of(copiedTotal, 'item copiado', 'itens copiados'),
+          TrackCounts.of(copiedTotal, 'item copiado', 'itens copiados'),
         if (notesWritten > 0)
-          TrailCounts.of(notesWritten, 'anotação', 'anotações'),
+          TrackCounts.of(notesWritten, 'anotação', 'anotações'),
       ];
 
   /// Assinatura barata do conteúdo do dia.
@@ -109,8 +109,8 @@ class TrailDay {
 
 /// Os totais de um período — o que a frase do topo da tela conta.
 @immutable
-class TrailTotals {
-  const TrailTotals({
+class TrackTotals {
+  const TrackTotals({
     required this.focus,
     required this.focusSessions,
     required this.meetings,
@@ -126,7 +126,7 @@ class TrailTotals {
   final int copied;
   final int notesWritten;
 
-  static const empty = TrailTotals(
+  static const empty = TrackTotals(
     focus: Duration.zero,
     focusSessions: 0,
     meetings: Duration.zero,
@@ -135,7 +135,7 @@ class TrailTotals {
     notesWritten: 0,
   );
 
-  factory TrailTotals.of(Iterable<TrailDay> days) {
+  factory TrackTotals.of(Iterable<TrackDay> days) {
     var focus = Duration.zero;
     var focusSessions = 0;
     var meetings = Duration.zero;
@@ -152,7 +152,7 @@ class TrailTotals {
       notes += day.notesWritten;
     }
 
-    return TrailTotals(
+    return TrackTotals(
       focus: focus,
       focusSessions: focusSessions,
       meetings: meetings,
@@ -162,7 +162,7 @@ class TrailTotals {
     );
   }
 
-  /// Tempo registrado no período — ver `TrailDay.registered`.
+  /// Tempo registrado no período — ver `TrackDay.registered`.
   Duration get registered => focus + meetings;
 
   bool get isEmpty =>
@@ -173,7 +173,7 @@ class TrailTotals {
 }
 
 /// Contagem com o substantivo no número certo.
-abstract final class TrailCounts {
+abstract final class TrackCounts {
   static String of(int count, String singular, String plural) =>
       '$count ${count == 1 ? singular : plural}';
 }

@@ -7,9 +7,9 @@ import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/hub_detail_region.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
-import 'package:evergreen/features/trail/data/trail_repository.dart';
-import 'package:evergreen/features/trail/presentation/widgets/trail_day_list.dart';
-import 'package:evergreen/features/trail/presentation/widgets/trail_week_strip.dart';
+import 'package:evergreen/features/track/data/track_repository.dart';
+import 'package:evergreen/features/track/presentation/widgets/track_day_list.dart';
+import 'package:evergreen/features/track/presentation/widgets/track_week_strip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,10 +20,10 @@ import '../echo/fake_echo_channel.dart';
 import '../focus/fake_focus_session_repository.dart';
 import '../pin/fake_clipboard_repository.dart';
 
-/// A tela do Trail dentro do Hub.
+/// A tela do Track dentro do Hub.
 ///
 /// O módulo não captura nada: tudo que estes testes montam vai direto para as
-/// tabelas que os outros quatro módulos escrevem, e o Trail aparece lendo.
+/// tabelas que os outros quatro módulos escrevem, e o Track aparece lendo.
 void main() {
   late SharedPreferences preferences;
   late Database db;
@@ -76,7 +76,7 @@ void main() {
     );
   }
 
-  Future<void> pumpTrail(WidgetTester tester) async {
+  Future<void> pumpTrack(WidgetTester tester) async {
     // Larga e alta o bastante para a janela "já expandida": sob `flutter test`
     // não há janela nativa para crescer de verdade, e a região de leitura
     // precisa caber ao lado do conteúdo.
@@ -94,7 +94,7 @@ void main() {
               .overrideWithValue(FakeFocusSessionRepository()),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel),
-          trailRepositoryProvider.overrideWithValue(SqliteTrailRepository(db)),
+          trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
           clockProvider.overrideWithValue(() => now),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
@@ -102,14 +102,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(EvergreenModule.trail.name));
+    await tester.tap(find.text(EvergreenModule.track.name));
     await tester.pumpAndSettle();
   }
 
   /// O texto dentro da lista de dias — "Hoje" também é o nome de uma pílula do
   /// recorte, e sem isto o `find` acharia as duas.
   Finder inDayList(String text) => find.descendant(
-        of: find.byType(TrailDayList),
+        of: find.byType(TrackDayList),
         matching: find.text(text),
       );
 
@@ -119,7 +119,7 @@ void main() {
     insertMeeting(at(0, 10, 0), const Duration(minutes: 45), 'Weekly');
     insertCopy(at(0, 11, 0), 'https://exemplo.com', ClipboardItemType.link);
 
-    await pumpTrail(tester);
+    await pumpTrack(tester);
 
     expect(find.textContaining('1h 05min'), findsWidgets);
     expect(find.textContaining('focadas em 2 sessões'), findsOneWidget);
@@ -131,7 +131,7 @@ void main() {
     insertFocus(at(0, 9, 0), const Duration(minutes: 25));
     insertFocus(at(1, 9, 0), const Duration(minutes: 50));
 
-    await pumpTrail(tester);
+    await pumpTrack(tester);
 
     expect(inDayList('Hoje'), findsOneWidget);
     expect(inDayList('Ontem'), findsOneWidget);
@@ -141,7 +141,7 @@ void main() {
   testWidgets('hoje tem linha mesmo sem nada registrado', (tester) async {
     insertFocus(at(2, 9, 0), const Duration(minutes: 25));
 
-    await pumpTrail(tester);
+    await pumpTrack(tester);
 
     // A linha que a pessoa vem procurar não pode faltar às dez da manhã, antes
     // de ela ter feito qualquer coisa.
@@ -154,8 +154,8 @@ void main() {
     insertFocus(at(0, 9, 0), const Duration(minutes: 25));
     insertFocus(at(1, 9, 0), const Duration(minutes: 50));
 
-    await pumpTrail(tester);
-    expect(find.byType(TrailWeekStrip), findsOneWidget);
+    await pumpTrack(tester);
+    expect(find.byType(TrackWeekStrip), findsOneWidget);
 
     await tester.tap(find.text('Hoje').first);
     await tester.pumpAndSettle();
@@ -163,7 +163,7 @@ void main() {
     expect(inDayList('Ontem'), findsNothing);
     expect(inDayList('Hoje'), findsOneWidget);
     // Uma barra sozinha não compara nada com nada.
-    expect(find.byType(TrailWeekStrip), findsNothing);
+    expect(find.byType(TrackWeekStrip), findsNothing);
   });
 
   testWidgets('clicar num dia abre a região de leitura com o dia inteiro',
@@ -172,7 +172,7 @@ void main() {
     insertMeeting(at(0, 10, 0), const Duration(minutes: 45), 'Weekly do time');
     insertCopy(at(0, 11, 0), 'https://exemplo.com', ClipboardItemType.link);
 
-    await pumpTrail(tester);
+    await pumpTrack(tester);
     expect(find.byType(HubDetailRegion), findsNothing);
 
     await tester.tap(inDayList('Hoje'));
@@ -193,7 +193,7 @@ void main() {
     channel.summaryValue = 'Você passou a manhã no auth e teve uma reunião.';
     insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
 
-    await pumpTrail(tester);
+    await pumpTrack(tester);
     await tester.tap(inDayList('Hoje'));
     await tester.pumpAndSettle();
 
@@ -211,7 +211,7 @@ void main() {
     );
     insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
 
-    await pumpTrail(tester);
+    await pumpTrack(tester);
     await tester.tap(inDayList('Hoje'));
     await tester.pumpAndSettle();
 
@@ -223,9 +223,9 @@ void main() {
 
   testWidgets('sem nada registrado, a tela diz o que falta acontecer',
       (tester) async {
-    await pumpTrail(tester);
+    await pumpTrack(tester);
 
     expect(find.text('Nada registrado ainda'), findsOneWidget);
-    expect(find.byType(TrailDayList), findsNothing);
+    expect(find.byType(TrackDayList), findsNothing);
   });
 }

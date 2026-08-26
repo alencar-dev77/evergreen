@@ -32,6 +32,10 @@ import '../../core/design/app_metrics.dart';
 ///   o resto dela é transparente mas ainda captura cliques, então essa área é
 ///   tratada como barreira, e o painel a intercepta para que clicar dentro não
 ///   feche.
+/// - **Fechar por foco perdido é opcional** ([dismissOnBlur]). O padrão é
+///   fechar, porque o painel é de passagem; o Echo é a exceção, e só enquanto
+///   grava ou transcreve — ver a propriedade.
+/// - **Arrastar é opcional** ([draggable]), e sai do fundo do próprio painel.
 /// - **O painel é centralizado na janela.** Quem se posiciona na tela é a
 ///   janela; centralizar aqui é o que faz painéis de alturas diferentes
 ///   nascerem no mesmo ponto da tela.
@@ -51,6 +55,8 @@ class EgOverlayShell extends StatefulWidget {
     required this.onClose,
     this.onShow,
     this.focusNode,
+    this.draggable = false,
+    this.dismissOnBlur = true,
   });
 
   /// O painel.
@@ -70,6 +76,34 @@ class EgOverlayShell extends StatefulWidget {
   /// um nó focado, o `Shortcuts` do módulo não receberia tecla nenhuma. O Pin
   /// não passa nenhum: lá quem tem o foco é sempre o campo de busca.
   final FocusNode? focusNode;
+
+  /// Deixa arrastar a janela pelo fundo do painel.
+  ///
+  /// Quem arrasta é o macOS (`startDragging`), não o Flutter: entregue o gesto,
+  /// o sistema conduz a janela até soltar o botão. Por isso o arrasto sai do
+  /// fundo e não de uma alça — não há elemento novo no desenho, e botão e
+  /// linha de permissão continuam recebendo clique normalmente (um toque curto
+  /// vence o arrasto na arena de gestos; segurar e puxar vence o toque).
+  ///
+  /// A posição não sobrevive ao fechamento, e isso é de propósito:
+  /// `OverlayWindow.show` recentraliza a cada abertura, na tela onde o cursor
+  /// está. Arrastar resolve *esta* reunião, e o painel seguinte nasce onde
+  /// todos os outros nascem — que é o que mantém o Pin e o Focus previsíveis
+  /// mesmo dividindo a janela com o Echo.
+  final bool draggable;
+
+  /// Fechar quando o foco vai para outro aplicativo.
+  ///
+  /// Verdadeiro para todo mundo: o painel é de passagem, e quem clica na
+  /// reunião quer a reunião, não o painel por cima dela.
+  ///
+  /// O Echo é a exceção, e só enquanto grava ou transcreve — ali o painel
+  /// deixa de ser de passagem e vira algo que se acompanha *durante* a
+  /// reunião. Fechá-lo ao clicar na reunião esconderia justamente o texto que
+  /// está nascendo, e reabrir custa um atalho e a volta ao centro da tela. Esc
+  /// e o botão continuam fechando: o que sai é o fechamento que a pessoa não
+  /// pediu.
+  final bool dismissOnBlur;
 
   /// Margem para o macOS terminar a troca de foco antes de confirmarmos um
   /// blur. Curta o bastante para o fechamento continuar parecendo instantâneo.
@@ -117,8 +151,15 @@ class _EgOverlayShellState extends State<EgOverlayShell>
   void onWindowClose() => widget.onClose();
 
   Future<void> _handleBlur() async {
+    if (!widget.dismissOnBlur) return;
+
     await Future<void>.delayed(EgOverlayShell._blurGracePeriod);
     if (!mounted) return;
+
+    // De novo depois da espera: a fase do módulo pode ter virado no meio dela.
+    // O caso real é o Echo — apertar Parar e clicar na reunião no mesmo
+    // instante deixaria o fechamento a caminho enquanto a transcrição começa.
+    if (!widget.dismissOnBlur) return;
     if (await windowManager.isFocused()) return;
 
     widget.onClose();
@@ -150,6 +191,9 @@ class _EgOverlayShellState extends State<EgOverlayShell>
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {},
+            onPanStart: widget.draggable
+                ? (_) => unawaited(windowManager.startDragging())
+                : null,
             child: panel,
           ),
         ),

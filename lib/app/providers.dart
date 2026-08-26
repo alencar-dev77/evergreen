@@ -20,8 +20,8 @@ import '../features/leaf/data/leaf_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
 import '../features/pin/data/pin_settings_repository.dart';
-import '../features/trail/data/trail_repository.dart';
-import '../features/trail/data/trail_summarizer.dart';
+import '../features/track/data/track_repository.dart';
+import '../features/track/data/track_summarizer.dart';
 
 /// Dependências resolvidas antes do `runApp` e injetadas via `overrides`.
 ///
@@ -115,19 +115,19 @@ final echoChannelProvider = Provider<EchoChannel>((ref) {
   return channel;
 });
 
-/// A leitura agregada que o Trail faz das tabelas dos outros módulos.
+/// A leitura agregada que o Track faz das tabelas dos outros módulos.
 ///
-/// Só leitura: o Trail não tem tabela própria nem migração — ele é a consulta
+/// Só leitura: o Track não tem tabela própria nem migração — ele é a consulta
 /// que junta foco, reuniões, cópias e anotações por dia.
-final trailRepositoryProvider = Provider<TrailRepository>(
-  (ref) => SqliteTrailRepository(ref.watch(appDatabaseProvider).db),
+final trackRepositoryProvider = Provider<TrackRepository>(
+  (ref) => SqliteTrackRepository(ref.watch(appDatabaseProvider).db),
 );
 
 /// Quem escreve o parágrafo do dia, no mesmo modelo local que resume as
 /// reuniões do Echo — e com a mesma degradação silenciosa quando ele não está
 /// disponível.
-final trailSummarizerProvider = Provider<TrailSummarizer>(
-  (ref) => TrailSummarizer(ref.watch(echoChannelProvider)),
+final trackSummarizerProvider = Provider<TrackSummarizer>(
+  (ref) => TrackSummarizer(ref.watch(echoChannelProvider)),
 );
 
 /// A trava que impede o display de dormir.

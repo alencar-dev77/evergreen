@@ -6,7 +6,7 @@ roda localmente, nada é enviado para a internet. São seis módulos: Pin
 (gerenciador de área de transferência, `⌘⇧C`), Focus (cronômetro de foco com
 registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
 `⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`), Echo (grava,
-transcreve e resume reuniões, `⌘⇧E`) e Trail (reconstrói o dia a partir do que
+transcreve e resume reuniões, `⌘⇧E`) e Track (reconstrói o dia a partir do que
 os outros gravaram — só tela do Hub, sem atalho global e sem painel).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
@@ -37,9 +37,10 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   equivalente em Flutter puro; o porquê de cada um está em
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
-  responde `unsupportedOS` abaixo disso, e o resto do app segue no 10.15.
-- **`shared_preferences`, `path_provider`, `intl`** — persistência simples,
-  paths do sistema, formatação de data/hora.
+  responde `unsupported_os` abaixo disso, e o resto do app segue no 10.15.
+- **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
+  persistência simples, paths do sistema, formatação de data/hora e a versão
+  que o rodapé da sidebar do Hub mostra (`lib/core/app_info.dart`).
 
 # Project conventions
 
@@ -65,7 +66,15 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Painel flutuante novo usa `EgOverlayShell`: ela é quem registra o
   `WindowListener`, anima a entrada, decide o que é um blur de verdade e trata o
   vazio ao redor como barreira. O módulo só diz o que "fechar" significa para
-  ele.
+  ele. Dois comportamentos são opt-in e hoje só o Echo pede os dois:
+  `draggable` (arrasta a janela pelo fundo do painel, via `startDragging`) e
+  `dismissOnBlur: false` (perder o foco não fecha). O segundo é **por fase**,
+  não por módulo — o Echo só o desliga gravando ou transcrevendo, e a casca
+  reconfere a bandeira depois da margem de tolerância porque a fase pode virar
+  no meio dela. Painel que não pede nada continua com o comportamento de antes.
+- A janela 0 é movível (`setMovable(true)`) só para o `startDragging` do painel
+  ser aceito pelo macOS; nada liga o arrasto pelo fundo da *janela*, então os
+  painéis que não pedem `draggable` seguem parados onde nascem.
 - **Toda tela com atalho de teclado precisa de um `FocusScope` logo abaixo do
   `Shortcuts`/`CallbackShortcuts` dela.** No macOS um `TextField` larga o foco a
   cada clique fora dele, e o foco largado sobe até o escopo da rota — que fica
@@ -104,16 +113,16 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Novo módulo: registrar em `EvergreenModule`, criar
   `lib/features/<modulo>/` na estrutura padrão, ligar tela de configurações em
   `_settingsFor` (`hub_view.dart`).
-- **Módulo que só lê o que os outros gravaram** (hoje, o Trail) não cria tabela,
+- **Módulo que só lê o que os outros gravaram** (hoje, o Track) não cria tabela,
   não escreve linha e não faz migração: ele é um repositório de leitura sobre as
   tabelas alheias. Consequência prática: cada módulo novo o alimenta de graça, e
   a única obrigação é a do lado dele — **nunca ler o conteúdo de um item do
-  Pin**. A consulta do Trail pede `copied_at` e `type`, e mais nada, porque o
+  Pin**. A consulta do Track pede `copied_at` e `type`, e mais nada, porque o
   Pin registra tudo o que passa pela área de transferência, senha inclusive.
   O mesmo vale para o que segue ao modelo local: só o agregado.
 - Módulo que usa o modelo local (`FoundationModels`, pelo canal do Echo) trata a
   resposta dele como **enfeite**: abaixo do macOS 26 ou sem Apple Intelligence o
-  canal responde `unsupportedOS`, e a tela precisa ficar inteira sem o texto —
+  canal responde `unsupported_os`, e a tela precisa ficar inteira sem o texto —
   sem aviso, sem espaço reservado, sem bloquear o que já está desenhado.
 - **Conteúdo longo para ler abre na região do Hub — nunca em janela nova nem em
   diálogo modal.** É o padrão do aplicativo, e vale para módulo existente ou
@@ -183,3 +192,10 @@ UI e microcopy em português (pt-BR).
 - `flutter test` — rodar testes (unidade e widget)
 - `flutter test --run-skipped -t preview --update-goldens` — regerar goldens
   de conferência visual (fora da suíte padrão, dependem de fontes do sistema)
+- `./run_build_copy` — build release e instala em `/Applications`, reassinando
+  com identidade estável. A assinatura ad-hoc do projeto muda de hash a cada
+  build, e com ela o macOS descarta a permissão de Acessibilidade — que é o que
+  sustenta o auto-colar do Pin.
+- `./bump_version` — bump manual da versão, para quando o Actions está fora do
+  ar. Roda na `main`, **depois** do merge; normalmente quem bumpa é o
+  `.github/workflows/version-bump.yml`, pela label `bump:` da PR.

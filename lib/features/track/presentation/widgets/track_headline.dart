@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/duration_format.dart';
-import '../../models/trail_day.dart';
+import '../../models/track_day.dart';
 
 /// A manchete do período: o que aconteceu, numa frase.
 ///
@@ -16,10 +16,10 @@ import '../../models/trail_day.dart';
 /// O foco aparece sempre, mesmo zerado: um período sem foco nenhum é uma
 /// informação, não um pedaço faltando. Os outros trechos só aparecem quando há
 /// o que contar.
-class TrailHeadline extends StatelessWidget {
-  const TrailHeadline({super.key, required this.totals});
+class TrackHeadline extends StatelessWidget {
+  const TrackHeadline({super.key, required this.totals});
 
-  final TrailTotals totals;
+  final TrackTotals totals;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +34,7 @@ class TrailHeadline extends StatelessWidget {
             text: totals.focusSessions == 0
                 ? '  focadas'
                 : '  focadas em '
-                    '${TrailCounts.of(totals.focusSessions, 'sessão', 'sessões')}',
+                    '${TrackCounts.of(totals.focusSessions, 'sessão', 'sessões')}',
             style: AppTypography.captionXS,
           ),
           if (totals.meetingCount > 0) ...[
@@ -45,7 +45,7 @@ class TrailHeadline extends StatelessWidget {
             ),
             TextSpan(
               text: '  em '
-                  '${TrailCounts.of(totals.meetingCount, 'reunião', 'reuniões')}',
+                  '${TrackCounts.of(totals.meetingCount, 'reunião', 'reuniões')}',
               style: AppTypography.captionXS,
             ),
           ],
