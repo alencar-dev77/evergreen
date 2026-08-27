@@ -7,12 +7,14 @@ import 'dart:io';
 import '../core/storage/app_database.dart';
 import '../core/storage/backup_service.dart';
 import '../core/window/overlay_panel.dart';
+import '../core/window/window_kind.dart';
 import '../features/awake/data/awake_session_repository.dart';
 import '../features/awake/data/awake_settings_repository.dart';
 import '../features/awake/data/sleep_assertion_service.dart';
 import '../features/echo/data/echo_channel.dart';
 import '../features/echo/data/echo_repository.dart';
 import '../features/echo/data/echo_settings_repository.dart';
+import '../features/echo/data/echo_summary_runner.dart';
 import '../features/focus/data/focus_run_repository.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
@@ -37,6 +39,14 @@ final appDatabaseProvider = Provider<AppDatabase>(
 final sharedPreferencesProvider = Provider<SharedPreferences>(
   (ref) => throw StateError('sharedPreferencesProvider precisa de override no main'),
 );
+
+/// Qual janela este engine está desenhando.
+///
+/// Sobrescrito no `main` a partir do argumento que o engine recebeu. O padrão
+/// é a janela 0 porque é ela quem hospeda os serviços de fundo — e porque um
+/// teste, que não tem janela nenhuma, quer o comportamento de quem faz o
+/// trabalho, não o de quem o delega.
+final windowKindProvider = Provider<WindowKind>((ref) => WindowKind.overlay);
 
 /// Os backups do banco, na subpasta `Backups` do próprio aplicativo.
 ///
@@ -115,6 +125,29 @@ final echoChannelProvider = Provider<EchoChannel>((ref) {
   final channel = EchoChannel();
   ref.onDispose(channel.dispose);
   return channel;
+});
+
+/// Quem resume uma reunião — e, dependendo da janela, quem manda resumir.
+///
+/// No engine da janela 0 é o [LocalEchoSummaryRunner], que faz o trabalho e
+/// atende o canal. No Hub é o [WindowEchoSummaryRunner], que pede à janela 0 e
+/// depois pergunta como vai. A troca acontece aqui, e não no chamador, porque
+/// **onde o resumo roda é uma decisão de infraestrutura**: quem aperta
+/// "Resumir" não tem nada com isso.
+///
+/// A razão de existir dessa divisão: o Hub é uma sub-janela, e fechá-la destrói
+/// o engine dela junto com todo trabalho pendente. Um resumo pedido e deixado
+/// correndo enquanto se fecha a janela simplesmente sumia.
+final echoSummaryRunnerProvider = Provider<EchoSummaryRunner>((ref) {
+  if (ref.watch(windowKindProvider) == WindowKind.hub) {
+    return const WindowEchoSummaryRunner();
+  }
+
+  return LocalEchoSummaryRunner(
+    repository: ref.watch(echoRepositoryProvider),
+    settings: ref.watch(echoSettingsRepositoryProvider),
+    channel: ref.watch(echoChannelProvider),
+  );
 });
 
 /// A leitura agregada que o Track faz das tabelas dos outros módulos.

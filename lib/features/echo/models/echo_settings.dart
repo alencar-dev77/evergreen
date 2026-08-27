@@ -65,8 +65,35 @@ class EchoSettings {
 
   static const historyLimitOptions = <int>[25, 50, 75, 100];
 
+  /// A instrução que vale quando [summaryInstructions] está vazia.
+  ///
+  /// Mora aqui, e não só no lado nativo, porque o Evergreen **grava com cada
+  /// resumo a instrução que o produziu** (ver `Meeting.summaryPrompt`) — e não
+  /// dá para registrar o que o modelo recebeu se quem escolheu foi o Swift. O
+  /// canal continua tendo a mesma frase como rede, para o caso de alguém
+  /// chamá-lo sem instrução nenhuma; daqui ela vai sempre explícita.
+  static const defaultInstructions =
+      'Você resume reuniões em português do Brasil. Escreva em tópicos curtos. '
+      'Registre decisões, pendências e quem ficou responsável por cada coisa. '
+      'Não invente nada que não esteja no texto.';
+
+  /// A instrução que de fato vai para o modelo — a escrita, ou a padrão.
+  ///
+  /// É também a que fica gravada na reunião, e por isso ela é resolvida aqui
+  /// em vez de "manda vazio e deixa o nativo decidir": o registro precisa ser
+  /// da frase que o modelo leu.
+  String get resolvedSummaryInstructions {
+    final written = summaryInstructions.trim();
+    return written.isEmpty ? defaultInstructions : written;
+  }
+
   /// O que a interface mostra apagado no campo de instruções, para a pessoa ver
   /// o que acontece se ela não escrever nada.
+  ///
+  /// Mais curta que [defaultInstructions] de propósito: a primeira frase da
+  /// padrão diz ao modelo qual é o papel dele, e um exemplo apagado dentro do
+  /// campo é para mostrar **o que se escreve ali**, não para ser copiado
+  /// inteiro.
   static const defaultInstructionsHint =
       'Escreva em tópicos curtos. Registre decisões, pendências e quem ficou '
       'responsável por cada coisa.';

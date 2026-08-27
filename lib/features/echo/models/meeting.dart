@@ -17,6 +17,7 @@ class Meeting {
     required this.language,
     required this.segments,
     this.summary,
+    this.summaryPrompt,
     this.isKept = false,
   });
 
@@ -35,6 +36,19 @@ class Meeting {
   /// deliberado: é o único momento em que o modelo de linguagem entra.
   final String? summary;
 
+  /// A instrução que o modelo recebeu para escrever [summary].
+  ///
+  /// Guardada junto do texto porque ela é o que explica o formato dele — e
+  /// porque refazer o resumo usa a instrução que estiver nas preferências
+  /// **naquele momento**, não esta. Sem o registro, trocar a instrução e
+  /// refazer deixava dois textos diferentes sem nada dizendo o que mudou entre
+  /// eles.
+  ///
+  /// `null` em resumo feito antes de esta coluna existir. Nunca vazia: quando
+  /// a pessoa não escreveu instrução nenhuma, o que fica gravado é a padrão do
+  /// aplicativo, que foi a que de fato valeu.
+  final String? summaryPrompt;
+
   /// Guardada contra a limpeza automática do histórico.
   ///
   /// Mesma ideia do item fixado no Pin: o teto de reuniões só come o que é
@@ -44,6 +58,11 @@ class Meeting {
   Duration get duration => Duration(milliseconds: durationMs);
 
   bool get hasSummary => (summary ?? '').trim().isNotEmpty;
+
+  /// Só quando há resumo **e** o registro da instrução dele: um prompt sem o
+  /// texto que ele produziu não descreve nada.
+  bool get hasSummaryPrompt =>
+      hasSummary && (summaryPrompt ?? '').trim().isNotEmpty;
 
   bool get isEmpty => segments.isEmpty;
 
@@ -60,6 +79,7 @@ class Meeting {
     int? id,
     String? title,
     String? summary,
+    String? summaryPrompt,
     bool? isKept,
     List<MeetingSegment>? segments,
   }) {
@@ -71,6 +91,7 @@ class Meeting {
       language: language,
       segments: segments ?? this.segments,
       summary: summary ?? this.summary,
+      summaryPrompt: summaryPrompt ?? this.summaryPrompt,
       isKept: isKept ?? this.isKept,
     );
   }

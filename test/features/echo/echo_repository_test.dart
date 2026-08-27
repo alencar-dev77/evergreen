@@ -123,11 +123,44 @@ void main() {
   test('o resumo é gravado separado da transcrição', () {
     final saved = repository.insert(meetingAt(1));
 
-    repository.setSummary(saved.id!, '- decidimos começar');
+    repository.setSummary(
+      saved.id!,
+      '- decidimos começar',
+      prompt: 'Escreva em tópicos curtos.',
+    );
 
     final loaded = repository.findById(saved.id!)!;
     expect(loaded.summary, '- decidimos começar');
     expect(loaded.segments, hasLength(2));
+  });
+
+  test('a instrução usada é gravada junto do resumo, e refazer troca as duas', () {
+    final saved = repository.insert(meetingAt(1));
+
+    expect(saved.summaryPrompt, isNull);
+    expect(repository.findById(saved.id!)!.hasSummaryPrompt, isFalse);
+
+    repository.setSummary(
+      saved.id!,
+      '- decidimos começar',
+      prompt: 'Escreva em tópicos curtos.',
+    );
+
+    var loaded = repository.findById(saved.id!)!;
+    expect(loaded.summaryPrompt, 'Escreva em tópicos curtos.');
+    expect(loaded.hasSummaryPrompt, isTrue);
+
+    // Refazer com outra instrução: o registro acompanha o texto novo, senão a
+    // tela mostraria um resumo com a instrução que produziu o anterior.
+    repository.setSummary(
+      saved.id!,
+      'Um parágrafo corrido.',
+      prompt: 'Escreva um parágrafo só.',
+    );
+
+    loaded = repository.findById(saved.id!)!;
+    expect(loaded.summary, 'Um parágrafo corrido.');
+    expect(loaded.summaryPrompt, 'Escreva um parágrafo só.');
   });
 
   test('renomear ignora título em branco', () {
