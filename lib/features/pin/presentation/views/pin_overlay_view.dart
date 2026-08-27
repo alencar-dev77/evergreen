@@ -327,6 +327,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
                       isEditingAlias: isEditingAlias,
                       isFiltered: state.typeFilter != null,
                       hasTypes: state.hasTypeFilter,
+                      isSelectedPinned: state.selectedItem?.isPinned ?? false,
                     ),
                   ],
                 ),
