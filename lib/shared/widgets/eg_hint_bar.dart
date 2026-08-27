@@ -85,7 +85,12 @@ class _HintLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(right: isLast ? 0 : AppSpacing.lg),
+      // Um degrau abaixo do respiro padrão: a barra ganhou dicas que aparecem
+      // por estado — mover, filtrar, apelido — e nos painéis estreitos a
+      // diferença entre 14 e 10 é a diferença entre a última dica caber e sair
+      // cortada no meio da palavra. Densidade antes de respiro, que é a regra
+      // da casa para linha de legenda.
+      padding: EdgeInsets.only(right: isLast ? 0 : AppSpacing.md),
       child: hint.onTap == null ? _content() : _clickable(),
     );
   }

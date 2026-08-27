@@ -899,6 +899,49 @@ void main() {
       }
     }
 
+    testWidgets('o tab está na linha nos dois estados', (tester) async {
+      repository = FakeClipboardRepository([
+        item(1, 'Flutter', isPinned: true),
+        item(2, 'https://pub.dev/packages/sqlite3', isPinned: true),
+        item(3, 'Senha temporária: xK9#mPz2'),
+      ]);
+      await pumpOverlay(tester);
+
+      // Na lista cheia ele entra sem o verbo: a tecla que abre e fecha o item
+      // vale mais presente e muda do que ausente e explicada.
+      expect(find.text('tab'), findsOneWidget);
+      expect(find.text('ver'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+
+      // Com o item aberto ele é o caminho de volta, e aí o verbo cabe.
+      expect(find.text('tab'), findsOneWidget);
+      expect(find.text('voltar'), findsOneWidget);
+    });
+
+    testWidgets('com o item aberto, o ⌘P diz o que vai acontecer',
+        (tester) async {
+      repository = FakeClipboardRepository([
+        item(1, 'Flutter', isPinned: true),
+        item(2, 'https://pub.dev/packages/sqlite3'),
+      ]);
+      await pumpOverlay(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+
+      // A seleção abre no primeiro fixado: ali a tecla desfixa.
+      expect(find.text('desfixar'), findsOneWidget);
+      expect(find.text('fixar'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      // Um recente: a mesma tecla, o verbo contrário.
+      expect(find.text('fixar'), findsOneWidget);
+      expect(find.text('desfixar'), findsNothing);
+    });
+
     testWidgets('o rodapé cabe na linha com fila e fixados', (tester) async {
       // O pior caso do painel estreito: dois fixados (para o ⌥↑↓) de tipos
       // diferentes (para a fila), com o preview fechado.

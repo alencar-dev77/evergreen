@@ -14,9 +14,16 @@ class PinHintBar extends StatelessWidget {
     this.isEditingAlias = false,
     this.isFiltered = false,
     this.hasTypes = false,
+    this.isSelectedPinned = false,
   });
 
   final bool isPreviewOpen;
+
+  /// O item selecionado já está fixado.
+  ///
+  /// Muda o verbo do `⌘P`: a tecla é a mesma nos dois sentidos, e um rodapé que
+  /// diz "fixar" sobre um item já fixado ensina a metade errada do atalho.
+  final bool isSelectedPinned;
 
   /// Há uma fila de tipos para percorrer com `←`/`→`.
   ///
@@ -49,30 +56,45 @@ class PinHintBar extends StatelessWidget {
   /// Quantas vagas a linha comporta.
   ///
   /// Vagas, e não pixels: uma dica com rótulo ocupa duas, uma sem rótulo ocupa
-  /// uma. No painel estreito (420px) cabem quatro — a quinta era recortada no
-  /// meio da palavra, encostando no `esc`. Com o preview aberto o painel é bem
-  /// mais largo e cabem seis. O número saiu da régua do teste do rodapé, não de
-  /// estimativa: qualquer mexida nos rótulos precisa passar por ele de novo.
-  int get _budget => isPreviewOpen ? 6 : 4;
+  /// uma. O número saiu de medição em teste — o grupo da esquerda vive num
+  /// viewport que recorta em silêncio, e o excesso sai cortado no meio da
+  /// palavra, encostando no `esc`. Mexeu nos rótulos, passa pela régua de novo.
+  int get _budget => isPreviewOpen ? 6 : 5;
 
-  /// As dicas em ordem de prioridade — o que é do momento primeiro, o que se
-  /// adivinha por último.
+  /// As dicas em ordem de prioridade, com **variantes**.
   ///
-  /// A ordem importa mais que a lista: quem não couber é descartado, e as
-  /// curtas continuam sendo tentadas depois de uma longa ser recusada. É por
-  /// isso que `↑↓` sobrevive numa linha em que `tab ver` já não cabe.
-  List<EgHint> get _candidates => [
-        // Só aparecem num estado, e é neles que a dúvida existe.
+  /// A mesma tecla pode aparecer duas vezes, primeiro com rótulo e depois sem:
+  /// a segunda só entra se a primeira não tiver cabido. É assim que o `tab`
+  /// sobrevive numa linha cheia — sem o verbo, mas presente, que é o que
+  /// importa para uma tecla cujo trabalho é abrir e fechar o item.
+  List<EgHint> get _candidates =>
+      isPreviewOpen ? _itemHints : _listHints;
+
+  /// Com o item aberto, a linha fala **do item**: renomear, (des)fixar e
+  /// voltar.
+  ///
+  /// Mover e filtrar são da lista, que continua ali ao lado — mas quem abriu um
+  /// item está lendo o item, e é sobre ele que a dúvida aparece. Foi a régua
+  /// que impôs a escolha: cinco dicas com rótulo não cabem em linha nenhuma.
+  List<EgHint> get _itemHints => [
+        EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
+        const EgHint(keys: ['⌘R'], label: 'apelido'),
+        const EgHint(keys: ['tab'], label: 'voltar'),
+        const EgHint(keys: ['tab']),
+      ];
+
+  /// Na lista, a linha fala da navegação — e o que só existe num estado vem
+  /// antes do que se adivinha olhando.
+  List<EgHint> get _listHints => [
         if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
         if (hasTypes) const EgHint(keys: ['←→'], label: 'filtro'),
-        if (isPreviewOpen) const EgHint(keys: ['⌘R'], label: 'apelido'),
-        // Com o preview aberto, o Tab é o único caminho de volta — nessa hora
-        // ele vale mais que a ação de fixar.
-        if (isPreviewOpen) const EgHint(keys: ['tab'], label: 'voltar'),
-        const EgHint(keys: ['⌘P'], label: 'fixar'),
+        EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
+        const EgHint(keys: ['tab'], label: 'ver'),
         // O par vertical só quando o ⌥↑↓ não o está desenhando ao lado.
         if (!canMovePinned) const EgHint(keys: ['↑↓']),
-        if (!isPreviewOpen) const EgHint(keys: ['tab'], label: 'ver'),
+        // As variantes curtas, para o caso de a linha já estar cheia.
+        const EgHint(keys: ['tab']),
+        const EgHint(keys: ['⌘P']),
         const EgHint(keys: ['enter']),
       ];
 
@@ -81,6 +103,10 @@ class PinHintBar extends StatelessWidget {
     final line = <EgHint>[];
 
     for (final hint in _candidates) {
+      // A variante curta de uma tecla que já entrou seria a mesma dica duas
+      // vezes na linha.
+      if (line.any((chosen) => chosen.keys.first == hint.keys.first)) continue;
+
       final cost = hint.label == null ? 1 : 2;
       if (cost > left) continue;
 
