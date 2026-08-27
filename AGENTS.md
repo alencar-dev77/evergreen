@@ -63,6 +63,18 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   com combinação própria compõe uma `EgSurfaceStyle` a partir dos tokens; a
   ordem de precedência é a mesma para todo mundo. A folha visual de todos os
   estados é o golden `test/goldens/design_state_matrix.png`.
+- **Quem se anuncia ao leitor de tela é o `EgHoverable`**, não cada componente
+  — mesmo raciocínio da matriz `EgSurfaceStyle`: ele é o único que sabe que algo
+  é clicável, focável e ativável por Enter. Ele dá papel de botão, estado de
+  habilitado e funde o conteúdo numa etiqueta só; `semanticLabel` **substitui**
+  o que os filhos diriam (para a linha do Pin, que precisa de uma frase), e
+  `selected`/`toggled` põem na árvore o que hoje só a cor mostra. Duas regras:
+  `selected` é `true` ou nada, nunca `false` (um "não selecionado" em todo botão
+  é ruído), e `mergeDescendants: false` é obrigatório quando há outro clicável
+  dentro — a linha do Echo tem a estrela, e fundir engoliria ela junto. `EgIcon`
+  é decorativo por padrão: quem nomeia é o pai, senão o leitor diz "ícone de
+  fixar, fixar". O que prende isso é `test/shared/semantics_test.dart` — rótulo
+  que some não quebra pixel nenhum e não falha nenhum outro teste.
 - Painel flutuante novo usa `EgOverlayShell`: ela é quem registra o
   `WindowListener`, anima a entrada, decide o que é um blur de verdade e trata o
   vazio ao redor como barreira. O módulo só diz o que "fechar" significa para
@@ -90,18 +102,30 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   nunca colide com o commit do foco perdido.
 - Acesso a dados sempre atrás de repositório (ex.: `ClipboardRepository`) —
   nunca acoplar UI/ViewModel diretamente ao SQLite.
+- A busca do Pin mora inteira em `PinSearch` — casar e pontuar são a mesma
+  conta, e ela é do domínio, nunca do widget. Duas regras que não se negociam
+  por conveniência: **os fixados nunca são reordenados pela busca** (são a
+  camada `⌥`, e `⌥2` precisa apontar para o mesmo item enquanto se digita), e a
+  **subsequência não é solta sobre o conteúdo inteiro** — só sobre o apelido e a
+  linha exibida. Solta, ela devolve o histórico inteiro para qualquer coisa
+  digitada; o casamento literal é que continua alcançando o conteúdo todo.
 - Tipo de item do Pin (texto, link, e-mail, telefone, CPF, comando) é decidido
   na captura e gravado na linha. Mexeu no `ClipboardItemClassifier`, suba o
   `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já
   guardado uma vez, na abertura seguinte. Sem isso, um tipo novo nasce vazio
   para quem já usa o app.
-- Backup e restauração do banco (`lib/core/storage/backup_service.dart`)
-  **descobrem as tabelas pelo `sqlite_master`** — a tabela de um módulo novo
-  entra nos dois sozinha, sem ninguém vir aqui. A única que fica de fora é
-  `schema_migrations`, que é do banco que está rodando. O snapshot é
+- Backup, restauração (`lib/core/storage/backup_service.dart`) e exportação
+  (`export_service.dart`) **descobrem as tabelas pelo `sqlite_master`** — a
+  tabela de um módulo novo entra nos três sozinha, sem ninguém vir aqui. A única
+  que fica de fora é `schema_migrations`, que é do banco que está rodando. O snapshot é
   `VACUUM INTO`, nunca cópia do arquivo: o banco roda em WAL com duas conexões
   abertas, e o arquivo no disco não tem o que ainda está no log. Ver
   [docs/Ideis projeto/backup-do-banco.md](docs/Ideis%20projeto/backup-do-banco.md).
+- Backup e exportação respondem a perguntas diferentes e por isso são dois: o
+  `.db` é para o Evergreen ler de volta (e sai por `VACUUM INTO`), o `.json` é
+  para outro programa abrir. Pastas separadas (`Backups/` e `Exports/`) dentro
+  da pasta do aplicativo — ali o macOS não pede permissão, e o botão "Mostrar no
+  Finder" é a interface. Diálogo de "salvar como" exigiria um pacote novo.
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
   em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
   chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A

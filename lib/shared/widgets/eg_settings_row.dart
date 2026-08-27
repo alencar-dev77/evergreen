@@ -51,7 +51,13 @@ class EgSettingsRow extends StatelessWidget {
         decoration: BoxDecoration(
           border: showDivider ? AppBorders.bottom : null,
         ),
-        child: constraints.maxWidth < _stackBelow ? _stacked() : _inline(),
+        // O rótulo é o nome do controle, e os dois só significam alguma coisa
+        // juntos: fundidos, o leitor de tela anuncia "Iniciar com o macOS,
+        // ativado" numa parada só. Separados, ele lê um texto solto e, depois,
+        // um interruptor sem nome — que é o mesmo que não anunciar.
+        child: MergeSemantics(
+          child: constraints.maxWidth < _stackBelow ? _stacked() : _inline(),
+        ),
       ),
     );
   }

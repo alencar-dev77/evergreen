@@ -9,6 +9,7 @@ import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/pin_quick_shortcut.dart';
+import '../../models/pin_search.dart';
 
 /// Uma linha da lista do overlay: ícone de tipo, título e um metadado à direita.
 ///
@@ -20,6 +21,7 @@ class PinListItem extends StatelessWidget {
     super.key,
     required this.item,
     required this.isSelected,
+    this.query = '',
     this.shortcut,
     this.onTap,
     this.compact = false,
@@ -27,6 +29,15 @@ class PinListItem extends StatelessWidget {
 
   final ClipboardItem item;
   final bool isSelected;
+
+  /// O que está digitado na busca, para grifar na linha o que casou.
+  ///
+  /// A linha recalcula os trechos a partir do texto que ela já tem na mão, em
+  /// vez de recebê-los pelo estado: são duas strings curtas por linha visível, e
+  /// o caminho contrário obrigaria a carregar os trechos de todos os itens do
+  /// histórico até aqui. A conta em si é do domínio (`PinSearch`) — o widget só
+  /// pergunta onde grifar.
+  final String query;
 
   /// Atalho de cópia rápida do item, quando ele tem um.
   final PinQuickShortcut? shortcut;
@@ -53,6 +64,8 @@ class PinListItem extends StatelessWidget {
     // teclado, o Enter.
     return EgHoverable(
       onTap: onTap,
+      semanticLabel: _semanticLabel,
+      selected: isSelected ? true : null,
       builder: (context, state) {
         // Selecionado ganha a cor de destaque em baixa opacidade e a aresta
         // accent à esquerda — distinto do hover neutro, para que a posição do
@@ -95,6 +108,33 @@ class PinListItem extends StatelessWidget {
     );
   }
 
+  /// A linha inteira numa frase, para quem não vê a tela.
+  ///
+  /// Precisa existir escrita porque **nada** do que distingue uma linha da
+  /// outra é texto: o tipo é um glifo desenhado, o estado de fixado é a posição
+  /// no grupo, a seleção é uma cor de fundo com uma aresta, e o atalho é um
+  /// badge de dois caracteres. Lida crua, a lista sai como uma sequência de
+  /// conteúdos sem nada em volta — e é justamente o em volta que faz escolher.
+  ///
+  /// A ordem é a da decisão: primeiro o que é (o apelido, ou o conteúdo quando
+  /// não há apelido), depois o que ele guarda, e só então tipo, fixado e
+  /// atalho. O horário fica de fora — ele está na tela para dar contexto de
+  /// relance, e numa frase falada viraria cauda em toda linha.
+  String get _semanticLabel {
+    final parts = <String>[
+      if (item.hasAlias) '${item.alias!.trim()}: ${item.title}' else item.title,
+      item.type.label,
+      if (item.isPinned) 'fixado',
+      // O atalho vai por extenso: `⌥2` lido caractere a caractere não ensina
+      // nada, e ensinar o atalho é a razão de o badge existir.
+      if (shortcut != null)
+        'atalho ${shortcut!.group == PinShortcutGroup.pinned ? 'Option' : 'Command'} '
+            '${shortcut!.number}',
+    ];
+
+    return parts.join(', ');
+  }
+
   /// Texto da linha: o apelido à frente e, atrás dele, o começo do conteúdo em
   /// segundo plano.
   ///
@@ -105,8 +145,8 @@ class PinListItem extends StatelessWidget {
   /// divisor. Na coluna estreita ao lado do preview só cabe o apelido.
   Widget _label() {
     if (!item.hasAlias || compact) {
-      return Text(
-        item.displayTitle,
+      return Text.rich(
+        TextSpan(children: _highlighted(item.displayTitle)),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         softWrap: false,
@@ -114,16 +154,16 @@ class PinListItem extends StatelessWidget {
       );
     }
 
+    final secondary = AppTypography.captionXS.copyWith(
+      color: AppColors.textTertiary,
+    );
+
     return Text.rich(
       TextSpan(
-        text: item.displayTitle,
         children: [
-          TextSpan(
-            text: '   ${item.title}',
-            style: AppTypography.captionXS.copyWith(
-              color: AppColors.textTertiary,
-            ),
-          ),
+          ..._highlighted(item.displayTitle),
+          TextSpan(text: '   ', style: secondary),
+          ..._highlighted(item.title, style: secondary),
         ],
       ),
       maxLines: 1,
@@ -131,6 +171,48 @@ class PinListItem extends StatelessWidget {
       softWrap: false,
       style: AppTypography.bodyCompactEmphasis,
     );
+  }
+
+  /// Quebra [text] em trechos, acendendo o que a busca casou.
+  ///
+  /// Só cor, sem peso nem fundo: o grifo aparece em várias linhas ao mesmo
+  /// tempo, e um destaque mais forte que isso viraria a lista inteira num
+  /// mosaico. Não é estado — é uma anotação sobre por que a linha está ali —,
+  /// então a regra de "estado nunca só por cor" do `accessibility.md` não se
+  /// aplica: o que a linha é, e não onde ela casou, quem conta é o rótulo
+  /// semântico dela.
+  List<InlineSpan> _highlighted(String text, {TextStyle? style}) {
+    final spans = PinSearch.spans(text, query);
+    if (spans.isEmpty) return [TextSpan(text: text, style: style)];
+
+    final highlight = (style ?? const TextStyle()).copyWith(
+      color: AppColors.greenPrimary,
+    );
+
+    final result = <InlineSpan>[];
+    var cursor = 0;
+
+    for (final span in spans) {
+      if (span.start > cursor) {
+        result.add(
+          TextSpan(text: text.substring(cursor, span.start), style: style),
+        );
+      }
+
+      result.add(
+        TextSpan(
+          text: text.substring(span.start, span.end),
+          style: highlight,
+        ),
+      );
+      cursor = span.end;
+    }
+
+    if (cursor < text.length) {
+      result.add(TextSpan(text: text.substring(cursor), style: style));
+    }
+
+    return result;
   }
 
   /// À direita da linha vai o metadado mais útil daquele item: o atalho, quando

@@ -173,7 +173,12 @@ class EgIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   /// Legenda de ajuda ao repousar o mouse. Um botão só de ícone sem rótulo
-  /// visível depende dela para ser descoberto.
+  /// visível depende dela para ser descoberto — e é ela que vira o nome do
+  /// botão para o leitor de tela, já que não há texto na tela para virar.
+  ///
+  /// Um `EgIconButton` sem `tooltip` é, para quem não vê a tela, um botão sem
+  /// nome: só passe nulo quando o que ele faz estiver dito em outro lugar do
+  /// mesmo grupo.
   final String? tooltip;
 
   final double size;
@@ -195,6 +200,7 @@ class EgIconButton extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
+      semanticLabel: tooltip,
       builder: (context, state) => EgIcon(
         icon,
         size: iconSize,

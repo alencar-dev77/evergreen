@@ -134,15 +134,6 @@ void main() {
       expect(item.hasMoreThanTitle, isFalse);
     });
 
-    test('matches ignora caixa e casa com qualquer parte do conteúdo', () {
-      final item = ClipboardItem.capture('Senha temporária: xK9#mPz2');
-
-      expect(item.matches('SENHA'), isTrue);
-      expect(item.matches('xk9'), isTrue);
-      expect(item.matches(''), isTrue);
-      expect(item.matches('inexistente'), isFalse);
-    });
-
     test('o apelido vai para a frente do conteúdo na lista', () {
       final item =
           ClipboardItem.capture('12345678900').copyWith(alias: 'chave pix');
@@ -161,17 +152,6 @@ void main() {
 
       expect(item.hasAlias, isFalse);
       expect(item.displayTitle, '12345678900');
-    });
-
-    test('matches também casa com o apelido', () {
-      final item =
-          ClipboardItem.capture('12345678900').copyWith(alias: 'chave pix');
-
-      // A palavra não aparece em lugar nenhum do conteúdo: é justamente para
-      // isso que serve dar um apelido.
-      expect(item.matches('PIX'), isTrue);
-      expect(item.matches('123'), isTrue);
-      expect(item.matches('inexistente'), isFalse);
     });
   });
 }

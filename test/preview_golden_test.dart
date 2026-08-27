@@ -6,6 +6,7 @@ import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/design/app_colors.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
+import 'package:evergreen/core/storage/export_service.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
@@ -75,6 +76,7 @@ void main() {
   late Database echoDb;
   late FakeEchoChannel channel;
   late BackupService backups;
+  late ExportService exports;
 
   /// O "hoje" das imagens do Track: a quinta-feira em que a reunião do Echo
   /// acontece. Fixo porque o módulo lê a semana corrente — com o relógio real
@@ -174,6 +176,11 @@ void main() {
     backups = BackupService(
       database: echoDb,
       directory: Directory('${directory.path}/Backups'),
+    );
+
+    exports = ExportService(
+      database: echoDb,
+      directory: Directory('${directory.path}/Exports'),
     );
 
     for (final daysAgo in [14, 7, 0]) {
@@ -325,6 +332,7 @@ void main() {
           trackRepositoryProvider
               .overrideWithValue(SqliteTrackRepository(echoDb)),
           backupServiceProvider.overrideWithValue(backups),
+          exportServiceProvider.overrideWithValue(exports),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now())
           else if (now != null)

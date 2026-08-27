@@ -68,6 +68,11 @@ class LeafNoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return EgHoverable(
       onTap: onTap,
+      // A vaga é o endereço do cartão na parede — é por ela que se fala dele
+      // ("o três"), e ela está desenhada como um número solto no rodapé, que
+      // lido cru sai como um algarismo sem assunto.
+      semanticLabel: 'Vaga ${note.slot}, ${note.content}',
+      selected: isSelected ? true : null,
       builder: (context, state) {
         return _LeafCardSurface(
           state: state,
@@ -142,6 +147,11 @@ class LeafNewNoteCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return EgHoverable(
       onTap: onTap,
+      // Um `+` desenhado não diz nada a quem não vê a tela — e o que ele conta
+      // (que ainda cabe anotação na parede) é justamente o que não está
+      // escrito em lugar nenhum.
+      semanticLabel: 'Vaga livre, escrever anotação',
+      selected: isSelected ? true : null,
       builder: (context, state) {
         return _LeafCardSurface(
           state: state,
@@ -252,6 +262,7 @@ class _DeleteAffordance extends StatelessWidget {
   Widget build(BuildContext context) {
     return EgHoverable(
       onTap: onTap,
+      semanticLabel: 'Apagar anotação',
       builder: (context, state) => EgIcon(
         EgIconData.trash,
         size: AppIconSizes.xs,

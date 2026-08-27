@@ -10,6 +10,7 @@ import '../../data/pin_settings_repository.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
+import '../../models/pin_search.dart';
 import 'pin_overlay_state.dart';
 
 final pinOverlayViewModelProvider =
@@ -278,12 +279,7 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
         ? state.typeFilter
         : null;
 
-    final results = _allItems
-        .where(
-          (item) =>
-              item.matches(state.query) && (type == null || item.type == type),
-        )
-        .toList(growable: false);
+    final results = _rank(type);
 
     state = state.copyWith(
       results: results,
@@ -297,6 +293,57 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
         preferredIndex: preferredIndex,
       ),
     );
+  }
+
+  /// Filtra o histórico pela busca e pelo tipo, e ordena o que sobrou.
+  ///
+  /// **Os fixados não são reordenados.** Eles são a camada `⌥`, não um
+  /// resultado de busca: `⌥2` precisa continuar apontando para o mesmo item
+  /// enquanto se digita, e a ordem deles é a que a pessoa arrumou à mão com
+  /// `⌥↑`/`⌥↓`. Quem é ranqueado por relevância é o grupo dos recentes.
+  ///
+  /// Sem busca, ninguém é reordenado: a ordem é a do banco (fixados primeiro,
+  /// depois por `copiedAt`), que é a lista em repouso.
+  List<ClipboardItem> _rank(ClipboardItemType? type) {
+    final matched = <_ScoredItem>[];
+
+    for (final item in _allItems) {
+      if (type != null && item.type != type) continue;
+
+      final match = PinSearch.match(item, state.query);
+      if (match == null) continue;
+
+      matched.add(_ScoredItem(item, match.score));
+    }
+
+    if (state.query.trim().isEmpty) {
+      return matched.map((scored) => scored.item).toList(growable: false);
+    }
+
+    final pinned = <ClipboardItem>[];
+    final recent = <_ScoredItem>[];
+    for (final scored in matched) {
+      if (scored.item.isPinned) {
+        pinned.add(scored.item);
+      } else {
+        recent.add(scored);
+      }
+    }
+
+    // O desempate por `copiedAt` não é enfeite: `List.sort` não é estável, e sem
+    // um segundo critério dois itens de mesma nota trocariam de lugar entre uma
+    // tecla e outra — a lista piscaria embaixo do dedo de quem digita.
+    recent.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
+
+      return b.item.copiedAt.compareTo(a.item.copiedAt);
+    });
+
+    return [
+      ...pinned,
+      ...recent.map((scored) => scored.item),
+    ].toList(growable: false);
   }
 
   /// Os tipos presentes no histórico, na ordem do enum.
@@ -329,4 +376,12 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
 
     return state.selectedIndex.clamp(0, results.length - 1);
   }
+}
+
+/// Um item com a nota que a busca deu a ele — ver [PinOverlayViewModel._rank].
+class _ScoredItem {
+  const _ScoredItem(this.item, this.score);
+
+  final ClipboardItem item;
+  final int score;
 }

@@ -103,20 +103,9 @@ class ClipboardItem {
     );
   }
 
-  /// Verdadeiro se [query] casa com o conteúdo ou com o apelido, ignorando
-  /// caixa.
-  ///
-  /// O apelido entra na busca porque é o nome pelo qual a pessoa procura o
-  /// item — buscar por "pix" precisa achar a chave apelidada de "chave pix",
-  /// mesmo que a palavra não apareça em lugar nenhum do conteúdo.
-  bool matches(String query) {
-    if (query.isEmpty) return true;
-
-    final term = query.toLowerCase();
-    if (content.toLowerCase().contains(term)) return true;
-
-    return hasAlias && alias!.toLowerCase().contains(term);
-  }
+  // Casar com a busca não mora mais aqui: com fuzzy e nota de relevância, "este
+  // item casa?" e "o quanto ele casa?" são a mesma conta, e ela ficou inteira
+  // em `PinSearch` — um lugar só, que a lista e a ordenação consultam.
 
   @override
   bool operator ==(Object other) =>

@@ -54,9 +54,12 @@ void main() {
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
           // O Track lê o mesmo banco — ele não tem tabela própria.
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
-          // A tela do aplicativo lê a pasta de backups ao montar.
+          // A tela do aplicativo lê a pasta de backups e a de exportações ao
+          // montar.
           backupServiceProvider
               .overrideWithValue(temporaryBackupService(database: db)),
+          exportServiceProvider
+              .overrideWithValue(temporaryExportService(database: db)),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),

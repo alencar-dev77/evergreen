@@ -40,6 +40,10 @@ class EgHoverable extends StatefulWidget {
     this.focusable = false,
     this.focusNode,
     this.autofocus = false,
+    this.semanticLabel,
+    this.selected,
+    this.toggled,
+    this.mergeDescendants = true,
   });
 
   final Widget Function(BuildContext context, EgInteraction state) builder;
@@ -61,6 +65,39 @@ class EgHoverable extends StatefulWidget {
   /// Recebe o foco ao aparecer — usado no botão seguro de um diálogo, para que
   /// Enter e Espaço já funcionem sem exigir um Tab antes.
   final bool autofocus;
+
+  /// Como o elemento se anuncia ao leitor de tela, quando o que está desenhado
+  /// nele não basta.
+  ///
+  /// Dado, **substitui** o que os filhos diriam: uma linha do Pin precisa
+  /// anunciar apelido, tipo, estado de fixado e atalho numa frase só, não a
+  /// sequência de pedaços de texto que a compõem. Omitido, o que os filhos
+  /// dizem é fundido numa etiqueta só — que é o certo para um botão, onde o
+  /// rótulo visível já é o nome.
+  final String? semanticLabel;
+
+  /// O elemento está escolhido dentro de um grupo (linha de lista, item de
+  /// barra lateral, opção de um seletor).
+  ///
+  /// Existe porque seleção no Evergreen é fundo accent mais aresta à esquerda —
+  /// e o `accessibility.md` é explícito: estado nunca pode ser comunicado só
+  /// por cor. Sem isto, a lista inteira soa igual para quem não vê a tela.
+  final bool? selected;
+
+  /// O elemento é um interruptor, e este é o estado dele.
+  ///
+  /// Quando informado, o elemento deixa de se anunciar como botão: um
+  /// interruptor tem estado, e é o estado que precisa ser lido.
+  final bool? toggled;
+
+  /// Funde o que está dentro numa etiqueta só.
+  ///
+  /// Ligado é o certo para a esmagadora maioria: um botão com ícone e texto
+  /// precisa ser um item, não dois. **Desligue quando houver outro elemento
+  /// clicável aqui dentro** — a linha do Echo tem a estrela de "guardar" dentro
+  /// dela, e fundir a linha inteira engoliria a estrela junto, deixando quem
+  /// navega por leitor de tela sem alcance para ela.
+  final bool mergeDescendants;
 
   @override
   State<EgHoverable> createState() => _EgHoverableState();
@@ -149,6 +186,44 @@ class _EgHoverableState extends State<EgHoverable> {
       );
     }
 
-    return child;
+    return _announced(child);
+  }
+
+  /// Põe o elemento na árvore de acessibilidade do sistema.
+  ///
+  /// Aqui, e não em cada componente, pela mesma razão que a matriz de estados
+  /// visuais mora num lugar só: este widget é o que sabe que algo é clicável,
+  /// focável e ativável por Enter. Um rótulo escrito à mão em cada botão seria
+  /// a mesma coisa que uma cadeia de `if`s de hover dentro de cada widget — e
+  /// o que se esquece de escrever some em silêncio, porque não aparece na tela.
+  ///
+  /// Com [EgHoverable.semanticLabel] a frase substitui o que os filhos diriam;
+  /// sem ele, o que eles dizem é fundido numa etiqueta só, para que um botão
+  /// com ícone e texto seja um item, e não dois.
+  Widget _announced(Widget child) {
+    final label = widget.semanticLabel;
+
+    final node = Semantics(
+      // Nó próprio: cada elemento clicável é uma parada da navegação por leitor
+      // de tela, e sem isto ele seria absorvido pelo que estiver em volta.
+      container: true,
+      label: label,
+      // Interruptor não é botão: quem tem estado se anuncia pelo estado.
+      button: widget.toggled == null && _isInteractive,
+      enabled: _isInteractive,
+      selected: widget.selected,
+      toggled: widget.toggled,
+      // Um rótulo próprio substitui o que os filhos diriam — menos quando há
+      // outro clicável entre eles, que precisa continuar alcançável.
+      excludeSemantics: label != null && widget.mergeDescendants,
+      child: child,
+    );
+
+    // A fusão fica **por fora** do nó, e não por dentro: por dentro, ela criaria
+    // um segundo nó com o texto e deixaria o de cima — o que diz "isto é um
+    // botão" — sem rótulo nenhum. O botão sairia mudo com o texto do lado.
+    if (label != null || !widget.mergeDescendants) return node;
+
+    return MergeSemantics(child: node);
   }
 }

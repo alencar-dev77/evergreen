@@ -141,6 +141,67 @@ void main() {
     expect(find.text('FIXADOS'), findsNothing);
   });
 
+  testWidgets('a busca acha pelas iniciais, sem o termo exato', (tester) async {
+    repository.setAlias(1, 'chave pix');
+    await pumpOverlay(tester);
+
+    // Nem "chv" nem "chvpix" aparecem em lugar nenhum: o que casa é a
+    // subsequência, que era exatamente o que a substring de antes não fazia.
+    await tester.enterText(find.byType(TextField), 'chv pix');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PinListItem), findsOneWidget);
+  });
+
+  testWidgets('o apelido ranqueia acima de um conteúdo mais recente',
+      (tester) async {
+    repository = FakeClipboardRepository([
+      // O mais novo, e o termo casa inteiro no conteúdo dele.
+      item(1, 'pix copia e cola'),
+      item(2, 'nada a ver'),
+    ]);
+    repository.setAlias(2, 'chave pix');
+
+    await pumpOverlay(tester);
+
+    await tester.enterText(find.byType(TextField), 'pix');
+    await tester.pumpAndSettle();
+
+    final rows = tester
+        .widgetList<PinListItem>(find.byType(PinListItem))
+        .toList();
+
+    // Recência decide empate, não a ordem: o apelido é o nome que a pessoa deu
+    // ao item justamente para reencontrá-lo.
+    expect(rows.first.item.content, 'nada a ver');
+    expect(rows.last.item.content, 'pix copia e cola');
+  });
+
+  testWidgets('buscar não reordena os fixados', (tester) async {
+    repository = FakeClipboardRepository([
+      item(1, 'segundo pix', isPinned: true),
+      item(2, 'pix primeiro', isPinned: true),
+    ]);
+
+    await pumpOverlay(tester);
+    final antes = tester
+        .widgetList<PinListItem>(find.byType(PinListItem))
+        .map((row) => row.item.content)
+        .toList();
+
+    // O segundo casa melhor (começo do campo), e mesmo assim não sobe: `⌥1`
+    // precisa continuar apontando para o mesmo item enquanto se digita.
+    await tester.enterText(find.byType(TextField), 'pix');
+    await tester.pumpAndSettle();
+
+    final depois = tester
+        .widgetList<PinListItem>(find.byType(PinListItem))
+        .map((row) => row.item.content)
+        .toList();
+
+    expect(depois, antes);
+  });
+
   testWidgets('busca sem resultado mostra estado vazio próprio', (tester) async {
     await pumpOverlay(tester);
 
