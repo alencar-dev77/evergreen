@@ -145,6 +145,63 @@ void main() {
       // semana sem backup de verdade.
       expect(service.isDue(), isTrue);
     });
+
+    test('a rede de uma restauração não adia o automático', () {
+      insertItem('qualquer coisa');
+      final backup = service.create(at: DateTime(2026, 8, 1, 10));
+
+      // A restauração deixa na pasta uma cópia com a data de hoje. Ela responde
+      // "o que eu tinha antes de clicar em restaurar?", não "quando foi o
+      // último backup semanal" — e contá-la adiaria por sete dias um backup que
+      // ninguém pediu para adiar.
+      service.restore(backup);
+
+      expect(service.isDue(now: DateTime(2026, 8, 26, 10)), isTrue);
+    });
+  });
+
+  group('limpar', () {
+    test('nunca apaga o arquivo protegido, mesmo passando do teto', () {
+      final protegido = service.create(at: DateTime(2026, 7, 1, 10));
+      final bytes = File(protegido.path).readAsBytesSync();
+
+      // Escritos direto na pasta: `create` limpa a cada volta e nunca deixaria
+      // sete arquivos nossos ali ao mesmo tempo.
+      for (var day = 2; day <= 7; day++) {
+        service.directory
+            .childFile('evergreen-2026-07-0$day-1000.db')
+            .writeAsBytesSync(bytes);
+      }
+
+      final removed = service.prune(protecting: protegido.path);
+
+      // Sete arquivos, teto de cinco: sairiam os dois mais antigos, mas o mais
+      // antigo é o que está prestes a ser lido por uma restauração.
+      expect(removed, 1);
+      expect(File(protegido.path).existsSync(), isTrue);
+    });
+
+    test('as redes têm teto próprio e não tomam a vaga dos automáticos', () {
+      final automatico = service.create(at: DateTime(2026, 7, 1, 10));
+      final bytes = File(automatico.path).readAsBytesSync();
+
+      for (var day = 1; day <= 4; day++) {
+        service.directory
+            .childFile('evergreen-antes-de-restaurar-2026-08-0$day-1000.db')
+            .writeAsBytesSync(bytes);
+      }
+
+      service.prune();
+
+      final kept = service.list();
+      expect(
+        kept.where((backup) => backup.isSafetyCopy),
+        hasLength(BackupService.maxSafetyCopies),
+      );
+      // O automático é o mais antigo de todos e continua ali: quatro
+      // restaurações seguidas não podem varrer o backup semanal.
+      expect(kept.map((backup) => backup.name), contains(automatico.name));
+    });
   });
 
   group('restaurar', () {
@@ -224,6 +281,85 @@ void main() {
       expect(contentsOf(db), ['de três versões atrás']);
       final row = db.select('SELECT alias FROM clipboard_items;').first;
       expect(row['alias'], isNull);
+    });
+
+    test('guarda o estado de agora com nome próprio, para desfazer', () {
+      insertItem('conteúdo antigo');
+      final backup = service.create(at: DateTime(2026, 8, 20, 10));
+
+      db.execute('DELETE FROM clipboard_items;');
+      insertItem('o dia de hoje', copiedAt: 2);
+
+      final safety = service.restore(backup);
+
+      // Nome próprio: é na lista que se procura por ela, no minuto em que se
+      // percebe que a linha clicada era a errada.
+      expect(safety.isSafetyCopy, isTrue);
+      expect(safety.name, startsWith('evergreen-antes-de-restaurar-'));
+      expect(safety.isOurs, isTrue);
+
+      final rescued = sqlite3.open(safety.path);
+      addTearDown(rescued.close);
+      expect(contentsOf(rescued), ['o dia de hoje']);
+    });
+
+    test('com a pasta cheia, o arquivo escolhido sobrevive à rede', () {
+      insertItem('o que se quer de volta');
+      final oldest = service.create(at: DateTime(2026, 7, 1, 10));
+
+      db.execute('DELETE FROM clipboard_items;');
+      insertItem('uma semana qualquer', copiedAt: 2);
+      for (var week = 1; week <= 4; week++) {
+        service.create(at: DateTime(2026, 7, 1 + 7 * week, 10));
+      }
+
+      // Restaurar o mais antigo de uma pasta no teto é o caso real: cinco
+      // backups semanais, e o que se procura é o de cinco semanas atrás. A rede
+      // criada agora entrava como sexto arquivo e empurrava justamente ele para
+      // fora — e o que se lia em seguida era um banco vazio recém-criado pelo
+      // `sqlite3.open`, copiado por cima de tudo.
+      service.restore(oldest);
+
+      expect(File(oldest.path).existsSync(), isTrue);
+      expect(contentsOf(db), ['o que se quer de volta']);
+    });
+
+    test('desfazer uma restauração antiga não apaga a rede escolhida', () {
+      insertItem('o estado que se quer de volta');
+      final base = service.create(at: DateTime(2026, 7, 1, 10));
+      final bytes = File(base.path).readAsBytesSync();
+
+      // Três restaurações anteriores deixaram três redes na pasta — o teto
+      // delas. Desfazer a mais antiga é o caso: a rede que esta restauração vai
+      // criar entra como quarta e empurraria justamente ela para fora.
+      for (var day = 1; day <= 3; day++) {
+        service.directory
+            .childFile('evergreen-antes-de-restaurar-2026-08-0$day-1000.db')
+            .writeAsBytesSync(bytes);
+      }
+      final target =
+          service.list().where((backup) => backup.isSafetyCopy).last;
+
+      db.execute('DELETE FROM clipboard_items;');
+      insertItem('o engano de agora', copiedAt: 2);
+
+      service.restore(target);
+
+      expect(contentsOf(db), ['o estado que se quer de volta']);
+    });
+
+    test('o arquivo que sumiu da pasta não vira uma restauração vazia', () {
+      insertItem('o dia de hoje');
+      final backup = service.create();
+
+      // A pasta é a interface do backup: arrastar o arquivo para o lixo com o
+      // Hub aberto deixa na lista uma linha que já não corresponde a nada.
+      File(backup.path).deleteSync();
+
+      expect(() => service.restore(backup), throwsA(isA<BackupMissing>()));
+      expect(contentsOf(db), ['o dia de hoje']);
+      // A recusa vem antes de tudo: nem o banco foi tocado, nem sobrou rede.
+      expect(service.list().where((backup) => backup.isSafetyCopy), isEmpty);
     });
   });
 }

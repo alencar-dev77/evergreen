@@ -193,7 +193,8 @@ class _RestoreSection extends ConsumerWidget {
             label: 'Restaurar o backup escolhido',
             description:
                 'Troca tudo o que está no Evergreen pelo conteúdo do backup. '
-                'O estado de agora vira um backup antes, então dá para voltar.',
+                'O estado de agora vira antes uma cópia "antes de restaurar" '
+                'na lista, então dá para voltar.',
             showDivider: false,
             trailing: EgButton.secondary(
               label: 'Restaurar',
@@ -230,7 +231,8 @@ class _RestoreSection extends ConsumerWidget {
       title: 'Restaurar este backup?',
       message: 'O histórico do Pin, as sessões do Focus, as anotações do Leaf '
           'e as reuniões do Echo passam a ser os do backup. O estado de agora '
-          'é guardado num backup novo antes de qualquer coisa.',
+          'é guardado antes de qualquer coisa, e volta para a lista como '
+          '"antes de restaurar".',
       confirmLabel: 'Restaurar',
     );
     if (!confirmed) return;

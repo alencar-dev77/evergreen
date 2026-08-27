@@ -204,5 +204,24 @@ void main() {
       expect(find.byType(EgConfirmDialog), findsOneWidget);
       expect(find.text('Restaurar este backup?'), findsOneWidget);
     });
+
+    testWidgets('a rede da restauração se apresenta na lista', (tester) async {
+      backup.create(at: DateTime(2026, 8, 20, 10));
+      await openSettings(tester);
+
+      await tester.tap(find.byType(BackupList));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restaurar'));
+      await tester.pumpAndSettle();
+      // O botão do diálogo, que está por cima do da tela.
+      await tester.tap(find.text('Restaurar').last);
+      await tester.pumpAndSettle();
+
+      // Os arquivos do Evergreen aparecem só pela data: sem esta etiqueta, a
+      // cópia de emergência seria mais uma linha igual às outras — e é ela que
+      // se procura no minuto em que se percebe que a linha clicada era a
+      // errada.
+      expect(find.text('antes de restaurar'), findsOneWidget);
+    });
   });
 }
