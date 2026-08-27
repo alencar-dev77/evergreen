@@ -73,3 +73,36 @@ E o clique na linha copia e fecha, contra a regra do painel de que clicar abre o
 preview. A regra existe para quem chega pelo mouse poder ver o conteúdo antes de
 decidir; aqui o conteúdo inteiro já está escrito na linha, e não há um "dentro"
 para abrir.
+
+## O CNPJ, depois
+
+O CNPJ entrou como par do CPF, e a decisão que importa é que ele **não ganhou
+nada próprio**: nem arquivo, nem widget, nem tecla.
+
+- **A conta.** `TaxId._checkDigit` já era a soma ponderada módulo 11 partilhada
+  entre validar e gerar. CPF e CNPJ divergem só nos pesos — o CPF desce de 10 a
+  2 sem repetir, o CNPJ desce de 9 a 2 e dá a volta, porque doze dígitos não
+  cabem numa faixa de oito. Isso virou `TaxIdKind.weightAt`, e o resto do
+  arquivo não soube da diferença. O `(soma * 10) % 11` do CPF virou
+  `11 - resto`: dão o mesmo número (multiplicar por dez, módulo onze, é o mesmo
+  que negar) e é a forma que a Receita publica para os dois.
+- **A linha.** `PinGeneratorRow` recebeu um `TaxIdKind` e tira dele o rótulo, o
+  ícone e o texto do leitor de tela. Duas classes iguais menos por três palavras
+  se desencontrariam no primeiro ajuste de altura.
+- **A tecla.** `⌘G` continua sendo uma só. Qual documento sortear é o filtro que
+  diz — a mesma tecla dentro da pílula CNPJ devolve um CNPJ. Um segundo atalho
+  para "gerar CNPJ" seria uma tecla a decorar por uma escolha que a tela já fez.
+
+O que precisou de campo novo foi só um: `_generatedKind`, na ViewModel. O número
+é preservado *dentro* de um filtro (sortear a cada tecla digitada na busca
+trocaria o número embaixo do dedo de quem está conferindo dígito a dígito), e
+sem saber de qual documento ele é, sair do CPF e entrar no CNPJ deixaria o CPF
+sorteado escrito na linha "Gerar CNPJ". `state.generatedTaxId` é uma `String`, e
+quando se pergunta o filtro já mudou.
+
+E `ClipboardItemClassifier.version` **subiu para 3**, ao contrário do que o
+gerador de CPF fez: ali nada mudou na classificação, só o arquivo em que a conta
+morava. Aqui há um tipo novo — sem a subida, todo CNPJ já copiado continuaria
+guardado como texto, e a pílula nasceria vazia justamente para quem tem
+histórico. O enum passou de `taxId` a `cpf` na mesma leva; a reclassificação que
+a versão dispara reescreve o nome guardado, então a troca não deixa linha órfã.

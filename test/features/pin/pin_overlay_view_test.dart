@@ -1225,7 +1225,7 @@ void main() {
             (item) => item.content == generated,
           );
       expect(stored, hasLength(1));
-      expect(stored.single.type, ClipboardItemType.taxId);
+      expect(stored.single.type, ClipboardItemType.cpf);
     });
 
     testWidgets('clicar na linha copia e fecha, sem abrir preview',
@@ -1261,6 +1261,100 @@ void main() {
 
       expect(shownTaxId(tester), isNot(before));
       expect(closing, isEmpty);
+    });
+
+    /// O CNPJ é o mesmo gerador, na pílula ao lado.
+    ///
+    /// O que estes testes prendem não é a conta — essa é do `tax_id_test.dart`,
+    /// que gera mil de cada e confere pelo classificador. É a **troca**: a
+    /// linha, o rótulo e o número têm de acompanhar o filtro, e nenhum pedaço
+    /// pode sobrar do documento anterior.
+    group('e de CNPJ', () {
+      Future<void> openCnpjFilter(WidgetTester tester) async {
+        await tester.tap(find.text('CNPJ'));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('a pílula existe mesmo sem nenhum CNPJ no histórico',
+          (tester) async {
+        repository = FakeClipboardRepository();
+        await pumpOverlay(tester);
+
+        expect(find.text('CNPJ'), findsOneWidget);
+      });
+
+      testWidgets('o filtro de CNPJ gera um CNPJ, não um CPF', (tester) async {
+        await pumpOverlay(tester);
+        await openCnpjFilter(tester);
+
+        expect(find.textContaining('Gerar CNPJ'), findsOneWidget);
+        expect(find.textContaining('Gerar CPF'), findsNothing);
+        expect(
+          shownTaxId(tester),
+          matches(RegExp(r'^\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}$')),
+        );
+      });
+
+      testWidgets('trocar de documento troca o número junto', (tester) async {
+        // O caso que o campo `_generatedKind` existe para resolver: o número é
+        // preservado *dentro* de um filtro, e preservá-lo entre filtros
+        // deixaria um CPF escrito na linha "Gerar CNPJ".
+        await pumpOverlay(tester);
+        await openTaxIdFilter(tester);
+
+        final cpf = shownTaxId(tester);
+
+        await openCnpjFilter(tester);
+        final cnpj = shownTaxId(tester);
+
+        expect(cnpj, isNot(cpf));
+        expect(cnpj, contains('/'));
+
+        // E a volta também: o CPF de antes não precisa ser o mesmo, mas o que
+        // está na linha tem de ser um CPF.
+        await openTaxIdFilter(tester);
+        expect(shownTaxId(tester), isNot(contains('/')));
+      });
+
+      testWidgets('⌘G sorteia outro CNPJ sem sair', (tester) async {
+        final closing = watchClosing();
+        await pumpOverlay(tester);
+        await openCnpjFilter(tester);
+
+        final before = shownTaxId(tester);
+
+        await tester.tap(find.bySemanticsLabel('Sortear outro CNPJ'));
+        await tester.pumpAndSettle();
+
+        expect(shownTaxId(tester), isNot(before));
+        expect(shownTaxId(tester), contains('/'));
+        expect(closing, isEmpty);
+      });
+
+      testWidgets('o CNPJ copiado volta ao histórico já classificado',
+          (tester) async {
+        // O caminho de cópia vai até o fim (gravar e fechar), e por isso
+        // precisa dos canais que ele atravessa — ver `watchClosing`.
+        watchClosing();
+        await pumpOverlay(tester);
+        await openCnpjFilter(tester);
+
+        final generated = shownTaxId(tester);
+
+        await tester.runAsync(() async {
+          await tester.tap(find.textContaining('Gerar CNPJ'));
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        });
+        await tester.pumpAndSettle();
+
+        expect(copiedText, generated);
+
+        final stored = repository.loadAll().where(
+              (item) => item.content == generated,
+            );
+        expect(stored, hasLength(1));
+        expect(stored.single.type, ClipboardItemType.cnpj);
+      });
     });
   });
 }

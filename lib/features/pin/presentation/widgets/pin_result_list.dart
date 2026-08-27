@@ -177,6 +177,7 @@ class _PinResultListState extends State<PinResultList> {
     if (row.isGenerator) {
       return PinGeneratorRow(
         taxId: widget.state.generatedTaxId!,
+        kind: widget.state.generatorKind!,
         isSelected: widget.state.isGeneratorSelected,
         compact: widget.compact,
         onCopy: widget.onCopyGenerated,

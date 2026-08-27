@@ -90,11 +90,11 @@ void main() {
     test('reconhece CPF com e sem pontuação', () {
       expect(
         ClipboardItemClassifier.classify('529.982.247-25'),
-        ClipboardItemType.taxId,
+        ClipboardItemType.cpf,
       );
       expect(
         ClipboardItemClassifier.classify('52998224725'),
-        ClipboardItemType.taxId,
+        ClipboardItemType.cpf,
       );
     });
 

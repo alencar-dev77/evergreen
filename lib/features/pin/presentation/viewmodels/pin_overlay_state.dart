@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
+import '../../models/tax_id.dart';
 
 /// Estado renderizável do overlay do Pin.
 ///
@@ -113,8 +114,8 @@ class PinOverlayState {
 
   final bool isLoading;
 
-  /// O CPF sorteado que a linha do gerador exibe; `null` quando a linha não
-  /// está na tela.
+  /// O documento sorteado que a linha do gerador exibe; `null` quando a linha
+  /// não está na tela.
   ///
   /// Vive no estado, e não no widget, porque `⌘G` sorteia outro e a busca não
   /// pode sortear nenhum: quem decide quando o número muda é a ViewModel.
@@ -137,7 +138,14 @@ class PinOverlayState {
     return item != null && item.isPinned && pinned.length > 1;
   }
 
-  /// A linha "Gerar CPF" está na lista.
+  /// Qual documento a linha do gerador sorteia — o do filtro aberto.
+  ///
+  /// Sai do filtro, e não de um campo próprio, porque é o filtro que põe a
+  /// linha ali: "Gerar CPF" dentro da pílula CPF, "Gerar CNPJ" dentro da de
+  /// CNPJ, e nenhuma linha em nenhuma das outras.
+  TaxIdKind? get generatorKind => typeFilter?.taxIdKind;
+
+  /// A linha "Gerar CPF" (ou "Gerar CNPJ") está na lista.
   bool get hasGenerator => generatedTaxId != null;
 
   /// A seleção está na linha do gerador — ver [selectedIndex].

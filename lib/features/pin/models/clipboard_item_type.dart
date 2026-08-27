@@ -15,7 +15,8 @@ enum ClipboardItemType {
   link('Link', 'Links', EgIconData.link),
   email('E-mail', 'E-mails', EgIconData.envelope),
   phone('Telefone', 'Telefones', EgIconData.phone),
-  taxId('CPF', 'CPF', EgIconData.identityCard),
+  cpf('CPF', 'CPF', EgIconData.identityCard),
+  cnpj('CNPJ', 'CNPJ', EgIconData.building),
   command('Comando', 'Comandos', EgIconData.terminal);
 
   const ClipboardItemType(this.label, this.filterLabel, this.icon);
@@ -38,6 +39,31 @@ enum ClipboardItemType {
       );
 }
 
+/// A qual tipo do Pin cada documento corresponde.
+///
+/// Mora aqui, e não no `tax_id.dart`, para a dependência andar num sentido só:
+/// o modelo dos documentos não precisa saber que existe um histórico de área
+/// de transferência, e é o histórico que precisa saber traduzir.
+extension TaxIdItemType on TaxIdKind {
+  ClipboardItemType get itemType => switch (this) {
+    TaxIdKind.cpf => ClipboardItemType.cpf,
+    TaxIdKind.cnpj => ClipboardItemType.cnpj,
+  };
+}
+
+/// E a volta: qual documento vive atrás de um tipo, quando vive algum.
+///
+/// É o que decide se a pílula tem um gerador dentro dela — e, por ser um lugar
+/// só, acrescentar um terceiro documento um dia não deixa metade do app sabendo
+/// dele e a outra metade não.
+extension ClipboardItemTypeTaxId on ClipboardItemType {
+  TaxIdKind? get taxIdKind => switch (this) {
+    ClipboardItemType.cpf => TaxIdKind.cpf,
+    ClipboardItemType.cnpj => TaxIdKind.cnpj,
+    _ => null,
+  };
+}
+
 /// Classifica um conteúdo copiado em [ClipboardItemType].
 abstract final class ClipboardItemClassifier {
   /// Versão do classificador, gravada junto de cada item.
@@ -50,7 +76,11 @@ abstract final class ClipboardItemClassifier {
   ///
   /// - **1** — texto, link e comando.
   /// - **2** — e-mail, telefone e CPF.
-  static const version = 2;
+  /// - **3** — CNPJ. Sobe porque o tipo é novo: sem isto, todo CNPJ já copiado
+  ///   continuaria guardado como texto, e a pílula nasceria vazia justamente
+  ///   para quem tem histórico. (O gerador de CPF, que não mexeu em
+  ///   classificação nenhuma, deliberadamente não subiu a versão.)
+  static const version = 3;
 
   /// Executáveis comuns de terminal. Cobre o dia a dia de desenvolvimento sem
   /// tentar ser um parser de shell.
@@ -93,12 +123,18 @@ abstract final class ClipboardItemClassifier {
 
     if (_emailPattern.hasMatch(trimmed)) return ClipboardItemType.email;
 
-    // CPF antes de telefone, e não o contrário: um celular com DDD tem os
-    // mesmos onze dígitos de um CPF sem pontos, e o que desempata é o dígito
-    // verificador — que só o CPF tem como provar. Um telefone que por acaso
-    // passe na conta é um em cada cem; um CPF classificado como telefone seria
-    // a regra, não a exceção.
-    if (TaxId.looksLike(trimmed)) return ClipboardItemType.taxId;
+    // CPF e CNPJ antes de telefone, e não o contrário: um celular com DDD tem
+    // os mesmos onze dígitos de um CPF sem pontos, e o que desempata é o dígito
+    // verificador — que só o documento tem como provar. Um telefone que por
+    // acaso passe na conta é um em cada cem; um CPF classificado como telefone
+    // seria a regra, não a exceção.
+    //
+    // O CNPJ seco tem quatorze dígitos e passaria longe do telefone de qualquer
+    // forma, mas ele entra pela mesma porta porque a pergunta é uma só: quem
+    // decide entre os dois documentos é a própria [TaxId], que conhece as duas
+    // contas — a tabela de qual é qual não se repete aqui.
+    final kind = TaxId.looksLike(trimmed);
+    if (kind != null) return kind.itemType;
 
     if (_looksLikePhone(trimmed)) return ClipboardItemType.phone;
 

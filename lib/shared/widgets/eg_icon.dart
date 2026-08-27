@@ -28,6 +28,14 @@ enum EgIconData {
   /// Cartão com retrato e linha — representa um documento (CPF).
   identityCard,
 
+  /// Prédio com janelas — representa uma empresa (CNPJ).
+  ///
+  /// Ícone próprio, e não o [identityCard] repetido: num histórico com os dois,
+  /// duas linhas idênticas de ícone que só o rótulo separa é o mesmo que não
+  /// ter ícone — e pessoa e empresa são justamente a distinção que a lista
+  /// precisa deixar correr o olho.
+  building,
+
   /// Duas setas em círculo — sortear outro, refazer.
   shuffle,
 
@@ -171,6 +179,7 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.envelope => _envelopePath(),
         EgIconData.phone => _phonePath(),
         EgIconData.identityCard => _identityCardPath(),
+        EgIconData.building => _buildingPath(),
         EgIconData.shuffle => _shufflePath(),
         EgIconData.search => _searchPath(),
         EgIconData.plus => _plusPath(),
@@ -261,6 +270,37 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(12.2, 6.6)
     ..moveTo(9, 9.4)
     ..lineTo(12.2, 9.4);
+
+  /// Prédio de duas alturas com janelas — a empresa, atrás do CNPJ.
+  ///
+  /// Mesma gramática do [_identityCardPath]: um contorno arredondado e traços
+  /// curtos dentro. As janelas são segmentos, não retângulos — a 13px um
+  /// retângulo de um pixel e meio vira borrão, e o traço fica legível.
+  Path _buildingPath() => Path()
+    // O corpo alto, à esquerda.
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(2.5, 2.5, 6, 11),
+        const Radius.circular(1),
+      ),
+    )
+    // O anexo baixo, à direita, encostado nele.
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(8.5, 6.5, 5, 7),
+        const Radius.circular(1),
+      ),
+    )
+    ..moveTo(4.6, 5.3)
+    ..lineTo(6.4, 5.3)
+    ..moveTo(4.6, 8)
+    ..lineTo(6.4, 8)
+    ..moveTo(4.6, 10.7)
+    ..lineTo(6.4, 10.7)
+    ..moveTo(10.4, 9.2)
+    ..lineTo(11.6, 9.2)
+    ..moveTo(10.4, 11.4)
+    ..lineTo(11.6, 11.4);
 
   /// Seta dando a volta — sortear outro.
   ///

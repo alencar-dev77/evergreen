@@ -6,9 +6,17 @@ import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_surface.dart';
+import '../../models/clipboard_item_type.dart';
+import '../../models/tax_id.dart';
 import 'pin_list_item.dart';
 
-/// A linha "Gerar CPF", no topo da lista enquanto o filtro de CPF está ativo.
+/// A linha "Gerar CPF" — ou "Gerar CNPJ" —, no topo da lista enquanto o filtro
+/// daquele documento está ativo.
+///
+/// Uma linha só para os dois documentos, e não uma por documento: o que muda
+/// entre eles é o rótulo, o ícone e a conta que produziu o número, e nada disso
+/// é anatomia. Duas classes iguais menos por três palavras se desencontrariam
+/// no primeiro ajuste de altura.
 ///
 /// É o único lugar do Pin em que o painel **escreve** conteúdo em vez de
 /// devolver o que passou pela área de transferência — e por isso ela se parece
@@ -24,14 +32,18 @@ class PinGeneratorRow extends StatelessWidget {
   const PinGeneratorRow({
     super.key,
     required this.taxId,
+    required this.kind,
     required this.isSelected,
     required this.onCopy,
     required this.onRegenerate,
     this.compact = false,
   });
 
-  /// O CPF sorteado, já pontuado.
+  /// O documento sorteado, já pontuado.
   final String taxId;
+
+  /// Qual documento é — decide o rótulo e o ícone da linha.
+  final TaxIdKind kind;
 
   final bool isSelected;
 
@@ -52,7 +64,7 @@ class PinGeneratorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return EgHoverable(
       onTap: onCopy,
-      semanticLabel: 'Gerar CPF, $taxId',
+      semanticLabel: 'Gerar ${kind.label}, $taxId',
       selected: isSelected ? true : null,
       // O botão de sortear é outro clicável aqui dentro: fundir a linha inteira
       // numa etiqueta só o engoliria junto, e quem navega por leitor de tela
@@ -72,7 +84,9 @@ class PinGeneratorRow extends StatelessWidget {
               SizedBox(
                 width: compact ? _compactIconColumn : _iconColumn,
                 child: EgIcon(
-                  EgIconData.identityCard,
+                  // O mesmo ícone da pílula e do badge daquele tipo: a linha
+                  // que gera um CNPJ não pode se anunciar com o cartão do CPF.
+                  kind.itemType.icon,
                   size: compact ? AppIconSizes.xs : AppIconSizes.md,
                   color: isSelected
                       ? AppColors.textPrimary
@@ -81,7 +95,7 @@ class PinGeneratorRow extends StatelessWidget {
               ),
               SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
               Expanded(child: _label()),
-              _RegenerateButton(onTap: onRegenerate),
+              _RegenerateButton(onTap: onRegenerate, kind: kind),
             ],
           ),
         );
@@ -97,7 +111,7 @@ class PinGeneratorRow extends StatelessWidget {
   Widget _label() {
     if (compact) {
       return Text(
-        'Gerar CPF',
+        'Gerar ${kind.label}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         softWrap: false,
@@ -108,7 +122,7 @@ class PinGeneratorRow extends StatelessWidget {
     return Text.rich(
       TextSpan(
         children: [
-          const TextSpan(text: 'Gerar CPF'),
+          TextSpan(text: 'Gerar ${kind.label}'),
           TextSpan(
             text: '   $taxId',
             style: AppTypography.monoSmall.copyWith(
@@ -131,9 +145,10 @@ class PinGeneratorRow extends StatelessWidget {
 /// 36px de lado e a linha inteira tem 34: o botão não caberia sem esticar a
 /// lista, que rola por soma de alturas conhecidas.
 class _RegenerateButton extends StatelessWidget {
-  const _RegenerateButton({required this.onTap});
+  const _RegenerateButton({required this.onTap, required this.kind});
 
   final VoidCallback onTap;
+  final TaxIdKind kind;
 
   static const _size = 26.0;
 
@@ -141,7 +156,7 @@ class _RegenerateButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return EgHoverable(
       onTap: onTap,
-      semanticLabel: 'Sortear outro CPF',
+      semanticLabel: 'Sortear outro ${kind.label}',
       builder: (context, state) {
         return EgSurface(
           state: state,

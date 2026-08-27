@@ -33,6 +33,14 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
 
   List<ClipboardItem> _allItems = const [];
 
+  /// De qual documento é o número que está na linha do gerador.
+  ///
+  /// Não dá para deduzir do próprio número: `state.generatedTaxId` é uma
+  /// `String`, e o filtro já mudou quando se pergunta. Sem isto, sair do CPF e
+  /// entrar no CNPJ deixaria o CPF sorteado escrito na linha "Gerar CNPJ" — o
+  /// número preservado é o do filtro em que se está, não o último que existiu.
+  TaxIdKind? _generatedKind;
+
   @override
   PinOverlayState build() {
     _repository = ref.watch(clipboardRepositoryProvider);
@@ -82,6 +90,7 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
       generatedTaxId: null,
       keepGeneratedTaxId: false,
     );
+    _generatedKind = null;
     load();
   }
 
@@ -189,17 +198,19 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     return true;
   }
 
-  /// Sorteia outro CPF para a linha do gerador (`⌘G`).
+  /// Sorteia outro documento para a linha do gerador (`⌘G`).
   ///
-  /// Só troca o número — quem copia é o Enter. Fora do filtro de CPF a linha não
-  /// existe, e a tecla não tem o que fazer.
+  /// Só troca o número — quem copia é o Enter. Fora dos filtros de CPF e de
+  /// CNPJ a linha não existe, e a tecla não tem o que fazer. Qual documento
+  /// sortear é o filtro que diz: a mesma tecla no CNPJ devolve um CNPJ.
   void regenerateTaxId() {
-    if (state.typeFilter != ClipboardItemType.taxId) return;
+    final kind = state.typeFilter?.taxIdKind;
+    if (kind == null) return;
 
-    state = state.copyWith(generatedTaxId: TaxId.generate());
+    state = state.copyWith(generatedTaxId: TaxId.generate(kind));
   }
 
-  /// Copia o CPF sorteado, que entra no histórico como qualquer outra cópia.
+  /// Copia o documento sorteado, que entra no histórico como qualquer cópia.
   ///
   /// Passa pelo mesmo [copyItem] dos itens da lista: um item ainda sem `id` é o
   /// que a captura já produz, e o `upsert` resolve pelo conteúdo. É por isso que
@@ -323,13 +334,21 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
 
     final results = _rank(type);
 
-    // O número é sorteado ao entrar no filtro de CPF e esquecido ao sair — mas
-    // **preservado** enquanto ele durar. Sortear a cada `_emitResults` faria a
-    // linha trocar de número a cada tecla digitada na busca, embaixo do dedo de
-    // quem estava lendo o CPF para conferir.
-    final generated = type == ClipboardItemType.taxId
-        ? (state.generatedTaxId ?? TaxId.generate())
-        : null;
+    // O número é sorteado ao entrar num filtro de documento e esquecido ao sair
+    // — mas **preservado** enquanto ele durar. Sortear a cada `_emitResults`
+    // faria a linha trocar de número a cada tecla digitada na busca, embaixo do
+    // dedo de quem estava lendo o documento para conferir.
+    //
+    // Trocar de documento **não** é durar: sair do CPF e entrar no CNPJ passa
+    // por `null` no meio (o filtro intermediário, ou o próprio "Tudo"), e o que
+    // é preservado é o número do filtro em que se está. Um CPF sobrevivendo na
+    // linha "Gerar CNPJ" seria pior que sortear demais.
+    final kind = type?.taxIdKind;
+    final generated = kind == null
+        ? null
+        : (_generatedKind == kind ? state.generatedTaxId : null) ??
+              TaxId.generate(kind);
+    _generatedKind = kind;
 
     state = state.copyWith(
       results: results,
@@ -401,13 +420,14 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
 
   /// Os tipos presentes no histórico, na ordem do enum.
   ///
-  /// **CPF é a exceção: ele está sempre na fila**, tenha o histórico um ou
-  /// nenhum. Desde que a pílula passou a ter o gerador dentro dela, ela deixou
-  /// de ser só um recorte do que já existe — e a regra geral a esconderia
-  /// justamente de quem ainda não tem CPF nenhum, que é quem precisa gerar um.
+  /// **CPF e CNPJ são a exceção: os dois estão sempre na fila**, tenha o
+  /// histórico um ou nenhum. Desde que a pílula passou a ter o gerador dentro
+  /// dela, ela deixou de ser só um recorte do que já existe — e a regra geral a
+  /// esconderia justamente de quem ainda não tem documento nenhum, que é quem
+  /// precisa gerar um.
   List<ClipboardItemType> _availableTypes() {
     final present = _allItems.map((item) => item.type).toSet()
-      ..add(ClipboardItemType.taxId);
+      ..addAll(TaxIdKind.values.map((kind) => kind.itemType));
 
     return ClipboardItemType.values
         .where(present.contains)

@@ -160,7 +160,7 @@ void main() {
       expect(repository.reclassifyOutdated(), 2);
 
       expect(typeOf('contato@evergreen.com.br'), ClipboardItemType.email);
-      expect(typeOf('529.982.247-25'), ClipboardItemType.taxId);
+      expect(typeOf('529.982.247-25'), ClipboardItemType.cpf);
       expect(typeOf('Senha temporária: xK9#mPz2'), ClipboardItemType.text);
     });
 
