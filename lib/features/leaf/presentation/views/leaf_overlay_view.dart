@@ -163,6 +163,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
             onMoveSelection: _viewModel.moveSelection,
             onCopySlot: _copySlot,
             onDelete: _viewModel.deleteSelected,
+            onUndoDelete: _viewModel.undoDelete,
             onClose: _close,
             onCommitEdit: _commitPendingEdit,
             onCancelEdit: _viewModel.cancelEdit,
@@ -256,6 +257,16 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
         // gastaria a linha à toa.
         if (!state.isFull && hasNote) const EgHint(keys: ['⌘+'], label: 'nova'),
         if (hasNote) const EgHint(keys: ['⌘⌫'], label: 'apagar'),
+        // Só depois de apagar, e só enquanto o painel estiver aberto: a dica
+        // aparece exatamente onde a dúvida nasce ("cadê o cartão que eu acabei
+        // de arrancar?") e é o alvo de mouse do `⌘Z` — nenhuma ação do
+        // Evergreen é só de teclado.
+        if (state.canUndoDelete)
+          EgHint(
+            keys: const ['⌘Z'],
+            label: 'desfazer',
+            onTap: _viewModel.undoDelete,
+          ),
       ],
       trailing: const EgHint(keys: ['esc'], label: 'fechar'),
     );

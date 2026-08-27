@@ -9,6 +9,7 @@ class LeafNote {
     required this.slot,
     required this.content,
     required this.createdAt,
+    this.updatedAt,
   });
 
   final int id;
@@ -28,6 +29,20 @@ class LeafNote {
 
   final String content;
   final DateTime createdAt;
+
+  /// Quando o texto foi reescrito pela última vez, ou `null` se nunca foi.
+  ///
+  /// Separado de [createdAt] em vez de sobrescrevê-lo: a vaga na parede é dada
+  /// pela ordem de criação, e um cartão que "nascesse de novo" a cada edição
+  /// perderia a única data que explica a posição dele.
+  final DateTime? updatedAt;
+
+  /// A data que o cartão mostra: a da última vez que ele mudou de conteúdo.
+  ///
+  /// É o que a pessoa espera ler ali — "de quando é este recado", não "de
+  /// quando é este papel". Uma anotação reescrita agora dizendo "há 3 semanas"
+  /// é a mesma informação errada que um arquivo sem data de modificação.
+  DateTime get changedAt => updatedAt ?? createdAt;
 
   /// Teto da parede.
   ///
@@ -74,10 +89,12 @@ class LeafNote {
       .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .trim();
 
-  LeafNote copyWith({int? slot, String? content}) => LeafNote(
+  LeafNote copyWith({int? slot, String? content, DateTime? updatedAt}) =>
+      LeafNote(
         id: id,
         slot: slot ?? this.slot,
         content: content ?? this.content,
         createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
       );
 }

@@ -99,7 +99,10 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   troca de item, fechamento do painel. Vale para o apelido do Pin, o cartão do
   Leaf e os campos das telas de preferência. O Esc é a única saída que
   descarta, e ele desfaz a edição **antes** de o campo sair da árvore, então
-  nunca colide com o commit do foco perdido.
+  nunca colide com o commit do foco perdido. A contrapartida disso no Leaf é o
+  `⌘Z`: como esvaziar o campo apaga a anotação, e sair do campo confirma
+  sozinho, a parede guarda o último cartão arrancado até o painel fechar — ação
+  destrutiva sem pergunta precisa de desfazer, nunca de um diálogo.
 - Acesso a dados sempre atrás de repositório (ex.: `ClipboardRepository`) —
   nunca acoplar UI/ViewModel diretamente ao SQLite.
 - A busca do Pin mora inteira em `PinSearch` — casar e pontuar são a mesma

@@ -41,6 +41,7 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `←` `→` `↑` `↓` | Leaf | move a seleção pela grade, parando nas bordas |
 | `⌘1`–`⌘9` | Leaf | copia a anotação daquela vaga e fecha o painel |
 | `⌘⌫` | Leaf | tira o cartão selecionado; os seguintes sobem uma vaga e a parede encolhe |
+| `⌘Z` | Leaf | devolve o último cartão apagado à vaga em que ele estava — enquanto o painel estiver aberto e houver vaga |
 | `Enter` | cartão em edição | guarda a anotação e devolve o teclado à parede |
 | `⇧⏎` | cartão em edição | quebra a linha dentro do cartão |
 | `Esc` | cartão em edição | descarta o que foi digitado (um cartão novo não chega a existir) |
@@ -106,6 +107,22 @@ Dois detalhes de convenção que valem para atalhos futuros:
 - **Foco de campo que aparece por mudança de estado se pede à mão.** `autofocus` só vale quando **nada** no escopo tem o foco, e um painel operado por teclado sempre tem (é o nó que recebe os atalhos). Um cartão que abre para escrever precisa de `requestFocus` no quadro seguinte — sem isso ele nasce esperando um clique, e a primeira letra digitada se perde.
 - **Campo que a pessoa escreve e confirma esvazia o mapa de atalhos enquanto tem o foco.** No apelido do Pin sobram duas teclas — Enter guarda, Esc descarta — e o rodapé passa a falar só delas. Setas, `⌘⌫` e os números pertencem ao texto que está sendo digitado; um atalho que os roubasse tornaria o campo inutilizável. É a mesma regra que já desligava o `space` do Focus com o cursor na anotação, agora valendo para o mapa inteiro.
 - **Editar não é confirmar: sair do campo guarda.** O apelido é gravado quando o campo perde o foco, por qualquer caminho (Enter, clicar em outra linha, fechar o painel) — só o Esc desfaz. Painel que some do olho não pode levar junto o que a pessoa acabou de escrever.
+- **Ação destrutiva sem pergunta precisa de desfazer.** No Leaf, esvaziar o
+  campo apaga a anotação: é a forma mais direta de dizer "isso aqui já era", e
+  também a mais fácil de fazer sem querer (⌘A, Delete, um clique fora). A saída
+  não é um diálogo de confirmação — ele cobraria uma pergunta em todas as vezes
+  em que o gesto foi de propósito, que são a maioria —, e sim o `⌘Z` clássico do
+  macOS: o cartão fica ao alcance dele até o painel fechar. Confirmação modal
+  continua sendo para o que não tem volta (restaurar um backup, limpar o
+  histórico); desfazer é para o que tem.
+- **Dica de rodapé que aparece por um estado passageiro é clicável.** Nenhuma
+  ação do Evergreen é só de teclado, e desenhar um botão para uma tecla que
+  existe entre apagar um cartão e fechar o painel encheria a tela de affordance
+  que some. A dica já está no lugar certo, dizendo a coisa certa, na hora certa
+  — o `onTap` do `EgHint` a torna o alvo de mouse daquela tecla, com o rótulo
+  clareando sob o ponteiro. Vale só para o que **não tem** outro alvo na tela: a
+  dica de `enter` continua sendo legenda, porque o cartão já está ali para ser
+  clicado.
 - **Descartar não pode morar no Esc.** No Echo o Esc fecha o painel e a reunião
   segue gravando — é o que a pessoa quer ao voltar para a chamada. Jogar fora
   meia hora de reunião precisa de modificadora (`⌘.`), como qualquer ação
