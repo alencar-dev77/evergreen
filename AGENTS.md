@@ -122,18 +122,22 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já
   guardado uma vez, na abertura seguinte. Sem isso, um tipo novo nasce vazio
   para quem já usa o app.
-- Backup, restauração (`lib/core/storage/backup_service.dart`) e exportação
-  (`export_service.dart`) **descobrem as tabelas pelo `sqlite_master`** — a
-  tabela de um módulo novo entra nos três sozinha, sem ninguém vir aqui. A única
-  que fica de fora é `schema_migrations`, que é do banco que está rodando. O snapshot é
-  `VACUUM INTO`, nunca cópia do arquivo: o banco roda em WAL com duas conexões
-  abertas, e o arquivo no disco não tem o que ainda está no log. Ver
+- Backup e restauração (`lib/core/storage/backup_service.dart`) **descobrem as
+  tabelas pelo `sqlite_master`** — a tabela de um módulo novo entra nos dois
+  sozinha, sem ninguém vir aqui. A única que fica de fora é `schema_migrations`,
+  que é do banco que está rodando. O snapshot é `VACUUM INTO`, nunca cópia do
+  arquivo: o banco roda em WAL com duas conexões abertas, e o arquivo no disco
+  não tem o que ainda está no log. Ver
   [docs/Ideis projeto/backup-do-banco.md](docs/Ideis%20projeto/backup-do-banco.md).
-- Backup e exportação respondem a perguntas diferentes e por isso são dois: o
-  `.db` é para o Evergreen ler de volta (e sai por `VACUUM INTO`), o `.json` é
-  para outro programa abrir. Pastas separadas (`Backups/` e `Exports/`) dentro
-  da pasta do aplicativo — ali o macOS não pede permissão, e o botão "Mostrar no
-  Finder" é a interface. Diálogo de "salvar como" exigiria um pacote novo.
+- **O Evergreen guarda os dados dele para si, e não os traduz para ninguém.** O
+  backup é um `.db` que só ele lê, e é o suficiente: a pergunta que ele responde
+  é "e se este arquivo se perder?". Houve uma exportação em JSON ao lado, para
+  outro programa abrir, e ela saiu — ninguém abriu o arquivo em programa nenhum,
+  e ela cobrava o preço de um segundo formato a manter, com o histórico do Pin
+  inteiro em texto puro numa pasta a mais. Um módulo novo não precisa pensar
+  nela. A pasta `Backups/` fica dentro da pasta do aplicativo, onde o macOS não
+  pede permissão, e o botão "Mostrar no Finder" é a interface — diálogo de
+  "salvar como" exigiria um pacote novo.
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
   em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
   chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A
@@ -160,7 +164,7 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   ainda não tem duração.
 - O parágrafo que o modelo local escreve sobre um dia é **cache, não dado**: ele
   vive no plist (`TrackSummaryCache`), com assinatura do dia, e não no banco.
-  Não entra no backup nem na exportação porque se refaz sozinho — e é o que
+  Não entra no backup porque se refaz sozinho — e é o que
   mantém o Track sem tabela própria mesmo guardando alguma coisa.
 - Módulo que usa o modelo local (`FoundationModels`, pelo canal do Echo) trata a
   resposta dele como **enfeite**: abaixo do macOS 26 ou sem Apple Intelligence o

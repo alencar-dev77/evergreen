@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
-import 'package:evergreen/core/storage/export_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -28,26 +27,5 @@ BackupService temporaryBackupService({Database? database}) {
   return BackupService(
     database: db,
     directory: Directory('${directory.path}/Backups'),
-  );
-}
-
-/// Um serviço de exportação sobre um banco em memória e uma pasta temporária.
-///
-/// Pelo mesmo motivo do backup: a seção de exportação lê a pasta ao montar.
-ExportService temporaryExportService({Database? database}) {
-  final directory = Directory.systemTemp.createTempSync('evergreen-export');
-  addTearDown(() {
-    if (directory.existsSync()) directory.deleteSync(recursive: true);
-  });
-
-  final db = database ?? sqlite3.openInMemory();
-  if (database == null) {
-    AppDatabase.migrate(db);
-    addTearDown(db.close);
-  }
-
-  return ExportService(
-    database: db,
-    directory: Directory('${directory.path}/Exports'),
   );
 }
