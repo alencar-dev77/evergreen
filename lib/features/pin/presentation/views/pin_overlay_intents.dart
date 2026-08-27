@@ -118,10 +118,17 @@ abstract final class PinOverlayIntents {
     const SingleActivator(LogicalKeyboardKey.escape): const PinCloseIntent(),
     const SingleActivator(LogicalKeyboardKey.tab):
         const PinTogglePreviewIntent(),
-    // ⌘← e ⌘→ andam pela fila de tipos. As setas sem modificador pertencem ao
-    // cursor do campo de busca, e ⌥←/⌥→ ao salto por palavra dele — sobra o ⌘,
-    // que num campo de uma linha só custa o "ir para o começo/fim da linha" que
-    // ninguém usa numa busca de três letras.
+    // As quatro setas são os dois eixos da tela: ↑↓ andam pela lista, ←→ andam
+    // pela fila de tipos logo acima dela. É a leitura que o desenho já sugere,
+    // e ela vale mais que o cursor de uma busca de três letras — o texto se
+    // corrige apagando, e ⌥←/⌥→ continuam saltando por palavra dentro dele.
+    //
+    // `⌘←`/`⌘→` seguem valendo: eram as teclas do filtro até aqui, e tirá-las
+    // só faria a memória muscular de quem já as usa apitar sem motivo.
+    const SingleActivator(LogicalKeyboardKey.arrowLeft):
+        const PinCycleFilterIntent(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowRight):
+        const PinCycleFilterIntent(1),
     const SingleActivator(LogicalKeyboardKey.arrowLeft, meta: true):
         const PinCycleFilterIntent(-1),
     const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true):

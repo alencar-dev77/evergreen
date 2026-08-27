@@ -160,6 +160,12 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
 
     _syncAliasField(item);
     setState(() => _isPreviewOpen = !_isPreviewOpen);
+
+    // O teclado volta para a busca, que é de onde o painel é operado. Fechar o
+    // preview enquanto o apelido estava em edição tirava da árvore o único
+    // campo focado do painel — e o Pin não passa nó nenhum para a casca, então
+    // não sobrava ninguém para digitar. Mesmo cuidado do clique numa linha.
+    _searchFocusNode.requestFocus();
   }
 
   /// A barra de dicas e o mapa de teclado mudam quando o apelido entra em
@@ -320,6 +326,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
                       canMovePinned: state.canMoveSelectedPinned,
                       isEditingAlias: isEditingAlias,
                       isFiltered: state.typeFilter != null,
+                      hasTypes: state.hasTypeFilter,
                     ),
                   ],
                 ),

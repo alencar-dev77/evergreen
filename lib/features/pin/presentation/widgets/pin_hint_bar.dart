@@ -13,16 +13,22 @@ class PinHintBar extends StatelessWidget {
     this.canMovePinned = false,
     this.isEditingAlias = false,
     this.isFiltered = false,
+    this.hasTypes = false,
   });
 
   final bool isPreviewOpen;
+
+  /// Há uma fila de tipos para percorrer com `←`/`→`.
+  ///
+  /// Com um tipo só no histórico a fila nem se desenha, e anunciar a tecla
+  /// prometeria um movimento que não acontece.
+  final bool hasTypes;
 
   /// Há um tipo escolhido na fila de pílulas.
   ///
   /// Muda o que o Esc promete: com um filtro ativo ele desfaz o recorte em vez
   /// de fechar o painel, e o rodapé é o único lugar onde isso se aprende sem
-  /// tentar. É também o que dispensa uma dica nova só para o `⌘←→` — a fila de
-  /// pílulas já está à vista, e a 420px não haveria largura para as duas.
+  /// tentar.
   final bool isFiltered;
 
   /// O cursor está no campo de apelido.
@@ -54,11 +60,15 @@ class PinHintBar extends StatelessWidget {
         // Setas e Enter dispensam rótulo: ao lado de uma lista eles se
         // explicam, e o espaço vale mais para o ⌘P, que não.
         const EgHint(keys: ['↑', '↓']),
+        // O outro eixo da tela: ←→ andam pela fila de tipos logo acima da
+        // lista. Leva rótulo porque, diferente das verticais, o movimento não
+        // se adivinha — a fila está acima e a lista, embaixo.
+        if (hasTypes) const EgHint(keys: ['←', '→'], label: 'filtro'),
         // E por serem os mais evidentes da barra, são eles que cedem a largura
-        // quando o ⌥↑↓ entra: a 420px as duas dicas não cabem juntas, e quem
+        // quando o ⌥↑↓ ou o ←→ entram: a 420px as dicas não cabem todas, e quem
         // acabou de chegar aos fixados duvida de como movê-los, não de que
         // Enter copia.
-        if (!canMovePinned) const EgHint(keys: ['enter']),
+        if (!canMovePinned && !hasTypes) const EgHint(keys: ['enter']),
         const EgHint(keys: ['⌘P'], label: 'fixar'),
         if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
         // O ⌘R só é anunciado com o preview aberto, que é onde o campo de

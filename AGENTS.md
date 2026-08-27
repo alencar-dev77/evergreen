@@ -81,9 +81,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   fixar, fixar". O que prende isso é `test/shared/semantics_test.dart` — rótulo
   que some não quebra pixel nenhum e não falha nenhum outro teste.
 - Painel flutuante novo usa `EgOverlayShell`: ela é quem registra o
-  `WindowListener`, anima a entrada, decide o que é um blur de verdade e trata o
-  vazio ao redor como barreira. O módulo só diz o que "fechar" significa para
-  ele. Dois comportamentos são opt-in e hoje só o Echo pede os dois:
+  `WindowListener`, anima a entrada, decide o que é um blur de verdade, trata o
+  vazio ao redor como barreira e **garante que o painel aberto tenha teclado**.
+  O módulo só diz o que "fechar" significa para ele. Sobre o teclado: um painel
+  pode nascer sem ninguém pedir foco (trocar de painel com a janela já visível
+  não dispara `didBecomeKey`, logo não há `onWindowFocus` nem `onShow`), e sem
+  nó focado nenhum `Shortcuts` é consultado — o painel fica na tela e cada tecla
+  vira o bipe do macOS. A casca escuta o `FocusManager` e devolve o foco ao nó
+  do módulo, ou ao dela quando o módulo não tem um. A recuperação é sempre
+  adiada até depois das microtarefas do quadro: o `autofocus` de um campo do
+  módulo é aplicado numa delas, e chegar antes dele abriria o Pin sem cursor na
+  busca. Dois comportamentos são opt-in e hoje só o Echo pede os dois:
   `draggable` (arrasta a janela pelo fundo do painel, via `startDragging`) e
   `dismissOnBlur: false` (perder o foco não fecha). O segundo é **por fase**,
   não por módulo — o Echo só o desliga gravando ou transcrevendo, e a casca

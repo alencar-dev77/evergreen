@@ -230,12 +230,12 @@ class EvergreenBootstrap {
     await _prepare(panel);
     _container.read(overlayPanelProvider.notifier).show(panel);
 
-    // Já visível em outro painel: trocar o conteúdo basta. Reexibir a janela
-    // aqui só a faria piscar e roubaria o foco outra vez — mas o cursor pode
-    // ter ido para outro monitor desde a abertura, e o atalho leva o painel
-    // para onde a pessoa está olhando.
+    // Já visível em outro painel: trocar o conteúdo basta, sem reabrir a
+    // janela — mas o cursor pode ter ido para outro monitor desde a abertura, e
+    // o atalho leva o painel para onde a pessoa está olhando. A reafirmação
+    // também devolve o teclado ao painel: estar visível não é estar com o foco.
     if (await OverlayWindow.instance.isVisible()) {
-      await OverlayWindow.instance.reposition();
+      await OverlayWindow.instance.reassert();
       return;
     }
 

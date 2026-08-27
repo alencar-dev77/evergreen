@@ -308,6 +308,59 @@ void main() {
       expect(find.text('Senha temporária: xK9#mPz2'), findsOneWidget);
     });
 
+    testWidgets('→ e ← andam pela fila, sem modificadora', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+
+      // As setas são os dois eixos da tela: ↑↓ pela lista, ←→ pela fila de
+      // tipos logo acima dela. Da esquerda para a direita, "Tudo" dá lugar a
+      // "Textos".
+      expect(find.text('https://pub.dev/packages/sqlite3'), findsNothing);
+      expect(find.text('Flutter'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+
+      // E de volta a "Tudo", com o histórico inteiro.
+      expect(find.text('https://pub.dev/packages/sqlite3'), findsOneWidget);
+      expect(find.text('Flutter'), findsOneWidget);
+    });
+
+    testWidgets('as setas não tiram o teclado da busca', (tester) async {
+      await pumpOverlay(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+
+      // Trocar de filtro pela tecla não pode custar o cursor: quem filtra
+      // costuma digitar em seguida.
+      await tester.enterText(find.byType(EgSearchField), 'flut');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Flutter'), findsOneWidget);
+    });
+
+    testWidgets('o rodapé ensina as setas do filtro', (tester) async {
+      await pumpOverlay(tester);
+
+      expect(find.text('filtro'), findsOneWidget);
+    });
+
+    testWidgets('sem fila, o rodapé não promete o movimento', (tester) async {
+      // Com um tipo só no histórico a fila não se desenha, e a tecla não tem
+      // para onde andar.
+      repository = FakeClipboardRepository([
+        item(1, 'Flutter'),
+        item(2, 'Senha temporária: xK9#mPz2'),
+      ]);
+
+      await pumpOverlay(tester);
+
+      expect(find.text('filtro'), findsNothing);
+    });
+
     testWidgets('Esc limpa o filtro antes de fechar o overlay', (tester) async {
       await pumpOverlay(tester);
 

@@ -22,7 +22,8 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Enter` | overlay | copia o item selecionado e fecha |
 | `Tab` | overlay | abre **e fecha** o preview — é o único caminho de volta dele |
 | clique | overlay | seleciona a linha **e abre o preview** — o mouse não copia: quem copia é o botão "Copiar" de lá dentro |
-| `⌘←` `⌘→` | overlay | anda pela fila de filtros por tipo (Tudo · Textos · Links · E-mails · Telefones · CPF · Comandos) |
+| `←` `→` | overlay | anda pela fila de filtros por tipo (Tudo · Textos · Links · E-mails · Telefones · CPF · Comandos) — o outro eixo das setas, com ↑↓ na lista |
+| `⌘←` `⌘→` | overlay | o mesmo, para quem já tinha a memória muscular de antes |
 | `Esc` | overlay | com filtro ativo, desfaz o filtro; em qualquer outro caso fecha o overlay — o preview **não** consome o Esc |
 | `⌘P` | overlay | fixa/desafixa o selecionado |
 | `⌥↑` `⌥↓` | overlay | reordena o fixado selecionado dentro do grupo; nas pontas e fora dos fixados, não faz nada |
@@ -102,7 +103,8 @@ Quatro convenções que valem para qualquer painel novo:
 
 Dois detalhes de convenção que valem para atalhos futuros:
 
-- **Modificador obrigatório quando um campo de texto tem o foco.** No overlay a busca está sempre focada, então excluir é `⌘⌫` e não `Delete` puro — um Backspace solto precisa continuar apagando o texto digitado. A mesma regra vale para qualquer tecla de ação em tela com campo de texto.
+- **Modificador obrigatório quando um campo de texto tem o foco — menos para as setas.** No overlay a busca está sempre focada, então excluir é `⌘⌫` e não `Delete` puro: um Backspace solto precisa continuar apagando o texto digitado. As setas são a exceção, e por serem os dois eixos do que está desenhado: ↑↓ andam pela lista, ←→ andam pela fila de tipos logo acima dela. O que elas custam é o cursor dentro da busca, que numa consulta de três letras se corrige apagando — e `⌥←`/`⌥→` continuam saltando por palavra. Ação que não é navegação continua exigindo modificadora.
+- **Painel aberto é painel com teclado, sem exceção.** Um painel pode aparecer sem que nada peça o foco — trocar de painel com a janela já na tela não dispara `didBecomeKey`, e sem `onWindowFocus` não há `onShow`. Sem nó focado, nenhum `Shortcuts` é consultado: o painel fica na tela e cada tecla vira o bipe do macOS. A `EgOverlayShell` é quem garante isso agora, para os cinco painéis: se o foco escapa do painel visível, ela o devolve — ao nó do módulo, quando ele tem um, ou ao nó próprio dela. Quem desenha painel novo não precisa lembrar disso; quem tira um campo de texto da árvore, também não.
 - **Enter confirma, `⇧⏎` quebra a linha — e o Enter é interceptado acima do campo.** No Leaf o `Shortcuts` do painel consome o Enter antes de ele virar texto; com o Shift junto a combinação não casa com nada no mapa, desce até o campo e quebra a linha. Vale para qualquer campo de várias linhas que precise confirmar por teclado: registrar o Enter no mapa do painel resolve as duas teclas de uma vez, enquanto o `onSubmitted`/`textInputAction` do campo só resolveria uma.
 - **Foco de campo que aparece por mudança de estado se pede à mão.** `autofocus` só vale quando **nada** no escopo tem o foco, e um painel operado por teclado sempre tem (é o nó que recebe os atalhos). Um cartão que abre para escrever precisa de `requestFocus` no quadro seguinte — sem isso ele nasce esperando um clique, e a primeira letra digitada se perde.
 - **Campo que a pessoa escreve e confirma esvazia o mapa de atalhos enquanto tem o foco.** No apelido do Pin sobram duas teclas — Enter guarda, Esc descarta — e o rodapé passa a falar só delas. Setas, `⌘⌫` e os números pertencem ao texto que está sendo digitado; um atalho que os roubasse tornaria o campo inutilizável. É a mesma regra que já desligava o `space` do Focus com o cursor na anotação, agora valendo para o mapa inteiro.

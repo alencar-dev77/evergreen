@@ -48,6 +48,16 @@ import '../../core/design/app_metrics.dart';
 ///   sozinho no campo de busca (`EgSearchField.holdsFocus`) e que reapareceu no
 ///   Leaf e no Focus, que também têm campo de texto — por isso agora ela é
 ///   resolvida uma vez, aqui.
+/// - **E quando ele sai assim mesmo, volta.** O escopo é o chão, mas um chão
+///   vazio não recebe tecla nenhuma: se o único nó focável do painel some da
+///   árvore com o foco na mão — o campo de apelido do Pin quando o preview
+///   fecha, um campo de texto que o módulo desmonta —, o `primaryFocus` do
+///   Flutter fica sem dono e **nenhum** `Shortcuts` é consultado. O painel
+///   continua na tela, o cursor continua piscando em lugar nenhum, e cada
+///   tecla vira o bipe de "não posso" do macOS: setas, Tab, `⌘P`, Esc. A casca
+///   escuta o `FocusManager` e, sempre que o foco escapa do painel visível,
+///   devolve — ao nó do módulo, quando ele tem um, ou ao nó próprio dela.
+///   Nenhum painel do Evergreen fica sem teclado enquanto estiver aberto.
 class EgOverlayShell extends StatefulWidget {
   const EgOverlayShell({
     super.key,
@@ -124,24 +134,84 @@ class _EgOverlayShellState extends State<EgOverlayShell>
   late final _entranceOpacity =
       CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
 
+  /// O escopo do painel. Explícito, e não o implícito do `FocusScope`, porque
+  /// a rede precisa perguntar a ele se o foco ainda está aqui dentro.
+  final _scope = FocusScopeNode(debugLabel: 'overlay-panel');
+
+  /// O nó de último recurso: recebe o teclado quando o painel fica sem nenhum
+  /// outro nó focado — ver a classe.
+  ///
+  /// `skipTraversal` porque ele não é um destino, é um chão: quem navega com
+  /// Tab dentro de um painel está indo para um controle, nunca para o fundo.
+  final _fallback = FocusNode(
+    debugLabel: 'overlay-panel-fallback',
+    skipTraversal: true,
+  );
+
+  /// Uma recuperação de foco por quadro, no máximo.
+  bool _isRecoveringFocus = false;
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    FocusManager.instance.addListener(_onFocusChanged);
+
+    // Também na montagem, e não só quando o foco muda: um painel pode nascer
+    // sem que nada peça o teclado. É o que acontece ao trocar de painel com a
+    // janela já na tela — não há `didBecomeKey`, então não há `onWindowFocus`
+    // nem `onShow`, e o módulo novo apareceria mudo.
+    _recoverFocus();
   }
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_onFocusChanged);
     windowManager.removeListener(this);
+    _fallback.dispose();
+    _scope.dispose();
     _entranceOpacity.dispose();
     _entrance.dispose();
     super.dispose();
+  }
+
+  /// Devolve o teclado ao painel quando ele escapa — ver a classe.
+  ///
+  /// Nunca agora, sempre depois, e o "depois" é bem específico: o fim do quadro
+  /// **e** o esvaziamento da fila de microtarefas. O `autofocus` de um campo do
+  /// módulo é aplicado numa microtarefa agendada durante a construção, e a rede
+  /// precisa correr atrás dela — do contrário ela chegaria primeiro e o Pin
+  /// abriria sem cursor na busca, trocando um painel mudo por um painel em que
+  /// não se digita. Sair na frente aqui é pior do que chegar um quadro depois.
+  ///
+  /// Adiar também junta numa só as várias notificações que uma troca de tela
+  /// dispara.
+  void _onFocusChanged() => _recoverFocus();
+
+  void _recoverFocus() {
+    if (!mounted || _isRecoveringFocus) return;
+    if (_scope.hasFocus) return;
+
+    _isRecoveringFocus = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scheduleMicrotask(() {
+        _isRecoveringFocus = false;
+        if (!mounted || _scope.hasFocus) return;
+
+        // O nó do módulo quando ele tem um: o painel sabe melhor que a casca
+        // quem deve receber o teclado. Sem nó do módulo, o chão serve.
+        (widget.focusNode ?? _fallback).requestFocus();
+      });
+    });
   }
 
   @override
   void onWindowFocus() {
     _entrance.forward(from: 0);
     widget.onShow?.call();
+    // Depois do módulo: se ele recolocou o cursor num campo, não há o que
+    // recuperar; se não recolocou, a casca não deixa a janela sem teclado.
+    _recoverFocus();
   }
 
   @override
@@ -174,12 +244,18 @@ class _EgOverlayShellState extends State<EgOverlayShell>
       child: widget.child,
     );
 
-    if (focusNode != null) {
-      panel = Focus(focusNode: focusNode, child: panel);
-    }
+    // O `Focus` existe sempre, com o nó do módulo ou com o da casca: é ele que
+    // dá à rede um lugar para onde devolver o teclado. Sem ele, um painel sem
+    // campo de texto — ou com o campo recém-desmontado — não teria nó nenhum
+    // dentro do escopo, e o escopo vazio não recebe tecla.
+    panel = Focus(
+      focusNode: focusNode ?? _fallback,
+      skipTraversal: focusNode == null,
+      child: panel,
+    );
 
     // O escopo é o chão do teclado deste painel — ver a classe.
-    panel = FocusScope(child: panel);
+    panel = FocusScope(node: _scope, child: panel);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

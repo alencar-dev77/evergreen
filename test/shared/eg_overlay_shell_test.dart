@@ -64,6 +64,90 @@ void main() {
     return closed;
   }
 
+  group('o teclado não escapa do painel', () {
+    /// O que quebrava: um painel podia aparecer sem que nada pedisse o teclado
+    /// — trocar de painel com a janela já na tela não dispara `didBecomeKey`,
+    /// então não há `onWindowFocus` nem `onShow`. Sem nó focado, nenhum
+    /// `Shortcuts` é consultado: o painel fica na tela e cada tecla vira o bipe
+    /// do macOS.
+    testWidgets('o painel que nasce sem ninguém pedir foco ainda ouve o teclado',
+        (tester) async {
+      final teclas = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Material(
+            child: Shortcuts(
+              shortcuts: const {
+                SingleActivator(LogicalKeyboardKey.arrowDown): ActivateIntent(),
+              },
+              child: Actions(
+                actions: {
+                  ActivateIntent: CallbackAction<ActivateIntent>(
+                    onInvoke: (_) => teclas.add('↓'),
+                  ),
+                },
+                // Nenhum campo, nenhum autofocus, nenhum `onShow`: exatamente o
+                // painel trocado com a janela já visível.
+                child: EgOverlayShell(onClose: () {}, child: const _Painel()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+
+      expect(teclas, ['↓']);
+    });
+
+    testWidgets('o nó do módulo tem preferência sobre o da casca',
+        (tester) async {
+      final doModulo = FocusNode(debugLabel: 'do-modulo');
+      addTearDown(doModulo.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EgOverlayShell(
+            onClose: () {},
+            focusNode: doModulo,
+            child: const _Painel(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // Quem sabe onde o teclado deve ficar é o painel, quando ele tem opinião.
+      expect(doModulo.hasFocus, isTrue);
+    });
+
+    testWidgets('o campo do módulo não é atropelado pela casca',
+        (tester) async {
+      final doCampo = FocusNode(debugLabel: 'campo-do-modulo');
+      addTearDown(doCampo.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Material(
+            child: EgOverlayShell(
+              onClose: () {},
+              child: TextField(focusNode: doCampo, autofocus: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // A rede é rede, não dono: com um campo focado no painel, o teclado é
+      // dele — senão o Pin abriria sem cursor na busca.
+      expect(doCampo.hasFocus, isTrue);
+    });
+  });
+
   group('fechar por foco perdido', () {
     testWidgets('o padrão continua sendo fechar', (tester) async {
       var closed = 0;

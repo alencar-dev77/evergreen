@@ -138,6 +138,24 @@ class OverlayWindow {
     await windowManager.show();
   }
 
+  /// Reafirma o painel que já está na tela: reposiciona e devolve o teclado a
+  /// ele.
+  ///
+  /// É o caminho da troca de painel — `⌘⇧F` com o Pin aberto — e do atalho
+  /// apertado com a janela já visível. Sem ele, a janela continuava onde
+  /// estava e ninguém pedia o teclado de volta: se ela tivesse deixado de ser
+  /// a key window (o Echo gravando enquanto se clica na reunião), o painel
+  /// novo aparecia mudo, e cada tecla virava o bipe do macOS.
+  ///
+  /// Sem `capture()`: a foto do app anterior é de quem estava na frente **antes**
+  /// de o painel aparecer, e ela já foi tirada na primeira abertura. Repeti-la
+  /// agora fotografaria o próprio Evergreen se a pessoa tivesse clicado no
+  /// painel — e o auto-colar do Pin colaria nele mesmo.
+  Future<void> reassert() async {
+    await reposition();
+    await OverlayWindowChannel.show();
+  }
+
   /// Esconde o overlay e devolve o foco ao app capturado em `show()`.
   ///
   /// Cobre todos os caminhos de fechamento — seleção de item, Esc, clique fora —
