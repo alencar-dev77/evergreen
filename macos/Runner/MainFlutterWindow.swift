@@ -197,6 +197,22 @@ enum OverlayWindowChannel {
     panel.setIsVisible(true)
     panel.orderFrontRegardless()
     panel.makeKey()
+
+    // A view do Flutter de volta como first responder.
+    //
+    // Ser key não basta: quem recebe a tecla é o first responder da janela, e
+    // ele não sobrevive garantidamente a um `orderOut` — que é como o painel se
+    // esconde, dezenas de vezes por dia. Com a janela key e o responder perdido,
+    // a tecla sobe a cadeia sem ninguém para tratá-la e o macOS responde com o
+    // bipe de "não posso": o painel fica na tela, visivelmente aberto, e mudo.
+    //
+    // Só quando já não é ela: `makeFirstResponder` desfaz a seleção de texto do
+    // campo que estiver em foco, e reexibir o painel não pode mexer no que a
+    // pessoa deixou escrito.
+    if let view = panel.contentViewController?.view, panel.firstResponder !== view {
+      panel.makeFirstResponder(view)
+    }
+
     result(nil)
   }
 

@@ -71,7 +71,7 @@ que os outros cinco módulos já gravaram.
 | `enter` | Copia o item selecionado e fecha |
 | `⌘1`…`⌘5` | Copia direto o 1º…5º **recente** e fecha |
 | `⌥1`…`⌥5` | Copia direto o 1º…5º **fixado** e fecha |
-| `⌘←` `⌘→` | Anda pela fila de filtros por tipo |
+| `←` `→` | Anda pela fila de filtros por tipo (`⌘←` `⌘→` também) |
 | `⌘P` | Fixa/desafixa o item selecionado |
 | `⌥↑` `⌥↓` | Reordena o fixado selecionado dentro do grupo |
 | `⌘⌫` | Apaga o item selecionado, sem fechar o painel |
