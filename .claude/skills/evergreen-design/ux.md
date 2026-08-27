@@ -23,7 +23,6 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Tab` | overlay | abre **e fecha** o preview — é o único caminho de volta dele |
 | clique | overlay | seleciona a linha **e abre o preview** — o mouse não copia: quem copia é o botão "Copiar" de lá dentro |
 | `←` `→` | overlay | anda pela fila de filtros por tipo (Tudo · Textos · Links · E-mails · Telefones · CPF · Comandos) — o outro eixo das setas, com ↑↓ na lista |
-| `⌘←` `⌘→` | overlay | o mesmo, para quem já tinha a memória muscular de antes |
 | `Esc` | overlay | com filtro ativo, desfaz o filtro; em qualquer outro caso fecha o overlay — o preview **não** consome o Esc |
 | `⌘P` | overlay | fixa/desafixa o selecionado |
 | `⌥↑` `⌥↓` | overlay | reordena o fixado selecionado dentro do grupo; nas pontas e fora dos fixados, não faz nada |
@@ -133,7 +132,9 @@ Dois detalhes de convenção que valem para atalhos futuros:
 - **O menu da barra ensina os atalhos globais.** Cada item mostra o seu ao lado
   do rótulo — é o único lugar permanente do app na tela, e quem clica ali com o
   mouse é justamente quem ainda não decorou a tecla.
-- **Nem todo atalho cabe na barra de dicas.** A barra mostra o subconjunto relevante ao estado atual (`⌘⌫ excluir` só aparece com o preview aberto, onde há largura para ele e onde a exclusão é a ação em foco). Descobribilidade não é "mostrar tudo": é mostrar a coisa certa no momento em que a dúvida existe.
+- **Nem todo atalho cabe na barra de dicas — e "cabe" é literal.** A barra mostra o subconjunto relevante ao estado atual (`⌘⌫ excluir` só aparece com o preview aberto, onde há largura para ele e onde a exclusão é a ação em foco). Descobribilidade não é "mostrar tudo": é mostrar a coisa certa no momento em que a dúvida existe.
+  Quando o estado acumula dicas, quem decide não é a esperança de caber: o grupo da esquerda vive num viewport que recorta em silêncio, e o excesso sai cortado no meio da palavra, encostando no `esc`. O rodapé do Pin trabalha com **orçamento de vagas** — dica com rótulo custa duas, sem rótulo custa uma; quatro vagas no painel estreito, seis com o preview aberto — e percorre as candidatas em ordem de prioridade, pulando a que não couber e continuando a tentar as mais curtas. A ordem é a regra: o que só aparece num estado (`⌥↑↓ mover`, `←→ filtro`) vem antes do que se adivinha olhando (`↑↓`, `enter`). O número de vagas saiu de medição em teste, não de estimativa — mexeu nos rótulos, passa pela régua de novo.
+- **Uma tecla por ação.** Dois atalhos para o mesmo movimento é uma linha a mais para o rodapé ensinar e uma entrada a mais no mapa: quando `←`/`→` assumiram a fila de tipos, o `⌘←`/`⌘→` que fazia isso saiu junto.
 - **O modificador nomeia a camada.** No overlay, `⌥` é sempre "os fixados": ele alcança os fixados no `⌥1..⌥5` e os reordena no `⌥↑`/`⌥↓`. Um atalho novo que atue sobre os fixados nasce em `⌥`; um que atue sobre a lista inteira, em `⌘`.
 - **Atalho que só vale numa parte da lista se anuncia só ali.** `⌥↑↓ mover` entra no rodapé quando a seleção está num fixado que tem com quem trocar de lugar, e sai quando ela desce para os recentes — a fronteira entre os grupos é exatamente onde a capacidade muda, e anunciá-lo o tempo todo prometeria algo que a maior parte da lista não cumpre. A largura sai da dica mais evidente do rodapé (`enter`, que já era exibido sem rótulo), não do `tab ver`.
 
