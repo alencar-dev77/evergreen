@@ -7,6 +7,7 @@ import '../../../../app/providers.dart';
 import '../../../../shared/utils/day_bounds.dart';
 import '../../data/track_repository.dart';
 import '../../data/track_summarizer.dart';
+import '../../data/track_summary_cache.dart';
 import '../../models/track_day.dart';
 import '../../models/track_range.dart';
 
@@ -112,12 +113,14 @@ final trackViewModelProvider = NotifierProvider<TrackViewModel, TrackState>(
 class TrackViewModel extends Notifier<TrackState> {
   late final TrackRepository _repository;
   late final TrackSummarizer _summarizer;
+  late final TrackSummaryCache _cache;
   late final DateTime Function() _now;
 
   @override
   TrackState build() {
     _repository = ref.watch(trackRepositoryProvider);
     _summarizer = ref.watch(trackSummarizerProvider);
+    _cache = ref.watch(trackSummaryCacheProvider);
     _now = ref.watch(clockProvider);
 
     // A semana, e não o dia, é o que abre a tela: com "Hoje" a lista teria uma
@@ -161,9 +164,9 @@ class TrackViewModel extends Notifier<TrackState> {
 
   /// Pede o parágrafo ao modelo e guarda o resultado.
   ///
-  /// O resultado fica em memória e some ao fechar a janela: o Track não cria
-  /// tabela nenhuma, e um parágrafo gerado por um modelo local se refaz em
-  /// segundos.
+  /// O texto que sai daqui fica no cache (ver [TrackSummaryCache]): um dia que
+  /// já passou não muda mais, e o Hub abre e fecha dezenas de vezes por dia —
+  /// reabrir ontem não pode custar uma escrita nova do modelo toda vez.
   Future<void> _write(TrackDay day) async {
     final signature = day.signature;
     _setSummary(day.date, TrackSummary.writing(signature));
@@ -179,6 +182,11 @@ class TrackViewModel extends Notifier<TrackState> {
           ? TrackSummary.unavailable(signature)
           : TrackSummary.written(text, signature),
     );
+
+    // Só o que deu certo é guardado: "o modelo não estava disponível" é uma
+    // condição da máquina naquele instante, não um fato sobre o dia, e guardá-la
+    // faria a tela desistir de tentar de novo na próxima abertura.
+    if (text != null) unawaited(_cache.write(day.date, signature, text));
   }
 
   void _setSummary(DateTime date, TrackSummary summary) {
@@ -210,8 +218,31 @@ class TrackViewModel extends Notifier<TrackState> {
       selectedDate: days.any((day) => day.date == selectedDate)
           ? selectedDate
           : null,
-      summaries: _pruneSummaries(summaries, days),
+      summaries: _restored(_pruneSummaries(summaries, days), days),
     );
+  }
+
+  /// Traz de volta os parágrafos que já foram escritos numa sessão anterior.
+  ///
+  /// O que está em memória manda: um resumo sendo escrito agora não pode ser
+  /// atropelado pela versão guardada. O cache responde pelo resto — e responde
+  /// `null` sozinho quando o dia mudou desde que aquele texto foi escrito.
+  Map<DateTime, TrackSummary> _restored(
+    Map<DateTime, TrackSummary> summaries,
+    List<TrackDay> days,
+  ) {
+    final restored = {...summaries};
+
+    for (final day in days) {
+      if (restored.containsKey(day.date)) continue;
+
+      final text = _cache.read(day.date, day.signature);
+      if (text == null) continue;
+
+      restored[day.date] = TrackSummary.written(text, day.signature);
+    }
+
+    return restored;
   }
 
   /// Descarta o parágrafo de um dia que mudou desde que ele foi escrito.

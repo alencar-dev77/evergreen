@@ -284,6 +284,9 @@ class EvergreenBootstrap {
 
   Future<void> _quit() async {
     _backupTimer?.cancel();
+    // A trava seria solta pelo sistema de qualquer forma quando o processo
+    // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
+    await _container.read(awakeViewModelProvider.notifier).turnOff();
     await GlobalShortcutService.instance.dispose();
     await MenuBarService.instance.dispose();
     exit(0);

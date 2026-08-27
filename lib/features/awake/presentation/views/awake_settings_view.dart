@@ -7,13 +7,14 @@ import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
 import '../../models/awake_duration.dart';
+import '../../models/awake_mode.dart';
 import '../viewmodels/awake_settings_view_model.dart';
 
 /// Tela do Awake dentro do Hub.
 ///
-/// O módulo tem uma preferência só, e é assim que deve ser: o que muda de uma
-/// vez para outra é a duração, e essa escolha vive no painel, junto do botão
-/// que liga. Aqui fica apenas com qual delas o painel abre.
+/// As duas preferências daqui são as que **não** mudam de uma vez para outra: o
+/// que a trava segura e com qual prazo o painel abre. O que muda toda vez é a
+/// duração escolhida na hora, e essa vive no painel, junto do botão que liga.
 class AwakeSettingsView extends ConsumerWidget {
   const AwakeSettingsView({super.key});
 
@@ -29,10 +30,24 @@ class AwakeSettingsView extends ConsumerWidget {
           title: 'Geral',
           children: [
             EgSettingsRow(
+              label: 'Manter acordado',
+              description:
+                  'Tela: nada apaga enquanto a trava valer — a apresentação, o '
+                  'painel que se olha de longe. Sistema: a tela apaga quando '
+                  'quiser, e o Mac não suspende — a compilação, o download que '
+                  'precisa terminar.',
+              trailing: EgSegmentedControl<AwakeMode>(
+                value: settings.mode,
+                options: AwakeMode.options,
+                labelOf: (option) => option.label,
+                onChanged: viewModel.setMode,
+              ),
+            ),
+            EgSettingsRow(
               label: 'Duração padrão',
               description:
-                  'Por quanto tempo o painel propõe manter a tela acesa. Dá '
-                  'para trocar na hora de ligar.',
+                  'Por quanto tempo o painel propõe manter a trava. Dá para '
+                  'trocar na hora de ligar.',
               showDivider: false,
               trailing: EgSegmentedControl<AwakeDuration>(
                 value: settings.defaultDuration,

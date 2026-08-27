@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/utils/duration_format.dart';
 import '../../pin/models/clipboard_item_type.dart';
 
 /// Uma coisa que aconteceu numa hora do dia e durou um tempo — uma sessão de
@@ -34,6 +35,7 @@ class TrackDay {
     required this.date,
     this.focus = const [],
     this.meetings = const [],
+    this.awake = const [],
     this.copied = const {},
     this.notesWritten = 0,
   });
@@ -46,6 +48,13 @@ class TrackDay {
 
   /// Reuniões do Echo, da mais recente para a mais antiga.
   final List<TrackEntry> meetings;
+
+  /// Períodos em que o Awake segurou o Mac acordado.
+  ///
+  /// O rótulo diz o que estava sendo segurado — "Tela acesa" ou "Sistema
+  /// acordado" —, que é a única coisa que o módulo tem a contar sobre um
+  /// período.
+  final List<TrackEntry> awake;
 
   /// Quantos itens de cada tipo passaram pela área de transferência. Só a
   /// contagem — o conteúdo nunca sai do banco.
@@ -63,6 +72,9 @@ class TrackDay {
   Duration get meetingTotal =>
       meetings.fold(Duration.zero, (total, entry) => total + entry.duration);
 
+  Duration get awakeTotal =>
+      awake.fold(Duration.zero, (total, entry) => total + entry.duration);
+
   int get copiedTotal =>
       copied.values.fold(0, (total, count) => total + count);
 
@@ -72,11 +84,17 @@ class TrackDay {
   /// hoje", e uma hora de reunião é uma hora de trabalho tanto quanto uma hora
   /// de foco. É o número que a linha do dia mostra à direita e a altura que a
   /// barra da semana desenha.
+  ///
+  /// O Awake fica **de fora** de propósito: a trava não é trabalho, é uma
+  /// condição da máquina. Duas horas de tela acesa numa apresentação não são
+  /// duas horas de foco, e somá-las inflaria justamente o número que o módulo
+  /// existe para responder com honestidade.
   Duration get registered => focusTotal + meetingTotal;
 
   bool get isEmpty =>
       focus.isEmpty &&
       meetings.isEmpty &&
+      awake.isEmpty &&
       copiedTotal == 0 &&
       notesWritten == 0;
 
@@ -90,6 +108,9 @@ class TrackDay {
         if (focus.isNotEmpty) TrackCounts.of(focus.length, 'sessão', 'sessões'),
         if (meetings.isNotEmpty)
           TrackCounts.of(meetings.length, 'reunião', 'reuniões'),
+        // Duração, e não contagem como os outros: "2 travas" não diz nada, e o
+        // que se quer saber do Awake é por quanto tempo o Mac ficou de pé.
+        if (awake.isNotEmpty) '${DurationFormat.compact(awakeTotal)} acordado',
         if (copiedTotal > 0)
           TrackCounts.of(copiedTotal, 'item copiado', 'itens copiados'),
         if (notesWritten > 0)
@@ -104,6 +125,7 @@ class TrackDay {
   /// lado — e um resumo errado é pior que resumo nenhum.
   String get signature => '${focus.length}/${focusTotal.inMinutes}/'
       '${meetings.length}/${meetingTotal.inMinutes}/'
+      '${awake.length}/${awakeTotal.inMinutes}/'
       '$copiedTotal/$notesWritten';
 }
 

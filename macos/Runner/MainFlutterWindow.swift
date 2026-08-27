@@ -2,6 +2,7 @@ import ApplicationServices
 import Cocoa
 import CoreGraphics
 import FlutterMacOS
+import IOKit.pwr_mgt
 import QuartzCore
 import ServiceManagement
 import desktop_multi_window
@@ -94,6 +95,7 @@ class MainFlutterWindow: NSPanel {
     HubWindowChannel.register(with: controller.engine.binaryMessenger)
     OverlayWindowChannel.register(with: controller.engine.binaryMessenger)
     PasteboardWatcherChannel.register(with: controller.engine.binaryMessenger)
+    SleepAssertionChannel.register(with: controller.engine.binaryMessenger)
     EchoChannel.register(with: controller.engine.binaryMessenger)
   }
 
@@ -709,6 +711,90 @@ enum PasteboardWatcherChannel {
     guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
     activeChannel?.invokeMethod("onCopy", arguments: content)
+  }
+}
+
+/// Segura o Mac acordado enquanto a trava do Awake estiver ligada.
+///
+/// Duas travas diferentes, e é essa escolha que não existe em Flutter puro: o
+/// `wakelock_plus` sempre registra a de tela. Manter o **sistema** acordado com
+/// a tela apagada — o build da madrugada, o download grande — é outro tipo de
+/// assertion do IOKit, e o pacote não expõe qual usar.
+///
+/// Uma assertion por processo: ligar num modo com o outro valendo troca a que
+/// existe, em vez de empilhar duas. O `IOPMAssertionRelease` da anterior vem
+/// **depois** de a nova estar registrada, para não abrir uma janela em que o
+/// Mac pode suspender no meio da troca.
+///
+/// Estático de propósito, como os outros canais daqui: a trava é do processo, e
+/// os dois engines (a janela 0 e o Hub) registram o mesmo canal.
+enum SleepAssertionChannel {
+  private static let channelName = "sleep_assertion"
+
+  /// A assertion viva, ou `kIOPMNullAssertionID` quando não há nenhuma.
+  private static var assertion: IOPMAssertionID = IOPMAssertionID(kIOPMNullAssertionID)
+
+  /// Aparece no `pmset -g assertions`, que é onde se investiga "por que este
+  /// Mac não dorme" — o nome precisa dizer quem foi.
+  private static let reason = "Evergreen: Awake" as CFString
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "enable":
+        let keepsScreenOn = (call.arguments as? String) != "system"
+        if enable(keepingScreenOn: keepsScreenOn) {
+          result(nil)
+        } else {
+          result(
+            FlutterError(
+              code: "assertion_failed",
+              message: "O sistema recusou a trava de energia.",
+              details: nil
+            )
+          )
+        }
+
+      case "disable":
+        disable()
+        result(nil)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private static func enable(keepingScreenOn: Bool) -> Bool {
+    let type =
+      keepingScreenOn
+      ? kIOPMAssertionTypePreventUserIdleDisplaySleep
+      : kIOPMAssertionTypePreventUserIdleSystemSleep
+
+    var created: IOPMAssertionID = IOPMAssertionID(kIOPMNullAssertionID)
+    let status = IOPMAssertionCreateWithName(
+      type as CFString,
+      IOPMAssertionLevel(kIOPMAssertionLevelOn),
+      reason,
+      &created
+    )
+    guard status == kIOReturnSuccess else { return false }
+
+    // Só agora: entre a criação da nova e a liberação da antiga o Mac está
+    // coberto pelas duas, que é o lado certo de errar.
+    disable()
+    assertion = created
+
+    return true
+  }
+
+  private static func disable() {
+    guard assertion != IOPMAssertionID(kIOPMNullAssertionID) else { return }
+
+    IOPMAssertionRelease(assertion)
+    assertion = IOPMAssertionID(kIOPMNullAssertionID)
   }
 }
 

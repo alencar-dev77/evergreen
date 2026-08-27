@@ -1,5 +1,6 @@
 import '../../../../shared/utils/duration_format.dart';
 import '../../models/awake_duration.dart';
+import '../../models/awake_mode.dart';
 import '../../models/awake_settings.dart';
 
 /// Estado do Awake: ligado ou não, com que prazo e quanto falta dele.
@@ -7,19 +8,31 @@ class AwakeState {
   const AwakeState({
     required this.settings,
     required this.duration,
+    required this.mode,
     this.isOn = false,
     this.remaining,
   });
 
-  /// Estado de partida, com a duração que as preferências escolheram.
+  /// Estado de partida, com a duração e o modo que as preferências escolheram.
   AwakeState.off(AwakeSettings settings)
-      : this(settings: settings, duration: settings.defaultDuration);
+      : this(
+          settings: settings,
+          duration: settings.defaultDuration,
+          mode: settings.mode,
+        );
 
   final AwakeSettings settings;
 
   /// Duração escolhida no seletor — a que vale agora, se estiver ligado, ou a
   /// que valerá quando ligar.
   final AwakeDuration duration;
+
+  /// O que a trava está segurando — ou seguraria, se ligasse agora.
+  ///
+  /// Guardado no estado, e não lido das preferências na hora, pela mesma razão
+  /// da duração: trocar a preferência no Hub com a trava ligada não pode mudar
+  /// por baixo o que já está valendo.
+  final AwakeMode mode;
 
   final bool isOn;
 
@@ -55,7 +68,17 @@ class AwakeState {
   }
 
   /// Situação, em caixa alta, acima do número.
-  String get statusLabel => isOn ? 'Mantendo a tela acesa' : 'Desligado';
+  ///
+  /// Diz **o que** está segurando, não só que está ligado: com o modo sistema a
+  /// tela apaga sozinha, e um painel prometendo "tela acesa" enquanto ela apaga
+  /// pareceria defeito.
+  String get statusLabel {
+    if (!isOn) return 'Desligado';
+
+    return mode.keepsScreenOn
+        ? 'Mantendo a tela acesa'
+        : 'Mantendo o sistema acordado';
+  }
 
   /// Como o estado aparece no item do menu da barra.
   ///
@@ -72,6 +95,7 @@ class AwakeState {
   AwakeState copyWith({
     AwakeSettings? settings,
     AwakeDuration? duration,
+    AwakeMode? mode,
     bool? isOn,
     Duration? remaining,
     bool clearRemaining = false,
@@ -79,6 +103,7 @@ class AwakeState {
     return AwakeState(
       settings: settings ?? this.settings,
       duration: duration ?? this.duration,
+      mode: mode ?? this.mode,
       isOn: isOn ?? this.isOn,
       remaining: clearRemaining ? null : remaining ?? this.remaining,
     );

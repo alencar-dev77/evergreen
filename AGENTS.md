@@ -28,10 +28,15 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   janela flutuante, ícone da barra de menus, atalho global.
 - **`launch_at_startup`** — "iniciar com o macOS", via canal nativo próprio
   (`SMAppService`), não o pacote nativo sugerido pela lib.
-- **`wakelock_plus`** — a trava do Awake. No macOS ele registra um
-  `IOPMAssertionCreateWithName(kIOPMAssertionTypeNoDisplaySleep)`, a mesma
-  assertion do Caffeine/Amphetamine — por isso o módulo não tem canal nativo
-  próprio: o Swift equivalente já vive dentro do pacote.
+- **`IOPMAssertionCreateWithName`** (nativo, canal `sleep_assertion`) — a trava
+  do Awake, em dois modos: `PreventUserIdleDisplaySleep` (a tela) e
+  `PreventUserIdleSystemSleep` (só o sistema, com a tela livre para apagar). Era
+  `wakelock_plus`, que registra sempre a de tela e não expõe escolha — e manter
+  a tela acesa a noite inteira para uma compilação terminar gasta a tela para
+  resolver um problema que não é dela. Com o Swift necessário para um dos modos,
+  dois mecanismos vivos para "não deixar dormir" seria pior que escrever os dois
+  no mesmo lugar. Ver
+  [docs/Ideis projeto/awake-trava-nativa.md](docs/Ideis%20projeto/awake-trava-nativa.md).
 - **`ScreenCaptureKit` + `Speech` + `FoundationModels`** (nativo, macOS 26) — o
   Echo. Captura de áudio em duas faixas, transcrição e resumo local, sem
   equivalente em Flutter puro; o porquê de cada um está em
@@ -147,6 +152,16 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   Pin**. A consulta do Track pede `copied_at` e `type`, e mais nada, porque o
   Pin registra tudo o que passa pela área de transferência, senha inclusive.
   O mesmo vale para o que segue ao modelo local: só o agregado.
+- Do outro lado dessa regra: **módulo que quer aparecer no Track precisa gravar
+  alguma coisa.** O Awake era o único que não aparecia — não por decisão, mas
+  porque não tinha tabela. Agora grava uma linha por trava solta (`quando`,
+  `quanto`, `o quê`), e só isso: o painel continua respondendo "está ligado?", e
+  o histórico é do Track. A trava que ainda está de pé não vira linha, porque
+  ainda não tem duração.
+- O parágrafo que o modelo local escreve sobre um dia é **cache, não dado**: ele
+  vive no plist (`TrackSummaryCache`), com assinatura do dia, e não no banco.
+  Não entra no backup nem na exportação porque se refaz sozinho — e é o que
+  mantém o Track sem tabela própria mesmo guardando alguma coisa.
 - Módulo que usa o modelo local (`FoundationModels`, pelo canal do Echo) trata a
   resposta dele como **enfeite**: abaixo do macOS 26 ou sem Apple Intelligence o
   canal responde `unsupported_os`, e a tela precisa ficar inteira sem o texto —

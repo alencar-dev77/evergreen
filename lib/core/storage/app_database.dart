@@ -139,6 +139,23 @@ class AppDatabase {
     CREATE INDEX IF NOT EXISTS idx_echo_meetings_recent
       ON echo_meetings (started_at DESC);
     ''',
+    // Quanto tempo o Mac ficou acordado por ordem do Awake.
+    //
+    // É a única linha que o módulo grava, e ela existe para o Track: dos cinco
+    // módulos que registram alguma coisa, o Awake era o único que não aparecia
+    // no dia reconstruído — não por decisão, mas porque não tinha tabela. Uma
+    // trava por vez, gravada quando ela se solta; a que ainda está de pé não
+    // está aqui, porque ainda não tem duração.
+    'awake-sessions': '''
+    CREATE TABLE IF NOT EXISTS awake_sessions (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      started_at       INTEGER NOT NULL,
+      duration_seconds INTEGER NOT NULL,
+      mode             TEXT    NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_awake_sessions_recent
+      ON awake_sessions (started_at DESC);
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.
