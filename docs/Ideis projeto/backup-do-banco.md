@@ -128,8 +128,48 @@ de qualquer leitura, e uma coluna que ele não tinha nasce com o valor padrão.
 
 Restaurar é a única operação do Evergreen que apaga tudo de uma vez. Ter clicado
 na linha errada da lista não pode custar o dia de trabalho de hoje, então o
-estado atual vira um backup novo antes de qualquer coisa — e ele aparece na
+estado atual vira um arquivo novo antes de qualquer coisa — e ele aparece na
 lista, no topo, pronto para desfazer o engano.
+
+Essa rede nasceu no ViewModel, como um `create()` antes do `restore()`, e nessa
+forma ela tinha um buraco que fazia exatamente o oposto do que prometia: o
+`create()` chama a limpeza, a limpeza mantém cinco, e com a pasta no teto o
+sexto arquivo empurrava para fora **o mais antigo — que é justamente o que se
+estava prestes a restaurar**. O `sqlite3.open` seguinte não reclamava: num
+caminho que não existe ele *cria* um banco vazio, a migração dava a ele as
+tabelas de hoje, e as zero linhas desse banco eram copiadas por cima de tudo. A
+tela dizia "Backup restaurado".
+
+Três decisões saíram daí:
+
+**A rede é do serviço, não de quem chama.** Ela protege da limpeza o arquivo que
+o método está prestes a ler, e só quem lê sabe qual é. O `prune` ganhou um
+`protecting`: o arquivo em restauração não sai da pasta, nem que esteja
+sobrando.
+
+**Nome próprio, teto próprio.** `evergreen-antes-de-restaurar-2026-08-25-1432.db`
+continua sendo um arquivo nosso (a limpeza alcança), mas conta separado — três,
+contra as cinco dos automáticos. Duas razões: um teto compartilhado faria a
+terceira tentativa de restauração apagar a cópia da primeira, que é a única em
+que o dia ainda estava inteiro; e uma pasta cheia de backups semanais não pode
+varrer a única cópia do que existia antes da última troca. A rede também não
+entra na conta do `isDue` — ela é do dia em que se restaurou algo, não do fim de
+uma semana, e adiaria por sete dias um backup que ninguém pediu para adiar.
+
+**A lista diz o que ela é.** Os arquivos do Evergreen aparecem só pela data, sem
+nome, porque o nome repetiria a data. A rede quebra isso: na linha dela, no
+lugar do nome, vai a etiqueta "antes de restaurar". Sem ela, a cópia de
+emergência seria indistinguível de mais um backup semanal — no minuto exato em
+que se procura por ela.
+
+### O arquivo que sumiu da pasta
+
+A pasta é a interface, o que significa que a pessoa mexe nela. Arrastar um
+backup para o lixo com o Hub aberto deixa na lista uma linha que já não
+corresponde a nada — e, pelo mesmo `sqlite3.open` que cria banco vazio, clicar
+em Restaurar ali esvaziava o banco anunciando sucesso. A restauração agora
+confere se o arquivo existe antes de tudo, e recusa com uma frase em português
+(`BackupMissing`) sem tocar no banco nem deixar rede para trás.
 
 ---
 

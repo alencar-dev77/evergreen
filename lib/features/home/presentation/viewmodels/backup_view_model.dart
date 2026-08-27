@@ -119,17 +119,20 @@ class BackupViewModel extends Notifier<BackupState> {
 
   /// Restaura o backup escolhido.
   ///
-  /// Antes de qualquer coisa, guarda o estado atual num backup novo: restaurar
-  /// é a única operação do Evergreen que apaga tudo de uma vez, e ter escolhido
-  /// o arquivo errado na lista não pode custar o dia de trabalho de hoje.
+  /// A rede — o estado de agora guardado num arquivo antes de a primeira linha
+  /// ser apagada — é do serviço, não daqui: ela precisa proteger da limpeza
+  /// automática o arquivo que está prestes a ser lido, e só quem lê sabe qual
+  /// é. Ver [BackupService.restore].
   void restoreSelected() {
     final backup = state.selected;
     if (backup == null) return;
 
     try {
-      _service.create();
       _service.restore(backup);
-      _finish('Backup restaurado. Os painéis mostram o conteúdo novo ao abrir.');
+      _finish(
+        'Backup restaurado. O estado anterior ficou guardado na pasta, e os '
+        'painéis mostram o conteúdo novo ao abrir.',
+      );
     } catch (error) {
       _finish('Não deu para restaurar: ${_reason(error)}');
     }

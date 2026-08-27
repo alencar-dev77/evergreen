@@ -10,6 +10,7 @@ class BackupFile {
     required this.createdAt,
     required this.sizeBytes,
     required this.isOurs,
+    this.isSafetyCopy = false,
   });
 
   final String path;
@@ -31,7 +32,19 @@ class BackupFile {
   /// que mais importava.
   final bool isOurs;
 
-  factory BackupFile.of(File file, {required bool isOurs}) {
+  /// Este arquivo é a rede que uma restauração deixou para trás — o banco como
+  /// ele estava um instante antes de ser trocado.
+  ///
+  /// A lista precisa dizer isso na linha: os arquivos do Evergreen aparecem só
+  /// pela data, e sem a etiqueta a cópia de emergência seria indistinguível de
+  /// mais um backup semanal — justamente no minuto em que se procura por ela.
+  final bool isSafetyCopy;
+
+  factory BackupFile.of(
+    File file, {
+    required bool isOurs,
+    bool isSafetyCopy = false,
+  }) {
     final stat = file.statSync();
 
     return BackupFile(
@@ -39,6 +52,7 @@ class BackupFile {
       createdAt: stat.modified,
       sizeBytes: stat.size,
       isOurs: isOurs,
+      isSafetyCopy: isSafetyCopy,
     );
   }
 

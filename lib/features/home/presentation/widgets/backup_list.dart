@@ -70,6 +70,16 @@ class _BackupRow extends StatelessWidget {
   /// Coluna do tamanho, à direita — a que se compara correndo o olho.
   static const _sizeColumn = 64.0;
 
+  /// A coluna do meio: o que este arquivo é, quando isso não está na data.
+  ///
+  /// Numa rede de restauração o que se procura não é o nome — é saber que
+  /// aquela linha é o estado de antes da troca.
+  String get _label {
+    if (backup.isSafetyCopy) return 'antes de restaurar';
+
+    return backup.isOurs ? '' : backup.name;
+  }
+
   @override
   Widget build(BuildContext context) {
     return EgInteractiveSurface(
@@ -97,7 +107,7 @@ class _BackupRow extends StatelessWidget {
           // justamente como a pessoa o reconhece.
           Expanded(
             child: Text(
-              backup.isOurs ? '' : backup.name,
+              _label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
