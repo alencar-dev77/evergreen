@@ -18,7 +18,6 @@ import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
 import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/backup_view_model.dart';
-import '../viewmodels/export_view_model.dart';
 import '../widgets/backup_list.dart';
 
 /// Preferências do Evergreen como aplicativo.
@@ -79,7 +78,6 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           onAutomaticChanged: viewModel.setAutomaticBackup,
         ),
         const _RestoreSection(),
-        const _ExportSection(),
         EgSettingsSection(
           title: 'Atalho global',
           children: [
@@ -238,60 +236,6 @@ class _RestoreSection extends ConsumerWidget {
     if (!confirmed) return;
 
     ref.read(backupViewModelProvider.notifier).restoreSelected();
-  }
-}
-
-/// Tirar os dados do Evergreen para outra ferramenta.
-///
-/// Separada do backup porque as duas respondem a perguntas diferentes: o backup
-/// é para o Evergreen ler de volta, e a exportação é para qualquer outro
-/// programa abrir. Juntá-las numa seção só faria uma parecer o formato
-/// alternativo da outra.
-class _ExportSection extends ConsumerWidget {
-  const _ExportSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(exportViewModelProvider);
-    final viewModel = ref.read(exportViewModelProvider.notifier);
-
-    return EgSettingsSection(
-      title: 'Exportar',
-      children: [
-        EgSettingsRow(
-          label: 'Exportar tudo em JSON',
-          // O aviso não é letra miúda: o histórico do Pin registra tudo o que
-          // passou pela área de transferência, senha inclusive, e o arquivo sai
-          // em texto puro. Quem exporta precisa saber disso antes, não depois.
-          description: 'Um arquivo que outros programas conseguem abrir, com o '
-              'histórico do Pin, as sessões do Focus, as anotações do Leaf e as '
-              'reuniões do Echo. Sai sem cifra nenhuma — e o histórico do Pin '
-              'inclui tudo o que foi copiado.',
-          trailing: EgButton.secondary(
-            label: 'Exportar',
-            onPressed: viewModel.exportNow,
-          ),
-        ),
-        EgSettingsRow(
-          label: 'Pasta das exportações',
-          description: state.directoryLabel,
-          showDivider: false,
-          trailing: EgButton.secondary(
-            label: 'Mostrar no Finder',
-            onPressed: () => unawaited(viewModel.reveal()),
-          ),
-        ),
-        if (state.message != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            state.message!,
-            style: AppTypography.captionSmall.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ],
-    );
   }
 }
 

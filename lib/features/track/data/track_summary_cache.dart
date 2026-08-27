@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// faz cada módulo novo alimentá-lo de graça. O parágrafo não contraria isso
 /// porque ele não é dado de ninguém — é derivado do que já está lá e se refaz
 /// sozinho. Por isso mora no plist das preferências, com o resto do que é
-/// barato de perder, e por isso não entra no backup nem na exportação.
+/// barato de perder, e por isso não entra no backup.
 ///
 /// O que ele evita é gastar o modelo de novo para reescrever a mesma frase: o
 /// Hub fecha e abre dezenas de vezes por dia, e a região de leitura de ontem
