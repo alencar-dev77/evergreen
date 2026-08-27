@@ -28,6 +28,9 @@ enum EgIconData {
   /// Cartão com retrato e linha — representa um documento (CPF).
   identityCard,
 
+  /// Duas setas em círculo — sortear outro, refazer.
+  shuffle,
+
   /// Lupa do campo de busca.
   search,
 
@@ -168,6 +171,7 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.envelope => _envelopePath(),
         EgIconData.phone => _phonePath(),
         EgIconData.identityCard => _identityCardPath(),
+        EgIconData.shuffle => _shufflePath(),
         EgIconData.search => _searchPath(),
         EgIconData.plus => _plusPath(),
         EgIconData.close => _closePath(),
@@ -257,6 +261,36 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(12.2, 6.6)
     ..moveTo(9, 9.4)
     ..lineTo(12.2, 9.4);
+
+  /// Seta dando a volta — sortear outro.
+  ///
+  /// A ponta é um chevron de dois traços, e não um triângulo preenchido: no
+  /// viewBox de 16px o triângulo pesa mais que o próprio arco, e este ícone
+  /// aparece a 13px dentro de uma linha de lista, ao lado de traços finos.
+  Path _shufflePath() {
+    const center = Offset(8, 8);
+    const radius = 5.0;
+    const start = -math.pi / 3; // começa às duas horas
+    const sweep = 5 * math.pi / 3; // e dá quase a volta inteira
+    const end = start + sweep;
+
+    final tip = Offset(
+      center.dx + math.cos(end) * radius,
+      center.dy + math.sin(end) * radius,
+    );
+
+    // Tangente no fim do arco (para onde ele seguiria) e o raio, para abrir as
+    // duas asas do chevron simetricamente em volta dela.
+    final along = Offset(-math.sin(end), math.cos(end));
+    final across = Offset(math.cos(end), math.sin(end));
+    final back = tip - along * 2.3;
+
+    return Path()
+      ..addArc(Rect.fromCircle(center: center, radius: radius), start, sweep)
+      ..moveTo(back.dx + across.dx * 1.3, back.dy + across.dy * 1.3)
+      ..lineTo(tip.dx, tip.dy)
+      ..lineTo(back.dx - across.dx * 1.3, back.dy - across.dy * 1.3);
+  }
 
   Path _searchPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(7, 7), radius: 5))

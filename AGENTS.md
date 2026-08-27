@@ -125,6 +125,14 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   **subsequência não é solta sobre o conteúdo inteiro** — só sobre o apelido e a
   linha exibida. Solta, ela devolve o histórico inteiro para qualquer coisa
   digitada; o casamento literal é que continua alcançando o conteúdo todo.
+- **O Pin escreve num lugar só: o gerador de CPF.** Ele é uma linha no topo da
+  lista dentro do filtro de CPF, e paga três exceções às regras daqui — a pílula
+  do CPF está sempre na fila (senão o gerador nasce escondido de quem nunca
+  copiou um), clicar nela copia em vez de abrir o preview (a linha não tem um
+  "dentro"), e `selectedIndex == -1` passou a significar duas coisas. A conta do
+  módulo 11 vive só em `TaxId` (`lib/features/pin/models/tax_id.dart`), nunca
+  duplicada no classificador. Ver
+  [docs/Ideis projeto/pin-gerador-de-cpf.md](docs/Ideis%20projeto/pin-gerador-de-cpf.md).
 - Tipo de item do Pin (texto, link, e-mail, telefone, CPF, comando) é decidido
   na captura e gravado na linha. Mexeu no `ClipboardItemClassifier`, suba o
   `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já

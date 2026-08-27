@@ -4,6 +4,7 @@ import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/clipboard_item.dart';
 import '../viewmodels/pin_overlay_state.dart';
+import 'pin_generator_row.dart';
 import 'pin_list_item.dart';
 
 /// Lista de resultados do overlay, agrupada em "Fixados" e "Recentes".
@@ -20,6 +21,8 @@ class PinResultList extends StatefulWidget {
     super.key,
     required this.state,
     required this.onSelect,
+    required this.onCopyGenerated,
+    required this.onRegenerateTaxId,
     this.compact = false,
   });
 
@@ -27,6 +30,12 @@ class PinResultList extends StatefulWidget {
 
   /// Clique na linha: seleciona e abre o preview.
   final ValueChanged<ClipboardItem> onSelect;
+
+  /// Clique na linha do gerador: copia o CPF sorteado e fecha.
+  final VoidCallback onCopyGenerated;
+
+  /// Sorteia outro CPF sem fechar.
+  final VoidCallback onRegenerateTaxId;
 
   /// Coluna estreita exibida ao lado do preview.
   final bool compact;
@@ -54,7 +63,10 @@ class _PinResultListState extends State<PinResultList> {
   void didUpdateWidget(PinResultList oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!identical(oldWidget.state.results, widget.state.results)) {
+    // A *presença* da linha do gerador muda as linhas; o número que ela mostra
+    // não — esse chega pelo `itemBuilder`, a cada build.
+    if (!identical(oldWidget.state.results, widget.state.results) ||
+        oldWidget.state.hasGenerator != widget.state.hasGenerator) {
       _rows = _buildRows();
     }
 
@@ -74,7 +86,11 @@ class _PinResultListState extends State<PinResultList> {
   /// Assim o índice de cada linha na lista de resultados sai do próprio laço —
   /// nada de `indexOf` por item, que seria quadrático no histórico cheio.
   List<_ListRow> _buildRows() {
-    final rows = <_ListRow>[];
+    final rows = <_ListRow>[
+      // Acima de tudo, inclusive dos fixados: ela não pertence a grupo nenhum —
+      // é o que a lista oferece além do que já guardou.
+      if (widget.state.hasGenerator) const _ListRow.generator(),
+    ];
     bool? group;
 
     for (var index = 0; index < widget.state.results.length; index++) {
@@ -158,6 +174,16 @@ class _PinResultListState extends State<PinResultList> {
   }
 
   Widget _buildRow(_ListRow row) {
+    if (row.isGenerator) {
+      return PinGeneratorRow(
+        taxId: widget.state.generatedTaxId!,
+        isSelected: widget.state.isGeneratorSelected,
+        compact: widget.compact,
+        onCopy: widget.onCopyGenerated,
+        onRegenerate: widget.onRegenerateTaxId,
+      );
+    }
+
     final item = row.item;
 
     if (item == null) {
@@ -183,17 +209,27 @@ class _PinResultListState extends State<PinResultList> {
   }
 }
 
-/// Uma linha da lista: cabeçalho de grupo ou item, com altura conhecida.
+/// Uma linha da lista: o gerador, um cabeçalho de grupo ou um item, com altura
+/// conhecida.
 @immutable
 class _ListRow {
   const _ListRow.header(this.label, {required this.isFirst})
       : item = null,
-        resultIndex = -1;
+        isGenerator = false,
+        resultIndex = _noIndex;
 
   const _ListRow.item(this.item, {required int index})
       : label = null,
         isFirst = false,
+        isGenerator = false,
         resultIndex = index;
+
+  const _ListRow.generator()
+      : item = null,
+        label = null,
+        isFirst = false,
+        isGenerator = true,
+        resultIndex = -1;
 
   final ClipboardItem? item;
   final String? label;
@@ -201,12 +237,25 @@ class _ListRow {
   /// Primeiro cabeçalho da lista — leva menos respiro acima que os seguintes.
   final bool isFirst;
 
-  /// Posição do item em `state.results`; -1 para cabeçalhos.
+  /// A linha "Gerar CPF", que fica acima de todos os grupos.
+  final bool isGenerator;
+
+  /// Posição da linha em `state.results` — e [_noIndex] para o que não está
+  /// lá.
+  ///
+  /// O gerador tem `-1` porque é assim que a seleção o alcança (ver
+  /// `PinOverlayState.selectedIndex`), e é justamente por isso que os
+  /// cabeçalhos **não** podem usar `-1`: `_revealSelection` acha a linha
+  /// selecionada comparando este número, e acharia um cabeçalho no lugar do
+  /// gerador.
   final int resultIndex;
 
-  bool get isHeader => item == null;
+  static const _noIndex = -2;
 
-  /// Altura fixa: texto de 11px com o padding do cabeçalho, ou a linha de item.
+  bool get isHeader => item == null && !isGenerator;
+
+  /// Altura fixa: texto de 11px com o padding do cabeçalho, ou a linha de item —
+  /// que é a mesma do gerador.
   static const _headerHeight = AppSpacing.xs + 15 + AppSpacing.xxs;
   static const _headerHeightWithGap = AppSpacing.lg + 15 + AppSpacing.xxs;
 

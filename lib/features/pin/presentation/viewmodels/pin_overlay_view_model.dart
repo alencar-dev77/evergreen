@@ -11,6 +11,7 @@ import '../../models/clipboard_item.dart';
 import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
 import '../../models/pin_search.dart';
+import '../../models/tax_id.dart';
 import 'pin_overlay_state.dart';
 
 final pinOverlayViewModelProvider =
@@ -72,7 +73,15 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   /// escolhido ontem seria encontrá-lo com metade do histórico faltando, sem
   /// nada explicando o porquê.
   void prepareForOpen() {
-    state = state.copyWith(query: '', typeFilter: null, keepTypeFilter: false);
+    state = state.copyWith(
+      query: '',
+      typeFilter: null,
+      keepTypeFilter: false,
+      // O número sai junto do filtro: um CPF sorteado ontem, ainda na tela hoje,
+      // pareceria um item do histórico que sobrou de alguma coisa.
+      generatedTaxId: null,
+      keepGeneratedTaxId: false,
+    );
     load();
   }
 
@@ -114,10 +123,15 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   }
 
   /// Move a seleção com ↑/↓, parando nas extremidades da lista.
+  ///
+  /// Com a linha do gerador na tela o piso desce para `-1`, que é ela: o `↑` a
+  /// partir do primeiro item chega no gerador, e o `↓` volta para a lista.
   void moveSelection(int delta) {
-    if (state.results.isEmpty) return;
+    if (state.results.isEmpty && !state.hasGenerator) return;
 
-    final next = (state.selectedIndex + delta).clamp(0, state.results.length - 1);
+    final floor = state.hasGenerator ? -1 : 0;
+    final next = (state.selectedIndex + delta)
+        .clamp(floor, state.results.length - 1);
     if (next == state.selectedIndex) return;
 
     state = state.copyWith(selectedIndex: next);
@@ -163,11 +177,39 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   /// Retorna `false` se não havia seleção, para que a view saiba que não deve
   /// fechar o overlay.
   Future<bool> copySelected() async {
+    if (state.isGeneratorSelected) {
+      await copyGeneratedTaxId();
+      return true;
+    }
+
     final item = state.selectedItem;
     if (item == null) return false;
 
     await copyItem(item);
     return true;
+  }
+
+  /// Sorteia outro CPF para a linha do gerador (`⌘G`).
+  ///
+  /// Só troca o número — quem copia é o Enter. Fora do filtro de CPF a linha não
+  /// existe, e a tecla não tem o que fazer.
+  void regenerateTaxId() {
+    if (state.typeFilter != ClipboardItemType.taxId) return;
+
+    state = state.copyWith(generatedTaxId: TaxId.generate());
+  }
+
+  /// Copia o CPF sorteado, que entra no histórico como qualquer outra cópia.
+  ///
+  /// Passa pelo mesmo [copyItem] dos itens da lista: um item ainda sem `id` é o
+  /// que a captura já produz, e o `upsert` resolve pelo conteúdo. É por isso que
+  /// o gerador não precisou de nada novo no repositório — e é o que faz o número
+  /// voltar depois em `⌘1`, classificado como CPF.
+  Future<void> copyGeneratedTaxId() async {
+    final generated = state.generatedTaxId;
+    if (generated == null) return;
+
+    await copyItem(ClipboardItem.capture(generated));
   }
 
   /// Copia o item alcançado por `⌘N` / `⌥N`.
@@ -281,16 +323,27 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
 
     final results = _rank(type);
 
+    // O número é sorteado ao entrar no filtro de CPF e esquecido ao sair — mas
+    // **preservado** enquanto ele durar. Sortear a cada `_emitResults` faria a
+    // linha trocar de número a cada tecla digitada na busca, embaixo do dedo de
+    // quem estava lendo o CPF para conferir.
+    final generated = type == ClipboardItemType.taxId
+        ? (state.generatedTaxId ?? TaxId.generate())
+        : null;
+
     state = state.copyWith(
       results: results,
       typeFilter: type,
       keepTypeFilter: false,
       availableTypes: availableTypes,
       isLoading: false,
+      generatedTaxId: generated,
+      keepGeneratedTaxId: false,
       selectedIndex: _resolveSelection(
         results,
         resetSelection: resetSelection,
         preferredIndex: preferredIndex,
+        hasGenerator: generated != null,
       ),
     );
   }
@@ -347,8 +400,14 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   }
 
   /// Os tipos presentes no histórico, na ordem do enum.
+  ///
+  /// **CPF é a exceção: ele está sempre na fila**, tenha o histórico um ou
+  /// nenhum. Desde que a pílula passou a ter o gerador dentro dela, ela deixou
+  /// de ser só um recorte do que já existe — e a regra geral a esconderia
+  /// justamente de quem ainda não tem CPF nenhum, que é quem precisa gerar um.
   List<ClipboardItemType> _availableTypes() {
-    final present = _allItems.map((item) => item.type).toSet();
+    final present = _allItems.map((item) => item.type).toSet()
+      ..add(ClipboardItemType.taxId);
 
     return ClipboardItemType.values
         .where(present.contains)
@@ -358,10 +417,16 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   int _resolveSelection(
     List<ClipboardItem> results, {
     required bool resetSelection,
+    required bool hasGenerator,
     int? preferredIndex,
   }) {
     if (results.isEmpty) return -1;
+
+    // A seleção que já estava no gerador fica onde está: uma cópia capturada em
+    // outro app não é motivo para tirar o cursor da linha que a pessoa estava
+    // olhando. Trocar de filtro é (daí o `resetSelection` vir antes disto).
     if (resetSelection) return 0;
+    if (hasGenerator && state.selectedIndex == -1) return -1;
 
     if (preferredIndex != null) {
       return preferredIndex.clamp(0, results.length - 1);

@@ -5,6 +5,7 @@ import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
 import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
+import 'package:evergreen/features/pin/presentation/widgets/pin_generator_row.dart';
 import 'package:evergreen/features/pin/presentation/widgets/pin_list_item.dart';
 import 'package:evergreen/features/pin/presentation/widgets/pin_preview_pane.dart';
 import 'package:evergreen/shared/widgets/eg_key_cap.dart';
@@ -267,9 +268,15 @@ void main() {
       expect(find.text('Links'), findsOneWidget);
       // Nenhum comando no histórico do fixture — a pílula não existe.
       expect(find.text('Comandos'), findsNothing);
+      // Menos o CPF, que está sempre: é atrás dele que mora o gerador.
+      expect(find.text('CPF'), findsOneWidget);
     });
 
-    testWidgets('com um tipo só no histórico não há fila', (tester) async {
+    testWidgets('a fila fica de pé mesmo com um tipo só no histórico',
+        (tester) async {
+      // Antes, com um tipo só, "Tudo | Textos" eram dois botões para a mesma
+      // lista e a fila não se desenhava. O CPF quebrou o empate: a pílula dele
+      // leva a um lugar que "Tudo" não tem — o gerador.
       repository = FakeClipboardRepository([
         item(1, 'Flutter'),
         item(2, 'Senha temporária: xK9#mPz2'),
@@ -277,7 +284,8 @@ void main() {
 
       await pumpOverlay(tester);
 
-      expect(find.text('Tudo'), findsNothing);
+      expect(find.text('Tudo'), findsOneWidget);
+      expect(find.text('CPF'), findsOneWidget);
     });
 
     testWidgets('escolher um tipo recorta a lista', (tester) async {
@@ -331,18 +339,11 @@ void main() {
       expect(find.text('filtro'), findsOneWidget);
     });
 
-    testWidgets('sem fila, o rodapé não promete o movimento', (tester) async {
-      // Com um tipo só no histórico a fila não se desenha, e a tecla não tem
-      // para onde andar.
-      repository = FakeClipboardRepository([
-        item(1, 'Flutter'),
-        item(2, 'Senha temporária: xK9#mPz2'),
-      ]);
-
-      await pumpOverlay(tester);
-
-      expect(find.text('filtro'), findsNothing);
-    });
+    // O caso "sem fila, o rodapé não promete o movimento" saiu junto com o
+    // "sem fila": desde que o CPF passou a estar sempre na fila, não há
+    // histórico que a faça sumir. O que resta guardado é o contrário — que a
+    // dica só desapareça quando o rodapé estiver falando de outra coisa, o que
+    // o teste do gerador cobre.
 
     testWidgets('Esc limpa o filtro antes de fechar o overlay', (tester) async {
       await pumpOverlay(tester);
@@ -1038,5 +1039,228 @@ void main() {
     await pumpOverlay(tester);
 
     expect(find.text('Nenhum item ainda'), findsOneWidget);
+  });
+
+  group('gerador de CPF', () {
+    /// Um CPF de verdade no histórico, para o filtro ter uma lista embaixo da
+    /// linha do gerador — é o que faz a navegação por setas ter dois degraus.
+    const storedTaxId = '529.982.247-25';
+
+    /// Lê o que foi parar na área de transferência do sistema.
+    String? copiedText;
+
+    /// Canais que o caminho de cópia atravessa até o fim.
+    ///
+    /// Os outros testes de cópia deste arquivo param no `copiedText`: sob o
+    /// relógio falso a espera pela resposta do canal da área de transferência
+    /// não retoma, e nada do que vem depois dela acontece. Aqui o que interessa
+    /// é justamente o depois — gravar e fechar —, então os testes que precisam
+    /// disso rodam dentro de `runAsync`, e aí o `window_manager` também precisa
+    /// responder, senão o `hide` estoura no meio.
+    setUp(() {
+      copiedText = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('window_manager'),
+        (call) async => null,
+      );
+
+      repository = FakeClipboardRepository([
+        item(1, 'Flutter', isPinned: true),
+        item(2, storedTaxId),
+      ]);
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('window_manager'), null);
+    });
+
+    /// O número que a linha está exibindo agora.
+    String shownTaxId(WidgetTester tester) =>
+        tester.widget<PinGeneratorRow>(find.byType(PinGeneratorRow)).taxId;
+
+    Future<void> openTaxIdFilter(WidgetTester tester) async {
+      await tester.tap(find.text('CPF'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a linha só existe dentro do filtro de CPF', (tester) async {
+      await pumpOverlay(tester);
+
+      expect(find.byType(PinGeneratorRow), findsNothing);
+
+      await openTaxIdFilter(tester);
+
+      expect(find.byType(PinGeneratorRow), findsOneWidget);
+      // `textContaining` porque rótulo e número dividem o mesmo parágrafo, para
+      // o corte por ellipsis comer o número antes do que a linha é.
+      expect(find.textContaining('Gerar CPF'), findsOneWidget);
+      expect(shownTaxId(tester), matches(RegExp(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$')));
+    });
+
+    testWidgets('sair do filtro leva a linha junto', (tester) async {
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      await tester.tap(find.text('Tudo'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PinGeneratorRow), findsNothing);
+    });
+
+    testWidgets('a linha aparece mesmo sem nenhum CPF no histórico',
+        (tester) async {
+      // O caso que decidiu a pílula fixa: sem isto, o gerador só apareceria
+      // para quem já tem um CPF guardado — e ele existe justamente para quem
+      // não tem.
+      repository = FakeClipboardRepository();
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      expect(find.byType(PinGeneratorRow), findsOneWidget);
+      // E o estado vazio não cobre a linha: há o que fazer ali.
+      expect(find.text('Nenhum item ainda'), findsNothing);
+      expect(find.text('Nenhum resultado'), findsNothing);
+    });
+
+    testWidgets('digitar na busca não sorteia outro número', (tester) async {
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      final before = shownTaxId(tester);
+
+      await tester.enterText(find.byType(EgSearchField), 'a');
+      await tester.pumpAndSettle();
+
+      // Um número que trocasse a cada tecla seria ilegível justamente para quem
+      // está conferindo dígito a dígito.
+      expect(shownTaxId(tester), before);
+    });
+
+    testWidgets('↑ a partir do primeiro item alcança a linha', (tester) async {
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      // A seleção começa no primeiro item da lista; o gerador fica um degrau
+      // acima dele.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+
+      final row = tester.widget<PinGeneratorRow>(find.byType(PinGeneratorRow));
+      expect(row.isSelected, isTrue);
+    });
+
+    testWidgets('com a linha selecionada o rodapé fala dela', (tester) async {
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      // Com o CPF do histórico selecionado, o rodapé ainda é o da lista.
+      expect(find.text('sortear'), findsNothing);
+      expect(find.text('fixar'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+
+      expect(find.text('sortear'), findsOneWidget);
+      // "copiar" ganha rótulo aqui porque em cima de "Gerar CPF" a dúvida é
+      // real: se o Enter gera ou se copia o que já está escrito.
+      expect(find.text('copiar'), findsOneWidget);
+      // Fixar e reordenar não existem para uma linha que ainda não é um item.
+      expect(find.text('fixar'), findsNothing);
+    });
+
+    testWidgets('⌘G sorteia outro sem fechar o painel', (tester) async {
+      final closing = watchClosing();
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      final before = shownTaxId(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pumpAndSettle();
+
+      expect(shownTaxId(tester), isNot(before));
+      expect(closing, isEmpty);
+    });
+
+    testWidgets('Enter na linha copia o número e fecha', (tester) async {
+      final closing = watchClosing();
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+
+      final generated = shownTaxId(tester);
+
+      // Dentro de `runAsync` porque copiar atravessa o canal da área de
+      // transferência: sob o relógio falso do teste a espera pela resposta não
+      // retoma, e o que vem depois dela — gravar e fechar — nunca acontece.
+      await tester.runAsync(() async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        // A cópia continua em outra volta do laço de eventos — sem esperar por
+        // ela, o teste olharia para o meio do caminho.
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pumpAndSettle();
+
+      expect(copiedText, generated);
+      expect(closing, contains('beginHide'));
+
+      // O gerado entra no histórico como qualquer cópia — é o que o faz voltar
+      // depois em ⌘1, e já classificado como CPF.
+      final stored = repository.loadAll().where(
+            (item) => item.content == generated,
+          );
+      expect(stored, hasLength(1));
+      expect(stored.single.type, ClipboardItemType.taxId);
+    });
+
+    testWidgets('clicar na linha copia e fecha, sem abrir preview',
+        (tester) async {
+      final closing = watchClosing();
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      final generated = shownTaxId(tester);
+
+      await tester.runAsync(() async {
+        await tester.tap(find.textContaining('Gerar CPF'));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pumpAndSettle();
+
+      // A exceção à regra "clique abre o preview": esta linha não tem um
+      // dentro para mostrar — o conteúdo inteiro já está escrito nela.
+      expect(copiedText, generated);
+      expect(find.byType(PinPreviewPane), findsNothing);
+      expect(closing, contains('beginHide'));
+    });
+
+    testWidgets('o botão de sortear troca o número e fica', (tester) async {
+      final closing = watchClosing();
+      await pumpOverlay(tester);
+      await openTaxIdFilter(tester);
+
+      final before = shownTaxId(tester);
+
+      await tester.tap(find.bySemanticsLabel('Sortear outro CPF'));
+      await tester.pumpAndSettle();
+
+      expect(shownTaxId(tester), isNot(before));
+      expect(closing, isEmpty);
+    });
   });
 }

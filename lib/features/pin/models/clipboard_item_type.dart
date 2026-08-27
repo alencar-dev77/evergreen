@@ -1,4 +1,5 @@
 import '../../../shared/widgets/eg_icon.dart';
+import 'tax_id.dart';
 
 /// Tipos de conteúdo que o Pin reconhece.
 ///
@@ -74,12 +75,6 @@ abstract final class ClipboardItemClassifier {
     caseSensitive: false,
   );
 
-  /// CPF pontuado, exatamente como o site da Receita escreve.
-  static final _formattedTaxIdPattern = RegExp(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$');
-
-  /// Onze dígitos secos — o CPF "para colar em campo que não aceita ponto".
-  static final _bareTaxIdPattern = RegExp(r'^\d{11}$');
-
   /// Só dígitos e os separadores com que se escreve telefone.
   ///
   /// O ponto fica de fora de propósito: telefone brasileiro não se escreve com
@@ -103,44 +98,13 @@ abstract final class ClipboardItemClassifier {
     // verificador — que só o CPF tem como provar. Um telefone que por acaso
     // passe na conta é um em cada cem; um CPF classificado como telefone seria
     // a regra, não a exceção.
-    if (_looksLikeTaxId(trimmed)) return ClipboardItemType.taxId;
+    if (TaxId.looksLike(trimmed)) return ClipboardItemType.taxId;
 
     if (_looksLikePhone(trimmed)) return ClipboardItemType.phone;
 
     if (_looksLikeCommand(trimmed)) return ClipboardItemType.command;
 
     return ClipboardItemType.text;
-  }
-
-  static bool _looksLikeTaxId(String trimmed) {
-    final isFormatted = _formattedTaxIdPattern.hasMatch(trimmed);
-    if (!isFormatted && !_bareTaxIdPattern.hasMatch(trimmed)) return false;
-
-    return _hasValidTaxIdCheckDigits(trimmed.replaceAll(_nonDigitPattern, ''));
-  }
-
-  /// Os dois dígitos verificadores do CPF, pelo algoritmo da Receita: cada bloco
-  /// é a soma ponderada dos dígitos anteriores, módulo 11.
-  static bool _hasValidTaxIdCheckDigits(String digits) {
-    if (digits.length != 11) return false;
-
-    // `111.111.111-11` e companhia passam na conta dos módulos, mas não são
-    // CPF de ninguém — e são exatamente o tipo de sequência que aparece num
-    // histórico de área de transferência (senha, código, número de teste).
-    if (digits.split('').toSet().length == 1) return false;
-
-    for (var position = 9; position < 11; position++) {
-      var sum = 0;
-      for (var index = 0; index < position; index++) {
-        sum += int.parse(digits[index]) * (position + 1 - index);
-      }
-
-      final remainder = (sum * 10) % 11;
-      final expected = remainder == 10 ? 0 : remainder;
-      if (expected != int.parse(digits[position])) return false;
-    }
-
-    return true;
   }
 
   static bool _looksLikePhone(String trimmed) {
