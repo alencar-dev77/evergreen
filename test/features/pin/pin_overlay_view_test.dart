@@ -7,6 +7,7 @@ import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
 import 'package:evergreen/features/pin/presentation/widgets/pin_list_item.dart';
 import 'package:evergreen/features/pin/presentation/widgets/pin_preview_pane.dart';
+import 'package:evergreen/shared/widgets/eg_key_cap.dart';
 import 'package:evergreen/shared/widgets/eg_search_field.dart';
 import 'package:evergreen/shared/widgets/eg_text_field.dart';
 import 'package:flutter/material.dart';
@@ -288,24 +289,6 @@ void main() {
       expect(find.text('https://pub.dev/packages/sqlite3'), findsOneWidget);
       expect(find.text('Flutter'), findsNothing);
       expect(find.text('Senha temporária: xK9#mPz2'), findsNothing);
-    });
-
-    testWidgets('⌘→ anda pela fila sem tirar o foco da busca', (tester) async {
-      await pumpOverlay(tester);
-
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
-      await tester.pumpAndSettle();
-
-      // Da esquerda para a direita: "Tudo" dá lugar a "Textos".
-      expect(find.text('https://pub.dev/packages/sqlite3'), findsNothing);
-      expect(find.text('Flutter'), findsOneWidget);
-
-      await tester.enterText(find.byType(EgSearchField), 'senha');
-      await tester.pumpAndSettle();
-
-      expect(find.text('Senha temporária: xK9#mPz2'), findsOneWidget);
     });
 
     testWidgets('→ e ← andam pela fila, sem modificadora', (tester) async {
@@ -876,6 +859,81 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('mover'), findsNothing);
+    });
+
+    testWidgets('com o ⌥↑↓ na linha, o ↑↓ sozinho sai', (tester) async {
+      await pumpOverlay(tester);
+
+      // O ⌥↑↓ já desenha as setas verticais ao lado: repetir o par sozinho
+      // gastaria largura para dizer duas vezes a mesma coisa.
+      expect(find.text('mover'), findsOneWidget);
+      expect(find.text('↑↓'), findsNothing);
+      expect(find.text('⌥↑↓'), findsOneWidget);
+
+      for (var i = 0; i < 3; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      await tester.pumpAndSettle();
+
+      // Fora dos fixados o par volta, porque não há mais quem o represente.
+      expect(find.text('↑↓'), findsOneWidget);
+    });
+
+    /// Nenhuma dica do grupo da esquerda pode invadir o `esc`.
+    ///
+    /// O grupo vive num viewport que recorta em silêncio: o que não cabe é
+    /// cortado no meio da palavra, e era isso que encostava um `tab` pela
+    /// metade no `esc`. Medir é a única forma de prender — não há exceção de
+    /// estouro para o teste pegar.
+    void expectCabeNaLinha(WidgetTester tester) {
+      final caps = find.byType(EgShortcutDisplay);
+      final total = caps.evaluate().length;
+      final saida = tester.getRect(caps.at(total - 1));
+
+      for (var i = 0; i < total - 1; i++) {
+        expect(
+          tester.getRect(caps.at(i)).right,
+          lessThan(saida.left),
+          reason: 'a dica ${i + 1} de $total invade a saída',
+        );
+      }
+    }
+
+    testWidgets('o rodapé cabe na linha com fila e fixados', (tester) async {
+      // O pior caso do painel estreito: dois fixados (para o ⌥↑↓) de tipos
+      // diferentes (para a fila), com o preview fechado.
+      repository = FakeClipboardRepository([
+        item(1, 'Flutter', isPinned: true),
+        item(2, 'https://pub.dev/packages/sqlite3', isPinned: true),
+        item(3, 'Senha temporária: xK9#mPz2'),
+      ]);
+      await pumpOverlay(tester);
+
+      expect(find.text('mover'), findsOneWidget);
+      expect(find.text('filtro'), findsOneWidget);
+      expectCabeNaLinha(tester);
+    });
+
+    testWidgets('cabe também com a fila e sem fixado selecionado',
+        (tester) async {
+      await pumpOverlay(tester);
+      for (var i = 0; i < 3; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      await tester.pumpAndSettle();
+
+      expectCabeNaLinha(tester);
+    });
+
+    testWidgets('e com o preview aberto, onde o painel é mais largo',
+        (tester) async {
+      await pumpOverlay(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+
+      expect(find.text('apelido'), findsOneWidget);
+      expect(find.text('voltar'), findsOneWidget);
+      expectCabeNaLinha(tester);
     });
 
     testWidgets('um fixado sozinho não anuncia ⌥↑↓', (tester) async {

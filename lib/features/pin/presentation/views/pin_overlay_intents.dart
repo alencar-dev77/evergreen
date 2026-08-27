@@ -123,15 +123,12 @@ abstract final class PinOverlayIntents {
     // e ela vale mais que o cursor de uma busca de três letras — o texto se
     // corrige apagando, e ⌥←/⌥→ continuam saltando por palavra dentro dele.
     //
-    // `⌘←`/`⌘→` seguem valendo: eram as teclas do filtro até aqui, e tirá-las
-    // só faria a memória muscular de quem já as usa apitar sem motivo.
+    // Uma tecla por ação: o `⌘←`/`⌘→` que fazia isto antes saiu junto. Duas
+    // teclas para o mesmo movimento é uma a mais para o rodapé ensinar e uma a
+    // mais para o mapa carregar — e a que sobrou é a que o desenho sugere.
     const SingleActivator(LogicalKeyboardKey.arrowLeft):
         const PinCycleFilterIntent(-1),
     const SingleActivator(LogicalKeyboardKey.arrowRight):
-        const PinCycleFilterIntent(1),
-    const SingleActivator(LogicalKeyboardKey.arrowLeft, meta: true):
-        const PinCycleFilterIntent(-1),
-    const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true):
         const PinCycleFilterIntent(1),
     const SingleActivator(LogicalKeyboardKey.keyP, meta: true):
         const PinTogglePinIntent(),

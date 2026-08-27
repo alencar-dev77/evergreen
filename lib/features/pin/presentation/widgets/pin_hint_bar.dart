@@ -46,6 +46,51 @@ class PinHintBar extends StatelessWidget {
   /// grupos é justamente onde a capacidade muda.
   final bool canMovePinned;
 
+  /// Quantas vagas a linha comporta.
+  ///
+  /// Vagas, e não pixels: uma dica com rótulo ocupa duas, uma sem rótulo ocupa
+  /// uma. No painel estreito (420px) cabem quatro — a quinta era recortada no
+  /// meio da palavra, encostando no `esc`. Com o preview aberto o painel é bem
+  /// mais largo e cabem seis. O número saiu da régua do teste do rodapé, não de
+  /// estimativa: qualquer mexida nos rótulos precisa passar por ele de novo.
+  int get _budget => isPreviewOpen ? 6 : 4;
+
+  /// As dicas em ordem de prioridade — o que é do momento primeiro, o que se
+  /// adivinha por último.
+  ///
+  /// A ordem importa mais que a lista: quem não couber é descartado, e as
+  /// curtas continuam sendo tentadas depois de uma longa ser recusada. É por
+  /// isso que `↑↓` sobrevive numa linha em que `tab ver` já não cabe.
+  List<EgHint> get _candidates => [
+        // Só aparecem num estado, e é neles que a dúvida existe.
+        if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
+        if (hasTypes) const EgHint(keys: ['←→'], label: 'filtro'),
+        if (isPreviewOpen) const EgHint(keys: ['⌘R'], label: 'apelido'),
+        // Com o preview aberto, o Tab é o único caminho de volta — nessa hora
+        // ele vale mais que a ação de fixar.
+        if (isPreviewOpen) const EgHint(keys: ['tab'], label: 'voltar'),
+        const EgHint(keys: ['⌘P'], label: 'fixar'),
+        // O par vertical só quando o ⌥↑↓ não o está desenhando ao lado.
+        if (!canMovePinned) const EgHint(keys: ['↑↓']),
+        if (!isPreviewOpen) const EgHint(keys: ['tab'], label: 'ver'),
+        const EgHint(keys: ['enter']),
+      ];
+
+  List<EgHint> _fitted() {
+    var left = _budget;
+    final line = <EgHint>[];
+
+    for (final hint in _candidates) {
+      final cost = hint.label == null ? 1 : 2;
+      if (cost > left) continue;
+
+      line.add(hint);
+      left -= cost;
+    }
+
+    return line;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isEditingAlias) {
@@ -56,34 +101,7 @@ class PinHintBar extends StatelessWidget {
     }
 
     return EgHintBar(
-      hints: [
-        // Setas e Enter dispensam rótulo: ao lado de uma lista eles se
-        // explicam, e o espaço vale mais para o ⌘P, que não.
-        const EgHint(keys: ['↑', '↓']),
-        // O outro eixo da tela: ←→ andam pela fila de tipos logo acima da
-        // lista. Leva rótulo porque, diferente das verticais, o movimento não
-        // se adivinha — a fila está acima e a lista, embaixo.
-        if (hasTypes) const EgHint(keys: ['←', '→'], label: 'filtro'),
-        // E por serem os mais evidentes da barra, são eles que cedem a largura
-        // quando o ⌥↑↓ ou o ←→ entram: a 420px as dicas não cabem todas, e quem
-        // acabou de chegar aos fixados duvida de como movê-los, não de que
-        // Enter copia.
-        if (!canMovePinned && !hasTypes) const EgHint(keys: ['enter']),
-        const EgHint(keys: ['⌘P'], label: 'fixar'),
-        if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
-        // O ⌘R só é anunciado com o preview aberto, que é onde o campo de
-        // apelido existe: quem está na lista descobre o recurso abrindo o
-        // preview, e é lá que a dúvida "dá para fazer isso sem o mouse?"
-        // aparece. Na lista de 420px ele também não caberia.
-        if (isPreviewOpen) const EgHint(keys: ['⌘R'], label: 'apelido'),
-        // O Tab é anunciado nos dois estados: ele abre o preview e é o único
-        // caminho de volta dele, desde que o Esc parou de recolhê-lo. A largura
-        // que ele ocupa aqui saiu do ⌘⌫ — apagar continua funcionando pela
-        // tecla, mas com o preview aberto o botão "Excluir" está à vista dois
-        // dedos ao lado, e o "como eu volto para a lista?" não tem resposta
-        // visível nenhuma.
-        EgHint(keys: const ['tab'], label: isPreviewOpen ? 'voltar' : 'ver'),
-      ],
+      hints: _fitted(),
       trailing: EgHint(
         keys: const ['esc'],
         // O Esc promete uma coisa só, e o preview não muda o que ela é: com
