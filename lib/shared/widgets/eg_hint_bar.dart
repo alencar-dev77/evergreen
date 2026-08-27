@@ -3,18 +3,29 @@ import 'package:flutter/widgets.dart';
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
 import '../../core/design/app_typography.dart';
+import 'eg_hoverable.dart';
 import 'eg_key_cap.dart';
 
 /// Uma dica de atalho: as teclas e, quando não for óbvio, o que elas fazem.
 @immutable
 class EgHint {
-  const EgHint({required this.keys, this.label});
+  const EgHint({required this.keys, this.label, this.onTap});
 
   final List<String> keys;
 
   /// Teclas evidentes pelo contexto (setas, enter ao lado de uma lista) vão sem
   /// rótulo — o espaço vale mais para as que ninguém adivinha.
   final String? label;
+
+  /// O que a dica faz quando alguém clica nela, quando a tecla que ela ensina
+  /// não tem outro alvo de mouse na tela.
+  ///
+  /// Nenhuma ação do Evergreen é só de teclado, e há teclas que aparecem por um
+  /// estado passageiro — o `⌘Z` do Leaf, que existe entre apagar um cartão e
+  /// fechar o painel. Desenhar um botão para elas encheria a tela de affordance
+  /// que some; a dica já está no lugar certo, dizendo a coisa certa, na hora
+  /// certa. Sem [onTap] ela continua sendo só texto.
+  final VoidCallback? onTap;
 }
 
 /// Rodapé de painel com os atalhos disponíveis no estado atual.
@@ -75,21 +86,42 @@ class _HintLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(right: isLast ? 0 : AppSpacing.lg),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          EgShortcutDisplay(keys: hint.keys),
-          if (hint.label != null) ...[
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              hint.label!,
-              maxLines: 1,
-              softWrap: false,
-              style: AppTypography.captionXS,
-            ),
-          ],
-        ],
+      child: hint.onTap == null ? _content() : _clickable(),
+    );
+  }
+
+  /// A dica acionável se anuncia como botão e clareia sob o ponteiro.
+  ///
+  /// O realce é a cor do rótulo, não uma superfície nova: a barra é uma linha
+  /// de legenda, e um fundo aparecendo atrás de uma dica no rodapé pesaria mais
+  /// que a ação que ela oferece. Cor de texto é o único degrau de estado que um
+  /// rótulo tem — o resto da matriz de superfícies não se aplica a ele.
+  Widget _clickable() {
+    return EgHoverable(
+      onTap: hint.onTap,
+      builder: (context, state) => _content(
+        color: state.isHovered ? AppColors.textPrimary : null,
       ),
+    );
+  }
+
+  Widget _content({Color? color}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        EgShortcutDisplay(keys: hint.keys),
+        if (hint.label != null) ...[
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            hint.label!,
+            maxLines: 1,
+            softWrap: false,
+            style: color == null
+                ? AppTypography.captionXS
+                : AppTypography.captionXS.copyWith(color: color),
+          ),
+        ],
+      ],
     );
   }
 }

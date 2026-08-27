@@ -7,6 +7,7 @@ class LeafState {
     this.notes = const <LeafNote>[],
     this.selectedSlot,
     this.editingSlot,
+    this.undoableDelete,
   });
 
   /// Anotações em ordem de vaga.
@@ -19,6 +20,15 @@ class LeafState {
   /// nesse caso é um rascunho, e desistir dele não deixa rastro.
   final int? editingSlot;
 
+  /// O último cartão arrancado da parede, enquanto ainda dá para colá-lo de
+  /// volta.
+  ///
+  /// Vive só na memória e só enquanto o painel está aberto: o desfazer existe
+  /// para o engano de um segundo atrás — apagar o cartão errado, ou esvaziar o
+  /// campo sem querer, que também apaga —, não para ressuscitar o que se jogou
+  /// fora ontem. Fechar o painel encerra a oferta, como encerra a edição.
+  final LeafNote? undoableDelete;
+
   bool get isEmpty => notes.isEmpty;
 
   bool get isFull => notes.length >= LeafNote.maxNotes;
@@ -27,6 +37,12 @@ class LeafState {
 
   /// A edição em curso é de uma anotação que ainda não existe no banco.
   bool get isDraft => editingSlot != null && noteAt(editingSlot!) == null;
+
+  /// Há um cartão para devolver à parede, e vaga onde devolvê-lo.
+  ///
+  /// A parede cheia tira a oferta em vez de prometer o que não cabe: entre
+  /// apagar e desfazer, a pessoa pode ter escrito outra anotação.
+  bool get canUndoDelete => undoableDelete != null && !isFull;
 
   LeafNote? noteAt(int slot) {
     for (final note in notes) {
@@ -74,6 +90,7 @@ class LeafState {
       notes: notes ?? this.notes,
       selectedSlot: clearSelection ? null : selectedSlot ?? this.selectedSlot,
       editingSlot: clearEditing ? null : editingSlot ?? this.editingSlot,
+      undoableDelete: undoableDelete,
     );
   }
 }

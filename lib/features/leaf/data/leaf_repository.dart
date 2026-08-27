@@ -11,13 +11,22 @@ abstract interface class LeafRepository {
   List<LeafNote> loadAll();
 
   /// Grava uma anotação nova na [slot] indicada.
+  ///
+  /// [updatedAt] existe para quem está **devolvendo** uma anotação à parede —
+  /// o desfazer de um apagar. Uma anotação nova nunca tem data de edição.
   LeafNote create({
     required int slot,
     required String content,
     required DateTime createdAt,
+    DateTime? updatedAt,
   });
 
-  void updateContent(int id, String content);
+  /// Reescreve o texto e marca a hora em que isso aconteceu.
+  ///
+  /// [at] vem de quem chama, e não de um `DateTime.now()` aqui dentro, pela
+  /// mesma razão de todo relógio do projeto: o teste precisa poder dizer que
+  /// horas são.
+  void updateContent(int id, String content, {required DateTime at});
 
   /// Reassenta as anotações nas vagas 1..N, na ordem em que vierem.
   ///
@@ -40,7 +49,7 @@ class SqliteLeafRepository implements LeafRepository {
   List<LeafNote> loadAll() {
     final rows = _db.select(
       '''
-      SELECT id, slot, content, created_at
+      SELECT id, slot, content, created_at, updated_at
         FROM leaf_notes
        ORDER BY slot ASC;
       ''',
@@ -54,13 +63,19 @@ class SqliteLeafRepository implements LeafRepository {
     required int slot,
     required String content,
     required DateTime createdAt,
+    DateTime? updatedAt,
   }) {
     _db.execute(
       '''
-      INSERT INTO leaf_notes (slot, content, created_at)
-      VALUES (?, ?, ?);
+      INSERT INTO leaf_notes (slot, content, created_at, updated_at)
+      VALUES (?, ?, ?, ?);
       ''',
-      [slot, content, createdAt.millisecondsSinceEpoch],
+      [
+        slot,
+        content,
+        createdAt.millisecondsSinceEpoch,
+        updatedAt?.millisecondsSinceEpoch,
+      ],
     );
 
     return LeafNote(
@@ -68,14 +83,15 @@ class SqliteLeafRepository implements LeafRepository {
       slot: slot,
       content: content,
       createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 
   @override
-  void updateContent(int id, String content) {
+  void updateContent(int id, String content, {required DateTime at}) {
     _db.execute(
-      'UPDATE leaf_notes SET content = ? WHERE id = ?;',
-      [content, id],
+      'UPDATE leaf_notes SET content = ?, updated_at = ? WHERE id = ?;',
+      [content, at.millisecondsSinceEpoch, id],
     );
   }
 
@@ -116,11 +132,17 @@ class SqliteLeafRepository implements LeafRepository {
   @override
   void clearAll() => _db.execute('DELETE FROM leaf_notes;');
 
-  LeafNote _fromRow(Row row) => LeafNote(
-        id: row['id'] as int,
-        slot: row['slot'] as int,
-        content: row['content'] as String,
-        createdAt:
-            DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
-      );
+  LeafNote _fromRow(Row row) {
+    final updatedAt = row['updated_at'] as int?;
+
+    return LeafNote(
+      id: row['id'] as int,
+      slot: row['slot'] as int,
+      content: row['content'] as String,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+      updatedAt: updatedAt == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(updatedAt),
+    );
+  }
 }

@@ -97,6 +97,10 @@ class LeafViewModel extends Notifier<LeafState> {
         content: content,
         createdAt: _now(),
       );
+      // A oferta de desfazer sobrevive a isto: o cartão devolvido volta para a
+      // vaga dele e empurra os outros para baixo, e escrever uma anotação nova
+      // não é motivo para perder a que se apagou por engano. Quem encerra a
+      // oferta é a parede cheia — ver [LeafState.canUndoDelete].
       state = state.copyWith(
         notes: _sorted([...state.notes, created]),
         clearEditing: true,
@@ -104,16 +108,64 @@ class LeafViewModel extends Notifier<LeafState> {
       return;
     }
 
-    if (existing.content != content) {
-      _repository.updateContent(existing.id, content);
+    // Sair do campo sem ter mudado uma letra não é uma edição — e datar como
+    // tal envelheceria a parede inteira a cada abertura do painel, porque o
+    // campo confirma sozinho ao perder o foco.
+    if (existing.content == content) {
+      state = state.copyWith(clearEditing: true);
+      return;
     }
+
+    final at = _now();
+    _repository.updateContent(existing.id, content, at: at);
 
     state = state.copyWith(
       notes: _sorted([
         for (final note in state.notes)
-          note.slot == slot ? note.copyWith(content: content) : note,
+          note.slot == slot
+              ? note.copyWith(content: content, updatedAt: at)
+              : note,
       ]),
       clearEditing: true,
+    );
+  }
+
+  /// `⌘Z`: devolve à parede o último cartão apagado, na vaga em que ele estava.
+  ///
+  /// Um cartão por vez, e só enquanto o painel está aberto — ver
+  /// [LeafState.undoableDelete]. É o que torna o apagar do Leaf uma ação sem
+  /// pergunta: esvaziar o campo apaga a anotação, e essa é a forma mais direta
+  /// de dizer "isso aqui já era", mas também a mais fácil de fazer sem querer.
+  void undoDelete() {
+    final note = state.undoableDelete;
+    if (!state.canUndoDelete || note == null) return;
+
+    // Nasce na primeira vaga livre porque a vaga é única no banco, e a de
+    // origem está ocupada por quem subiu no lugar dele. O lugar certo vem da
+    // renumeração, logo abaixo.
+    final restored = _repository.create(
+      slot: state.notes.length + 1,
+      content: note.content,
+      createdAt: note.createdAt,
+      // A data volta como estava: um cartão devolvido à parede não é um cartão
+      // novo, e apresentá-lo como "agora" apagaria a única pista de quando
+      // aquele recado foi escrito.
+      updatedAt: note.updatedAt,
+    );
+
+    final ordered = [...state.notes]
+      ..insert((note.slot - 1).clamp(0, state.notes.length), restored);
+
+    final resettled = <LeafNote>[
+      for (var i = 0; i < ordered.length; i++) ordered[i].copyWith(slot: i + 1),
+    ];
+
+    _repository.reassignSlots([for (final note in resettled) note.id]);
+
+    state = LeafState(
+      notes: resettled,
+      // A seleção vai para o cartão que acabou de voltar: é onde o olho está.
+      selectedSlot: note.slot.clamp(1, resettled.length),
     );
   }
 
@@ -202,6 +254,8 @@ class LeafViewModel extends Notifier<LeafState> {
       selectedSlot: resettled.isEmpty
           ? null
           : note.slot.clamp(1, resettled.length + 1),
+      // O cartão fica ao alcance do `⌘Z` até o painel fechar.
+      undoableDelete: note,
     );
   }
 

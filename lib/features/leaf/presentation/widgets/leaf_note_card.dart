@@ -117,7 +117,9 @@ class LeafNoteCard extends StatelessWidget {
           _DeleteAffordance(onTap: onDelete)
         else
           Text(
-            RelativeTime.format(note.createdAt, now: now),
+            // A idade do recado, não a do papel: uma anotação reescrita agora
+            // dizia "há 3 semanas" — ver [LeafNote.changedAt].
+            RelativeTime.format(note.changedAt, now: now),
             style: AppTypography.captionXS.copyWith(
               color: AppColors.textTertiary,
             ),

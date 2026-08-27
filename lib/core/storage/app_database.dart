@@ -106,6 +106,16 @@ class AppDatabase {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_leaf_slot ON leaf_notes (slot);
     ''',
+    // Quando o cartão passou a dizer o que diz.
+    //
+    // O rodapé do cartão tem espaço para uma data só, e ela era sempre a de
+    // criação: uma anotação reescrita hoje continuava se apresentando como "há
+    // 3 semanas", que é a idade do papel e não a do recado. Nulo é "nunca
+    // editada depois de escrita" — e é por isso que a coluna não tem valor
+    // padrão: o que já estava na parede não foi editado, foi criado.
+    'leaf-notes-updated': '''
+    ALTER TABLE leaf_notes ADD COLUMN updated_at INTEGER;
+    ''',
     // Reuniões do Echo. O áudio não aparece aqui de propósito: ele é apagado
     // assim que a transcrição entra, então o banco guarda só texto.
     //

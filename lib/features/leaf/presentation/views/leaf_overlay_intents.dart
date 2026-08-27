@@ -34,6 +34,11 @@ class LeafDeleteIntent extends Intent {
   const LeafDeleteIntent();
 }
 
+/// Devolve à parede o último cartão apagado.
+class LeafUndoDeleteIntent extends Intent {
+  const LeafUndoDeleteIntent();
+}
+
 /// Fecha o painel. O que estava escrito fica guardado.
 class LeafCloseIntent extends Intent {
   const LeafCloseIntent();
@@ -104,6 +109,11 @@ abstract final class LeafOverlayIntents {
         const LeafNewNoteIntent(),
     const SingleActivator(LogicalKeyboardKey.backspace, meta: true):
         const LeafDeleteIntent(),
+    // `⌘Z` é o desfazer do macOS, e aqui ele só existe fora do campo: com um
+    // cartão em edição o desfazer pertence ao texto que está sendo digitado, e
+    // o `editing` abaixo não o registra de propósito.
+    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
+        const LeafUndoDeleteIntent(),
     const SingleActivator(LogicalKeyboardKey.comma, meta: true):
         const LeafOpenSettingsIntent(),
     for (var i = 0; i < LeafNote.maxNotes; i++)
@@ -123,6 +133,7 @@ abstract final class LeafOverlayIntents {
     required void Function({int columns, int rows}) onMoveSelection,
     required Future<void> Function(int slot) onCopySlot,
     required VoidCallback onDelete,
+    required VoidCallback onUndoDelete,
     required Future<void> Function() onClose,
     required VoidCallback onCommitEdit,
     required VoidCallback onCancelEdit,
@@ -144,6 +155,9 @@ abstract final class LeafOverlayIntents {
       ),
       LeafDeleteIntent: CallbackAction<LeafDeleteIntent>(
         onInvoke: (_) => onDelete(),
+      ),
+      LeafUndoDeleteIntent: CallbackAction<LeafUndoDeleteIntent>(
+        onInvoke: (_) => onUndoDelete(),
       ),
       LeafCloseIntent: CallbackAction<LeafCloseIntent>(
         onInvoke: (_) => onClose(),

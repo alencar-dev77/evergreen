@@ -53,19 +53,40 @@ void main() {
     expect(repository.loadAll().single.content, 'entra');
   });
 
-  test('editar troca só o texto, preservando vaga e data', () {
+  test('editar troca o texto e a data de edição, preservando vaga e criação',
+      () {
     final note = repository.create(
       slot: 7,
       content: 'antes',
       createdAt: createdAt,
     );
+    expect(note.updatedAt, isNull, reason: 'anotação nova não foi editada');
 
-    repository.updateContent(note.id, 'depois');
+    final editedAt = createdAt.add(const Duration(days: 21));
+    repository.updateContent(note.id, 'depois', at: editedAt);
 
     final stored = repository.loadAll().single;
     expect(stored.content, 'depois');
     expect(stored.slot, 7);
     expect(stored.createdAt, createdAt);
+    expect(stored.updatedAt, editedAt);
+    // É esta que o cartão mostra: a idade do recado, não a do papel.
+    expect(stored.changedAt, editedAt);
+  });
+
+  test('devolver uma anotação à parede preserva as duas datas', () {
+    final editedAt = createdAt.add(const Duration(hours: 3));
+
+    final restored = repository.create(
+      slot: 1,
+      content: 'voltou',
+      createdAt: createdAt,
+      updatedAt: editedAt,
+    );
+
+    expect(repository.loadAll().single.createdAt, createdAt);
+    expect(repository.loadAll().single.updatedAt, editedAt);
+    expect(restored.changedAt, editedAt);
   });
 
   test('reassentar fecha o buraco sem esbarrar na unicidade da vaga', () {

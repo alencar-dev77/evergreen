@@ -256,6 +256,186 @@ void main() {
     expect(await viewModelOf(container).copySlot(7), isFalse);
   });
 
+  group('a data que o cartão mostra', () {
+    /// Um container com relógio que anda — o do resto do arquivo é fixo, e uma
+    /// data de edição precisa de duas horas diferentes para dizer alguma coisa.
+    (ProviderContainer, void Function(DateTime)) movable() {
+      var now = clock;
+
+      final container = ProviderContainer(
+        overrides: [
+          leafRepositoryProvider.overrideWithValue(repository),
+          clockProvider.overrideWithValue(() => now),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      return (container, (moment) => now = moment);
+    }
+
+    test('editar o cartão passa a data para a hora da edição', () {
+      final (container, travelTo) = movable();
+      final viewModel = viewModelOf(container);
+
+      viewModel
+        ..startNote()
+        ..commitEdit('cobrar o jurídico');
+      expect(stateOf(container).noteAt(1)!.changedAt, clock);
+
+      final later = clock.add(const Duration(days: 21));
+      travelTo(later);
+      viewModel
+        ..editSlot(1)
+        ..commitEdit('cobrar o jurídico até sexta');
+
+      final note = stateOf(container).noteAt(1)!;
+      // A criação continua onde estava: é ela que explica a vaga na parede.
+      expect(note.createdAt, clock);
+      expect(note.updatedAt, later);
+      // E é esta que o cartão mostra — antes ele dizia "há 3 semanas" sobre um
+      // recado escrito agora.
+      expect(note.changedAt, later);
+      expect(repository.loadAll().single.updatedAt, later);
+    });
+
+    test('sair do campo sem mudar nada não envelhece o cartão', () {
+      final (container, travelTo) = movable();
+      final viewModel = viewModelOf(container);
+
+      viewModel
+        ..startNote()
+        ..commitEdit('ligar pro contador');
+
+      travelTo(clock.add(const Duration(days: 21)));
+      // O campo confirma sozinho ao perder o foco: abrir o cartão e sair sem
+      // escrever nada acontece o tempo todo, e não é uma edição.
+      viewModel
+        ..editSlot(1)
+        ..commitEdit('ligar pro contador');
+
+      expect(stateOf(container).noteAt(1)!.updatedAt, isNull);
+      expect(stateOf(container).noteAt(1)!.changedAt, clock);
+    });
+  });
+
+  group('desfazer o apagar', () {
+    test('devolve o cartão à vaga em que ele estava', () {
+      final container = containerFor();
+      fill(container, 3);
+
+      viewModelOf(container)
+        ..selectSlot(2)
+        ..deleteSelected();
+      expect(
+        stateOf(container).notes.map((note) => note.content),
+        ['anotação 1', 'anotação 3'],
+      );
+      expect(stateOf(container).canUndoDelete, isTrue);
+
+      viewModelOf(container).undoDelete();
+
+      expect(
+        stateOf(container).notes.map((note) => note.content),
+        ['anotação 1', 'anotação 2', 'anotação 3'],
+      );
+      // No banco também, e com as vagas contíguas.
+      expect(repository.loadAll().map((note) => note.slot), [1, 2, 3]);
+      expect(
+        repository.loadAll().map((note) => note.content),
+        ['anotação 1', 'anotação 2', 'anotação 3'],
+      );
+      // A seleção vai para o cartão que voltou: é onde o olho está.
+      expect(stateOf(container).selectedSlot, 2);
+      // Uma vez só — o Leaf não tem pilha de desfazer.
+      expect(stateOf(container).canUndoDelete, isFalse);
+    });
+
+    test('esvaziar o campo apaga, e é disto que o desfazer é a rede', () {
+      final container = containerFor();
+      fill(container, 1);
+
+      // Um cartão vazio na parede não diz nada a ninguém, então esvaziá-lo é a
+      // forma de jogá-lo fora — e a mais fácil de fazer sem querer.
+      viewModelOf(container)
+        ..editSlot(1)
+        ..commitEdit('   ');
+      expect(stateOf(container).notes, isEmpty);
+      expect(stateOf(container).canUndoDelete, isTrue);
+
+      viewModelOf(container).undoDelete();
+
+      expect(stateOf(container).noteAt(1)?.content, 'anotação 1');
+    });
+
+    test('o cartão devolvido volta com as datas que tinha', () {
+      final container = containerFor();
+      fill(container, 1);
+      final before = stateOf(container).noteAt(1)!;
+
+      viewModelOf(container)
+        ..selectSlot(1)
+        ..deleteSelected()
+        ..undoDelete();
+
+      final after = stateOf(container).noteAt(1)!;
+      // Devolver não é escrever de novo: apresentá-lo como "agora" apagaria a
+      // única pista de quando aquele recado foi escrito.
+      expect(after.createdAt, before.createdAt);
+      expect(after.changedAt, before.changedAt);
+    });
+
+    test('escrever outra anotação não cancela a oferta', () {
+      final container = containerFor();
+      fill(container, 3);
+
+      viewModelOf(container)
+        ..selectSlot(2)
+        ..deleteSelected()
+        ..startNote();
+      viewModelOf(container).commitEdit('a que veio depois');
+
+      viewModelOf(container).undoDelete();
+
+      // O cartão volta para a vaga dele e empurra o resto para baixo.
+      expect(
+        stateOf(container).notes.map((note) => note.content),
+        ['anotação 1', 'anotação 2', 'anotação 3', 'a que veio depois'],
+      );
+    });
+
+    test('a parede que encheu retira a oferta em vez de prometê-la', () {
+      final container = containerFor();
+      fill(container, LeafNote.maxNotes);
+
+      viewModelOf(container)
+        ..selectSlot(3)
+        ..deleteSelected();
+      expect(stateOf(container).canUndoDelete, isTrue);
+
+      viewModelOf(container).startNote();
+      viewModelOf(container).commitEdit('a nona de novo');
+
+      // Não há vaga para devolver o cartão, e a dica some do rodapé junto.
+      expect(stateOf(container).isFull, isTrue);
+      expect(stateOf(container).canUndoDelete, isFalse);
+    });
+
+    test('fechar o painel encerra a oferta', () async {
+      final container = containerFor();
+      fill(container, 2);
+
+      viewModelOf(container)
+        ..selectSlot(1)
+        ..deleteSelected();
+      expect(stateOf(container).canUndoDelete, isTrue);
+
+      await viewModelOf(container).prepareForOpen();
+
+      // O desfazer é para o engano de um segundo atrás, não para o de ontem.
+      expect(stateOf(container).canUndoDelete, isFalse);
+    });
+  });
+
   test('reabrir o painel relê a parede e larga a edição pendente', () async {
     final container = containerFor();
     fill(container, 1);

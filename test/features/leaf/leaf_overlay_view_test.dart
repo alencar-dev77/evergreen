@@ -204,6 +204,81 @@ void main() {
     expect(stateOf(container).rows, 1);
   });
 
+  testWidgets('apagar oferece o desfazer, e o ⌘Z devolve o cartão', (
+    tester,
+  ) async {
+    for (var slot = 1; slot <= 3; slot++) {
+      repository.create(slot: slot, content: 'nota $slot', createdAt: clock);
+    }
+    final container = await pumpPanel(tester);
+
+    // Em repouso o rodapé não fala de desfazer: não há o que desfazer.
+    expect(find.text('desfazer'), findsNothing);
+
+    viewModelOf(container)
+      ..selectSlot(2)
+      ..deleteSelected();
+    await tester.pumpAndSettle();
+
+    expect(find.text('nota 2'), findsNothing);
+    // A dica aparece onde a dúvida nasce — "cadê o cartão que eu arranquei?".
+    expect(find.text('desfazer'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pumpAndSettle();
+
+    expect(find.text('nota 2'), findsOneWidget);
+    expect(stateOf(container).noteAt(2)?.content, 'nota 2');
+    // Cumprida a oferta, ela sai do rodapé.
+    expect(find.text('desfazer'), findsNothing);
+  });
+
+  testWidgets('a dica de desfazer também é o alvo de mouse do ⌘Z', (
+    tester,
+  ) async {
+    repository.create(slot: 1, content: 'única', createdAt: clock);
+    final container = await pumpPanel(tester);
+
+    viewModelOf(container)
+      ..selectSlot(1)
+      ..deleteSelected();
+    await tester.pumpAndSettle();
+
+    // Nenhuma ação do Evergreen é só de teclado — e com a parede vazia não
+    // sobrou nem cartão onde clicar.
+    await tester.tap(find.text('desfazer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('única'), findsOneWidget);
+  });
+
+  testWidgets('o cartão editado mostra a data da edição', (tester) async {
+    // Contra o relógio real: a idade de um cartão é contada a partir de agora,
+    // e é `RelativeTime` quem a lê — o `clockProvider` do painel não chega até
+    // o rodapé do cartão.
+    final agora = DateTime.now();
+
+    repository.create(
+      slot: 1,
+      content: 'reescrita hoje',
+      createdAt: agora.subtract(const Duration(days: 21)),
+      updatedAt: agora.subtract(const Duration(minutes: 5)),
+    );
+    repository.create(
+      slot: 2,
+      content: 'nunca tocada',
+      createdAt: agora.subtract(const Duration(days: 21)),
+    );
+    await pumpPanel(tester);
+
+    // O rodapé do cartão mostra a idade do recado, não a do papel: antes, a
+    // anotação reescrita há cinco minutos dizia "há 3 semanas" como a outra.
+    expect(find.text('há 5 min'), findsOneWidget);
+    expect(find.text('há 3 semanas'), findsOneWidget);
+  });
+
   testWidgets('a parede cheia deixa de convidar', (tester) async {
     for (final slot in LeafNote.slots) {
       repository.create(slot: slot, content: 'nota $slot', createdAt: clock);
