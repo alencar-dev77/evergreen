@@ -58,6 +58,14 @@ void main() {
     );
   }
 
+  void insertAwake(DateTime startedAt, Duration duration, String mode) {
+    db.execute(
+      'INSERT INTO awake_sessions (started_at, duration_seconds, mode) '
+      'VALUES (?, ?, ?);',
+      [startedAt.millisecondsSinceEpoch, duration.inSeconds, mode],
+    );
+  }
+
   void insertNote(DateTime createdAt, int slot) {
     db.execute(
       'INSERT INTO leaf_notes (slot, content, created_at) VALUES (?, ?, ?);',
@@ -182,5 +190,27 @@ void main() {
 
   test('banco sem nada devolve lista vazia', () {
     expect(repository.loadDays(since: at(6, 0, 0)), isEmpty);
+  });
+
+  test('o Awake entra no dia como período, com o que ele segurava', () {
+    insertAwake(at(0, 22, 10), const Duration(hours: 3), 'system');
+    insertAwake(at(0, 9, 0), const Duration(minutes: 40), 'screen');
+    insertAwake(at(1, 9, 0), const Duration(minutes: 15), 'screen');
+
+    final days = repository.loadDays(since: at(6, 0, 0));
+    final today = days.first;
+
+    // Dentro do dia, na ordem em que aconteceu — como as sessões e as reuniões.
+    expect(today.awake.map((entry) => entry.label), [
+      'Tela acesa',
+      'Sistema acordado',
+    ]);
+    expect(today.awakeTotal, const Duration(hours: 3, minutes: 40));
+    expect(days[1].awake, hasLength(1));
+
+    // A trava não é trabalho: ela não infla o tempo registrado do dia.
+    expect(today.registered, Duration.zero);
+    expect(today.isEmpty, isFalse);
+    expect(today.highlights, contains('3h 40min acordado'));
   });
 }

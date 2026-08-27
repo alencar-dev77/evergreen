@@ -10,23 +10,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'fake_display_sleep_service.dart';
+import 'fake_sleep_assertion_service.dart';
 
 void main() {
-  late FakeDisplaySleepService display;
+  late FakeSleepAssertionService sleep;
+  late FakeAwakeSessionRepository sessions;
   late SharedPreferences preferences;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
-    display = FakeDisplaySleepService();
+    sleep = FakeSleepAssertionService();
+    sessions = FakeAwakeSessionRepository();
   });
 
   Future<ProviderContainer> pumpPanel(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          displaySleepServiceProvider.overrideWithValue(display),
+          sleepAssertionServiceProvider.overrideWithValue(sleep),
+        awakeSessionRepositoryProvider.overrideWithValue(sessions),
           sharedPreferencesProvider.overrideWithValue(preferences),
           clockProvider.overrideWithValue(() => tester.binding.clock.now()),
         ],
@@ -87,7 +90,7 @@ void main() {
     await tester.tap(find.text('Manter a tela acesa'));
     await tester.pumpAndSettle();
 
-    expect(display.isEnabled, isTrue);
+    expect(sleep.isEnabled, isTrue);
     expect(find.text('MANTENDO A TELA ACESA'), findsOneWidget);
     expect(find.text('Desligar'), findsOneWidget);
 

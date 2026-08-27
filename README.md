@@ -40,7 +40,7 @@ Pin. O cabeçalho do script explica a ordem em que ele escolhe o certificado.
 | **Pin** | Histórico da área de transferência, com busca, apelidos e itens fixados | `⌘⇧C` |
 | **Focus** | Ciclos de foco e pausa, com o registro do que foi feito em cada sessão | `⌘⇧F` |
 | **Leaf** | Parede de até nove anotações curtas, todas à vista de uma vez | `⌘⇧D` |
-| **Awake** | Impede o Mac de apagar a tela pelo prazo escolhido | `⌘⇧X` |
+| **Awake** | Impede o Mac de dormir pelo prazo escolhido — a tela, ou só o sistema | `⌘⇧X` |
 | **Echo** | Grava a reunião, separa as vozes, transcreve e resume — tudo local | `⌘⇧E` |
 | **Track** | Responde "o que eu fiz hoje" a partir do que os outros gravaram | — (só no Hub) |
 | **Hub** | Painel principal: lista os módulos e concentra as configurações | `⌘⇧,` |

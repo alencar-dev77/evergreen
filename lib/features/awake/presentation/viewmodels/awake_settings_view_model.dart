@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers.dart';
 import '../../data/awake_settings_repository.dart';
 import '../../models/awake_duration.dart';
+import '../../models/awake_mode.dart';
 import '../../models/awake_settings.dart';
 
 final awakeSettingsViewModelProvider =
@@ -25,6 +26,11 @@ class AwakeSettingsViewModel extends Notifier<AwakeSettings> {
 
   Future<void> setDefaultDuration(AwakeDuration value) async {
     state = state.copyWith(defaultDuration: value);
+    await _repository.save(state);
+  }
+
+  Future<void> setMode(AwakeMode value) async {
+    state = state.copyWith(mode: value);
     await _repository.save(state);
   }
 }

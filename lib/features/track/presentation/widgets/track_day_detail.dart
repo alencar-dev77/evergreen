@@ -76,6 +76,15 @@ class TrackDayDetail extends StatelessWidget {
           _EntryRow(entry: entry, fallbackLabel: 'Reunião'),
         const SizedBox(height: AppSpacing.xxl),
       ],
+      if (day.awake.isNotEmpty) ...[
+        const EgSectionLabel(
+          'Acordado',
+          padding: EdgeInsets.only(bottom: AppSpacing.sm),
+        ),
+        for (final entry in day.awake)
+          _EntryRow(entry: entry, fallbackLabel: 'Tela acesa'),
+        const SizedBox(height: AppSpacing.xxl),
+      ],
       if (day.copiedTotal > 0) ...[
         const EgSectionLabel(
           'Copiado',

@@ -43,7 +43,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-import 'features/awake/fake_display_sleep_service.dart';
+import 'features/awake/fake_sleep_assertion_service.dart';
 import 'features/echo/fake_echo_channel.dart';
 import 'features/focus/fake_focus_session_repository.dart';
 import 'features/leaf/fake_leaf_repository.dart';
@@ -320,10 +320,10 @@ void main() {
         overrides: [
           clipboardRepositoryProvider.overrideWithValue(repository),
           focusSessionRepositoryProvider.overrideWithValue(sessions),
-          // Sem isso, ligar a trava chamaria o canal do `wakelock_plus`, que
-          // não existe sob `flutter test` — e o `await` da chamada nunca
-          // voltaria: o teste ficaria pendurado em vez de falhar.
-          displaySleepServiceProvider.overrideWithValue(FakeDisplaySleepService()),
+          // Sem isso, ligar a trava chamaria o canal nativo do Awake, que não
+          // existe sob `flutter test`.
+          sleepAssertionServiceProvider
+              .overrideWithValue(FakeSleepAssertionService()),
           leafRepositoryProvider.overrideWithValue(notes),
           sharedPreferencesProvider.overrideWithValue(preferences),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),

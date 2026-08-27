@@ -8,8 +8,9 @@ import '../core/storage/app_database.dart';
 import '../core/storage/backup_service.dart';
 import '../core/storage/export_service.dart';
 import '../core/window/overlay_panel.dart';
+import '../features/awake/data/awake_session_repository.dart';
 import '../features/awake/data/awake_settings_repository.dart';
-import '../features/awake/data/display_sleep_service.dart';
+import '../features/awake/data/sleep_assertion_service.dart';
 import '../features/echo/data/echo_channel.dart';
 import '../features/echo/data/echo_repository.dart';
 import '../features/echo/data/echo_settings_repository.dart';
@@ -23,6 +24,7 @@ import '../features/pin/data/clipboard_watcher.dart';
 import '../features/pin/data/pin_settings_repository.dart';
 import '../features/track/data/track_repository.dart';
 import '../features/track/data/track_summarizer.dart';
+import '../features/track/data/track_summary_cache.dart';
 
 /// Dependências resolvidas antes do `runApp` e injetadas via `overrides`.
 ///
@@ -146,12 +148,21 @@ final trackSummarizerProvider = Provider<TrackSummarizer>(
   (ref) => TrackSummarizer(ref.watch(echoChannelProvider)),
 );
 
+/// O parágrafo já escrito de cada dia, no plist — ver [TrackSummaryCache].
+final trackSummaryCacheProvider = Provider<TrackSummaryCache>(
+  (ref) => TrackSummaryCache(ref.watch(sharedPreferencesProvider)),
+);
+
 /// A trava que impede o display de dormir.
 ///
 /// Provider (e não uma instância global) porque é o que o teste substitui para
 /// verificar o cronômetro do Awake sem tocar no IOKit.
-final displaySleepServiceProvider = Provider<DisplaySleepService>(
-  (ref) => WakelockDisplaySleepService(),
+final sleepAssertionServiceProvider = Provider<SleepAssertionService>(
+  (ref) => NativeSleepAssertionService(),
+);
+
+final awakeSessionRepositoryProvider = Provider<AwakeSessionRepository>(
+  (ref) => SqliteAwakeSessionRepository(ref.watch(appDatabaseProvider).db),
 );
 
 /// Painel que a janela flutuante está mostrando.

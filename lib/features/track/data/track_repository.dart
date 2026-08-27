@@ -1,6 +1,7 @@
 import 'package:sqlite3/sqlite3.dart';
 
 import '../../../shared/utils/day_bounds.dart';
+import '../../awake/models/awake_mode.dart';
 import '../../pin/models/clipboard_item_type.dart';
 import '../models/track_day.dart';
 
@@ -48,7 +49,7 @@ class SqliteTrackRepository implements TrackRepository {
       return days.putIfAbsent(DayBounds.startOfDay(moment), _DayBucket.new);
     }
 
-    // Quatro varreduras curtas, uma por tabela, em vez de um `JOIN` entre
+    // Cinco varreduras curtas, uma por tabela, em vez de um `JOIN` entre
     // coisas que não se relacionam: uma sessão de foco não tem nada a ver com
     // um item copiado além de terem acontecido no mesmo dia, e é o Dart que
     // agrupa por dia — converter epoch em data local dentro do SQLite obrigaria
@@ -92,6 +93,25 @@ class SqliteTrackRepository implements TrackRepository {
           );
     }
 
+    for (final row in _db.select(
+      '''
+      SELECT started_at, duration_seconds, mode
+        FROM awake_sessions
+       WHERE started_at >= ?
+       ORDER BY started_at ASC;
+      ''',
+      [from],
+    )) {
+      final at = row['started_at'] as int;
+      bucketOf(at).awake.add(
+            TrackEntry(
+              at: DateTime.fromMillisecondsSinceEpoch(at),
+              duration: Duration(seconds: row['duration_seconds'] as int),
+              label: AwakeMode.fromName(row['mode'] as String?).periodLabel,
+            ),
+          );
+    }
+
     // `copied_at` e `type`. Nunca `content` — ver a nota da classe.
     for (final row in _db.select(
       '''
@@ -125,6 +145,7 @@ class SqliteTrackRepository implements TrackRepository {
 class _DayBucket {
   final focus = <TrackEntry>[];
   final meetings = <TrackEntry>[];
+  final awake = <TrackEntry>[];
   final copied = <ClipboardItemType, int>{};
   int notesWritten = 0;
 
@@ -132,6 +153,7 @@ class _DayBucket {
         date: date,
         focus: List.unmodifiable(focus),
         meetings: List.unmodifiable(meetings),
+        awake: List.unmodifiable(awake),
         copied: Map.unmodifiable(copied),
         notesWritten: notesWritten,
       );

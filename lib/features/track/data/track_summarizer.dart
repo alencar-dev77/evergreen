@@ -96,6 +96,13 @@ class TrackSummarizer {
       }
     }
 
+    if (day.awake.isNotEmpty) {
+      lines.add(
+        'Mac acordado pelo Awake: ${DurationFormat.compact(day.awakeTotal)} '
+        'em ${TrackCounts.of(day.awake.length, 'período', 'períodos')}.',
+      );
+    }
+
     if (day.copiedTotal > 0) {
       final byType = day.copied.entries
           .where((entry) => entry.value > 0)
