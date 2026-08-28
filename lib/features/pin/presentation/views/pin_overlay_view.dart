@@ -113,6 +113,15 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
     await _closeAfterCopy();
   }
 
+  /// Clique na linha do gerador: copia o CPF sorteado e fecha.
+  ///
+  /// Copia, e não abre nada, ao contrário do clique numa linha de item — a linha
+  /// do gerador não tem um "dentro" para mostrar (ver [PinGeneratorRow]).
+  Future<void> _activateGenerated() async {
+    await _viewModel.copyGeneratedTaxId();
+    await _closeAfterCopy();
+  }
+
   /// Clique na linha: seleciona e abre o preview.
   ///
   /// O clique não copia. Quem chega pelo mouse quer ver o que tem ali dentro
@@ -271,6 +280,14 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
     // `listen`, e não no corpo do build, porque guardar o apelido anterior
     // escreve no estado — proibido enquanto a árvore se constrói.
     ref.listen(pinOverlayViewModelProvider, (previous, next) {
+      // Subir para a linha do gerador fecha o preview de fato, e não só de
+      // vista: sem item selecionado ele já sumiria da tela (`showPreview` cai),
+      // mas a bandeira continuaria dizendo "aberto" — e o Tab seguinte tentaria
+      // fechar o que já não estava lá.
+      if (next.isGeneratorSelected && _isPreviewOpen) {
+        _isPreviewOpen = false;
+      }
+
       if (previous?.selectedItem?.id == next.selectedItem?.id) return;
       _syncAliasField(next.selectedItem);
     });
@@ -289,6 +306,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
             onCycleFilter: _viewModel.cycleTypeFilter,
             onQuickCopy: _quickCopy,
             onTogglePin: _viewModel.togglePinSelected,
+            onGenerateTaxId: _viewModel.regenerateTaxId,
             onDelete: _viewModel.deleteSelected,
             onOpenSettings: _openSettings,
             onEditAlias: _editAlias,
@@ -328,6 +346,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
                       isFiltered: state.typeFilter != null,
                       hasTypes: state.hasTypeFilter,
                       isSelectedPinned: state.selectedItem?.isPinned ?? false,
+                      isGeneratorSelected: state.isGeneratorSelected,
                     ),
                   ],
                 ),
@@ -369,6 +388,8 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
       state: state,
       compact: showPreview,
       onSelect: _selectAndPreview,
+      onCopyGenerated: () => unawaited(_activateGenerated()),
+      onRegenerateTaxId: _viewModel.regenerateTaxId,
     );
 
     if (!showPreview) return list;

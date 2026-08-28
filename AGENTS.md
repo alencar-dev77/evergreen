@@ -125,7 +125,18 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   **subsequência não é solta sobre o conteúdo inteiro** — só sobre o apelido e a
   linha exibida. Solta, ela devolve o histórico inteiro para qualquer coisa
   digitada; o casamento literal é que continua alcançando o conteúdo todo.
-- Tipo de item do Pin (texto, link, e-mail, telefone, CPF, comando) é decidido
+- **O Pin escreve num lugar só: o gerador de CPF e CNPJ.** Ele é uma linha no
+  topo da lista dentro do filtro daquele documento, e paga três exceções às
+  regras daqui — as pílulas de CPF e CNPJ estão sempre na fila (senão o gerador
+  nasce escondido de quem nunca copiou um), clicar nela copia em vez de abrir o
+  preview (a linha não tem um "dentro"), e `selectedIndex == -1` passou a
+  significar duas coisas. **É uma linha só para os dois documentos**, e uma
+  conta só: o módulo 11 vive em `TaxId` (`lib/features/pin/models/tax_id.dart`),
+  onde CPF e CNPJ compartilham o mesmo `_checkDigit` e discordam apenas nos
+  pesos (`TaxIdKind.weightAt`) — o segundo documento não ganhou um segundo
+  arquivo, pelo mesmo motivo que a conta saiu do classificador. Ver
+  [docs/Ideis projeto/pin-gerador-de-cpf.md](docs/Ideis%20projeto/pin-gerador-de-cpf.md).
+- Tipo de item do Pin (texto, link, e-mail, telefone, CPF, CNPJ, comando) é decidido
   na captura e gravado na linha. Mexeu no `ClipboardItemClassifier`, suba o
   `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já
   guardado uma vez, na abertura seguinte. Sem isso, um tipo novo nasce vazio
