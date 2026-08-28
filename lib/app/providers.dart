@@ -16,7 +16,9 @@ import '../features/echo/data/echo_settings_repository.dart';
 import '../features/focus/data/focus_run_repository.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
+import '../core/app_info.dart';
 import '../features/home/data/app_settings_repository.dart';
+import '../features/home/data/hub_intro_repository.dart';
 import '../features/leaf/data/leaf_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
@@ -35,7 +37,8 @@ final appDatabaseProvider = Provider<AppDatabase>(
 );
 
 final sharedPreferencesProvider = Provider<SharedPreferences>(
-  (ref) => throw StateError('sharedPreferencesProvider precisa de override no main'),
+  (ref) =>
+      throw StateError('sharedPreferencesProvider precisa de override no main'),
 );
 
 /// Os backups do banco, na subpasta `Backups` do próprio aplicativo.
@@ -57,6 +60,17 @@ final backupServiceProvider = Provider<BackupService>((ref) {
 final appSettingsRepositoryProvider = Provider<AppSettingsRepository>(
   (ref) => AppSettingsRepository(ref.watch(sharedPreferencesProvider)),
 );
+
+final hubIntroRepositoryProvider = Provider<HubIntroRepository>(
+  (ref) => HubIntroRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+/// Assinatura da build instalada, lida uma vez por engine.
+///
+/// É um provider, e não uma chamada direta a [AppInfo.readBuildStamp], para o
+/// teste poder dizer qual build ele está simulando — a data do executável real,
+/// dentro do `flutter_tester`, é a do próprio `flutter_tester`.
+final buildStampProvider = Provider<String>((ref) => AppInfo.readBuildStamp());
 
 final clipboardRepositoryProvider = Provider<ClipboardRepository>(
   (ref) => SqliteClipboardRepository(ref.watch(appDatabaseProvider).db),
@@ -155,8 +169,8 @@ final awakeSessionRepositoryProvider = Provider<AwakeSessionRepository>(
 /// atalho global de cada módulo escreve aqui antes de mandar a janela aparecer.
 final overlayPanelProvider =
     NotifierProvider<OverlayPanelController, OverlayPanel>(
-  OverlayPanelController.new,
-);
+      OverlayPanelController.new,
+    );
 
 class OverlayPanelController extends Notifier<OverlayPanel> {
   @override

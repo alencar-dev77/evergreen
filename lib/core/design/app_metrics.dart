@@ -148,11 +148,7 @@ abstract final class AppShadows {
   /// sozinha ele parece colado na tela. É como o macOS sombreia janela, e é o
   /// que faz a peça ter espessura em vez de ser um recorte.
   static const floatingPanel = <BoxShadow>[
-    BoxShadow(
-      color: AppColors.shadow,
-      blurRadius: 60,
-      offset: Offset(0, 24),
-    ),
+    BoxShadow(color: AppColors.shadow, blurRadius: 60, offset: Offset(0, 24)),
     BoxShadow(
       color: AppColors.shadowContact,
       blurRadius: 10,
@@ -164,11 +160,7 @@ abstract final class AppShadows {
   /// [floatingPanel], um degrau mais baixa: `0 20px 50px` de ambiente e
   /// `0 2px 8px` de contato.
   static const dropdown = <BoxShadow>[
-    BoxShadow(
-      color: AppColors.shadow,
-      blurRadius: 50,
-      offset: Offset(0, 20),
-    ),
+    BoxShadow(color: AppColors.shadow, blurRadius: 50, offset: Offset(0, 20)),
     BoxShadow(
       color: AppColors.shadowContact,
       blurRadius: 8,
@@ -202,6 +194,14 @@ abstract final class AppDurations {
   /// Transições de layout.
   static const medium = Duration(milliseconds: 220);
 
+  /// O assentamento no fim de um movimento que "trava".
+  ///
+  /// É o único spring do Evergreen, e o `motion.md` libera exatamente um: a
+  /// lâmina da marca passa 5° do ponto e volta na abertura do Hub. Curto de
+  /// propósito — acima disso deixa de ser o clique de uma trava e vira o
+  /// quique de app consumer que o resto da escala existe para evitar.
+  static const settle = Duration(milliseconds: 60);
+
   static const curve = Curves.easeOutCubic;
 }
 
@@ -226,10 +226,7 @@ abstract final class AppMaterials {
   /// pintado por cima dele.
   static final panelVibrancy = ui.ImageFilter.compose(
     outer: const ColorFilter.matrix(_saturate160),
-    inner: ui.ImageFilter.blur(
-      sigmaX: panelBlurSigma,
-      sigmaY: panelBlurSigma,
-    ),
+    inner: ui.ImageFilter.blur(sigmaX: panelBlurSigma, sigmaY: panelBlurSigma),
   );
 
   /// Matriz de saturação a 160%, preservando a luminância percebida
