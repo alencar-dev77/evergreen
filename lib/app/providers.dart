@@ -21,6 +21,7 @@ import '../features/focus/data/focus_settings_repository.dart';
 import '../core/app_info.dart';
 import '../features/home/data/app_settings_repository.dart';
 import '../features/home/data/hub_intro_repository.dart';
+import '../features/home/data/onboarding_repository.dart';
 import '../features/leaf/data/leaf_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
@@ -73,6 +74,10 @@ final appSettingsRepositoryProvider = Provider<AppSettingsRepository>(
 
 final hubIntroRepositoryProvider = Provider<HubIntroRepository>(
   (ref) => HubIntroRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+final onboardingRepositoryProvider = Provider<OnboardingRepository>(
+  (ref) => OnboardingRepository(ref.watch(sharedPreferencesProvider)),
 );
 
 /// Assinatura da build instalada, lida uma vez por engine.

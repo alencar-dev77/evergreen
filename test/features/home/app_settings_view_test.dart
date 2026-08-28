@@ -23,10 +23,14 @@ void main() {
   late BackupService backup;
 
   setUp(() async {
-    // Com nome guardado, que é o estado de quem já usa o app: sem ele, a
-    // abertura animada termina levando o Hub para a tela do aplicativo, e é
-    // isso que o grupo "a primeira vez" testa de propósito.
-    SharedPreferences.setMockInitialValues({'app.user_name': 'Lucas'});
+    // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
+    // apresentação de boas-vindas (que espera cinco cliques em "Próximo") e a
+    // pergunta do nome (que leva o Hub para a tela do aplicativo). Aqui o app
+    // já foi apresentado e já sabe com quem fala.
+    SharedPreferences.setMockInitialValues({
+      'app.onboarding_seen': true,
+      'app.user_name': 'Lucas',
+    });
     preferences = await SharedPreferences.getInstance();
 
     // A versão do rodapé "Sobre" vem do bundle, que não existe em teste.

@@ -61,6 +61,29 @@ class EgGradients {
     stops: const [0.0, 0.6],
   );
 
+  /// O palco da apresentação de boas-vindas: do fundo ao accent, na diagonal.
+  ///
+  /// É o único gradiente do app que a pessoa deve **ver** como gradiente, e ele
+  /// custa uma justificativa: o `colors.md` proíbe gradiente decorativo porque
+  /// ferramenta de trabalho não decora. Isto não é tela de trabalho — é a única
+  /// vez em que o Evergreen se apresenta, e nela a cor da marca é o assunto,
+  /// não um estado. A regra continua valendo para todo o resto.
+  ///
+  /// Mesmo aqui ele é contido: parte do fundo, chega no [EgPalette.accentShade]
+  /// e para antes do accent, para o print que fica em cima continuar sendo a
+  /// coisa mais clara da composição. Chegando no accent cheio, o fundo
+  /// competiria com o botão verde que aparece dentro do próprio print.
+  LinearGradient get onboardingStage => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      _eg.colors.backgroundDeep,
+      _eg.colors.background,
+      _eg.colors.accentShade,
+    ],
+    stops: const [0.0, 0.42, 1.0],
+  );
+
   /// Superfície do cartão — hoje o cartão do Leaf.
   LinearGradient get cardSurface => LinearGradient(
     begin: Alignment.topCenter,

@@ -26,10 +26,14 @@ void main() {
   late Database db;
 
   setUp(() async {
-    // Com um nome guardado: sem ele, a abertura animada termina levando o Hub
-    // para a tela do aplicativo, onde a pergunta do nome espera. É o caminho
-    // da primeira vez, e tem teste próprio em `app_settings_view_test.dart`.
-    SharedPreferences.setMockInitialValues({'app.user_name': 'Lucas'});
+    // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
+    // apresentação de boas-vindas (que espera cinco cliques em "Próximo") e a
+    // pergunta do nome (que leva o Hub para a tela do aplicativo). Aqui o app
+    // já foi apresentado e já sabe com quem fala.
+    SharedPreferences.setMockInitialValues({
+      'app.onboarding_seen': true,
+      'app.user_name': 'Lucas',
+    });
     preferences = await SharedPreferences.getInstance();
 
     db = sqlite3.openInMemory();
