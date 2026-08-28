@@ -7,6 +7,7 @@ import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../../home/presentation/widgets/hub_detail_region.dart';
+import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
 import '../viewmodels/echo_library_view_model.dart';
 import 'echo_meeting_detail.dart';
 
@@ -58,6 +59,9 @@ class EchoReader extends ConsumerWidget {
       ),
       child: EchoMeetingDetail(
         meeting: meeting,
+        userName: ref.watch(
+          appSettingsViewModelProvider.select((settings) => settings.userName),
+        ),
         summaries: library.summaries,
         isSummarizing: library.summarizingId == meeting.id,
         progress: library.progress,

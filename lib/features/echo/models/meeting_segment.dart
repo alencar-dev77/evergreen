@@ -10,7 +10,18 @@ enum Speaker {
 
   const Speaker(this.label);
 
+  /// O rótulo padrão, de quem nunca disse como se chama.
   final String label;
+
+  /// O rótulo com o nome da pessoa, quando ela deu um.
+  ///
+  /// Vale para a tela e para o texto que vai ao modelo, e é de propósito que
+  /// sejam o mesmo: é do rótulo que o resumo tira como chamar quem falou, e uma
+  /// transcrição que mostra "Lucas" enquanto manda "Você" para o modelo produz
+  /// um resumo que fala de um estranho. Só [Speaker.me] tem nome — do outro
+  /// lado pode haver cinco pessoas, e o Echo não separa voz por voz.
+  String labelFor(String userName) =>
+      this == Speaker.me && userName.isNotEmpty ? userName : label;
 
   static Speaker fromName(String name) =>
       values.firstWhere((speaker) => speaker.name == name, orElse: () => Speaker.others);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
 
+import '../../home/data/app_settings_repository.dart';
 import '../models/echo_summary_status.dart';
 import '../models/summary_chunker.dart';
 import 'echo_channel.dart';
@@ -36,9 +37,11 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   LocalEchoSummaryRunner({
     required EchoRepository repository,
     required EchoSettingsRepository settings,
+    required AppSettingsRepository appSettings,
     required EchoChannel channel,
   }) : _repository = repository,
        _settings = settings,
+       _appSettings = appSettings,
        _channel = channel;
 
   /// Instrução dos resumos de bloco.
@@ -53,8 +56,20 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
       'nomes próprios. Escreva em texto corrido, sem formatação. Não invente '
       'nada que não esteja no trecho.';
 
+  /// A frase que apresenta a pessoa ao modelo.
+  ///
+  /// O rótulo da transcrição sozinho não basta: o modelo vê "Lucas: ..." e não
+  /// tem como saber que Lucas é quem está pedindo o resumo — ele escreve sobre
+  /// um participante qualquer, e volta a dizer "a pessoa" na hora de falar de
+  /// quem lê. Sem gênero de propósito: o Evergreen pede um nome, não um
+  /// cadastro.
+  static String presentation(String userName) =>
+      'Quem aparece na transcrição como "$userName" é quem pediu este resumo. '
+      'Chame essa pessoa pelo nome, nunca de "você" nem de "a pessoa".';
+
   final EchoRepository _repository;
   final EchoSettingsRepository _settings;
+  final AppSettingsRepository _appSettings;
   final EchoChannel _channel;
 
   EchoSummaryStatus _status = const EchoSummaryStatus();
@@ -84,11 +99,18 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
     if (meeting == null || meeting.isEmpty) return;
 
     // A instrução mora no Hub, em outro engine: sem reler, o resumo sai com a
-    // instrução de ontem. É a mesma armadilha que a gravação já tinha.
+    // instrução de ontem. É a mesma armadilha que a gravação já tinha — e o
+    // nome, que também é escrito lá, cai nela do mesmo jeito.
     await _settings.reload();
-    final instructions = _settings.load().resolvedSummaryInstructions;
+    await _appSettings.reload();
 
-    final chunks = SummaryChunker.chunk(meeting.plainText);
+    final userName = _appSettings.load().userName;
+    final written = _settings.load().resolvedSummaryInstructions;
+    final instructions = userName.isEmpty
+        ? written
+        : '$written\n\n${presentation(userName)}';
+
+    final chunks = SummaryChunker.chunk(meeting.plainText(userName: userName));
     if (chunks.isEmpty) return;
 
     _status = EchoSummaryStatus(meetingId: meetingId, total: chunks.length);

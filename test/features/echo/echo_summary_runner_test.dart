@@ -244,4 +244,37 @@ void main() {
 
     expect(later.read(echoLibraryViewModelProvider).errorMessage, isNull);
   });
+
+  /// O modelo não sabe quem é quem: o rótulo da transcrição é a única pista, e
+  /// a instrução é o que diz que aquele nome é de quem está pedindo o resumo.
+  group('o nome de quem pediu', () {
+    test('sem nome, nada muda no que vai para o modelo', () async {
+      await background.read(echoSummaryRunnerProvider).start(meetingId);
+      await pumpEventQueue();
+
+      expect(channel.summarizedTexts.single, contains('Você: Fechado'));
+      expect(
+        channel.summarizedInstructions.single,
+        isNot(contains('pediu este resumo')),
+      );
+    });
+
+    test('com nome, ele vai no rótulo e na instrução', () async {
+      // Escrito na janela do Hub, lido no engine da janela 0: o runner relê o
+      // disco antes de começar, senão o primeiro resumo depois de a pessoa se
+      // apresentar sairia chamando ela de "a pessoa" ainda.
+      await preferences.setString('app.user_name', 'Lucas');
+
+      await background.read(echoSummaryRunnerProvider).start(meetingId);
+      await pumpEventQueue();
+
+      expect(channel.summarizedTexts.single, contains('Lucas: Fechado'));
+      expect(channel.summarizedTexts.single, isNot(contains('Você:')));
+      expect(channel.summarizedInstructions.single, contains('"Lucas"'));
+      expect(
+        channel.summarizedInstructions.single,
+        contains('nunca de "você" nem de "a pessoa"'),
+      );
+    });
+  });
 }

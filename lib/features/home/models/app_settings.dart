@@ -2,10 +2,23 @@
 /// nenhum.
 class AppSettings {
   const AppSettings({
+    this.userName = '',
     this.launchAtLogin = false,
     this.startMinimized = true,
     this.automaticBackup = true,
   });
+
+  /// Como a pessoa se chama.
+  ///
+  /// É a única preferência do Evergreen que não liga nem desliga nada: ela
+  /// existe para o **modelo local** ter como chamar quem está do outro lado.
+  /// Sem ela, o resumo da reunião diz "a pessoa" e o parágrafo do Track diz "o
+  /// usuário" — texto sobre você escrito por quem não sabe seu nome.
+  ///
+  /// Vazio é o estado normal de quem nunca preencheu, e tudo continua
+  /// funcionando: o rótulo volta a ser "Você" e as instruções voltam a falar de
+  /// "a pessoa". Nome não é requisito de nada.
+  final String userName;
 
   /// Iniciar o Evergreen junto com o macOS.
   ///
@@ -26,11 +39,13 @@ class AppSettings {
   final bool automaticBackup;
 
   AppSettings copyWith({
+    String? userName,
     bool? launchAtLogin,
     bool? startMinimized,
     bool? automaticBackup,
   }) {
     return AppSettings(
+      userName: userName ?? this.userName,
       launchAtLogin: launchAtLogin ?? this.launchAtLogin,
       startMinimized: startMinimized ?? this.startMinimized,
       automaticBackup: automaticBackup ?? this.automaticBackup,

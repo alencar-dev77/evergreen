@@ -176,6 +176,17 @@ void main() {
   test('o texto que vai para o resumo diz quem falou', () {
     final meeting = meetingAt(1);
 
-    expect(meeting.plainText, 'Você: bom dia\nReunião: bom dia, vamos começar');
+    expect(
+      meeting.plainText(),
+      'Você: bom dia\nReunião: bom dia, vamos começar',
+    );
+
+    // Com nome guardado, o rótulo da sua faixa vira o nome — e é este texto
+    // que vai para o modelo, que é como o resumo passa a falar de você pelo
+    // nome em vez de "a pessoa".
+    expect(
+      meeting.plainText(userName: 'Lucas'),
+      'Lucas: bom dia\nReunião: bom dia, vamos começar',
+    );
   });
 }

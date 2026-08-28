@@ -21,6 +21,7 @@ import '../../../track/presentation/views/track_view.dart';
 import '../../../track/presentation/widgets/track_reader.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
+import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/hub_intro_view_model.dart';
 import '../widgets/hub_detail_region.dart';
 import '../widgets/hub_intro.dart';
@@ -50,6 +51,24 @@ class HubView extends ConsumerStatefulWidget {
 class _HubViewState extends ConsumerState<HubView> {
   /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
   EvergreenModule? _selected = EvergreenModule.pin;
+
+  /// O que acontece quando a abertura animada termina.
+  ///
+  /// Além de carimbar a build, ela decide onde o Hub cai: no Pin, como sempre,
+  /// ou na tela do aplicativo, quando ainda não se sabe o nome de quem está do
+  /// outro lado. A pergunta do nome mora lá, no topo, com o cursor dentro.
+  ///
+  /// Amarrada à cena, e não à abertura da janela: a cena roda **uma vez por
+  /// instalação**, então a pergunta aparece uma vez e nunca mais — mesmo de
+  /// quem deixar o campo em branco. Uma pergunta que reabre a cada Hub deixa de
+  /// ser pergunta e vira cobrança. E é o lugar certo também pelo tempo: ela
+  /// chega logo depois da marca, como a primeira coisa que o app diz.
+  void _introDone() {
+    ref.read(hubIntroViewModelProvider.notifier).complete();
+
+    if (ref.read(appSettingsViewModelProvider).userName.isNotEmpty) return;
+    setState(() => _selected = null);
+  }
 
   void _select(EvergreenModule? module) {
     // Trocar de módulo fecha a região: uma reunião aberta ao lado das
@@ -105,10 +124,7 @@ class _HubViewState extends ConsumerState<HubView> {
         children: [
           _hub(),
           if (ref.watch(hubIntroViewModelProvider))
-            HubIntro(
-              onDone: () =>
-                  ref.read(hubIntroViewModelProvider.notifier).complete(),
-            ),
+            HubIntro(onDone: _introDone),
         ],
       ),
     );

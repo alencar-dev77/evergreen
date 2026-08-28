@@ -29,6 +29,7 @@ class EchoMeetingDetail extends StatefulWidget {
   const EchoMeetingDetail({
     super.key,
     required this.meeting,
+    required this.userName,
     required this.summaries,
     required this.isSummarizing,
     required this.progress,
@@ -37,6 +38,10 @@ class EchoMeetingDetail extends StatefulWidget {
   });
 
   final Meeting meeting;
+
+  /// Como chamar quem falou pelo microfone. Vazio, o rótulo é "Você".
+  final String userName;
+
   final SummaryAvailability summaries;
   final bool isSummarizing;
 
@@ -198,7 +203,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final turn in turns) ...[
-          _TurnBlock(turn: turn),
+          _TurnBlock(turn: turn, userName: widget.userName),
           if (turn != turns.last) const SizedBox(height: AppSpacing.xl),
         ],
       ],
@@ -256,9 +261,10 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
 /// Sem balões de conversa: isso é vocabulário de aplicativo de mensagem, e o
 /// que está aqui é um documento para reler, não um bate-papo.
 class _TurnBlock extends StatelessWidget {
-  const _TurnBlock({required this.turn});
+  const _TurnBlock({required this.turn, required this.userName});
 
   final MeetingTurn turn;
+  final String userName;
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +276,7 @@ class _TurnBlock extends StatelessWidget {
         Row(
           children: [
             Text(
-              turn.speaker.label,
+              turn.speaker.labelFor(userName),
               // Verde para você, neutro para a reunião: é a única cor da tela e
               // carrega significado. Quem não distingue a cor lê o nome, que
               // está escrito do lado.
