@@ -35,12 +35,24 @@ Use este arquivo como checklist final antes de considerar qualquer tela, compone
 - ❌ **Não animar escala em hover/click de botões** ("cresce ao passar o mouse", "encolhe ao clicar") — isso é linguagem de site/app mobile consumer.
 - ❌ **Não usar telas de loading dramáticas** com logo animado no meio do uso normal do app.
   **Exceção decidida em conversa (v0.8.3+): a abertura animada do Hub.** O Hub
-  ganha uma animação de entrada — a lâmina do ícone girando para fora do cabo,
-  280ms no total — que roda **uma vez por atualização**: na primeira vez que o
-  Hub abre depois de o binário mudar, e nunca mais até a atualização seguinte.
-  O que separa isso de uma tela de loading é a frequência: 300ms cobrados de
-  quem abre o app quarenta vezes por dia são pedágio; cobrados uma vez a cada
-  versão nova, são a marca dizendo que alguma coisa mudou.
+  ganha uma animação de entrada — a lâmina do ícone girando para fora do cabo
+  em 700ms, mais a pausa para ler o nome, ~1,5s no total — que roda **uma vez
+  por atualização**: na primeira vez que o Hub abre depois de o binário mudar,
+  e nunca mais até a atualização seguinte.
+  O que separa isso de uma tela de loading é a frequência, não a pressa: um
+  segundo e meio cobrado de quem abre o app quarenta vezes por dia é pedágio;
+  cobrado uma vez a cada versão nova, é a marca dizendo que alguma coisa mudou.
+  **Esta é a única cena do app fora da escala de durações do `motion.md`**, e é
+  fora dela de propósito: o teto de 320ms existe para transição que atrapalha
+  quem está no meio de uma tarefa, e aqui não há tarefa esperando. Na primeira
+  versão a cena tentou caber na escala (280ms) e ficou no pior dos dois mundos
+  — cobrava o tempo da pessoa e mesmo assim a lâmina travava antes de ela
+  perceber que algo tinha se movido, sobrando só uma marca parada na tela, que
+  é exatamente a tela de logo que esta regra proíbe. Ou a cena é vista, ou não
+  existe. Pelo mesmo motivo o giro usa `easeInOutCubic` e não a curva padrão de
+  entrada: em 700ms, um `easeOut` gasta o movimento no primeiro terço e o resto
+  parece a animação travando; sair do repouso e desacelerar dentro da trava é o
+  que faz o *settle* de 60ms ler como o clique do canivete.
   O gatilho é a **data de modificação do executável**
   (`File(Platform.resolvedExecutable).statSync().modified`), guardada em
   `AppSettings` — não a versão do `pubspec`, porque `run_build_copy` reinstala

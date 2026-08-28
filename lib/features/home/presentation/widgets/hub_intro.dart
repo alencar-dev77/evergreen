@@ -10,9 +10,12 @@ import '../../../../shared/widgets/eg_brand_mark.dart';
 ///
 /// Roda **uma vez por build instalada** — quem decide é o
 /// `HubIntroViewModel`, não este widget, que só sabe animar e avisar quando
-/// terminou. O que a torna aceitável num app que proíbe splash é a frequência:
-/// 300ms cobrados de quem abre o Hub quarenta vezes por dia são pedágio;
-/// cobrados uma vez por versão, são a marca dizendo que alguma coisa mudou.
+/// terminou. O que a torna aceitável num app que proíbe splash é a frequência,
+/// não a pressa: um segundo e meio cobrado de quem abre o Hub quarenta vezes
+/// por dia seria pedágio; cobrado uma vez por versão, é a marca dizendo que
+/// alguma coisa mudou. Por isso a cena não tenta caber na escala de
+/// transições — encurtá-la até lá é o pior dos dois mundos, porque cobra o
+/// tempo e não mostra o giro.
 ///
 /// O estado final do desenho é o estado normal do ícone, então não existe
 /// degrau visual entre esta abertura e todas as outras.
@@ -29,6 +32,19 @@ class HubIntro extends StatefulWidget {
 
 class _HubIntroState extends State<HubIntro>
     with SingleTickerProviderStateMixin {
+  /// Quanto tempo a lâmina leva para sair do cabo.
+  ///
+  /// Fora da escala do `AppDurations` pelo mesmo motivo da pausa logo abaixo:
+  /// aquela escala é de transições de interface, com teto de 320ms, e existe
+  /// para que nada atrapalhe quem está no meio de uma tarefa. Aqui não há
+  /// tarefa nenhuma esperando — a cena roda uma vez por versão, e o giro *é* o
+  /// conteúdo dela. Com os 280ms de uma transição, a lâmina já estava travada
+  /// antes de a pessoa perceber que alguma coisa se moveu, e o que sobrava era
+  /// só a pausa: uma marca parada, que é justamente a tela de logo que o
+  /// `anti-patterns.md` proíbe. O giro dura o mesmo que a pausa de propósito —
+  /// ver a lâmina abrir e ler o nome valem o mesmo nesta cena.
+  static const _swing = Duration(milliseconds: 700);
+
   /// Quanto a marca fica parada depois de montada, para o nome ser lido.
   ///
   /// Fora da escala do `AppDurations` de propósito: aquela escala é de
@@ -63,8 +79,8 @@ class _HubIntroState extends State<HubIntro>
             tween: Tween(
               begin: 0.0,
               end: _overshoot,
-            ).chain(CurveTween(curve: AppDurations.curve)),
-            weight: AppDurations.medium.inMilliseconds.toDouble(),
+            ).chain(CurveTween(curve: Curves.easeInOutCubic)),
+            weight: _swing.inMilliseconds.toDouble(),
           ),
           TweenSequenceItem(
             tween: Tween(
@@ -91,7 +107,7 @@ class _HubIntroState extends State<HubIntro>
   }
 
   /// O instante em que a lâmina trava — o giro mais o assentamento.
-  static final _lock = AppDurations.medium + AppDurations.settle;
+  static final _lock = _swing + AppDurations.settle;
 
   static final _total = _lock + _hold + _exit;
 

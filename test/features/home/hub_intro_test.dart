@@ -104,14 +104,19 @@ void main() {
       // Primeiro quadro: recolhida.
       expect(mark().openness, lessThan(0.05));
 
-      // No meio do giro ela já saiu, e ainda não travou.
-      await tester.pump(const Duration(milliseconds: 140));
+      // No meio do giro ela já saiu, e ainda não travou. O giro dura 700ms:
+      // curto demais e a cena não é vista, que é o motivo de ela existir.
+      await tester.pump(const Duration(milliseconds: 350));
       final meio = mark().openness;
       expect(meio, greaterThan(0.1));
       expect(meio, lessThan(1));
 
-      // Depois do assentamento, travada — o estado normal do ícone.
+      // Ainda girando bem depois de onde uma transição comum já teria acabado.
       await tester.pump(const Duration(milliseconds: 200));
+      expect(mark().openness, lessThan(1));
+
+      // Depois do assentamento, travada — o estado normal do ícone.
+      await tester.pump(const Duration(milliseconds: 250));
       expect(mark().openness, moreOrLessEquals(1, epsilon: 0.001));
 
       expect(done, 0, reason: 'a cena ainda está na pausa');
@@ -127,7 +132,7 @@ void main() {
       // parece cortada. Em algum quadro entre o fim do giro e a trava, a
       // abertura precisa passar de 1.
       var passou = false;
-      for (var i = 0; i < 28; i++) {
+      for (var i = 0; i < 80; i++) {
         await tester.pump(const Duration(milliseconds: 10));
         final v = tester.widget<EgBrandMark>(find.byType(EgBrandMark)).openness;
         if (v > 1.001) passou = true;
