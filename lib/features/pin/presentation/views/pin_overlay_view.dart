@@ -51,7 +51,17 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   bool _isPreviewOpen = false;
 
   /// Largura do painel em cada modo, conforme as telas do design.
-  static const _listOnlyWidth = 420.0;
+  ///
+  /// Os 420px de origem cabiam a fila de filtros inteira em uma linha — 383px
+  /// com os sete tipos que existiam. O CNPJ levou a fila a 431px, e ela passou
+  /// a quebrar: "Comandos" descia sozinho para uma segunda linha, que se lê
+  /// como uma opção que caiu fora, não como continuação.
+  ///
+  /// 480 é a fila (431) mais o respiro lateral (16) mais uma folga que não é
+  /// decorativa: é o que segura o próximo rótulo sem que a largura do painel
+  /// vire assunto de novo. Medido com as fontes do sistema, não com a fallback
+  /// do `flutter test`, que alarga o texto e daria um número inventado.
+  static const _listOnlyWidth = 480.0;
   static const _withPreviewWidth = 560.0;
   static const _maxPanelHeight = 460.0;
 
