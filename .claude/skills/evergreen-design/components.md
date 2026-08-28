@@ -22,8 +22,10 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgPanel` | `eg_panel.dart` | superfície flutuante com borda, radius e sombra | `elevated` on/off |
 | `EgIconBadge` | `eg_panel.dart` | quadrado arredondado que abriga um ícone | — |
 | `EgConfirmDialog` | `eg_confirm_dialog.dart` | confirmação de ação irreversível (360px, ações à direita, Esc = cancelar) | — |
+| `EgSettingsPage` | `eg_settings_section.dart` | a pilha de tópicos de uma tela de preferência; dá o vão entre eles | — |
 | `EgSettingsSection` | `eg_settings_section.dart` | agrupa linhas de configuração sob um label em caps | — |
-| `EgSettingsRow` | `eg_settings_row.dart` | linha de configuração: rótulo + descrição + controle | `showDivider` on/off |
+| `EgSettingsRow` | `eg_settings_row.dart` | linha de configuração: rótulo + descrição + controle | `showDivider` on/off · `.toggle` · `.field` |
+| `EgBrandMark` | `eg_brand_mark.dart` | a marca do Evergreen — o canivete, com a lâmina em qualquer ponto entre recolhida e travada | `openness` 0→1 |
 | `EgNavTile` | `eg_nav_tile.dart` | item de navegação: badge de ícone + título + linha de apoio | default · hover · pressed · focus · selected |
 | `EgOverlayShell` | `eg_overlay_shell.dart` | casca dos painéis flutuantes: entrada, blur, clique fora, centralização | — |
 | `EgSectionLabel` | `eg_section_label.dart` | label de grupo em caixa alta | — |
@@ -49,7 +51,14 @@ Estas decisões foram tomadas no v0.1 e valem como padrão do produto. Um módul
 
 - **Hub = sidebar de módulos + painel de detalhe.** A sidebar lista todos os módulos (inclusive os não lançados, esmaecidos, com a versão prevista no lugar da tagline); o detalhe abre com um cabeçalho compacto (nome + tagline) e as configurações abaixo. Os módulos ficam **colados no topo** da sidebar, sem cabeçalho de grupo acima deles: são eles que a pessoa vem procurar, e cada linha acima empurra o último módulo para o meio da janela.
 - **Toda tela do Hub começa no topo, cheia ou vazia.** A área de detalhe rola, e um `SingleChildScrollView` encolhe até a altura do conteúdo quando ele cabe na janela — o `Row` do Hub precisa esticar (`CrossAxisAlignment.stretch`), senão a tela de um módulo curto abre com o texto no meio da janela enquanto as compridas abrem no topo. Duas telas do mesmo aplicativo não podem começar em alturas diferentes.
-- **Preferências são `EgSettingsSection` + `EgSettingsRow`.** Seção com label em caps, linhas com rótulo à esquerda e controle à direita, divisor sutil entre linhas e nenhum na última. Módulo novo herda a mesma densidade e alinhamento de graça.
+- **Preferências são `EgSettingsPage` + `EgSettingsSection` + `EgSettingsRow`.** Seção com label em caps, linhas com rótulo à esquerda e controle à direita, divisor sutil entre linhas e nenhum na última. A pilha de tópicos é a `EgSettingsPage`: é ela que dá o vão **entre** tópicos, e o vão é maior que qualquer espaço de dentro de um tópico — é essa diferença, e não uma linha divisória a mais, que diz onde um assunto acaba. (Divisor no limite do tópico ficaria idêntico ao divisor entre linhas, ou seja, não separaria nada.) Módulo novo herda densidade, alinhamento e ritmo de graça.
+- **A ordem dos tópicos de uma tela de preferência é fixa**, e vale para módulo existente ou novo:
+  1. **O que aconteceu** — a lista do módulo (reuniões do Echo, sessões do Focus). Quem abre o módulo quer primeiro saber o que ele registrou, não mexer em ajuste.
+  2. **O que ele faz** — os tópicos de comportamento, e dentro de cada um **os interruptores primeiro**: um `EgToggle` é a pergunta de sim ou não que decide se o resto do tópico importa. Seletores depois, campos de texto por último (são os mais altos, e afundam o que vem depois deles).
+  3. **Limites e ações destrutivas** — o quanto se guarda, o "limpar". O limite mora junto da lista que ele governa, não num tópico só dele: uma seção inteira para uma pergunta é como a tela do Echo chegou a seis títulos para responder cinco coisas.
+  4. **Atalho global** — sempre o penúltimo, sempre igual em todas as telas.
+  5. **Permissões** — sempre por último. Liberação é coisa de uma vez só: dois botões que se apertam no primeiro dia e nunca mais. No topo, empurravam para baixo tudo o que se ajusta no dia a dia, e a tela abria pedindo permissão em vez de mostrar o conteúdo. A exceção é o aviso de permissão **condicional** (o do auto-colar do Pin), que só aparece quando há problema e mora colado no interruptor que o causou — ele não é um tópico, é a consequência de uma linha.
+- **Campo de texto em preferência é `EgSettingsRow.field`**, não um rótulo com um campo solto embaixo: o controle desce para baixo do rótulo e ocupa a linha toda. Quem decide é o tamanho da resposta — um seletor cabe ao lado do rótulo, um texto de três linhas não. E quando uma tela tem dois campos, eles ficam **um debaixo do outro**, não um em cada ponta dela.
 - **Configuração é escrita na hora.** Não existe botão "Salvar" em tela de preferência: mexer no controle já persiste. Também não existe confirmação de "salvo com sucesso" — a mudança visível no controle já é o feedback.
 - **A marca da sidebar é a entrada do aplicativo, e mora no rodapé.** Clicar no logo do Evergreen abre as preferências do app (iniciar com o macOS, atalho do Hub, sobre), com os mesmos estados de seleção dos módulos. Um segundo item escrito "Evergreen" logo abaixo do logo seria o mesmo rótulo duas vezes na mesma lista. Fica embaixo, junto da versão, porque preferência de aplicativo é onde se vai de vez em quando — o topo pertence ao que se usa todo dia.
 - **Preferência de app não mora em tela de módulo.** Se a configuração vale para o Evergreen inteiro, ela pertence à tela do aplicativo — não à do módulo que por acaso nasceu primeiro.
@@ -102,6 +111,19 @@ Duas consequências que não se negociam: `hover` e `focus` compartilham a super
 Colunas disponíveis: `row` (linha de lista, item de sidebar), `ghost` (botão de ícone — sem superfície em repouso, então é o conteúdo que reage), `card` (superfície própria em repouso), `segment` (pílula do segmented control), `primary`, `secondary` e `destructive` (botões).
 
 A tabela inteira, desenhada, mora no golden `test/goldens/design_state_matrix.png` — a folha de estados do design system, com as sete colunas em seis estados e os componentes reais abaixo, hover e pressed inclusive. Regenerar com `flutter test --run-skipped -t preview --update-goldens`.
+
+## A marca
+
+O Evergreen tem **um** desenho de marca: o canivete de `lib/shared/widgets/eg_brand_mark.dart`, com a lâmina em qualquer ponto entre recolhida e travada. Ele aparece em quatro lugares, e nos quatro é o mesmo código:
+
+- a abertura do Hub (`EgBrandMark`, com a lâmina girando);
+- o ícone do aplicativo (`app_icon_*.png`, laje escura + marca em dois verdes);
+- o ícone da barra de menus (`tray_icon.png`, preto chapado sobre alfa — imagem de *template*, que o macOS inverte sozinho);
+- o glifo de 16px da barra lateral (`EgIconData.evergreen`, numa cor só).
+
+Os `.png` são **gerados**, não desenhados: `flutter test --run-skipped -t assets test/tools/brand_assets_test.dart`. Não existe `.svg` paralelo, e essa é a regra, não um detalhe de implementação — o pinheiro tinha um, e foi assim que ele continuou no ícone do aplicativo e na barra de menus meses depois de a marca já ser outra. Marca nova, ou ajuste na lâmina: mexa no Dart e reexporte.
+
+Nos tamanhos pequenos, lâmina e cabo vão na **mesma cor**: o que separa os dois ali é a silhueta e o furo do rebite, não o contraste entre os dois verdes.
 
 ## Botões
 

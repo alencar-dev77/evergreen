@@ -11,9 +11,9 @@ import '../../../../shared/widgets/eg_brand_mark.dart';
 /// Roda **uma vez por build instalada** — quem decide é o
 /// `HubIntroViewModel`, não este widget, que só sabe animar e avisar quando
 /// terminou. O que a torna aceitável num app que proíbe splash é a frequência,
-/// não a pressa: um segundo e meio cobrado de quem abre o Hub quarenta vezes
-/// por dia seria pedágio; cobrado uma vez por versão, é a marca dizendo que
-/// alguma coisa mudou. Por isso a cena não tenta caber na escala de
+/// não a pressa: três segundos e meio cobrados de quem abre o Hub quarenta
+/// vezes por dia seriam pedágio; cobrados uma vez por versão, são a marca
+/// dizendo que alguma coisa mudou. Por isso a cena não tenta caber na escala de
 /// transições — encurtá-la até lá é o pior dos dois mundos, porque cobra o
 /// tempo e não mostra o giro.
 ///
@@ -43,14 +43,14 @@ class _HubIntroState extends State<HubIntro>
   /// só a pausa: uma marca parada, que é justamente a tela de logo que o
   /// `anti-patterns.md` proíbe. O giro dura o mesmo que a pausa de propósito —
   /// ver a lâmina abrir e ler o nome valem o mesmo nesta cena.
-  static const _swing = Duration(milliseconds: 700);
+  static const _swing = Duration(milliseconds: 1700);
 
   /// Quanto a marca fica parada depois de montada, para o nome ser lido.
   ///
   /// Fora da escala do `AppDurations` de propósito: aquela escala é de
   /// transições, e o teto dela são 320ms. Isto não é uma transição, é uma
   /// pausa — o tempo de olhar, que é o único motivo de a cena existir.
-  static const _hold = Duration(milliseconds: 700);
+  static const _hold = Duration(milliseconds: 1700);
 
   /// A saída é mais rápida que a entrada, como toda saída no Evergreen.
   static const _exit = AppDurations.instant;

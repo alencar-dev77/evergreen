@@ -121,8 +121,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
     final library = ref.watch(echoLibraryViewModelProvider);
     final libraryViewModel = ref.read(echoLibraryViewModelProvider.notifier);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
         EgSettingsSection(
           title: 'Reuniões',
@@ -145,8 +144,148 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   style: AppTypography.captionSmall,
                 ),
               ),
+            // O limite mora junto da lista que ele governa, e não num tópico
+            // "Histórico" só dele: uma seção inteira para uma pergunta é o que
+            // fazia esta tela ter seis títulos para responder cinco coisas.
+            // Descolado da lista e sem divisor, pela mesma razão do "limpar" do
+            // Focus: encostado, viraria a última reunião da lista.
+            const SizedBox(height: AppSpacing.xxl),
+            EgSettingsRow(
+              label: 'Reuniões guardadas',
+              description:
+                  'Passando disso, a mais antiga sai para a nova entrar. '
+                  'Reunião marcada com "guardar" não entra nessa conta.',
+              showDivider: false,
+              trailing: EgSegmentedControl<int>(
+                value: settings.historyLimit,
+                options: EchoSettings.historyLimitOptions,
+                labelOf: (option) => '$option',
+                onChanged: viewModel.setHistoryLimit,
+              ),
+            ),
           ],
         ),
+        EgSettingsSection(
+          title: 'Gravação',
+          children: [
+            // O interruptor primeiro: é a única pergunta do tópico que se
+            // responde com sim ou não, e ela diz o que o módulo vai fazer
+            // enquanto grava. Os ajustes de como vêm depois.
+            EgSettingsRow.toggle(
+              label: 'Transcrever ao vivo',
+              description:
+                  'O texto aparece enquanto a reunião acontece. Custa '
+                  'processador — em Mac com pouca memória, pode fazer a '
+                  'chamada engasgar. O áudio é gravado dos dois jeitos, então '
+                  'a transcrição final sai igual.',
+              value: settings.liveTranscription,
+              onChanged: viewModel.setLiveTranscription,
+            ),
+            EgSettingsRow(
+              label: 'Idioma da transcrição',
+              description:
+                  'Transcrição no idioma errado não sai pior, sai inútil. O '
+                  'modelo do idioma é baixado uma vez, na troca.',
+              trailing: EgSegmentedControl<TranscriptionLanguage>(
+                value: settings.language,
+                options: TranscriptionLanguage.values,
+                labelOf: (option) => option.shortLabel,
+                onChanged: viewModel.setLanguage,
+              ),
+            ),
+            // Em cor de aviso, e não no cinza das outras legendas desta tela:
+            // as demais são ressalvas ("com fone fica melhor"), esta é um
+            // impedimento — com ela na tela, a gravação recusa começar.
+            if (unsupportedLanguage)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Text(
+                  'Este Mac não tem modelo de transcrição para '
+                  '${settings.language.label}. Escolha outro idioma: gravar '
+                  'assim devolveria palavras trocadas, não a reunião.',
+                  style: AppTypography.captionSmall.copyWith(
+                    color: AppColors.warning,
+                  ),
+                ),
+              ),
+            if (substitutedLanguage != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Text(
+                  'O macOS atende ${settings.language.label} com o modelo de '
+                  '$substitutedLanguage — é ele que vai transcrever.',
+                  style: AppTypography.captionSmall,
+                ),
+              ),
+            // Último do tópico, encostado no campo de instrução do resumo, que
+            // abre o tópico seguinte: os dois campos de escrever desta tela
+            // ficam um debaixo do outro, e não um em cada ponta dela.
+            EgSettingsRow.field(
+              label: 'Palavras que costumam aparecer',
+              description:
+                  'Nome de pessoa, de empresa, de produto, jargão — um por '
+                  'linha. É o que o reconhecimento mais erra, porque tenta '
+                  'encaixar o som numa palavra comum do idioma. Vale só para a '
+                  'transcrição.',
+              showDivider: false,
+              field: EgTextField(
+                controller: _vocabulary,
+                focusNode: _vocabularyFocus,
+                hintText: EchoSettings.vocabularyHint,
+                minLines: 2,
+                maxLines: 5,
+              ),
+            ),
+          ],
+        ),
+        EgSettingsSection(
+          title: 'Resumo',
+          children: [
+            EgSettingsRow.field(
+              label: 'Como você quer o resumo',
+              description:
+                  'Vale para todas as reuniões, e é aplicada quando você '
+                  'aperta Resumir. Curta e direta funciona melhor: o modelo é '
+                  'local e pequeno, e ignora instrução longa demais.',
+              showDivider: false,
+              field: EgTextField(
+                controller: _instructions,
+                focusNode: _instructionsFocus,
+                hintText: EchoSettings.defaultInstructionsHint,
+                minLines: 3,
+                maxLines: 6,
+                // Sem `onSubmitted`: com várias linhas o Enter quebra a linha,
+                // que é o que se espera de um campo desse tamanho. Quem guarda
+                // é sair do campo — a mesma regra do apelido do Pin.
+              ),
+            ),
+            if (summaries.explanation != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: Text(
+                  summaries.explanation!,
+                  style: AppTypography.captionSmall,
+                ),
+              ),
+          ],
+        ),
+        const EgSettingsSection(
+          title: 'Atalho global',
+          children: [
+            EgSettingsRow(
+              label: 'Abrir Echo',
+              description: 'Funciona com qualquer aplicativo em foco.',
+              showDivider: false,
+              trailing: EgShortcutDisplay(
+                keys: GlobalShortcutService.echoShortcutKeys,
+              ),
+            ),
+          ],
+        ),
+        // No fim da tela, e não no começo: a liberação é coisa de uma vez só —
+        // dois botões que se apertam no primeiro dia e nunca mais. Em cima,
+        // eles empurravam para baixo tudo o que se ajusta no dia a dia, e a
+        // tela abria pedindo permissão em vez de mostrar as reuniões.
         EgSettingsSection(
           title: 'Permissões',
           children: [
@@ -186,154 +325,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   style: AppTypography.captionSmall,
                 ),
               ),
-          ],
-        ),
-        EgSettingsSection(
-          title: 'Gravação',
-          children: [
-            EgSettingsRow(
-              label: 'Idioma da transcrição',
-              description:
-                  'Transcrição no idioma errado não sai pior, sai inútil. O '
-                  'modelo do idioma é baixado uma vez, na troca.',
-              trailing: EgSegmentedControl<TranscriptionLanguage>(
-                value: settings.language,
-                options: TranscriptionLanguage.values,
-                labelOf: (option) => option.shortLabel,
-                onChanged: viewModel.setLanguage,
-              ),
-            ),
-            // Em cor de aviso, e não no cinza das outras legendas desta tela:
-            // as demais são ressalvas ("com fone fica melhor"), esta é um
-            // impedimento — com ela na tela, a gravação recusa começar.
-            if (unsupportedLanguage)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: Text(
-                  'Este Mac não tem modelo de transcrição para '
-                  '${settings.language.label}. Escolha outro idioma: gravar '
-                  'assim devolveria palavras trocadas, não a reunião.',
-                  style: AppTypography.captionSmall.copyWith(
-                    color: AppColors.warning,
-                  ),
-                ),
-              ),
-            if (substitutedLanguage != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: Text(
-                  'O macOS atende ${settings.language.label} com o modelo de '
-                  '$substitutedLanguage — é ele que vai transcrever.',
-                  style: AppTypography.captionSmall,
-                ),
-              ),
-            // Mesmo desenho do campo de instruções do resumo, e pela mesma
-            // razão: uma lista de nomes não cabe na coluna estreita da direita.
-            EgSettingsRow(
-              label: 'Palavras que costumam aparecer',
-              description:
-                  'Nome de pessoa, de empresa, de produto, jargão — um por '
-                  'linha. É o que o reconhecimento mais erra, porque tenta '
-                  'encaixar o som numa palavra comum do idioma. Vale só para a '
-                  'transcrição.',
-              trailing: const SizedBox.shrink(),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(
-                top: AppSpacing.sm,
-                bottom: AppSpacing.lg,
-              ),
-              child: EgTextField(
-                controller: _vocabulary,
-                focusNode: _vocabularyFocus,
-                hintText: EchoSettings.vocabularyHint,
-                minLines: 2,
-                maxLines: 5,
-              ),
-            ),
-            EgSettingsRow.toggle(
-              label: 'Transcrever ao vivo',
-              description:
-                  'O texto aparece enquanto a reunião acontece. Custa '
-                  'processador — em Mac com pouca memória, pode fazer a '
-                  'chamada engasgar. O áudio é gravado dos dois jeitos, então '
-                  'a transcrição final sai igual.',
-              value: settings.liveTranscription,
-              onChanged: viewModel.setLiveTranscription,
-              showDivider: false,
-            ),
-          ],
-        ),
-        EgSettingsSection(
-          title: 'Resumo',
-          children: [
-            // O campo desce para baixo do rótulo em vez de ficar na coluna da
-            // direita, onde todas as outras preferências põem o seu controle.
-            // A regra que decide é o tamanho da resposta: um seletor cabe ao
-            // lado do rótulo, um texto de três linhas não — espremido em 260px
-            // ele mostraria meia frase por vez e faria a pessoa escrever numa
-            // fresta.
-            EgSettingsRow(
-              label: 'Como você quer o resumo',
-              description:
-                  'Vale para todas as reuniões, e é aplicada quando você '
-                  'aperta Resumir. Curta e direta funciona melhor: o modelo é '
-                  'local e pequeno, e ignora instrução longa demais.',
-              showDivider: false,
-              trailing: const SizedBox.shrink(),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: EgTextField(
-                controller: _instructions,
-                focusNode: _instructionsFocus,
-                hintText: EchoSettings.defaultInstructionsHint,
-                minLines: 3,
-                maxLines: 6,
-                // Sem `onSubmitted`: com várias linhas o Enter quebra a linha,
-                // que é o que se espera de um campo desse tamanho. Quem guarda
-                // é sair do campo — a mesma regra do apelido do Pin.
-              ),
-            ),
-            if (summaries.explanation != null)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.sm),
-                child: Text(
-                  summaries.explanation!,
-                  style: AppTypography.captionSmall,
-                ),
-              ),
-          ],
-        ),
-        EgSettingsSection(
-          title: 'Histórico',
-          children: [
-            EgSettingsRow(
-              label: 'Reuniões guardadas',
-              description:
-                  'Passando disso, a mais antiga sai para a nova entrar. '
-                  'Reunião marcada com "guardar" não entra nessa conta.',
-              showDivider: false,
-              trailing: EgSegmentedControl<int>(
-                value: settings.historyLimit,
-                options: EchoSettings.historyLimitOptions,
-                labelOf: (option) => '$option',
-                onChanged: viewModel.setHistoryLimit,
-              ),
-            ),
-          ],
-        ),
-        const EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir Echo',
-              description: 'Funciona com qualquer aplicativo em foco.',
-              showDivider: false,
-              trailing: EgShortcutDisplay(
-                keys: GlobalShortcutService.echoShortcutKeys,
-              ),
-            ),
           ],
         ),
       ],

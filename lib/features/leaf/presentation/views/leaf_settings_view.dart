@@ -22,22 +22,8 @@ class LeafSettingsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
-        EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir Leaf',
-              description: 'Funciona com qualquer aplicativo em foco.',
-              showDivider: false,
-              trailing: const EgShortcutDisplay(
-                keys: GlobalShortcutService.leafShortcutKeys,
-              ),
-            ),
-          ],
-        ),
         EgSettingsSection(
           title: 'Dentro do painel',
           children: [
@@ -83,6 +69,19 @@ class LeafSettingsView extends ConsumerWidget {
               trailing: EgButton.destructive(
                 label: 'Esvaziar',
                 onPressed: () => _clear(context, ref),
+              ),
+            ),
+          ],
+        ),
+        EgSettingsSection(
+          title: 'Atalho global',
+          children: [
+            EgSettingsRow(
+              label: 'Abrir Leaf',
+              description: 'Funciona com qualquer aplicativo em foco.',
+              showDivider: false,
+              trailing: const EgShortcutDisplay(
+                keys: GlobalShortcutService.leafShortcutKeys,
               ),
             ),
           ],
