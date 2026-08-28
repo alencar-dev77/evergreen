@@ -1,6 +1,7 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/data/hub_intro_repository.dart';
+import 'package:evergreen/shared/feature_flags.dart';
 import 'package:evergreen/features/home/presentation/viewmodels/hub_intro_view_model.dart';
 import 'package:evergreen/features/home/presentation/widgets/hub_intro.dart';
 import 'package:evergreen/shared/widgets/eg_brand_mark.dart';
@@ -43,7 +44,12 @@ void main() {
     });
   });
 
-  group('HubIntroViewModel', () {
+  /// A decisão de rodar a cena — que só existe com a bandeira ligada. Com ela
+  /// desligada não há o que decidir: o Hub abre no conteúdo e o carimbo desta
+  /// build fica intacto, esperando alguém religar. O `skip` é a forma honesta
+  /// de dizer isso: fingir que o caminho existe faria a suíte descrever um app
+  /// que não é o que está sendo compilado.
+  group('HubIntroViewModel', skip: !FeatureFlags.intro, () {
     ProviderContainer containerFor(String stamp) {
       final container = ProviderContainer(
         overrides: [

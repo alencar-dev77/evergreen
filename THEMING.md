@@ -9,6 +9,23 @@ nenhum widget pergunta qual tema está em vigor para decidir o que desenhar.
 A escolha mora em `AppSettings.theme`, na tela do Evergreen, e vale para as duas
 janelas do app.
 
+## A bandeira
+
+Tudo isto está atrás de `FeatureFlags.themes` (`lib/shared/feature_flags.dart`),
+e **hoje ela está desligada**: o app fica no tema da casa e a linha "Aparência"
+some da tela — não desabilitada, some. Um controle apagado diz "isto existe, mas
+não para você"; aqui a resposta certa é a tela não mencionar uma escolha que
+ninguém pode fazer.
+
+Quem manda é `AppSettings.activeTheme`, e é o único ponto do app em que a
+bandeira decide alguma coisa. O `theme` cru continua sendo a preferência
+guardada: desligar não apaga o que a pessoa escolheu, e religar devolve a
+escolha em vez de zerá-la.
+
+O código dos dois temas continua compilando, testado e coberto por goldens dos
+dois lados da bandeira — no dia em que ela virar `true`, o que aparece do outro
+lado não pode ser uma ruína.
+
 ## A regra
 
 > Nenhuma cor, tamanho de fonte, raio, sombra ou espessura de linha escrito à mão

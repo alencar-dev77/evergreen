@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../shared/feature_flags.dart';
 import '../../data/hub_intro_repository.dart';
 
 final hubIntroViewModelProvider = NotifierProvider<HubIntroViewModel, bool>(
@@ -22,7 +23,12 @@ class HubIntroViewModel extends Notifier<bool> {
   bool build() {
     _repository = ref.watch(hubIntroRepositoryProvider);
     _stamp = ref.watch(buildStampProvider);
-    return _repository.shouldShow(_stamp);
+
+    // A bandeira responde antes do carimbo, e é de propósito que ela não o
+    // grave: desligada, ela não "consome" a abertura desta build. Ligada de
+    // volta, quem nunca viu a marca desta versão vê — a bandeira decide se a
+    // cena roda, não se ela já rodou.
+    return FeatureFlags.intro && _repository.shouldShow(_stamp);
   }
 
   /// Chamado quando a animação termina de rodar — nunca quando ela começa.

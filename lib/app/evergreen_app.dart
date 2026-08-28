@@ -25,7 +25,7 @@ class EvergreenApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(
-      appSettingsViewModelProvider.select((settings) => settings.theme),
+      appSettingsViewModelProvider.select((settings) => settings.activeTheme),
     );
 
     return MaterialApp(

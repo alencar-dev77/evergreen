@@ -189,7 +189,9 @@ class HubOnboarding extends StatelessWidget {
       child: Text(
         step.line,
         textAlign: TextAlign.center,
-        style: context.eg.text.body.copyWith(color: context.eg.colors.textSecondary),
+        style: context.eg.text.body.copyWith(
+          color: context.eg.colors.textSecondary,
+        ),
       ),
     );
   }
