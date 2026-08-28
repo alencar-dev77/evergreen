@@ -8,9 +8,10 @@ import '../../models/evergreen_module.dart';
 /// desenha — e quem manda a janela crescer — é o Hub. O estado guarda só *de
 /// quem* é a região: o conteúdo dela sai do estado do próprio módulo, que já
 /// sabe qual item está selecionado.
-final hubDetailProvider = NotifierProvider<HubDetailViewModel, EvergreenModule?>(
-  HubDetailViewModel.new,
-);
+final hubDetailProvider =
+    NotifierProvider<HubDetailViewModel, EvergreenModule?>(
+      HubDetailViewModel.new,
+    );
 
 class HubDetailViewModel extends Notifier<EvergreenModule?> {
   @override

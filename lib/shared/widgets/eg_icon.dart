@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'eg_brand_mark.dart';
 
-import '../../core/design/app_colors.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Conjunto de ícones do Evergreen.
 ///
@@ -98,14 +98,17 @@ class EgIcon extends StatelessWidget {
     this.icon, {
     super.key,
     this.size = 14,
-    this.color = AppColors.textSecondary,
+    this.color,
     this.strokeWidth = 1.3,
     this.semanticLabel,
   });
 
   final EgIconData icon;
   final double size;
-  final Color color;
+
+  /// A cor do glifo. `null` é o padrão e quer dizer "a secundária do tema" —
+  /// ícone aqui é acessório de um texto, e acompanha a pele como ele.
+  final Color? color;
   final double strokeWidth;
 
   /// O que este ícone significa, quando ele é a única coisa que diz isso.
@@ -118,7 +121,7 @@ class EgIcon extends StatelessWidget {
       child: CustomPaint(
         painter: _EgIconPainter(
           icon: this.icon,
-          color: color,
+          color: color ?? context.eg.colors.textSecondary,
           strokeWidth: strokeWidth,
         ),
       ),
@@ -138,6 +141,8 @@ class _EgIconPainter extends CustomPainter {
   });
 
   final EgIconData icon;
+
+  /// Já resolvida: o `null` do widget virou a cor do tema antes de chegar aqui.
   final Color color;
   final double strokeWidth;
 
@@ -158,7 +163,13 @@ class _EgIconPainter extends CustomPainter {
     // Numa cor só: quem separa lâmina de cabo neste tamanho é a silhueta e o
     // furo do rebite, não o contraste entre os dois verdes.
     if (icon == EgIconData.evergreen) {
-      paintBrandMarkFitted(canvas, _viewBox, cover: 1, blade: color, handle: color);
+      paintBrandMarkFitted(
+        canvas,
+        _viewBox,
+        cover: 1,
+        blade: color,
+        handle: color,
+      );
       canvas.restore();
       return;
     }
@@ -188,30 +199,30 @@ class _EgIconPainter extends CustomPainter {
   }
 
   Path _strokePath() => switch (icon) {
-        EgIconData.document => _documentPath(),
-        EgIconData.link => _linkPath(),
-        EgIconData.terminal => _terminalPath(),
-        EgIconData.envelope => _envelopePath(),
-        EgIconData.phone => _phonePath(),
-        EgIconData.identityCard => _identityCardPath(),
-        EgIconData.building => _buildingPath(),
-        EgIconData.shuffle => _shufflePath(),
-        EgIconData.search => _searchPath(),
-        EgIconData.plus => _plusPath(),
-        EgIconData.close => _closePath(),
-        EgIconData.gear => _gearPath(),
-        EgIconData.trash => _trashPath(),
-        EgIconData.clipboard => _clipboardPath(),
-        EgIconData.timer => _timerPath(),
-        EgIconData.sun => _sunPath(),
-        EgIconData.note => _notePath(),
-        EgIconData.microphone => _microphonePath(),
-        EgIconData.track => _trackPath(),
-        EgIconData.star => _starPath(),
-        // A marca não passa por aqui: ela é pintada antes, direto do desenho
-        // do canivete.
-        EgIconData.evergreen => Path(),
-      };
+    EgIconData.document => _documentPath(),
+    EgIconData.link => _linkPath(),
+    EgIconData.terminal => _terminalPath(),
+    EgIconData.envelope => _envelopePath(),
+    EgIconData.phone => _phonePath(),
+    EgIconData.identityCard => _identityCardPath(),
+    EgIconData.building => _buildingPath(),
+    EgIconData.shuffle => _shufflePath(),
+    EgIconData.search => _searchPath(),
+    EgIconData.plus => _plusPath(),
+    EgIconData.close => _closePath(),
+    EgIconData.gear => _gearPath(),
+    EgIconData.trash => _trashPath(),
+    EgIconData.clipboard => _clipboardPath(),
+    EgIconData.timer => _timerPath(),
+    EgIconData.sun => _sunPath(),
+    EgIconData.note => _notePath(),
+    EgIconData.microphone => _microphonePath(),
+    EgIconData.track => _trackPath(),
+    EgIconData.star => _starPath(),
+    // A marca não passa por aqui: ela é pintada antes, direto do desenho
+    // do canivete.
+    EgIconData.evergreen => Path(),
+  };
 
   Path _documentPath() => Path()
     ..addRRect(

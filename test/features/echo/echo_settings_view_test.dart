@@ -66,7 +66,9 @@ void main() {
     (widget) => widget is EgTextField && widget.hintText == hint,
   );
 
-  testWidgets('a instrução do resumo tem altura de várias linhas', (tester) async {
+  testWidgets('a instrução do resumo tem altura de várias linhas', (
+    tester,
+  ) async {
     await pumpSettings(tester);
 
     final field = tester.widget<EgTextField>(
@@ -78,8 +80,9 @@ void main() {
     expect(field.maxLines, greaterThan(3));
   });
 
-  testWidgets('a instrução mostra o padrão apagado enquanto está vazia',
-      (tester) async {
+  testWidgets('a instrução mostra o padrão apagado enquanto está vazia', (
+    tester,
+  ) async {
     await pumpSettings(tester);
 
     final field = tester.widget<EgTextField>(
@@ -110,8 +113,9 @@ void main() {
     );
   });
 
-  testWidgets('o vocabulário guarda ao sair do campo, como a instrução',
-      (tester) async {
+  testWidgets('o vocabulário guarda ao sair do campo, como a instrução', (
+    tester,
+  ) async {
     final container = await pumpSettings(tester);
 
     await tester.enterText(
@@ -127,11 +131,13 @@ void main() {
     );
   });
 
-  testWidgets('idioma sem modelo nesta máquina aparece como aviso na tela',
-      (tester) async {
+  testWidgets('idioma sem modelo nesta máquina aparece como aviso na tela', (
+    tester,
+  ) async {
     // O sistema atende inglês e não atende o português escolhido: é o caso que
     // fazia a transcrição sair cheia de palavra trocada sem nada explicar.
-    final channel = FakeEchoChannel()..resolvedLocales = const {'en-US': 'en-US'};
+    final channel = FakeEchoChannel()
+      ..resolvedLocales = const {'en-US': 'en-US'};
 
     await pumpSettings(tester, channel: channel);
 
@@ -141,8 +147,9 @@ void main() {
     );
   });
 
-  testWidgets('sem resposta do sistema, a tela não acusa falta de idioma',
-      (tester) async {
+  testWidgets('sem resposta do sistema, a tela não acusa falta de idioma', (
+    tester,
+  ) async {
     // Mapa vazio é "não deu para perguntar" — em máquina sem o lado nativo,
     // avisar seria inventar um problema.
     await pumpSettings(tester);
@@ -150,8 +157,9 @@ void main() {
     expect(find.textContaining('não tem modelo de transcrição'), findsNothing);
   });
 
-  testWidgets('variante atendida por outro modelo é dita, não escondida',
-      (tester) async {
+  testWidgets('variante atendida por outro modelo é dita, não escondida', (
+    tester,
+  ) async {
     final channel = FakeEchoChannel()
       ..resolvedLocales = const {'pt-BR': 'pt-BR', 'pt-PT': 'pt-BR'};
 

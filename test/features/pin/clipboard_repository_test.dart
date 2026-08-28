@@ -32,10 +32,10 @@ void main() {
   int pin(String content) {
     final item = repository.upsert(ClipboardItem.capture(content));
     repository.setPinned(item.id!, isPinned: true);
-    database.execute(
-      'UPDATE clipboard_items SET pinned_at = ? WHERE id = ?;',
-      [clock++, item.id],
-    );
+    database.execute('UPDATE clipboard_items SET pinned_at = ? WHERE id = ?;', [
+      clock++,
+      item.id,
+    ]);
     return item.id!;
   }
 
@@ -147,10 +147,8 @@ void main() {
       );
     }
 
-    ClipboardItemType typeOf(String content) => repository
-        .loadAll()
-        .firstWhere((item) => item.content == content)
-        .type;
+    ClipboardItemType typeOf(String content) =>
+        repository.loadAll().firstWhere((item) => item.content == content).type;
 
     test('itens guardados por uma versão anterior ganham o tipo novo', () {
       insertAsLegacy('contato@evergreen.com.br');

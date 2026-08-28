@@ -34,7 +34,11 @@ void main() {
 
       // Cada linha aparece inteira em algum bloco — nenhuma foi dividida.
       for (final fala in falas) {
-        expect(chunks.any((chunk) => chunk.contains(fala)), isTrue, reason: fala);
+        expect(
+          chunks.any((chunk) => chunk.contains(fala)),
+          isTrue,
+          reason: fala,
+        );
       }
     });
 

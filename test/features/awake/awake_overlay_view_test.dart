@@ -29,7 +29,7 @@ void main() {
       ProviderScope(
         overrides: [
           sleepAssertionServiceProvider.overrideWithValue(sleep),
-        awakeSessionRepositoryProvider.overrideWithValue(sessions),
+          awakeSessionRepositoryProvider.overrideWithValue(sessions),
           sharedPreferencesProvider.overrideWithValue(preferences),
           clockProvider.overrideWithValue(() => tester.binding.clock.now()),
         ],
@@ -41,35 +41,41 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    return ProviderScope.containerOf(tester.element(find.byType(AwakeOverlayView)));
+    return ProviderScope.containerOf(
+      tester.element(find.byType(AwakeOverlayView)),
+    );
   }
 
   /// O Awake não tem campo de texto — quem segura o teclado é o próprio painel
   /// —, então o clique não tem como levar o foco embora. O teste existe para
   /// que o Esc do painel mais simples da suíte fique preso por um teste como o
   /// dos outros quatro, e não por herança de casca.
-  testWidgets('clicar no painel não emudece o Esc', (tester) async {
-    OverlayWindow.instance.resetForTest();
-    final closing = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    const channel = MethodChannel('previous_app_focus');
-    messenger.setMockMethodCallHandler(channel, (call) async {
-      closing.add(call.method);
-      return null;
-    });
-    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  testWidgets(
+    'clicar no painel não emudece o Esc',
+    (tester) async {
+      OverlayWindow.instance.resetForTest();
+      final closing = <String>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channel = MethodChannel('previous_app_focus');
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        closing.add(call.method);
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-    await pumpPanel(tester);
+      await pumpPanel(tester);
 
-    await tester.tapAt(tester.getCenter(find.text('1:00:00')));
-    await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(find.text('1:00:00')));
+      await tester.pumpAndSettle();
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
 
-    expect(closing, contains('beginHide'));
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+      expect(closing, contains('beginHide'));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets('desligado, o painel propõe a duração padrão', (tester) async {
     await pumpPanel(tester);

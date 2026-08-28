@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/design/app_theme_id.dart';
 import '../models/app_settings.dart';
 
 /// Persistência das preferências do aplicativo.
@@ -12,6 +13,7 @@ class AppSettingsRepository {
   final SharedPreferences _prefs;
 
   static const _userNameKey = 'app.user_name';
+  static const _themeKey = 'app.theme';
   static const _launchAtLoginKey = 'app.launch_at_login';
   static const _startMinimizedKey = 'app.start_minimized';
   static const _automaticBackupKey = 'app.automatic_backup';
@@ -20,8 +22,10 @@ class AppSettingsRepository {
     const defaults = AppSettings();
 
     return AppSettings(
+      theme: AppThemeId.fromName(_prefs.getString(_themeKey)),
       userName: _prefs.getString(_userNameKey) ?? defaults.userName,
-      launchAtLogin: _prefs.getBool(_launchAtLoginKey) ?? defaults.launchAtLogin,
+      launchAtLogin:
+          _prefs.getBool(_launchAtLoginKey) ?? defaults.launchAtLogin,
       startMinimized:
           _prefs.getBool(_startMinimizedKey) ?? defaults.startMinimized,
       automaticBackup:
@@ -31,6 +35,7 @@ class AppSettingsRepository {
 
   Future<void> save(AppSettings settings) async {
     await Future.wait([
+      _prefs.setString(_themeKey, settings.theme.name),
       _prefs.setString(_userNameKey, settings.userName),
       _prefs.setBool(_launchAtLoginKey, settings.launchAtLogin),
       _prefs.setBool(_startMinimizedKey, settings.startMinimized),

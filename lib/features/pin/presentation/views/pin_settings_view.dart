@@ -60,7 +60,8 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
             if (needsPermission)
               EgSettingsRow(
                 label: 'Permissão de Acessibilidade',
-                description: 'O macOS não está concedendo a permissão. '
+                description:
+                    'O macOS não está concedendo a permissão. '
                     'Sem ela o item é copiado, mas não colado.',
                 showDivider: false,
                 trailing: EgButton.secondary(

@@ -1,9 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_section_label.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// O bloco de um painel que conta tempo: situação em caixa alta, número grande
 /// e, quando há, um detalhe e a linha de progresso.
@@ -46,9 +45,7 @@ class EgCountdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = this.detail;
 
-    return MergeSemantics(
-      child: _column(detail),
-    );
+    return MergeSemantics(child: _column(context, detail));
   }
 
   /// O bloco é lido como uma frase só — "Foco, 24:13, escrever a PR" —, e não
@@ -60,7 +57,7 @@ class EgCountdown extends StatelessWidget {
   /// exatamente o oposto de um cronômetro de foco. Quem quer saber quanto falta
   /// pergunta; o `accessibility.md` pede parcimônia aqui, e parcimônia neste
   /// caso é zero.
-  Widget _column(String? detail) {
+  Widget _column(BuildContext context, String? detail) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -68,8 +65,10 @@ class EgCountdown extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           value,
-          style: AppTypography.timer.copyWith(
-            color: isMuted ? AppColors.textSecondary : AppColors.textPrimary,
+          style: context.eg.text.timer.copyWith(
+            color: isMuted
+                ? context.eg.colors.textSecondary
+                : context.eg.colors.textPrimary,
           ),
         ),
         if (detail != null && detail.isNotEmpty) ...[
@@ -78,8 +77,8 @@ class EgCountdown extends StatelessWidget {
             detail,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.bodyCompact.copyWith(
-              color: AppColors.textSecondary,
+            style: context.eg.text.bodyCompact.copyWith(
+              color: context.eg.colors.textSecondary,
             ),
           ),
         ],
@@ -111,15 +110,15 @@ class _ProgressLine extends StatelessWidget {
       child: SizedBox(
         height: _height,
         child: DecoratedBox(
-          decoration: const BoxDecoration(color: AppColors.border),
+          decoration: BoxDecoration(color: context.eg.colors.border),
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
             widthFactor: value.clamp(0.0, 1.0),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: isMuted
-                    ? AppColors.textTertiary
-                    : AppColors.greenPrimary,
+                    ? context.eg.colors.textTertiary
+                    : context.eg.colors.accent,
               ),
             ),
           ),

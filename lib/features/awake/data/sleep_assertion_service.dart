@@ -37,7 +37,7 @@ abstract interface class SleepAssertionService {
 /// que o Awake tenha ficado ligado "sem limite".
 class NativeSleepAssertionService implements SleepAssertionService {
   NativeSleepAssertionService({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel(_channelName);
+    : _channel = channel ?? const MethodChannel(_channelName);
 
   static const _channelName = 'sleep_assertion';
 

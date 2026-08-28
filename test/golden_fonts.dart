@@ -20,6 +20,15 @@ Future<void> loadGoldenFonts() async {
       '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
     ],
     'SF Mono': ['/System/Library/Fonts/Supplemental/Andale Mono.ttf'],
+    // O tema Apple pede a fonte do sistema (família nula, com estes nomes no
+    // fallback). Sob `flutter test` não existe fonte de sistema, e o texto sai
+    // como quadrados — registrar os mesmos arquivos sob os nomes que ele
+    // procura é o que faz as imagens dele conferirem alguma coisa. No app de
+    // verdade quem responde é o macOS.
+    'SF Pro Text': [
+      '/System/Library/Fonts/Supplemental/Arial.ttf',
+      '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+    ],
   };
 
   for (final entry in faces.entries) {

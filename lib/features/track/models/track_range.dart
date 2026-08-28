@@ -18,7 +18,7 @@ enum TrackRange {
 
   /// A partir de quando o recorte lê.
   DateTime since(DateTime now) => switch (this) {
-        TrackRange.today => DayBounds.startOfDay(now),
-        TrackRange.week => DayBounds.startOfWeek(now),
-      };
+    TrackRange.today => DayBounds.startOfDay(now),
+    TrackRange.week => DayBounds.startOfWeek(now),
+  };
 }

@@ -99,11 +99,14 @@ void main() {
     expect(nativeCalls.map((call) => call.method), ['start', 'stop']);
   });
 
-  test('sem lado nativo, start não quebra e a captura fica desligada', () async {
-    messenger.setMockMethodCallHandler(channel, null);
+  test(
+    'sem lado nativo, start não quebra e a captura fica desligada',
+    () async {
+      messenger.setMockMethodCallHandler(channel, null);
 
-    await watcher.start();
+      await watcher.start();
 
-    expect(watcher.isRunning, isFalse);
-  });
+      expect(watcher.isRunning, isFalse);
+    },
+  );
 }

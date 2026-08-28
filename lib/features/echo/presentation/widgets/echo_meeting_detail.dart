@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
@@ -10,6 +8,7 @@ import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
 import '../../models/meeting_segment.dart';
 import '../../models/meeting_turn.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O corpo da região de leitura: o resumo ou a transcrição da reunião aberta.
 ///
@@ -108,7 +107,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         'Nenhuma fala foi reconhecida. As causas comuns: o microfone estava '
         'sem permissão, ninguém falou, ou o idioma da transcrição não era o '
         'idioma da reunião.',
-        style: AppTypography.captionSmall,
+        style: context.eg.text.captionSmall,
       );
     }
 
@@ -130,22 +129,22 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.isSummarizing) ...[
-            Text(_summarizingLabel(), style: AppTypography.captionSmall),
+            Text(_summarizingLabel(), style: context.eg.text.captionSmall),
             const SizedBox(height: AppSpacing.md),
           ],
-          SelectableText(meeting.summary!, style: AppTypography.reading),
+          SelectableText(meeting.summary!, style: context.eg.text.reading),
           if (meeting.hasSummaryPrompt) _prompt(meeting.summaryPrompt!),
         ],
       );
     }
 
     if (widget.isSummarizing) {
-      return Text(_summarizingLabel(), style: AppTypography.captionSmall);
+      return Text(_summarizingLabel(), style: context.eg.text.captionSmall);
     }
 
     final explanation = widget.summaries.explanation;
     if (explanation != null) {
-      return Text(explanation, style: AppTypography.captionSmall);
+      return Text(explanation, style: context.eg.text.captionSmall);
     }
 
     // Sem resumo ainda, o lugar dele explica o que ele é — melhor que um vazio
@@ -153,7 +152,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     return Text(
       'Esta reunião ainda não foi resumida. O resumo é feito na sua máquina, '
       'a partir da transcrição, e leva alguns segundos.',
-      style: AppTypography.captionSmall,
+      style: context.eg.text.captionSmall,
     );
   }
 
@@ -179,7 +178,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         children: [
           const EgSectionLabel('Instrução deste resumo'),
           const SizedBox(height: AppSpacing.xs),
-          SelectableText(prompt, style: AppTypography.captionSmall),
+          SelectableText(prompt, style: context.eg.text.captionSmall),
         ],
       ),
     );
@@ -224,7 +223,8 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     // antigo, porque `_summary` trata "já tem resumo" antes de "está
     // resumindo", então não sobrava indicação nenhuma. Agora o botão fica, e é
     // ele que carrega a espera.
-    final canSummarize = !meeting.isEmpty &&
+    final canSummarize =
+        !meeting.isEmpty &&
         widget.summaries.isAvailable &&
         _tab == _DetailTab.summary;
 
@@ -280,16 +280,18 @@ class _TurnBlock extends StatelessWidget {
               // Verde para você, neutro para a reunião: é a única cor da tela e
               // carrega significado. Quem não distingue a cor lê o nome, que
               // está escrito do lado.
-              style: AppTypography.overline.copyWith(
-                color: isMe ? AppColors.greenPrimary : AppColors.textSecondary,
+              style: context.eg.text.overline.copyWith(
+                color: isMe
+                    ? context.eg.colors.accent
+                    : context.eg.colors.textSecondary,
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Text(turn.timestamp, style: AppTypography.monoSmall),
+            Text(turn.timestamp, style: context.eg.text.monoSmall),
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
-        SelectableText(turn.text, style: AppTypography.reading),
+        SelectableText(turn.text, style: context.eg.text.reading),
       ],
     );
   }

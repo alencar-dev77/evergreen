@@ -46,10 +46,10 @@ class FocusTimerState {
 
   /// Estado de partida: sem sessão, com a duração de foco configurada à vista.
   factory FocusTimerState.idle(FocusSettings settings) => FocusTimerState(
-        settings: settings,
-        remaining: settings.focusDuration,
-        total: settings.focusDuration,
-      );
+    settings: settings,
+    remaining: settings.focusDuration,
+    total: settings.focusDuration,
+  );
 
   final FocusSettings settings;
   final FocusPhase phase;
@@ -113,10 +113,7 @@ class FocusTimerState {
 
   /// Reta final de uma sessão de foco ainda não estendida.
   bool get canExtend =>
-      isActive &&
-      phase.isFocus &&
-      !isExtended &&
-      remaining <= extendThreshold;
+      isActive && phase.isFocus && !isExtended && remaining <= extendThreshold;
 
   /// Fração já cumprida da fase, de 0 a 1.
   double get progress {
@@ -131,12 +128,11 @@ class FocusTimerState {
   /// de menus não há espaço para legenda, e "04:13" sozinho não diz se é foco
   /// ou pausa.
   String? get menuBarLabel => switch (status) {
-        FocusStatus.idle => null,
-        FocusStatus.running =>
-          phase.isFocus ? _clock : 'Pausa $_clock',
-        FocusStatus.paused => 'Pausado $_clock',
-        FocusStatus.finished => 'Concluído',
-      };
+    FocusStatus.idle => null,
+    FocusStatus.running => phase.isFocus ? _clock : 'Pausa $_clock',
+    FocusStatus.paused => 'Pausado $_clock',
+    FocusStatus.finished => 'Concluído',
+  };
 
   String get _clock => DurationFormat.countdown(remaining);
 

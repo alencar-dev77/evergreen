@@ -15,11 +15,11 @@ class AwakeState {
 
   /// Estado de partida, com a duração e o modo que as preferências escolheram.
   AwakeState.off(AwakeSettings settings)
-      : this(
-          settings: settings,
-          duration: settings.defaultDuration,
-          mode: settings.mode,
-        );
+    : this(
+        settings: settings,
+        duration: settings.defaultDuration,
+        mode: settings.mode,
+      );
 
   final AwakeSettings settings;
 

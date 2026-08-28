@@ -63,7 +63,6 @@ void main() {
     return calls;
   }
 
-
   /// Entrega à casca um evento de janela como o lado nativo entregaria.
   ///
   /// É por aqui que o painel descobre que ganhou o foco (e recarrega as
@@ -73,12 +72,12 @@ void main() {
 
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      channel.name,
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('onEvent', {'eventName': event}),
-      ),
-      null,
-    );
+          channel.name,
+          const StandardMethodCodec().encodeMethodCall(
+            MethodCall('onEvent', {'eventName': event}),
+          ),
+          null,
+        );
     await tester.pumpAndSettle();
   }
 
@@ -95,18 +94,23 @@ void main() {
   /// O Echo não tem campo de texto — quem segura o teclado é o próprio painel
   /// —, então o clique não tem como levar o foco embora. O teste prende isso
   /// com um teste, e não com herança de casca, como nos outros quatro painéis.
-  testWidgets('clicar no painel não emudece o Esc', (tester) async {
-    final closing = watchClosing();
-    await pumpPanel(tester);
+  testWidgets(
+    'clicar no painel não emudece o Esc',
+    (tester) async {
+      final closing = watchClosing();
+      await pumpPanel(tester);
 
-    await tester.tapAt(tester.getCenter(find.text('Antes de gravar')));
-    await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(find.text('Antes de gravar')));
+      await tester.pumpAndSettle();
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
 
-    expect(closing, contains('beginHide'));
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+      expect(closing, contains('beginHide'));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   /// O painel do Echo é o único que fica na frente de uma reunião em curso, e
   /// por isso é o único que não some quando a pessoa clica de volta nela.
   group('gravando, o painel não fecha sozinho', () {

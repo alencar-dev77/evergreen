@@ -17,10 +17,11 @@ class AwakeSettingsRepository {
   static const _modeKey = 'awake.mode';
 
   AwakeSettings load() => AwakeSettings(
-        defaultDuration:
-            AwakeDuration.fromName(_prefs.getString(_defaultDurationKey)),
-        mode: AwakeMode.fromName(_prefs.getString(_modeKey)),
-      );
+    defaultDuration: AwakeDuration.fromName(
+      _prefs.getString(_defaultDurationKey),
+    ),
+    mode: AwakeMode.fromName(_prefs.getString(_modeKey)),
+  );
 
   /// Relê o plist nativo antes de responder — a preferência é editada no Hub,
   /// que roda em outro engine Flutter.

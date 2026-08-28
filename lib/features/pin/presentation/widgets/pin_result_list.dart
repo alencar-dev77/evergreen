@@ -133,8 +133,9 @@ class _PinResultListState extends State<PinResultList> {
 
     // Um cabeçalho de grupo acima da linha vem junto quando a rolagem sobe: é o
     // que dá contexto de "em qual grupo eu estou" ao navegar pelo teclado.
-    final leadIn =
-        row > 0 && _rows[row - 1].isHeader ? _rows[row - 1].height : 0.0;
+    final leadIn = row > 0 && _rows[row - 1].isHeader
+        ? _rows[row - 1].height
+        : 0.0;
 
     final double target;
     if (top - leadIn < offset) {
@@ -215,22 +216,22 @@ class _PinResultListState extends State<PinResultList> {
 @immutable
 class _ListRow {
   const _ListRow.header(this.label, {required this.isFirst})
-      : item = null,
-        isGenerator = false,
-        resultIndex = _noIndex;
+    : item = null,
+      isGenerator = false,
+      resultIndex = _noIndex;
 
   const _ListRow.item(this.item, {required int index})
-      : label = null,
-        isFirst = false,
-        isGenerator = false,
-        resultIndex = index;
+    : label = null,
+      isFirst = false,
+      isGenerator = false,
+      resultIndex = index;
 
   const _ListRow.generator()
-      : item = null,
-        label = null,
-        isFirst = false,
-        isGenerator = true,
-        resultIndex = -1;
+    : item = null,
+      label = null,
+      isFirst = false,
+      isGenerator = true,
+      resultIndex = -1;
 
   final ClipboardItem? item;
   final String? label;

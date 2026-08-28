@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// A marca do Evergreen: um canivete, com a lâmina em qualquer ponto entre
 /// recolhida e travada.
@@ -29,8 +29,8 @@ class EgBrandMark extends StatelessWidget {
     super.key,
     this.size = 96,
     this.openness = 1,
-    this.blade = AppColors.greenPrimary,
-    this.handle = AppColors.greenShade,
+    this.blade,
+    this.handle,
   });
 
   /// Lado do quadrado que a marca ocupa.
@@ -39,8 +39,11 @@ class EgBrandMark extends StatelessWidget {
   /// 0 recolhida dentro do cabo, 1 travada — o estado normal do ícone.
   final double openness;
 
-  final Color blade;
-  final Color handle;
+  /// As duas faces da marca. `null` quer dizer "as do tema em vigor" — é assim
+  /// que o canivete troca de verde junto com o resto do app, sem ninguém
+  /// precisar lembrar de repassar cor.
+  final Color? blade;
+  final Color? handle;
 
   @override
   Widget build(BuildContext context) {
@@ -49,8 +52,8 @@ class EgBrandMark extends StatelessWidget {
       child: CustomPaint(
         painter: _BrandMarkPainter(
           openness: openness,
-          blade: blade,
-          handle: handle,
+          blade: blade ?? context.eg.colors.accent,
+          handle: handle ?? context.eg.colors.accentShade,
         ),
       ),
     );
@@ -128,6 +131,10 @@ class _BrandMarkPainter extends CustomPainter {
   });
 
   final double openness;
+
+  /// Aqui as cores já vêm resolvidas: quem aceita nulo é o widget, que tem um
+  /// tema à mão. O painter é chamado também de fora da árvore de widgets — o
+  /// gerador dos ícones —, e ali não há tema nenhum para adivinhar.
   final Color blade;
   final Color handle;
 

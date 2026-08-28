@@ -100,8 +100,9 @@ void main() {
     expect(find.text('Transcrição'), findsOneWidget);
   });
 
-  testWidgets('a transcrição e o resumo se alternam, um de cada vez',
-      (tester) async {
+  testWidgets('a transcrição e o resumo se alternam, um de cada vez', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openMeeting(tester);
 
@@ -144,8 +145,9 @@ void main() {
   /// todas as linhas de configuração da tela do Echo.
   ///
   /// Não há `expect`: um `RenderFlex overflowed` já reprova o teste sozinho.
-  testWidgets('a região cede largura em vez de espremer o conteúdo',
-      (tester) async {
+  testWidgets('a região cede largura em vez de espremer o conteúdo', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openMeeting(tester);
 

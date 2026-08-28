@@ -7,8 +7,8 @@ import 'accessibility_permission_view_model.dart';
 
 final pinSettingsViewModelProvider =
     NotifierProvider<PinSettingsViewModel, PinSettings>(
-  PinSettingsViewModel.new,
-);
+      PinSettingsViewModel.new,
+    );
 
 /// Preferências do Pin, com escrita imediata.
 ///

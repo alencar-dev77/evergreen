@@ -17,7 +17,9 @@ void main() {
 
     test('descarta a fração de segundo que nunca chega à tela', () {
       expect(
-        DurationFormat.countdown(const Duration(seconds: 90, milliseconds: 750)),
+        DurationFormat.countdown(
+          const Duration(seconds: 90, milliseconds: 750),
+        ),
         '01:30',
       );
     });
@@ -25,14 +27,18 @@ void main() {
 
   group('clock', () {
     test('abaixo de uma hora é idêntico ao countdown', () {
-      expect(DurationFormat.clock(const Duration(minutes: 59, seconds: 58)),
-          '59:58');
+      expect(
+        DurationFormat.clock(const Duration(minutes: 59, seconds: 58)),
+        '59:58',
+      );
       expect(DurationFormat.clock(Duration.zero), '00:00');
     });
 
     test('a partir de uma hora ganha a casa das horas', () {
       expect(
-        DurationFormat.clock(const Duration(hours: 1, minutes: 59, seconds: 58)),
+        DurationFormat.clock(
+          const Duration(hours: 1, minutes: 59, seconds: 58),
+        ),
         '1:59:58',
       );
       expect(DurationFormat.clock(const Duration(hours: 2)), '2:00:00');

@@ -201,7 +201,9 @@ class WindowEchoSummaryRunner implements EchoSummaryRunner {
   Future<EchoSummaryStatus> status() async {
     final raw = await _invoke<Map<Object?, Object?>>('status');
 
-    return raw == null ? const EchoSummaryStatus() : EchoSummaryStatus.fromMap(raw);
+    return raw == null
+        ? const EchoSummaryStatus()
+        : EchoSummaryStatus.fromMap(raw);
   }
 
   /// Falha de canal vira [EchoException] porque é assim que o resto do Echo

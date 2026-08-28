@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_bounds.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_day_bars.dart';
 import '../../models/focus_session.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O foco de cada dia da semana, em sete barras.
 ///
@@ -73,15 +73,15 @@ class FocusTotals extends StatelessWidget {
         children: [
           TextSpan(
             text: DurationFormat.compact(today),
-            style: AppTypography.screenTitle,
+            style: context.eg.text.screenTitle,
           ),
-          TextSpan(text: '  hoje', style: AppTypography.captionXS),
-          TextSpan(text: '   ·   ', style: AppTypography.captionXS),
+          TextSpan(text: '  hoje', style: context.eg.text.captionXS),
+          TextSpan(text: '   ·   ', style: context.eg.text.captionXS),
           TextSpan(
             text: DurationFormat.compact(week),
-            style: AppTypography.bodyEmphasis,
+            style: context.eg.text.bodyEmphasis,
           ),
-          TextSpan(text: '  na semana', style: AppTypography.captionXS),
+          TextSpan(text: '  na semana', style: context.eg.text.captionXS),
         ],
       ),
     );

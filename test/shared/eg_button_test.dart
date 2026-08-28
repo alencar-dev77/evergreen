@@ -55,8 +55,9 @@ void main() {
 
   /// O rótulo continua na árvore segurando a largura — mas invisível, senão
   /// competiria com o spinner desenhado por cima dele.
-  testWidgets('carregando, o rótulo segura o lugar sem aparecer',
-      (tester) async {
+  testWidgets('carregando, o rótulo segura o lugar sem aparecer', (
+    tester,
+  ) async {
     await pumpButton(tester, isLoading: true);
 
     expect(find.text('Refazer resumo'), findsOneWidget);

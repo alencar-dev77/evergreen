@@ -21,8 +21,8 @@ import 'app_database.dart';
 /// compactado, num arquivo só — sem `-wal` nem `-shm` para acompanhar.
 class BackupService {
   BackupService({required Database database, required Directory directory})
-      : _db = database,
-        _directory = directory;
+    : _db = database,
+      _directory = directory;
 
   final Database _db;
   final Directory _directory;
@@ -286,14 +286,12 @@ class BackupService {
   }
 
   Set<String> _tableNames(String schema) => _db
-      .select(
-        '''
+      .select('''
         SELECT name FROM $schema.sqlite_master
          WHERE type = 'table'
            AND name NOT LIKE 'sqlite_%'
            AND name <> 'schema_migrations';
-        ''',
-      )
+        ''')
       .map((row) => row['name'] as String)
       .toSet();
 
@@ -320,12 +318,11 @@ class BackupService {
   /// backups no mesmo minuto (o manual logo depois do automático) ganham um
   /// sufixo em vez de disputar o nome.
   File _freeNameFor(DateTime moment, {String infix = ''}) {
-    final stamp = '${moment.year}-${_pad(moment.month)}-${_pad(moment.day)}'
+    final stamp =
+        '${moment.year}-${_pad(moment.month)}-${_pad(moment.day)}'
         '-${_pad(moment.hour)}${_pad(moment.minute)}';
 
-    var file = File(
-      p.join(_directory.path, '$_prefix$infix$stamp$_extension'),
-    );
+    var file = File(p.join(_directory.path, '$_prefix$infix$stamp$_extension'));
     var attempt = 2;
 
     while (file.existsSync()) {

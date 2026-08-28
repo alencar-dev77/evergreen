@@ -69,9 +69,9 @@ void main() {
     });
 
     test('não mostra de novo na mesma build', () async {
-      await containerFor('build-1')
-          .read(hubIntroViewModelProvider.notifier)
-          .complete();
+      await containerFor(
+        'build-1',
+      ).read(hubIntroViewModelProvider.notifier).complete();
 
       expect(containerFor('build-1').read(hubIntroViewModelProvider), isFalse);
       expect(containerFor('build-2').read(hubIntroViewModelProvider), isTrue);
@@ -99,7 +99,8 @@ void main() {
       var done = 0;
       await pump(tester, onDone: () => done++);
 
-      EgBrandMark mark() => tester.widget<EgBrandMark>(find.byType(EgBrandMark));
+      EgBrandMark mark() =>
+          tester.widget<EgBrandMark>(find.byType(EgBrandMark));
 
       // Primeiro quadro: recolhida.
       expect(mark().openness, lessThan(0.05));
@@ -146,16 +147,14 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('com movimento reduzido nasce travada e não anima',
-        (tester) async {
+    testWidgets('com movimento reduzido nasce travada e não anima', (
+      tester,
+    ) async {
       var done = 0;
       await pump(tester, onDone: () => done++, reducedMotion: true);
 
       // Sem giro nenhum: já no primeiro quadro a lâmina está no estado final.
-      expect(
-        tester.widget<EgBrandMark>(find.byType(EgBrandMark)).openness,
-        1,
-      );
+      expect(tester.widget<EgBrandMark>(find.byType(EgBrandMark)).openness, 1);
 
       await tester.pump(const Duration(milliseconds: 900));
       expect(done, 0);

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
 import 'eg_hoverable.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Switch pill do design system — trilho 36x21, bolinha 15px.
 ///
@@ -35,13 +35,9 @@ import 'eg_hoverable.dart';
 /// nativo diz "estou sendo apertado" sem antecipar para qual lado vai.
 ///
 /// O foco compartilha a superfície do hover: quem o distingue é o anel
-/// ([AppShadows.focusRing]), que só o teclado acende.
+/// ([context.eg.elevations.focusRing]), que só o teclado acende.
 class EgToggle extends StatelessWidget {
-  const EgToggle({
-    super.key,
-    required this.value,
-    this.onChanged,
-  });
+  const EgToggle({super.key, required this.value, this.onChanged});
 
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -74,10 +70,14 @@ class EgToggle extends StatelessWidget {
           width: _trackWidth,
           height: _trackHeight,
           decoration: BoxDecoration(
-            color: _trackColor(isEnabled ? state : const EgInteraction()),
+            color: _trackColor(
+              context,
+              isEnabled ? state : const EgInteraction(),
+            ),
             borderRadius: BorderRadius.circular(_trackHeight / 2),
-            boxShadow:
-                state.isFocused && isEnabled ? AppShadows.focusRing : null,
+            boxShadow: state.isFocused && isEnabled
+                ? context.eg.elevations.focusRing
+                : null,
           ),
           child: AnimatedAlign(
             duration: AppDurations.instant,
@@ -89,7 +89,9 @@ class EgToggle extends StatelessWidget {
                 width: _thumbSize,
                 height: _thumbSize,
                 decoration: BoxDecoration(
-                  color: value ? AppColors.background : AppColors.textSecondary,
+                  color: value
+                      ? context.eg.colors.background
+                      : context.eg.colors.textSecondary,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -100,17 +102,17 @@ class EgToggle extends StatelessWidget {
     );
   }
 
-  Color _trackColor(EgInteraction state) {
+  Color _trackColor(BuildContext context, EgInteraction state) {
     if (value) {
-      if (state.isPressed) return AppColors.greenDeep;
+      if (state.isPressed) return context.eg.colors.accentDeep;
       return state.isHovered || state.isFocused
-          ? AppColors.greenLight
-          : AppColors.greenPrimary;
+          ? context.eg.colors.accentLight
+          : context.eg.colors.accent;
     }
 
-    if (state.isPressed) return AppColors.pressed;
+    if (state.isPressed) return context.eg.colors.pressed;
     return state.isHovered || state.isFocused
-        ? AppColors.hover
-        : AppColors.border;
+        ? context.eg.colors.hover
+        : context.eg.colors.border;
   }
 }

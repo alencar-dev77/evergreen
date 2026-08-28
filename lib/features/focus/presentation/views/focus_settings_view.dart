@@ -117,8 +117,9 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
               label: 'Perguntar a atividade ao iniciar',
               description: 'Um campo de texto antes de começar. Opcional.',
               value: settings.asksActivity,
-              onChanged:
-                  settings.pomodoroOnly ? null : viewModel.setAskActivity,
+              onChanged: settings.pomodoroOnly
+                  ? null
+                  : viewModel.setAskActivity,
             ),
             EgSettingsRow.toggle(
               label: 'Pedir um resumo ao terminar',

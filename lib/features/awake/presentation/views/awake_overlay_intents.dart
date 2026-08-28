@@ -37,10 +37,8 @@ abstract final class AwakeOverlayIntents {
     SingleActivator(LogicalKeyboardKey.enter): AwakeToggleIntent(),
     SingleActivator(LogicalKeyboardKey.numpadEnter): AwakeToggleIntent(),
     SingleActivator(LogicalKeyboardKey.escape): AwakeCloseIntent(),
-    SingleActivator(LogicalKeyboardKey.arrowLeft):
-        AwakeCycleDurationIntent(-1),
-    SingleActivator(LogicalKeyboardKey.arrowRight):
-        AwakeCycleDurationIntent(1),
+    SingleActivator(LogicalKeyboardKey.arrowLeft): AwakeCycleDurationIntent(-1),
+    SingleActivator(LogicalKeyboardKey.arrowRight): AwakeCycleDurationIntent(1),
     SingleActivator(LogicalKeyboardKey.comma, meta: true):
         AwakeOpenSettingsIntent(),
   };

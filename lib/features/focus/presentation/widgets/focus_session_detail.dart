@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/focus_session.dart';
 import 'focus_session_log.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O corpo da região de leitura do Focus: o que foi escrito numa sessão.
 ///
@@ -37,7 +37,7 @@ class FocusSessionDetail extends StatelessWidget {
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.only(right: AppSpacing.sm),
-            child: _body(),
+            child: _body(context),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -51,11 +51,11 @@ class FocusSessionDetail extends StatelessWidget {
     );
   }
 
-  Widget _body() {
+  Widget _body(BuildContext context) {
     if (!session.hasNotes && !session.hasSummary) {
       return Text(
         'Nenhuma anotação nesta sessão.',
-        style: AppTypography.captionSmall,
+        style: context.eg.text.captionSmall,
       );
     }
 
@@ -83,7 +83,7 @@ class FocusSessionDetail extends StatelessWidget {
             'Resumo',
             padding: EdgeInsets.only(bottom: AppSpacing.sm),
           ),
-          Text(session.summary!, style: AppTypography.reading),
+          Text(session.summary!, style: context.eg.text.reading),
         ],
       ],
     );

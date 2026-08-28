@@ -75,8 +75,7 @@ class TrackDay {
   Duration get awakeTotal =>
       awake.fold(Duration.zero, (total, entry) => total + entry.duration);
 
-  int get copiedTotal =>
-      copied.values.fold(0, (total, count) => total + count);
+  int get copiedTotal => copied.values.fold(0, (total, count) => total + count);
 
   /// Tempo do dia que ficou registrado em algum lugar — foco mais reunião.
   ///
@@ -105,17 +104,16 @@ class TrackDay {
   /// modelo) e três cópias da mesma pluralização divergiriam na primeira que
   /// alguém corrigisse.
   List<String> get highlights => [
-        if (focus.isNotEmpty) TrackCounts.of(focus.length, 'sessão', 'sessões'),
-        if (meetings.isNotEmpty)
-          TrackCounts.of(meetings.length, 'reunião', 'reuniões'),
-        // Duração, e não contagem como os outros: "2 travas" não diz nada, e o
-        // que se quer saber do Awake é por quanto tempo o Mac ficou de pé.
-        if (awake.isNotEmpty) '${DurationFormat.compact(awakeTotal)} acordado',
-        if (copiedTotal > 0)
-          TrackCounts.of(copiedTotal, 'item copiado', 'itens copiados'),
-        if (notesWritten > 0)
-          TrackCounts.of(notesWritten, 'anotação', 'anotações'),
-      ];
+    if (focus.isNotEmpty) TrackCounts.of(focus.length, 'sessão', 'sessões'),
+    if (meetings.isNotEmpty)
+      TrackCounts.of(meetings.length, 'reunião', 'reuniões'),
+    // Duração, e não contagem como os outros: "2 travas" não diz nada, e o
+    // que se quer saber do Awake é por quanto tempo o Mac ficou de pé.
+    if (awake.isNotEmpty) '${DurationFormat.compact(awakeTotal)} acordado',
+    if (copiedTotal > 0)
+      TrackCounts.of(copiedTotal, 'item copiado', 'itens copiados'),
+    if (notesWritten > 0) TrackCounts.of(notesWritten, 'anotação', 'anotações'),
+  ];
 
   /// Assinatura barata do conteúdo do dia.
   ///
@@ -123,7 +121,8 @@ class TrackDay {
   /// este dia: sem ela, uma sessão registrada depois de o resumo ter sido
   /// escrito deixaria na tela um texto que não bate mais com os números ao
   /// lado — e um resumo errado é pior que resumo nenhum.
-  String get signature => '${focus.length}/${focusTotal.inMinutes}/'
+  String get signature =>
+      '${focus.length}/${focusTotal.inMinutes}/'
       '${meetings.length}/${meetingTotal.inMinutes}/'
       '${awake.length}/${awakeTotal.inMinutes}/'
       '$copiedTotal/$notesWritten';

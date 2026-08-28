@@ -114,8 +114,9 @@ void main() {
     expect(find.text('Terminei a migração'), findsOneWidget);
   });
 
-  testWidgets('a lista continua à vista, e trocar de sessão é um clique',
-      (tester) async {
+  testWidgets('a lista continua à vista, e trocar de sessão é um clique', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openSession(tester);
 
@@ -151,8 +152,9 @@ void main() {
     expect(find.byType(HubDetailRegion), findsNothing);
   });
 
-  testWidgets('apagar pela região pede confirmação e não leva as outras',
-      (tester) async {
+  testWidgets('apagar pela região pede confirmação e não leva as outras', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openSession(tester);
 
@@ -166,8 +168,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.loadRecent(), hasLength(2));
-    expect(find.byType(HubDetailRegion), findsOneWidget,
-        reason: 'cancelar volta para a leitura, não fecha a região');
+    expect(
+      find.byType(HubDetailRegion),
+      findsOneWidget,
+      reason: 'cancelar volta para a leitura, não fecha a região',
+    );
 
     // O rótulo "Apagar" existe no botão da região e no do aviso; o do aviso é
     // o último a entrar na árvore.
@@ -205,8 +210,9 @@ void main() {
   ///
   /// Não há `expect` de largura: um `RenderFlex overflowed` já reprova o teste
   /// sozinho.
-  testWidgets('a região cede largura em vez de espremer o conteúdo',
-      (tester) async {
+  testWidgets('a região cede largura em vez de espremer o conteúdo', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openSession(tester);
 

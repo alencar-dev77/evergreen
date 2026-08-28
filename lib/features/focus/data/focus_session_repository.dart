@@ -96,10 +96,10 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
 
   @override
   void setSummary(int id, String? summary) {
-    _db.execute(
-      'UPDATE focus_sessions SET summary = ? WHERE id = ?;',
-      [_emptyAsNull(summary), id],
-    );
+    _db.execute('UPDATE focus_sessions SET summary = ? WHERE id = ?;', [
+      _emptyAsNull(summary),
+      id,
+    ]);
   }
 
   @override
@@ -111,10 +111,9 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
 
   @override
   void trimToCurrentWeek({DateTime? now}) {
-    _db.execute(
-      'DELETE FROM focus_sessions WHERE started_at < ?;',
-      [startOfWeek(now ?? DateTime.now()).millisecondsSinceEpoch],
-    );
+    _db.execute('DELETE FROM focus_sessions WHERE started_at < ?;', [
+      startOfWeek(now ?? DateTime.now()).millisecondsSinceEpoch,
+    ]);
   }
 
   @override
@@ -125,16 +124,18 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
 
     // Uma varredura só: a janela da semana filtra as linhas e o total de hoje
     // sai de um `CASE` dentro dela.
-    final row = _db.select(
-      '''
+    final row = _db
+        .select(
+          '''
       SELECT
         COALESCE(SUM(CASE WHEN started_at >= ? THEN duration_seconds END), 0) AS today,
         COALESCE(SUM(duration_seconds), 0) AS week
       FROM focus_sessions
       WHERE started_at >= ?;
       ''',
-      [today.millisecondsSinceEpoch, weekStart.millisecondsSinceEpoch],
-    ).first;
+          [today.millisecondsSinceEpoch, weekStart.millisecondsSinceEpoch],
+        )
+        .first;
 
     return FocusStats(
       today: Duration(seconds: row['today'] as int),
@@ -158,12 +159,11 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
   }
 
   static FocusSession _fromRow(Row row) => FocusSession(
-        id: row['id'] as int,
-        startedAt:
-            DateTime.fromMillisecondsSinceEpoch(row['started_at'] as int),
-        duration: Duration(seconds: row['duration_seconds'] as int),
-        activity: row['activity'] as String?,
-        summary: row['summary'] as String?,
-        notes: FocusSessionNote.decodeList(row['notes'] as String?),
-      );
+    id: row['id'] as int,
+    startedAt: DateTime.fromMillisecondsSinceEpoch(row['started_at'] as int),
+    duration: Duration(seconds: row['duration_seconds'] as int),
+    activity: row['activity'] as String?,
+    summary: row['summary'] as String?,
+    notes: FocusSessionNote.decodeList(row['notes'] as String?),
+  );
 }

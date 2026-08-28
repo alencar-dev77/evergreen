@@ -25,17 +25,15 @@ void main() {
     repository.create(slot: 1, content: 'primeira', createdAt: createdAt);
     repository.create(slot: 3, content: 'terceira', createdAt: createdAt);
 
-    expect(
-      repository.loadAll().map((note) => note.slot),
-      [1, 3, 5],
-    );
+    expect(repository.loadAll().map((note) => note.slot), [1, 3, 5]);
   });
 
   test('a vaga é única — duas anotações não disputam o mesmo ⌘N', () {
     repository.create(slot: 2, content: 'primeira', createdAt: createdAt);
 
     expect(
-      () => repository.create(slot: 2, content: 'segunda', createdAt: createdAt),
+      () =>
+          repository.create(slot: 2, content: 'segunda', createdAt: createdAt),
       throwsA(isA<SqliteException>()),
     );
   });
@@ -53,26 +51,28 @@ void main() {
     expect(repository.loadAll().single.content, 'entra');
   });
 
-  test('editar troca o texto e a data de edição, preservando vaga e criação',
-      () {
-    final note = repository.create(
-      slot: 7,
-      content: 'antes',
-      createdAt: createdAt,
-    );
-    expect(note.updatedAt, isNull, reason: 'anotação nova não foi editada');
+  test(
+    'editar troca o texto e a data de edição, preservando vaga e criação',
+    () {
+      final note = repository.create(
+        slot: 7,
+        content: 'antes',
+        createdAt: createdAt,
+      );
+      expect(note.updatedAt, isNull, reason: 'anotação nova não foi editada');
 
-    final editedAt = createdAt.add(const Duration(days: 21));
-    repository.updateContent(note.id, 'depois', at: editedAt);
+      final editedAt = createdAt.add(const Duration(days: 21));
+      repository.updateContent(note.id, 'depois', at: editedAt);
 
-    final stored = repository.loadAll().single;
-    expect(stored.content, 'depois');
-    expect(stored.slot, 7);
-    expect(stored.createdAt, createdAt);
-    expect(stored.updatedAt, editedAt);
-    // É esta que o cartão mostra: a idade do recado, não a do papel.
-    expect(stored.changedAt, editedAt);
-  });
+      final stored = repository.loadAll().single;
+      expect(stored.content, 'depois');
+      expect(stored.slot, 7);
+      expect(stored.createdAt, createdAt);
+      expect(stored.updatedAt, editedAt);
+      // É esta que o cartão mostra: a idade do recado, não a do papel.
+      expect(stored.changedAt, editedAt);
+    },
+  );
 
   test('devolver uma anotação à parede preserva as duas datas', () {
     final editedAt = createdAt.add(const Duration(hours: 3));
@@ -100,10 +100,11 @@ void main() {
     repository.delete(repository.loadAll().first.id);
     repository.reassignSlots([b.id, c.id, d.id]);
 
-    expect(
-      repository.loadAll().map((note) => '${note.slot}:${note.content}'),
-      ['1:b', '2:c', '3:d'],
-    );
+    expect(repository.loadAll().map((note) => '${note.slot}:${note.content}'), [
+      '1:b',
+      '2:c',
+      '3:d',
+    ]);
   });
 
   test('esvaziar tira tudo da parede', () {

@@ -172,10 +172,14 @@ abstract final class PinOverlayIntents {
 
     return {
       for (var slot = 0; slot < PinQuickShortcut.slotsPerGroup; slot++) ...{
-        SingleActivator(digits[slot], meta: true):
-            PinQuickCopyIntent(PinShortcutGroup.recent, slot + 1),
-        SingleActivator(digits[slot], alt: true):
-            PinQuickCopyIntent(PinShortcutGroup.pinned, slot + 1),
+        SingleActivator(digits[slot], meta: true): PinQuickCopyIntent(
+          PinShortcutGroup.recent,
+          slot + 1,
+        ),
+        SingleActivator(digits[slot], alt: true): PinQuickCopyIntent(
+          PinShortcutGroup.pinned,
+          slot + 1,
+        ),
       },
     };
   }
@@ -188,7 +192,7 @@ abstract final class PinOverlayIntents {
     required VoidCallback onTogglePreview,
     required void Function(int delta) onCycleFilter,
     required Future<void> Function(PinShortcutGroup group, int number)
-        onQuickCopy,
+    onQuickCopy,
     required VoidCallback onTogglePin,
     required VoidCallback onGenerateTaxId,
     required VoidCallback onDelete,

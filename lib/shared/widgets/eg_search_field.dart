@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_icon.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Campo de busca do design system: lupa + input, borda verde quando focado.
 ///
@@ -42,7 +41,11 @@ class EgSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final field = Row(
       children: [
-        const EgIcon(EgIconData.search, size: AppIconSizes.md, strokeWidth: 1.5),
+        const EgIcon(
+          EgIconData.search,
+          size: AppIconSizes.md,
+          strokeWidth: 1.5,
+        ),
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: TextField(
@@ -53,10 +56,10 @@ class EgSearchField extends StatelessWidget {
             // Sem `onTapOutside` o campo se desfoca sozinho ao primeiro clique
             // em qualquer outro lugar — ver [holdsFocus].
             onTapOutside: holdsFocus ? (_) {} : null,
-            cursorColor: AppColors.greenPrimary,
+            cursorColor: context.eg.colors.accent,
             cursorWidth: 1.5,
             cursorHeight: 16,
-            style: AppTypography.body,
+            style: context.eg.text.body,
             decoration: InputDecoration(
               isDense: true,
               border: InputBorder.none,
@@ -64,8 +67,9 @@ class EgSearchField extends StatelessWidget {
               hintText: hintText,
               // Placeholder é texto de terceiro nível: precisa ser legível sem
               // competir com o que a pessoa digita.
-              hintStyle:
-                  AppTypography.body.copyWith(color: AppColors.textTertiary),
+              hintStyle: context.eg.text.body.copyWith(
+                color: context.eg.colors.textTertiary,
+              ),
             ),
           ),
         ),
@@ -88,9 +92,9 @@ class EgSearchField extends StatelessWidget {
         vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.buttonAll,
-        border: Border.all(color: AppColors.greenPrimary),
+        color: context.eg.colors.card,
+        borderRadius: context.eg.shapes.controlAll,
+        border: Border.all(color: context.eg.colors.accent),
       ),
       child: field,
     );

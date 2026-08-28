@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart' show Tooltip;
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_icon.dart';
 import 'eg_spinner.dart';
 import 'eg_surface.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Variantes de botão previstas no design system.
 enum EgButtonVariant {
@@ -19,12 +18,16 @@ enum EgButtonVariant {
   /// Ação destrutiva: texto e borda em vermelho.
   destructive;
 
-  /// A coluna desta variante na matriz de estado compartilhada.
-  EgSurfaceStyle get style => switch (this) {
-        EgButtonVariant.primary => EgSurfaceStyle.primary,
-        EgButtonVariant.secondary => EgSurfaceStyle.secondary,
-        EgButtonVariant.destructive => EgSurfaceStyle.destructive,
-      };
+  /// A coluna desta variante na matriz de estado do tema em vigor.
+  ///
+  /// Função do contexto, e não um `get`: as colunas passaram a depender do
+  /// tema, e um enum não tem de onde tirar um. Quem chama já está dentro de um
+  /// `build`, então o contexto está sempre à mão.
+  EgSurfaceStyle styleOf(BuildContext context) => switch (this) {
+    EgButtonVariant.primary => context.eg.surfaces.primary,
+    EgButtonVariant.secondary => context.eg.surfaces.secondary,
+    EgButtonVariant.destructive => context.eg.surfaces.destructive,
+  };
 }
 
 /// Botão padrão do Evergreen.
@@ -97,19 +100,19 @@ class EgButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // Só o desabilitado de verdade esmaece; carregando, o botão segue inteiro.
     final isDisabled = onPressed == null;
-    final style = variant.style;
+    final style = variant.styleOf(context);
 
     final button = EgInteractiveSurface(
       onTap: isLoading ? null : onPressed,
       style: style,
-      borderRadius: AppRadii.buttonAll,
+      borderRadius: context.eg.shapes.controlAll,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xl,
         vertical: AppSpacing.sm,
       ),
       builder: (context, state) => Opacity(
         opacity: isDisabled ? style.disabledOpacity : 1,
-        child: _content(style),
+        child: _content(context, style),
       ),
       autofocus: autofocus,
     );
@@ -119,8 +122,8 @@ class EgButton extends StatelessWidget {
 
   /// O miolo do botão. Carregando, o rótulo vira o molde que segura a largura
   /// e o spinner ocupa o centro dele.
-  Widget _content(EgSurfaceStyle style) {
-    final label = _label(style);
+  Widget _content(BuildContext context, EgSurfaceStyle style) {
+    final label = _label(context, style);
 
     if (!isLoading) return label;
 
@@ -133,27 +136,27 @@ class EgButton extends StatelessWidget {
     );
   }
 
-  Widget _label(EgSurfaceStyle style) => Row(
-        mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (icon != null) ...[
-            EgIcon(icon!, size: AppIconSizes.sm, color: style.foreground),
-            const SizedBox(width: AppSpacing.sm),
-          ],
-          // Sob largura apertada o rótulo trunca em vez de estourar o
-          // layout do painel que contém o botão.
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: AppTypography.button.copyWith(color: style.foreground),
-            ),
-          ),
-        ],
-      );
+  Widget _label(BuildContext context, EgSurfaceStyle style) => Row(
+    mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      if (icon != null) ...[
+        EgIcon(icon!, size: AppIconSizes.sm, color: style.foreground),
+        const SizedBox(width: AppSpacing.sm),
+      ],
+      // Sob largura apertada o rótulo trunca em vez de estourar o
+      // layout do painel que contém o botão.
+      Flexible(
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: context.eg.text.button.copyWith(color: style.foreground),
+        ),
+      ),
+    ],
+  );
 }
 
 /// Botão apenas de ícone: 36x36, transparente, com hover discreto.
@@ -165,8 +168,8 @@ class EgIconButton extends StatelessWidget {
     this.tooltip,
     this.size = AppBadgeSizes.md,
     this.iconSize = AppIconSizes.lg,
-    this.color = AppColors.textSecondary,
-    this.hoverColor = AppColors.textPrimary,
+    this.color,
+    this.hoverColor,
   });
 
   final EgIconData icon;
@@ -183,8 +186,11 @@ class EgIconButton extends StatelessWidget {
 
   final double size;
   final double iconSize;
-  final Color color;
-  final Color hoverColor;
+
+  /// A cor do glifo, e a dela sob o mouse. `null` nas duas quer dizer "as do
+  /// tema" — o padrão, e o que faz o botão trocar de pele junto com o resto.
+  final Color? color;
+  final Color? hoverColor;
 
   @override
   Widget build(BuildContext context) {
@@ -195,8 +201,8 @@ class EgIconButton extends StatelessWidget {
     // exatamente o que a coluna `ghost` da matriz faz.
     final button = EgInteractiveSurface(
       onTap: onPressed,
-      style: EgSurfaceStyle.ghost,
-      borderRadius: AppRadii.listItemAll,
+      style: context.eg.surfaces.ghost,
+      borderRadius: context.eg.shapes.rowAll,
       width: size,
       height: size,
       alignment: Alignment.center,
@@ -205,8 +211,8 @@ class EgIconButton extends StatelessWidget {
         icon,
         size: iconSize,
         color: (state.isHovered || state.isFocused) && isEnabled
-            ? hoverColor
-            : color,
+            ? hoverColor ?? context.eg.colors.textPrimary
+            : color ?? context.eg.colors.textSecondary,
         strokeWidth: 1.6,
       ),
     );
@@ -221,13 +227,13 @@ class EgIconButton extends StatelessWidget {
         horizontal: AppSpacing.xs,
         vertical: AppSpacing.xxs,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.badgeAll,
-        border: AppBorders.all,
-        boxShadow: AppShadows.dropdown,
+      decoration: BoxDecoration(
+        color: context.eg.colors.card,
+        borderRadius: context.eg.shapes.smallAll,
+        border: context.eg.borderAll,
+        boxShadow: context.eg.elevations.dropdown,
       ),
-      textStyle: AppTypography.captionXS,
+      textStyle: context.eg.text.captionXS,
       child: button,
     );
   }

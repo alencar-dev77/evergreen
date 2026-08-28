@@ -21,6 +21,7 @@ import '../widgets/pin_preview_pane.dart';
 import '../widgets/pin_result_list.dart';
 import '../widgets/pin_type_filter_bar.dart';
 import 'pin_overlay_intents.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Painel flutuante do Pin — a tela que o `⌘⇧C` abre.
 ///
@@ -92,8 +93,9 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   /// a troca de item também acontece dentro de um listener do próprio provider,
   /// e procurar o `ProviderScope` na árvore enquanto ela se rearranja é o tipo
   /// de coisa que o Flutter recusa a fazer.
-  late final PinOverlayViewModel _viewModel =
-      ref.read(pinOverlayViewModelProvider.notifier);
+  late final PinOverlayViewModel _viewModel = ref.read(
+    pinOverlayViewModelProvider.notifier,
+  );
 
   /// Esconder a janela não tira o foco do campo de apelido dentro do Flutter,
   /// então o que estava digitado é guardado aqui — fechar não é desistir.
@@ -334,10 +336,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
                     // toda a lista, e uma fila que sumisse ao rolar deixaria o
                     // histórico filtrado sem nada dizendo por quê.
                     if (state.hasTypeFilter)
-                      PinTypeFilterBar(
-                        state: state,
-                        onChanged: _setTypeFilter,
-                      ),
+                      PinTypeFilterBar(state: state, onChanged: _setTypeFilter),
                     Flexible(child: _content(showPreview)),
                     PinHintBar(
                       isPreviewOpen: showPreview,
@@ -360,7 +359,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
 
   Widget _searchBar() {
     return DecoratedBox(
-      decoration: const BoxDecoration(border: AppBorders.bottom),
+      decoration: BoxDecoration(border: context.eg.borderBottom),
       child: EgSearchField(
         controller: _searchController,
         focusNode: _searchFocusNode,
@@ -402,7 +401,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
         SizedBox(
           width: _compactListWidth,
           child: DecoratedBox(
-            decoration: const BoxDecoration(border: AppBorders.right),
+            decoration: BoxDecoration(border: context.eg.borderRight),
             child: list,
           ),
         ),
@@ -473,9 +472,7 @@ class _LoadingState extends State<_Loading> {
   Widget build(BuildContext context) {
     return SizedBox(
       height: _spinnerBoxHeight,
-      child: Center(
-        child: _isVisible ? const EgSpinner() : null,
-      ),
+      child: Center(child: _isVisible ? const EgSpinner() : null),
     );
   }
 

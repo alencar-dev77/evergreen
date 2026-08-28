@@ -3,10 +3,7 @@
 /// Só o que é do Pin: "iniciar com o macOS" e "abrir minimizado" são do
 /// aplicativo e moram em `AppSettings`.
 class PinSettings {
-  const PinSettings({
-    this.historyLimit = 200,
-    this.autoPaste = false,
-  });
+  const PinSettings({this.historyLimit = 200, this.autoPaste = false});
 
   /// Quantidade máxima de itens não fixados mantidos no histórico.
   final int historyLimit;

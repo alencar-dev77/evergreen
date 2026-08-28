@@ -1,10 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_surface.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Seletor de opção única em formato de pílulas.
 ///
@@ -98,10 +97,10 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
       decoration: widget.bare
           ? null
           : BoxDecoration(
-              color: AppColors.card,
-              borderRadius: AppRadii.badgeAll,
-              border: AppBorders.all,
-              boxShadow: _isFocused ? AppShadows.focusRing : null,
+              color: context.eg.colors.card,
+              borderRadius: context.eg.shapes.smallAll,
+              border: context.eg.borderAll,
+              boxShadow: _isFocused ? context.eg.elevations.focusRing : null,
             ),
       // `Wrap`, e não `Row`: com cinco opções (as durações do Focus) o
       // controle pede uns 460px, e numa janela estreita ele sozinho não cabe
@@ -160,23 +159,23 @@ class _Segment extends StatelessWidget {
     return EgInteractiveSurface(
       onTap: onTap,
       focusable: false,
-      style: EgSurfaceStyle.segment,
+      style: context.eg.surfaces.segment,
       isSelected: isSelected,
       // Concêntrico com o container: 6px do pai menos os 2px de padding.
-      borderRadius: AppRadii.badgeSmallAll,
+      borderRadius: context.eg.shapes.smallAll,
       padding: EdgeInsets.symmetric(
         horizontal: bare ? AppSpacing.xs : AppSpacing.md,
         vertical: AppSpacing.xxs,
       ),
       builder: (context, state) {
         final style = isSelected
-            ? AppTypography.captionSmallEmphasis
-            : AppTypography.captionSmall;
+            ? context.eg.text.captionSmallEmphasis
+            : context.eg.text.captionSmall;
 
         return Text(
           label,
           style: style.copyWith(
-            color: EgSurfaceStyle.segment.foregroundFor(
+            color: context.eg.surfaces.segment.foregroundFor(
               state,
               isSelected: isSelected,
             ),

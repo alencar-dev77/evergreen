@@ -1,8 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Tecla individual renderizada como key-cap (`⌘`, `⇧`, `V`).
 ///
@@ -27,11 +26,11 @@ class EgKeyCap extends StatelessWidget {
         vertical: _capPadding,
       ),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.badgeSmallAll,
-        border: AppBorders.all,
+        color: context.eg.colors.card,
+        borderRadius: context.eg.shapes.smallAll,
+        border: context.eg.borderAll,
       ),
-      child: Text(label, style: AppTypography.monoSmall),
+      child: Text(label, style: context.eg.text.monoSmall),
     );
   }
 }

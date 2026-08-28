@@ -6,8 +6,8 @@ import '../../models/focus_settings.dart';
 
 final focusSettingsViewModelProvider =
     NotifierProvider<FocusSettingsViewModel, FocusSettings>(
-  FocusSettingsViewModel.new,
-);
+      FocusSettingsViewModel.new,
+    );
 
 /// Preferências do Focus, com escrita imediata.
 ///

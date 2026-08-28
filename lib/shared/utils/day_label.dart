@@ -5,8 +5,18 @@
 /// e risco desproporcionais para "Hoje · 09:12".
 abstract final class DayLabel {
   static const _months = <String>[
-    'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
-    'jul', 'ago', 'set', 'out', 'nov', 'dez',
+    'jan',
+    'fev',
+    'mar',
+    'abr',
+    'mai',
+    'jun',
+    'jul',
+    'ago',
+    'set',
+    'out',
+    'nov',
+    'dez',
   ];
 
   /// Abreviações dos dias da semana, de segunda a domingo.
@@ -14,7 +24,13 @@ abstract final class DayLabel {
   /// Na ordem em que a faixa de barras (`EgDayBars`) as desenha — a mesma
   /// ordem do `DateTime.weekday`, que começa na segunda.
   static const weekdays = <String>[
-    'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom',
+    'seg',
+    'ter',
+    'qua',
+    'qui',
+    'sex',
+    'sáb',
+    'dom',
   ];
 
   /// "Hoje", "Ontem" ou "23 jul" — e com o ano quando não for o corrente.

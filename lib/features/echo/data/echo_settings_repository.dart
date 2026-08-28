@@ -20,21 +20,30 @@ class EchoSettingsRepository {
 
     return EchoSettings(
       liveTranscription:
-          _preferences.getBool(_liveTranscriptionKey) ?? fallback.liveTranscription,
+          _preferences.getBool(_liveTranscriptionKey) ??
+          fallback.liveTranscription,
       language: TranscriptionLanguage.fromLocale(
         _preferences.getString(_languageKey) ?? fallback.language.locale,
       ),
       summaryInstructions:
-          _preferences.getString(_instructionsKey) ?? fallback.summaryInstructions,
+          _preferences.getString(_instructionsKey) ??
+          fallback.summaryInstructions,
       vocabulary: _preferences.getString(_vocabularyKey) ?? fallback.vocabulary,
-      historyLimit: _preferences.getInt(_historyLimitKey) ?? fallback.historyLimit,
+      historyLimit:
+          _preferences.getInt(_historyLimitKey) ?? fallback.historyLimit,
     );
   }
 
   Future<void> save(EchoSettings settings) async {
-    await _preferences.setBool(_liveTranscriptionKey, settings.liveTranscription);
+    await _preferences.setBool(
+      _liveTranscriptionKey,
+      settings.liveTranscription,
+    );
     await _preferences.setString(_languageKey, settings.language.locale);
-    await _preferences.setString(_instructionsKey, settings.summaryInstructions);
+    await _preferences.setString(
+      _instructionsKey,
+      settings.summaryInstructions,
+    );
     await _preferences.setString(_vocabularyKey, settings.vocabulary);
     await _preferences.setInt(_historyLimitKey, settings.historyLimit);
   }

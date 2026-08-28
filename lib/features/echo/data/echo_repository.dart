@@ -99,15 +99,18 @@ class SqliteEchoRepository implements EchoRepository {
     final trimmed = title.trim();
     if (trimmed.isEmpty) return;
 
-    _db.execute('UPDATE echo_meetings SET title = ? WHERE id = ?;', [trimmed, id]);
+    _db.execute('UPDATE echo_meetings SET title = ? WHERE id = ?;', [
+      trimmed,
+      id,
+    ]);
   }
 
   @override
   void setKept(int id, {required bool isKept}) {
-    _db.execute(
-      'UPDATE echo_meetings SET is_kept = ? WHERE id = ?;',
-      [isKept ? 1 : 0, id],
-    );
+    _db.execute('UPDATE echo_meetings SET is_kept = ? WHERE id = ?;', [
+      isKept ? 1 : 0,
+      id,
+    ]);
   }
 
   @override
@@ -142,7 +145,9 @@ class SqliteEchoRepository implements EchoRepository {
     title: row['title'] as String,
     startedAt: DateTime.fromMillisecondsSinceEpoch(row['started_at'] as int),
     durationMs: row['duration_ms'] as int,
-    language: TranscriptionLanguage.fromLocale(row['language'] as String? ?? 'pt-BR'),
+    language: TranscriptionLanguage.fromLocale(
+      row['language'] as String? ?? 'pt-BR',
+    ),
     segments: Meeting.decodeSegments(row['transcript'] as String?),
     summary: row['summary'] as String?,
     summaryPrompt: row['summary_prompt'] as String?,

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_toggle.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Linha de configuração: label à esquerda, controle à direita.
 ///
@@ -80,7 +80,7 @@ class EgSettingsRow extends StatelessWidget {
       builder: (context, constraints) => Container(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         decoration: BoxDecoration(
-          border: showDivider ? AppBorders.bottom : null,
+          border: showDivider ? context.eg.borderBottom : null,
         ),
         // O rótulo é o nome do controle, e os dois só significam alguma coisa
         // juntos: fundidos, o leitor de tela anuncia "Iniciar com o macOS,
@@ -88,30 +88,30 @@ class EgSettingsRow extends StatelessWidget {
         // um interruptor sem nome — que é o mesmo que não anunciar.
         child: MergeSemantics(
           child: _alwaysStacked || constraints.maxWidth < _stackBelow
-              ? _stacked()
-              : _inline(),
+              ? _stacked(context)
+              : _inline(context),
         ),
       ),
     );
   }
 
-  Widget _inline() {
+  Widget _inline(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _label()),
+        Expanded(child: _label(context)),
         const SizedBox(width: AppSpacing.xl),
         trailing,
       ],
     );
   }
 
-  Widget _stacked() {
+  Widget _stacked(BuildContext context) {
     return Column(
       crossAxisAlignment: _stretchTrailing
           ? CrossAxisAlignment.stretch
           : CrossAxisAlignment.start,
       children: [
-        _label(),
+        _label(context),
         const SizedBox(height: AppSpacing.md),
         // Alinhado à esquerda, sob o rótulo que ele responde — e não centrado
         // nem à direita, que seria o controle procurando um lugar em vez de
@@ -124,14 +124,14 @@ class EgSettingsRow extends StatelessWidget {
     );
   }
 
-  Widget _label() {
+  Widget _label(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.bodyCompactEmphasis),
+        Text(label, style: context.eg.text.bodyCompactEmphasis),
         if (description != null) ...[
           const SizedBox(height: AppSpacing.xxs),
-          Text(description!, style: AppTypography.captionSmall),
+          Text(description!, style: context.eg.text.captionSmall),
         ],
       ],
     );

@@ -60,19 +60,18 @@ void main() {
     final calls = <String>[];
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-      const MethodChannel('previous_app_focus'),
-      (call) async {
-        calls.add(call.method);
-        return null;
-      },
-    );
+        .setMockMethodCallHandler(const MethodChannel('previous_app_focus'), (
+          call,
+        ) async {
+          calls.add(call.method);
+          return null;
+        });
     addTearDown(
       () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('previous_app_focus'),
-        null,
-      ),
+            const MethodChannel('previous_app_focus'),
+            null,
+          ),
     );
 
     return calls;
@@ -95,15 +94,16 @@ void main() {
     // A ViewModel carrega o histórico sob demanda; o overlay real faz isso ao
     // abrir a janela, que não existe no ambiente de teste.
     final element = tester.element(find.byType(PinOverlayView));
-    ProviderScope.containerOf(element)
-        .read(pinOverlayViewModelProvider.notifier)
-        .load();
+    ProviderScope.containerOf(
+      element,
+    ).read(pinOverlayViewModelProvider.notifier).load();
 
     await tester.pumpAndSettle();
   }
 
-  testWidgets('separa fixados de recentes e seleciona o primeiro item',
-      (tester) async {
+  testWidgets('separa fixados de recentes e seleciona o primeiro item', (
+    tester,
+  ) async {
     await pumpOverlay(tester);
 
     expect(find.text('FIXADOS'), findsOneWidget);
@@ -118,19 +118,21 @@ void main() {
     expect(selected.single.item.content, 'Flutter');
   });
 
-  testWidgets('seta para baixo move a seleção mesmo com foco no campo de busca',
-      (tester) async {
-    await pumpOverlay(tester);
+  testWidgets(
+    'seta para baixo move a seleção mesmo com foco no campo de busca',
+    (tester) async {
+      await pumpOverlay(tester);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
 
-    final selected = tester
-        .widgetList<PinListItem>(find.byType(PinListItem))
-        .firstWhere((widget) => widget.isSelected);
+      final selected = tester
+          .widgetList<PinListItem>(find.byType(PinListItem))
+          .firstWhere((widget) => widget.isSelected);
 
-    expect(selected.item.content, 'https://pub.dev/packages/sqlite3');
-  });
+      expect(selected.item.content, 'https://pub.dev/packages/sqlite3');
+    },
+  );
 
   testWidgets('busca filtra a lista em tempo real', (tester) async {
     await pumpOverlay(tester);
@@ -155,8 +157,9 @@ void main() {
     expect(find.byType(PinListItem), findsOneWidget);
   });
 
-  testWidgets('o apelido ranqueia acima de um conteúdo mais recente',
-      (tester) async {
+  testWidgets('o apelido ranqueia acima de um conteúdo mais recente', (
+    tester,
+  ) async {
     repository = FakeClipboardRepository([
       // O mais novo, e o termo casa inteiro no conteúdo dele.
       item(1, 'pix copia e cola'),
@@ -204,7 +207,9 @@ void main() {
     expect(depois, antes);
   });
 
-  testWidgets('busca sem resultado mostra estado vazio próprio', (tester) async {
+  testWidgets('busca sem resultado mostra estado vazio próprio', (
+    tester,
+  ) async {
     await pumpOverlay(tester);
 
     await tester.enterText(find.byType(TextField), 'zzzz');
@@ -240,7 +245,6 @@ void main() {
     // O preview não come o Esc: quem fecha o preview é o Tab, e o Esc vale
     // sempre a mesma coisa — sair.
     expect(closing, contains('beginHide'));
-
   });
 
   testWidgets('Tab volta do preview mantendo o texto buscado', (tester) async {
@@ -259,8 +263,9 @@ void main() {
   });
 
   group('filtro por tipo', () {
-    testWidgets('a fila mostra só os tipos que existem no histórico',
-        (tester) async {
+    testWidgets('a fila mostra só os tipos que existem no histórico', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       expect(find.text('Tudo'), findsOneWidget);
@@ -272,8 +277,9 @@ void main() {
       expect(find.text('CPF'), findsOneWidget);
     });
 
-    testWidgets('a fila fica de pé mesmo com um tipo só no histórico',
-        (tester) async {
+    testWidgets('a fila fica de pé mesmo com um tipo só no histórico', (
+      tester,
+    ) async {
       // Antes, com um tipo só, "Tudo | Textos" eram dois botões para a mesma
       // lista e a fila não se desenhava. O CPF quebrou o empate: a pílula dele
       // leva a um lugar que "Tudo" não tem — o gerador.
@@ -370,8 +376,9 @@ void main() {
       expect(find.text('sair'), findsNothing);
     });
 
-    testWidgets('com o preview aberto, o Esc ainda desfaz o filtro primeiro',
-        (tester) async {
+    testWidgets('com o preview aberto, o Esc ainda desfaz o filtro primeiro', (
+      tester,
+    ) async {
       final closing = watchClosing();
       await pumpOverlay(tester);
 
@@ -398,11 +405,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Nenhum resultado'), findsOneWidget);
-      expect(find.text('Nada em Links corresponde à sua busca.'), findsOneWidget);
+      expect(
+        find.text('Nada em Links corresponde à sua busca.'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('apagar o último item de um tipo tira a pílula e o filtro',
-        (tester) async {
+    testWidgets('apagar o último item de um tipo tira a pílula e o filtro', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.tap(find.text('Links'));
@@ -432,8 +443,9 @@ void main() {
       expect(find.text('Copiar'), findsOneWidget);
     });
 
-    testWidgets('clicar num item e apertar Esc fecha o overlay',
-        (tester) async {
+    testWidgets('clicar num item e apertar Esc fecha o overlay', (
+      tester,
+    ) async {
       final closing = watchClosing();
       await pumpOverlay(tester);
 
@@ -447,18 +459,17 @@ void main() {
       // Um Esc só: o preview que o clique abriu não pode custar uma tecla a
       // mais para sair de um painel de acesso rápido.
       expect(closing, contains('beginHide'));
-
     });
 
     testWidgets('clicar não copia nada — quem copia é o botão', (tester) async {
       String? copiedText;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copiedText = (call.arguments as Map)['text'] as String?;
-        }
-        return null;
-      });
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          });
       addTearDown(
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(SystemChannels.platform, null),
@@ -517,8 +528,9 @@ void main() {
       expect(find.text('descartar'), findsOneWidget);
     });
 
-    testWidgets('Enter guarda o apelido e ele aparece na lista',
-        (tester) async {
+    testWidgets('Enter guarda o apelido e ele aparece na lista', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -539,8 +551,9 @@ void main() {
       expect(find.byType(PinListItem), findsWidgets);
     });
 
-    testWidgets('Esc descarta o que foi digitado sem fechar o preview',
-        (tester) async {
+    testWidgets('Esc descarta o que foi digitado sem fechar o preview', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -560,26 +573,29 @@ void main() {
     /// apelido não: sem o escopo da casca, o foco largado por ele ia parar
     /// acima do `Shortcuts` do painel e levava o teclado inteiro junto — ver
     /// `EgOverlayShell`.
-    testWidgets('clicar fora do apelido não emudece o Esc do painel',
-        (tester) async {
-      final closing = watchClosing();
-      await pumpOverlay(tester);
+    testWidgets(
+      'clicar fora do apelido não emudece o Esc do painel',
+      (tester) async {
+        final closing = watchClosing();
+        await pumpOverlay(tester);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pumpAndSettle();
-      await tester.enterText(aliasField(), 'chave pix');
-      await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        await tester.enterText(aliasField(), 'chave pix');
+        await tester.pumpAndSettle();
 
-      // Um clique no rodapé de dicas: dentro do painel, fora de qualquer campo
-      // e fora da lista.
-      await tester.tapAt(tester.getCenter(find.text('guardar apelido')));
-      await tester.pumpAndSettle();
+        // Um clique no rodapé de dicas: dentro do painel, fora de qualquer campo
+        // e fora da lista.
+        await tester.tapAt(tester.getCenter(find.text('guardar apelido')));
+        await tester.pumpAndSettle();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
 
-      expect(closing, contains('beginHide'));
-    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+        expect(closing, contains('beginHide'));
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
 
     testWidgets('trocar de item guarda o apelido do anterior', (tester) async {
       await pumpOverlay(tester);
@@ -602,16 +618,17 @@ void main() {
       expect(tester.widget<EgTextField>(aliasField()).controller.text, isEmpty);
     });
 
-    testWidgets('copiar um item apelidado copia o conteúdo original',
-        (tester) async {
+    testWidgets('copiar um item apelidado copia o conteúdo original', (
+      tester,
+    ) async {
       String? copiedText;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copiedText = (call.arguments as Map)['text'] as String?;
-        }
-        return null;
-      });
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          });
       addTearDown(
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(SystemChannels.platform, null),
@@ -647,11 +664,11 @@ void main() {
       copiedText = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copiedText = (call.arguments as Map)['text'] as String?;
-        }
-        return null;
-      });
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          });
     });
 
     tearDown(() {
@@ -669,8 +686,9 @@ void main() {
       expect(find.text('⌘2'), findsOneWidget);
     });
 
-    testWidgets('⌘1 copia o recente mais novo, não o primeiro da lista',
-        (tester) async {
+    testWidgets('⌘1 copia o recente mais novo, não o primeiro da lista', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
@@ -704,8 +722,9 @@ void main() {
       expect(copiedText, isNull);
     });
 
-    testWidgets('⌘P fixa o item selecionado e o move para o topo',
-        (tester) async {
+    testWidgets('⌘P fixa o item selecionado e o move para o topo', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       // Seleciona o primeiro recente.
@@ -754,7 +773,10 @@ void main() {
         .item
         .content;
 
-    Future<void> pressOption(WidgetTester tester, LogicalKeyboardKey key) async {
+    Future<void> pressOption(
+      WidgetTester tester,
+      LogicalKeyboardKey key,
+    ) async {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.alt);
       await tester.sendKeyEvent(key);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.alt);
@@ -820,8 +842,9 @@ void main() {
       );
     });
 
-    testWidgets('⌥↓ no último fixado não o joga para os recentes',
-        (tester) async {
+    testWidgets('⌥↓ no último fixado não o joga para os recentes', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -921,8 +944,9 @@ void main() {
       expect(find.text('voltar'), findsOneWidget);
     });
 
-    testWidgets('com o item aberto, o ⌘P diz o que vai acontecer',
-        (tester) async {
+    testWidgets('com o item aberto, o ⌘P diz o que vai acontecer', (
+      tester,
+    ) async {
       repository = FakeClipboardRepository([
         item(1, 'Flutter', isPinned: true),
         item(2, 'https://pub.dev/packages/sqlite3'),
@@ -958,8 +982,9 @@ void main() {
       expectCabeNaLinha(tester);
     });
 
-    testWidgets('cabe também com a fila e sem fixado selecionado',
-        (tester) async {
+    testWidgets('cabe também com a fila e sem fixado selecionado', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
       for (var i = 0; i < 3; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -969,8 +994,9 @@ void main() {
       expectCabeNaLinha(tester);
     });
 
-    testWidgets('e com o preview aberto, onde o painel é mais largo',
-        (tester) async {
+    testWidgets('e com o preview aberto, onde o painel é mais largo', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
@@ -992,8 +1018,9 @@ void main() {
     });
   });
 
-  testWidgets('⌘⌫ apaga o selecionado e mantém a seleção no vizinho',
-      (tester) async {
+  testWidgets('⌘⌫ apaga o selecionado e mantém a seleção no vizinho', (
+    tester,
+  ) async {
     await pumpOverlay(tester);
 
     // Vai para o primeiro recente, que tem um item logo abaixo.
@@ -1034,7 +1061,9 @@ void main() {
     expect(find.text('há 6 min'), findsOneWidget);
   });
 
-  testWidgets('histórico vazio mostra a mensagem de boas-vindas', (tester) async {
+  testWidgets('histórico vazio mostra a mensagem de boas-vindas', (
+    tester,
+  ) async {
     repository = FakeClipboardRepository();
     await pumpOverlay(tester);
 
@@ -1061,16 +1090,16 @@ void main() {
       copiedText = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copiedText = (call.arguments as Map)['text'] as String?;
-        }
-        return null;
-      });
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          });
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('window_manager'),
-        (call) async => null,
-      );
+            const MethodChannel('window_manager'),
+            (call) async => null,
+          );
 
       repository = FakeClipboardRepository([
         item(1, 'Flutter', isPinned: true),
@@ -1082,7 +1111,10 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, null);
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(const MethodChannel('window_manager'), null);
+          .setMockMethodCallHandler(
+            const MethodChannel('window_manager'),
+            null,
+          );
     });
 
     /// O número que a linha está exibindo agora.
@@ -1105,7 +1137,10 @@ void main() {
       // `textContaining` porque rótulo e número dividem o mesmo parágrafo, para
       // o corte por ellipsis comer o número antes do que a linha é.
       expect(find.textContaining('Gerar CPF'), findsOneWidget);
-      expect(shownTaxId(tester), matches(RegExp(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$')));
+      expect(
+        shownTaxId(tester),
+        matches(RegExp(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$')),
+      );
     });
 
     testWidgets('sair do filtro leva a linha junto', (tester) async {
@@ -1118,8 +1153,9 @@ void main() {
       expect(find.byType(PinGeneratorRow), findsNothing);
     });
 
-    testWidgets('a linha aparece mesmo sem nenhum CPF no histórico',
-        (tester) async {
+    testWidgets('a linha aparece mesmo sem nenhum CPF no histórico', (
+      tester,
+    ) async {
       // O caso que decidiu a pílula fixa: sem isto, o gerador só apareceria
       // para quem já tem um CPF guardado — e ele existe justamente para quem
       // não tem.
@@ -1222,14 +1258,15 @@ void main() {
       // O gerado entra no histórico como qualquer cópia — é o que o faz voltar
       // depois em ⌘1, e já classificado como CPF.
       final stored = repository.loadAll().where(
-            (item) => item.content == generated,
-          );
+        (item) => item.content == generated,
+      );
       expect(stored, hasLength(1));
       expect(stored.single.type, ClipboardItemType.cpf);
     });
 
-    testWidgets('clicar na linha copia e fecha, sem abrir preview',
-        (tester) async {
+    testWidgets('clicar na linha copia e fecha, sem abrir preview', (
+      tester,
+    ) async {
       final closing = watchClosing();
       await pumpOverlay(tester);
       await openTaxIdFilter(tester);
@@ -1275,8 +1312,9 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      testWidgets('a pílula existe mesmo sem nenhum CNPJ no histórico',
-          (tester) async {
+      testWidgets('a pílula existe mesmo sem nenhum CNPJ no histórico', (
+        tester,
+      ) async {
         repository = FakeClipboardRepository();
         await pumpOverlay(tester);
 
@@ -1331,8 +1369,9 @@ void main() {
         expect(closing, isEmpty);
       });
 
-      testWidgets('o CNPJ copiado volta ao histórico já classificado',
-          (tester) async {
+      testWidgets('o CNPJ copiado volta ao histórico já classificado', (
+        tester,
+      ) async {
         // O caminho de cópia vai até o fim (gravar e fechar), e por isso
         // precisa dos canais que ele atravessa — ver `watchClosing`.
         watchClosing();
@@ -1350,8 +1389,8 @@ void main() {
         expect(copiedText, generated);
 
         final stored = repository.loadAll().where(
-              (item) => item.content == generated,
-            );
+          (item) => item.content == generated,
+        );
         expect(stored, hasLength(1));
         expect(stored.single.type, ClipboardItemType.cnpj);
       });

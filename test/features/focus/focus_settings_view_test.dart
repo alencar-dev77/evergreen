@@ -107,8 +107,9 @@ void main() {
     expect(find.text('dom'), findsOneWidget);
   });
 
-  testWidgets('cada linha do histórico diz quando, quanto e o que há dentro',
-      (tester) async {
+  testWidgets('cada linha do histórico diz quando, quanto e o que há dentro', (
+    tester,
+  ) async {
     await pumpSettings(tester);
 
     // O dia é do grupo, não da linha: a linha fica com a hora.
@@ -126,12 +127,15 @@ void main() {
     expect(find.text('Sessão'), findsOneWidget);
   });
 
-  testWidgets('apenas Pomodoro desabilita as perguntas sem escondê-las',
-      (tester) async {
+  testWidgets('apenas Pomodoro desabilita as perguntas sem escondê-las', (
+    tester,
+  ) async {
     await pumpSettings(tester);
 
-    expect(toggleFor(tester, 'Perguntar a atividade ao iniciar').onChanged,
-        isNotNull);
+    expect(
+      toggleFor(tester, 'Perguntar a atividade ao iniciar').onChanged,
+      isNotNull,
+    );
 
     await tester.tap(
       find.descendant(
@@ -154,8 +158,9 @@ void main() {
     expect(toggleFor(tester, 'Tocar som ao finalizar').onChanged, isNotNull);
   });
 
-  testWidgets('limpar histórico pede confirmação antes de apagar',
-      (tester) async {
+  testWidgets('limpar histórico pede confirmação antes de apagar', (
+    tester,
+  ) async {
     await pumpSettings(tester);
 
     await tester.tap(find.text('Limpar'));
@@ -178,10 +183,13 @@ void main() {
     expect(find.text('Nenhuma sessão esta semana'), findsOneWidget);
   });
 
-  testWidgets('o que é da semana passada não aparece nem conta', (tester) async {
+  testWidgets('o que é da semana passada não aparece nem conta', (
+    tester,
+  ) async {
     // Um minuto antes da segunda-feira desta semana — a fronteira do histórico.
-    final lastWeek = SqliteFocusSessionRepository.startOfWeek(today)
-        .subtract(const Duration(minutes: 1));
+    final lastWeek = SqliteFocusSessionRepository.startOfWeek(
+      today,
+    ).subtract(const Duration(minutes: 1));
 
     repository.insert(
       FocusSession(
@@ -199,11 +207,16 @@ void main() {
       findsWidgets,
       reason: 'o total da semana ignora o que ficou para trás',
     );
-    expect(repository.loadRecent(), hasLength(2), reason: 'a linha foi apagada');
+    expect(
+      repository.loadRecent(),
+      hasLength(2),
+      reason: 'a linha foi apagada',
+    );
   });
 
-  testWidgets('as perguntas desligadas pelo Pomodoro puro aparecem desligadas',
-      (tester) async {
+  testWidgets('as perguntas desligadas pelo Pomodoro puro aparecem desligadas', (
+    tester,
+  ) async {
     // O que o usuário deixou gravado antes de ligar o Pomodoro puro.
     SharedPreferences.setMockInitialValues({
       'focus.ask_activity': true,
@@ -216,12 +229,16 @@ void main() {
 
     // O valor efetivo é "não pergunta" — e é ele que o controle mostra. Exibir
     // o toggle ligado (só apagadinho) prometeria um resumo que nunca vem.
-    expect(toggleFor(tester, 'Perguntar a atividade ao iniciar').value, isFalse);
+    expect(
+      toggleFor(tester, 'Perguntar a atividade ao iniciar').value,
+      isFalse,
+    );
     expect(toggleFor(tester, 'Pedir um resumo ao terminar').value, isFalse);
   });
 
-  testWidgets('desligar o Pomodoro puro devolve as escolhas guardadas',
-      (tester) async {
+  testWidgets('desligar o Pomodoro puro devolve as escolhas guardadas', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       'focus.ask_summary': true,
       'focus.pomodoro_only': true,

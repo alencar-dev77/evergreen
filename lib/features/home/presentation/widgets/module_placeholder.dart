@@ -1,11 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../models/evergreen_module.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Painel exibido para módulos que ainda não foram construídos.
 class ModulePlaceholder extends StatelessWidget {
@@ -16,8 +15,8 @@ class ModulePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EgPanel(
-      color: AppColors.card,
-      borderRadius: AppRadii.cardAll,
+      color: context.eg.colors.card,
+      borderRadius: context.eg.shapes.cardAll,
       elevated: false,
       padding: const EdgeInsets.all(AppSpacing.xxl),
       child: Row(
@@ -25,8 +24,8 @@ class ModulePlaceholder extends StatelessWidget {
         children: [
           EgIconBadge(
             size: AppBadgeSizes.md,
-            color: AppColors.hover,
-            borderRadius: AppRadii.badgeAll,
+            color: context.eg.colors.hover,
+            borderRadius: context.eg.shapes.smallAll,
             child: EgIcon(module.icon, size: AppIconSizes.xl),
           ),
           const SizedBox(width: AppSpacing.xl),
@@ -36,12 +35,12 @@ class ModulePlaceholder extends StatelessWidget {
               children: [
                 Text(
                   'Em breve, na ${module.plannedFor}',
-                  style: AppTypography.bodyCompact.copyWith(
-                    color: AppColors.greenLight,
+                  style: context.eg.text.bodyCompact.copyWith(
+                    color: context.eg.colors.accentLight,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(module.description, style: AppTypography.caption),
+                Text(module.description, style: context.eg.text.caption),
               ],
             ),
           ),
