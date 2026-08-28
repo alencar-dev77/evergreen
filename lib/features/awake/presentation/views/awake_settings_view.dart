@@ -23,8 +23,7 @@ class AwakeSettingsView extends ConsumerWidget {
     final settings = ref.watch(awakeSettingsViewModelProvider);
     final viewModel = ref.read(awakeSettingsViewModelProvider.notifier);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
         EgSettingsSection(
           title: 'Geral',

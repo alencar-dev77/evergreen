@@ -52,8 +52,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
     final settings = ref.watch(appSettingsViewModelProvider);
     final viewModel = ref.read(appSettingsViewModelProvider.notifier);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
         EgSettingsSection(
           title: 'Geral',

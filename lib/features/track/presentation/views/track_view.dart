@@ -47,8 +47,7 @@ class _TrackViewState extends ConsumerState<TrackView> {
     final viewModel = ref.read(trackViewModelProvider.notifier);
     final now = ref.watch(clockProvider)();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
         // "Balanço", e não "Resumo": resumo já é o nome do parágrafo que o
         // modelo escreve dentro do dia, e a mesma palavra para duas coisas

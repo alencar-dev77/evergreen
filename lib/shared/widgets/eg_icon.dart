@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import 'eg_brand_mark.dart';
+
 import '../../core/design/app_colors.dart';
 
 /// Conjunto de ícones do Evergreen.
@@ -75,7 +77,8 @@ enum EgIconData {
   /// Trilha sinuosa com o marco no fim — identifica o módulo Track.
   track,
 
-  /// Árvore perene — a marca do Evergreen (preenchida, como a [star]).
+  /// O canivete — a marca do Evergreen, o mesmo desenho da abertura do Hub e
+  /// do ícone do aplicativo. Não é um path daqui: vem de `eg_brand_mark.dart`.
   evergreen,
 }
 
@@ -147,10 +150,22 @@ class _EgIconPainter extends CustomPainter {
     canvas.save();
     canvas.scale(scale);
 
-    final isFilled = icon == EgIconData.star || icon == EgIconData.evergreen;
-    if (isFilled) {
+    // A marca não é um glifo desta lista: ela é o desenho do canivete, o mesmo
+    // que a abertura do Hub anima e que o ícone do aplicativo mostra. Redesenhar
+    // uma versão de 16px aqui é como o pinheiro sobreviveu à aposentadoria —
+    // havia dois desenhos, e só um foi trocado.
+    //
+    // Numa cor só: quem separa lâmina de cabo neste tamanho é a silhueta e o
+    // furo do rebite, não o contraste entre os dois verdes.
+    if (icon == EgIconData.evergreen) {
+      paintBrandMarkFitted(canvas, _viewBox, cover: 1, blade: color, handle: color);
+      canvas.restore();
+      return;
+    }
+
+    if (icon == EgIconData.star) {
       canvas.drawPath(
-        icon == EgIconData.star ? _starPath() : _evergreenPath(),
+        _starPath(),
         Paint()
           ..color = color
           ..style = PaintingStyle.fill
@@ -193,7 +208,9 @@ class _EgIconPainter extends CustomPainter {
         EgIconData.microphone => _microphonePath(),
         EgIconData.track => _trackPath(),
         EgIconData.star => _starPath(),
-        EgIconData.evergreen => _evergreenPath(),
+        // A marca não passa por aqui: ela é pintada antes, direto do desenho
+        // do canivete.
+        EgIconData.evergreen => Path(),
       };
 
   Path _documentPath() => Path()
@@ -456,23 +473,6 @@ class _EgIconPainter extends CustomPainter {
     ..moveTo(13, 9.4)
     ..lineTo(9.4, 9.4)
     ..lineTo(9.4, 13.2);
-
-  /// Árvore perene do Evergreen, centralizada no viewBox 16x16 (o mesmo
-  /// desenho de `assets/icons/evergreen_menu.svg`, reescalado a partir do
-  /// espaço 22 do SVG e centrado em (8, 8)).
-  Path _evergreenPath() => Path()
-    ..moveTo(8.0, 2.0)
-    ..lineTo(11.51, 5.69)
-    ..lineTo(9.75, 5.69)
-    ..lineTo(13.35, 9.38)
-    ..lineTo(10.58, 9.38)
-    ..lineTo(14.46, 14.0)
-    ..lineTo(1.54, 14.0)
-    ..lineTo(5.42, 9.38)
-    ..lineTo(2.65, 9.38)
-    ..lineTo(6.25, 5.69)
-    ..lineTo(4.49, 5.69)
-    ..close();
 
   Path _starPath() => Path()
     ..moveTo(8, 2)

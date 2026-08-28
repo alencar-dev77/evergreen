@@ -60,6 +60,21 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   escala, e degrau que falta entra em `app_typography.dart` com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
+- **A marca do Evergreen é um desenho só**, o canivete de
+  `lib/shared/widgets/eg_brand_mark.dart`. A abertura do Hub, o ícone do
+  aplicativo, o da barra de menus e o glifo da barra lateral saem todos dele —
+  os `.png` são **gerados** por
+  `flutter test --run-skipped -t assets test/tools/brand_assets_test.dart`, e
+  não existe `.svg` ao lado. Havia um, e foi por causa dele que o pinheiro
+  continuou no ícone do aplicativo e na barra de menus depois de a marca do Hub
+  já ser o canivete: dois desenhos, e só um trocado.
+- **Tela de preferência tem ordem fixa de tópicos**: o que aconteceu (a lista do
+  módulo) → o que ele faz (interruptores no topo de cada tópico, depois
+  seletores, campos de texto por último) → limites e ações destrutivas → atalho
+  global → permissões. A pilha é a `EgSettingsPage`, que é quem dá o vão entre
+  tópicos; a seção não guarda espaço embaixo de si. Campo de texto usa
+  `EgSettingsRow.field`, nunca um rótulo com um campo solto embaixo. O detalhe
+  de cada regra está em `components.md` da skill de design.
 - Estado de elemento interativo (hover, pressed, foco, selecionado, desabilitado)
   vem da matriz `EgSurfaceStyle` (`eg_surface.dart`), via `EgInteractiveSurface`
   ou `EgSurface` — nunca de uma cadeia de `if`s dentro do widget. Selecionado é
@@ -281,6 +296,9 @@ UI e microcopy em português (pt-BR).
 - `flutter test` — rodar testes (unidade e widget)
 - `flutter test --run-skipped -t preview --update-goldens` — regerar goldens
   de conferência visual (fora da suíte padrão, dependem de fontes do sistema)
+- `flutter test --run-skipped -t assets test/tools/brand_assets_test.dart` —
+  reexportar o ícone do aplicativo e o da barra de menus a partir da marca em
+  Dart. Fora da suíte padrão porque **escreve** no repositório.
 - `./run_build_copy` — build release e instala em `/Applications`, reassinando
   com identidade estável. A assinatura ad-hoc do projeto muda de hash a cada
   build, e com ela o macOS descarta a permissão de Acessibilidade — que é o que

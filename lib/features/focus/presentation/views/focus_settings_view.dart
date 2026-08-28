@@ -48,8 +48,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
     final settings = ref.watch(focusSettingsViewModelProvider);
     final viewModel = ref.read(focusSettingsViewModelProvider.notifier);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
         // "Tempo focado", e não "Resumo": resumo já é o nome do texto que se
         // escreve ao fim de uma sessão, e a mesma palavra para duas coisas
@@ -92,32 +91,9 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
             ],
           ],
         ),
-        EgSettingsSection(
-          title: 'Geral',
-          children: [
-            EgSettingsRow(
-              label: 'Tempo de foco',
-              description: 'Duração de uma sessão.',
-              trailing: EgSegmentedControl<int>(
-                value: settings.focusMinutes,
-                options: FocusSettings.focusMinutesOptions,
-                labelOf: (option) => '$option min',
-                onChanged: viewModel.setFocusMinutes,
-              ),
-            ),
-            EgSettingsRow(
-              label: 'Tempo da pausa',
-              description: 'Duração do descanso oferecido ao fim da sessão.',
-              showDivider: false,
-              trailing: EgSegmentedControl<int>(
-                value: settings.breakMinutes,
-                options: FocusSettings.breakMinutesOptions,
-                labelOf: (option) => '$option min',
-                onChanged: viewModel.setBreakMinutes,
-              ),
-            ),
-          ],
-        ),
+        // Os interruptores no topo do tópico, e o tópico logo depois do
+        // histórico: são eles que dizem o que uma sessão vai pedir, e as
+        // durações só fazem sentido depois de se saber isso.
         EgSettingsSection(
           title: 'Funcionalidades',
           children: [
@@ -164,6 +140,32 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
               value: settings.alertOnScreen,
               onChanged: viewModel.setAlertOnScreen,
               showDivider: false,
+            ),
+          ],
+        ),
+        EgSettingsSection(
+          title: 'Durações',
+          children: [
+            EgSettingsRow(
+              label: 'Tempo de foco',
+              description: 'Duração de uma sessão.',
+              trailing: EgSegmentedControl<int>(
+                value: settings.focusMinutes,
+                options: FocusSettings.focusMinutesOptions,
+                labelOf: (option) => '$option min',
+                onChanged: viewModel.setFocusMinutes,
+              ),
+            ),
+            EgSettingsRow(
+              label: 'Tempo da pausa',
+              description: 'Duração do descanso oferecido ao fim da sessão.',
+              showDivider: false,
+              trailing: EgSegmentedControl<int>(
+                value: settings.breakMinutes,
+                options: FocusSettings.breakMinutesOptions,
+                labelOf: (option) => '$option min',
+                onChanged: viewModel.setBreakMinutes,
+              ),
             ),
           ],
         ),
