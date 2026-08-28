@@ -53,6 +53,19 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   fica em ViewModels (`Notifier`).
 - Estrutura por feature em `lib/features/<modulo>/{data,models,presentation}`;
   `presentation` se divide em `viewmodels/`, `views/`, `widgets/`.
+- **Bandeira de build mora em `lib/shared/feature_flags.dart`**, e é `const`:
+  quem mexe é quem builda, não quem usa. Bandeira serve para **desligar algo
+  pronto**, nunca para esconder algo pela metade — o código atrás dela continua
+  compilando, nos testes e nos goldens, senão o dia em que ela voltar a `true`
+  entrega uma ruína. Teste de bandeira passa **nos dois estados** (`skip:
+  !FeatureFlags.x` no que só existe de um lado); teste que só passa ligada
+  obriga a mexer na suíte para desligar a funcionalidade, e aí ninguém desliga.
+  Hoje existem três, as três em `false`: `themes` (a escolha de aparência),
+  `intro` (a abertura animada do Hub) e `onboarding` (a apresentação de
+  boas-vindas). Cada uma decide num ponto só — `AppSettings.activeTheme`,
+  `HubIntroViewModel.build` e `OnboardingViewModel.build` —, e as duas de
+  primeira vez não gravam o "já vi" quando desligadas: religar apresenta quem
+  nunca foi apresentado, em vez de ter consumido a vez dele calado.
 - **O app tem dois temas escuros — `evergreen` e `apple` — e widget nenhum sabe
   qual está em vigor.** Todo valor visual vem do tema pelo contexto
   (`context.eg.colors.accent`, `context.eg.text.body`,

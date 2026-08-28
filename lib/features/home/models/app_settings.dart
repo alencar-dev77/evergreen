@@ -1,4 +1,5 @@
 import '../../../core/design/app_theme_id.dart';
+import '../../../shared/feature_flags.dart';
 
 /// Preferências do Evergreen como aplicativo — as que não pertencem a módulo
 /// nenhum.
@@ -30,6 +31,18 @@ class AppSettings {
   /// [AppThemeId.evergreen] porque é a identidade do produto; o Apple é a
   /// escolha de quem prefere que ele desapareça dentro do sistema.
   final AppThemeId theme;
+
+  /// O tema que o app **de fato** desenha.
+  ///
+  /// Com a bandeira `FeatureFlags.themes` desligada, é sempre o da casa, seja
+  /// qual for o que está guardado. A escolha no disco fica intacta: desligar a
+  /// funcionalidade não é desfazer o que a pessoa escolheu, e religá-la devolve
+  /// a aparência dela em vez de zerar.
+  ///
+  /// Quem desenha lê **isto**, nunca o [theme] cru — é o único ponto do app em
+  /// que a bandeira decide alguma coisa.
+  AppThemeId get activeTheme =>
+      FeatureFlags.themes ? theme : AppThemeId.evergreen;
 
   /// Iniciar o Evergreen junto com o macOS.
   ///

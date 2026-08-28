@@ -7,6 +7,7 @@ import 'package:evergreen/features/home/presentation/views/app_settings_view.dar
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/backup_list.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_settings_view.dart';
+import 'package:evergreen/shared/feature_flags.dart';
 import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -141,7 +142,10 @@ void main() {
   /// tela do aplicativo, onde a pergunta espera com o cursor dentro. Uma vez
   /// por instalação, inclusive para quem deixar em branco — pergunta que reabre
   /// a cada Hub vira cobrança.
-  group('a primeira vez', () {
+  /// Só existe com a abertura animada ligada: é o fim dela que leva o Hub para
+  /// esta tela. Desligada, a pergunta do nome continua onde sempre esteve, no
+  /// topo daqui — só ninguém é levado até ela.
+  group('a primeira vez', skip: !FeatureFlags.intro, () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       preferences = await SharedPreferences.getInstance();
