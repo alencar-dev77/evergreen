@@ -88,10 +88,10 @@ class PinHintBar extends StatelessWidget {
   /// diz "Gerar CPF" a dúvida é real — se o Enter gera ou se copia o que já
   /// está escrito ali.
   List<EgHint> get _generatorHints => const [
-        EgHint(keys: ['⌘G'], label: 'sortear'),
-        EgHint(keys: ['enter'], label: 'copiar'),
-        EgHint(keys: ['↑↓']),
-      ];
+    EgHint(keys: ['⌘G'], label: 'sortear'),
+    EgHint(keys: ['enter'], label: 'copiar'),
+    EgHint(keys: ['↑↓']),
+  ];
 
   /// Com o item aberto, a linha fala **do item**: renomear, (des)fixar e
   /// voltar.
@@ -100,26 +100,26 @@ class PinHintBar extends StatelessWidget {
   /// item está lendo o item, e é sobre ele que a dúvida aparece. Foi a régua
   /// que impôs a escolha: cinco dicas com rótulo não cabem em linha nenhuma.
   List<EgHint> get _itemHints => [
-        EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
-        const EgHint(keys: ['⌘R'], label: 'apelido'),
-        const EgHint(keys: ['tab'], label: 'voltar'),
-        const EgHint(keys: ['tab']),
-      ];
+    EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
+    const EgHint(keys: ['⌘R'], label: 'apelido'),
+    const EgHint(keys: ['tab'], label: 'voltar'),
+    const EgHint(keys: ['tab']),
+  ];
 
   /// Na lista, a linha fala da navegação — e o que só existe num estado vem
   /// antes do que se adivinha olhando.
   List<EgHint> get _listHints => [
-        if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
-        if (hasTypes) const EgHint(keys: ['←→'], label: 'filtro'),
-        EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
-        const EgHint(keys: ['tab'], label: 'ver'),
-        // O par vertical só quando o ⌥↑↓ não o está desenhando ao lado.
-        if (!canMovePinned) const EgHint(keys: ['↑↓']),
-        // As variantes curtas, para o caso de a linha já estar cheia.
-        const EgHint(keys: ['tab']),
-        const EgHint(keys: ['⌘P']),
-        const EgHint(keys: ['enter']),
-      ];
+    if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
+    if (hasTypes) const EgHint(keys: ['←→'], label: 'filtro'),
+    EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
+    const EgHint(keys: ['tab'], label: 'ver'),
+    // O par vertical só quando o ⌥↑↓ não o está desenhando ao lado.
+    if (!canMovePinned) const EgHint(keys: ['↑↓']),
+    // As variantes curtas, para o caso de a linha já estar cheia.
+    const EgHint(keys: ['tab']),
+    const EgHint(keys: ['⌘P']),
+    const EgHint(keys: ['enter']),
+  ];
 
   List<EgHint> _fitted() {
     var left = _budget;
@@ -144,7 +144,9 @@ class PinHintBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isEditingAlias) {
       return const EgHintBar(
-        hints: [EgHint(keys: ['enter'], label: 'guardar apelido')],
+        hints: [
+          EgHint(keys: ['enter'], label: 'guardar apelido'),
+        ],
         trailing: EgHint(keys: ['esc'], label: 'descartar'),
       );
     }

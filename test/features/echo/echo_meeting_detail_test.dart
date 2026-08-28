@@ -17,22 +17,22 @@ import 'package:flutter_test/flutter_test.dart';
 /// não sobrava indicação nenhuma na tela.
 void main() {
   Meeting meetingWith({String? summary, String? summaryPrompt}) => Meeting(
-        id: 1,
-        title: 'Alinhamento de escopo',
-        startedAt: DateTime(2026, 8, 26, 10),
-        durationMs: const Duration(minutes: 32).inMilliseconds,
-        language: TranscriptionLanguage.ptBR,
-        summary: summary,
-        summaryPrompt: summaryPrompt,
-        segments: const [
-          MeetingSegment(
-            speaker: Speaker.others,
-            startMs: 4000,
-            endMs: 9000,
-            text: 'Então, a ideia é fechar o escopo hoje.',
-          ),
-        ],
-      );
+    id: 1,
+    title: 'Alinhamento de escopo',
+    startedAt: DateTime(2026, 8, 26, 10),
+    durationMs: const Duration(minutes: 32).inMilliseconds,
+    language: TranscriptionLanguage.ptBR,
+    summary: summary,
+    summaryPrompt: summaryPrompt,
+    segments: const [
+      MeetingSegment(
+        speaker: Speaker.others,
+        startMs: 4000,
+        endMs: 9000,
+        text: 'Então, a ideia é fechar o escopo hoje.',
+      ),
+    ],
+  );
 
   Future<void> pumpDetail(
     WidgetTester tester, {
@@ -80,11 +80,7 @@ void main() {
 
   group('primeiro resumo', () {
     testWidgets('resumindo, o botão fica na tela carregando', (tester) async {
-      await pumpDetail(
-        tester,
-        meeting: meetingWith(),
-        isSummarizing: true,
-      );
+      await pumpDetail(tester, meeting: meetingWith(), isSummarizing: true);
       await openSummaryTab(tester);
 
       expect(find.text('Resumir'), findsOneWidget);
@@ -169,7 +165,9 @@ void main() {
       );
     });
 
-    testWidgets('resumo antigo, sem registro, não inventa bloco', (tester) async {
+    testWidgets('resumo antigo, sem registro, não inventa bloco', (
+      tester,
+    ) async {
       await pumpDetail(
         tester,
         meeting: meetingWith(summary: 'O time fechou o escopo.'),
@@ -218,19 +216,13 @@ void main() {
     await pumpDetail(tester, meeting: meeting, isSummarizing: false);
     await openSummaryTab(tester);
     final parado = tester.getTopLeft(
-      find.ancestor(
-        of: find.text('Apagar'),
-        matching: find.byType(EgButton),
-      ),
+      find.ancestor(of: find.text('Apagar'), matching: find.byType(EgButton)),
     );
 
     await pumpDetail(tester, meeting: meeting, isSummarizing: true);
     await openSummaryTab(tester);
     final resumindo = tester.getTopLeft(
-      find.ancestor(
-        of: find.text('Apagar'),
-        matching: find.byType(EgButton),
-      ),
+      find.ancestor(of: find.text('Apagar'), matching: find.byType(EgButton)),
     );
 
     expect(resumindo, parado);

@@ -60,8 +60,7 @@ class LeafState {
   ///
   /// As vagas ocupadas são sempre contíguas (ver [LeafNote.slot]), então a
   /// livre é sempre a seguinte à última.
-  int? get firstFreeSlot =>
-      isFull ? null : notes.length + 1;
+  int? get firstFreeSlot => isFull ? null : notes.length + 1;
 
   /// Última vaga que a grade precisa desenhar.
   ///

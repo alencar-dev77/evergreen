@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
@@ -22,6 +20,7 @@ import '../viewmodels/echo_recorder_view_model.dart';
 import '../viewmodels/echo_settings_view_model.dart';
 import '../widgets/echo_library.dart';
 import '../widgets/echo_permission_row.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Tela do Echo dentro do Hub.
 class EchoSettingsView extends ConsumerStatefulWidget {
@@ -67,7 +66,9 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
       if (!mounted) return;
       unawaited(ref.read(echoLibraryViewModelProvider.notifier).load());
       // As permissões podem ter mudado nos Ajustes desde a última vez.
-      unawaited(ref.read(echoRecorderViewModelProvider.notifier).prepareForOpen());
+      unawaited(
+        ref.read(echoRecorderViewModelProvider.notifier).prepareForOpen(),
+      );
     });
   }
 
@@ -141,7 +142,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 padding: const EdgeInsets.only(top: AppSpacing.md),
                 child: Text(
                   library.errorMessage!,
-                  style: AppTypography.captionSmall,
+                  style: context.eg.text.captionSmall,
                 ),
               ),
             // O limite mora junto da lista que ele governa, e não num tópico
@@ -203,8 +204,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   'Este Mac não tem modelo de transcrição para '
                   '${settings.language.label}. Escolha outro idioma: gravar '
                   'assim devolveria palavras trocadas, não a reunião.',
-                  style: AppTypography.captionSmall.copyWith(
-                    color: AppColors.warning,
+                  style: context.eg.text.captionSmall.copyWith(
+                    color: context.eg.colors.warning,
                   ),
                 ),
               ),
@@ -214,7 +215,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 child: Text(
                   'O macOS atende ${settings.language.label} com o modelo de '
                   '$substitutedLanguage — é ele que vai transcrever.',
-                  style: AppTypography.captionSmall,
+                  style: context.eg.text.captionSmall,
                 ),
               ),
             // Último do tópico, encostado no campo de instrução do resumo, que
@@ -264,7 +265,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 padding: const EdgeInsets.only(top: AppSpacing.sm),
                 child: Text(
                   summaries.explanation!,
-                  style: AppTypography.captionSmall,
+                  style: context.eg.text.captionSmall,
                 ),
               ),
           ],
@@ -312,7 +313,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   'Depois de ligar a Gravação de Tela nos Ajustes, encerre e '
                   'abra o Evergreen de novo — o macOS só libera a captura para '
                   'um app que iniciou depois da permissão.',
-                  style: AppTypography.captionSmall,
+                  style: context.eg.text.captionSmall,
                 ),
               ),
             if (capabilities.canRecord)
@@ -322,7 +323,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   'Tudo liberado. Com fone de ouvido a separação fica melhor: '
                   'no alto-falante, o microfone escuta a reunião de volta e o '
                   'Echo precisa filtrar o eco para saber quem falou.',
-                  style: AppTypography.captionSmall,
+                  style: context.eg.text.captionSmall,
                 ),
               ),
           ],

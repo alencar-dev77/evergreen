@@ -174,8 +174,10 @@ class PinOverlayState {
   bool get hasTypeFilter => availableTypes.isNotEmpty;
 
   /// As opções da fila, na ordem em que aparecem: "Tudo" e os tipos presentes.
-  List<ClipboardItemType?> get typeFilterOptions =>
-      <ClipboardItemType?>[null, ...availableTypes];
+  List<ClipboardItemType?> get typeFilterOptions => <ClipboardItemType?>[
+    null,
+    ...availableTypes,
+  ];
 
   /// Atalho numérico do item, se ele estiver entre os primeiros do seu grupo.
   PinQuickShortcut? shortcutFor(ClipboardItem item) {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart' show CircularProgressIndicator;
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// O indicador de "está acontecendo" do Evergreen.
 ///
@@ -27,12 +27,12 @@ class EgSpinner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-        dimension: size,
-        child: CircularProgressIndicator(
-          strokeWidth: _strokeWidth,
-          color: color ?? AppColors.textSecondary,
-        ),
-      );
+    dimension: size,
+    child: CircularProgressIndicator(
+      strokeWidth: _strokeWidth,
+      color: color ?? context.eg.colors.textSecondary,
+    ),
+  );
 
   /// Fino o bastante para não virar um anel grosso no tamanho pequeno, grosso
   /// o bastante para não sumir num display Retina.

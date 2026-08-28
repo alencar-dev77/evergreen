@@ -23,8 +23,10 @@ enum Speaker {
   String labelFor(String userName) =>
       this == Speaker.me && userName.isNotEmpty ? userName : label;
 
-  static Speaker fromName(String name) =>
-      values.firstWhere((speaker) => speaker.name == name, orElse: () => Speaker.others);
+  static Speaker fromName(String name) => values.firstWhere(
+    (speaker) => speaker.name == name,
+    orElse: () => Speaker.others,
+  );
 }
 
 /// Um trecho falado, com quem falou e quando.

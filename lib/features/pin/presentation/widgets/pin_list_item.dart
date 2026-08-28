@@ -1,8 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
@@ -10,6 +8,7 @@ import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/pin_quick_shortcut.dart';
 import '../../models/pin_search.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Uma linha da lista do overlay: ícone de tipo, título e um metadado à direita.
 ///
@@ -71,7 +70,7 @@ class PinListItem extends StatelessWidget {
         // accent à esquerda — distinto do hover neutro, para que a posição do
         // teclado nunca se confunda com o mouse só passando por cima. Quem
         // resolve isso é a matriz de estado compartilhada
-        // (`EgSurfaceStyle.row`), a mesma da sidebar e do segmented control.
+        // (`context.eg.surfaces.row`), a mesma da sidebar e do segmented control.
         return EgSurface(
           state: state,
           isSelected: isSelected,
@@ -91,15 +90,15 @@ class PinListItem extends StatelessWidget {
                   item.type.icon,
                   size: compact ? AppIconSizes.xs : AppIconSizes.md,
                   color: isSelected
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                      ? context.eg.colors.textPrimary
+                      : context.eg.colors.textSecondary,
                 ),
               ),
               SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
-              Expanded(child: _label()),
+              Expanded(child: _label(context)),
               if (!compact) ...[
                 const SizedBox(width: AppSpacing.sm),
-                _trailing(),
+                _trailing(context),
               ],
             ],
           ),
@@ -143,33 +142,33 @@ class PinListItem extends StatelessWidget {
   /// nunca o apelido — que é o nome pelo qual a pessoa procura a linha. O
   /// contraste de peso e tamanho já separa um do outro, sem precisar de
   /// divisor. Na coluna estreita ao lado do preview só cabe o apelido.
-  Widget _label() {
+  Widget _label(BuildContext context) {
     if (!item.hasAlias || compact) {
       return Text.rich(
-        TextSpan(children: _highlighted(item.displayTitle)),
+        TextSpan(children: _highlighted(context, item.displayTitle)),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         softWrap: false,
-        style: AppTypography.bodyCompactEmphasis,
+        style: context.eg.text.bodyCompactEmphasis,
       );
     }
 
-    final secondary = AppTypography.captionXS.copyWith(
-      color: AppColors.textTertiary,
+    final secondary = context.eg.text.captionXS.copyWith(
+      color: context.eg.colors.textTertiary,
     );
 
     return Text.rich(
       TextSpan(
         children: [
-          ..._highlighted(item.displayTitle),
+          ..._highlighted(context, item.displayTitle),
           TextSpan(text: '   ', style: secondary),
-          ..._highlighted(item.title, style: secondary),
+          ..._highlighted(context, item.title, style: secondary),
         ],
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       softWrap: false,
-      style: AppTypography.bodyCompactEmphasis,
+      style: context.eg.text.bodyCompactEmphasis,
     );
   }
 
@@ -181,12 +180,16 @@ class PinListItem extends StatelessWidget {
   /// então a regra de "estado nunca só por cor" do `accessibility.md` não se
   /// aplica: o que a linha é, e não onde ela casou, quem conta é o rótulo
   /// semântico dela.
-  List<InlineSpan> _highlighted(String text, {TextStyle? style}) {
+  List<InlineSpan> _highlighted(
+    BuildContext context,
+    String text, {
+    TextStyle? style,
+  }) {
     final spans = PinSearch.spans(text, query);
     if (spans.isEmpty) return [TextSpan(text: text, style: style)];
 
     final highlight = (style ?? const TextStyle()).copyWith(
-      color: AppColors.greenPrimary,
+      color: context.eg.colors.accent,
     );
 
     final result = <InlineSpan>[];
@@ -200,10 +203,7 @@ class PinListItem extends StatelessWidget {
       }
 
       result.add(
-        TextSpan(
-          text: text.substring(span.start, span.end),
-          style: highlight,
-        ),
+        TextSpan(text: text.substring(span.start, span.end), style: highlight),
       );
       cursor = span.end;
     }
@@ -218,7 +218,7 @@ class PinListItem extends StatelessWidget {
   /// À direita da linha vai o metadado mais útil daquele item: o atalho, quando
   /// ele existe (ensina algo que o texto não diz), e o horário quando não —
   /// nunca os dois, para a linha não virar uma tabela.
-  Widget _trailing() {
+  Widget _trailing(BuildContext context) {
     final shortcut = this.shortcut;
     if (shortcut != null) {
       return _ShortcutBadge(label: shortcut.label, isActive: isSelected);
@@ -228,7 +228,9 @@ class PinListItem extends StatelessWidget {
       RelativeTime.format(item.copiedAt),
       maxLines: 1,
       softWrap: false,
-      style: AppTypography.captionXS.copyWith(color: AppColors.textTertiary),
+      style: context.eg.text.captionXS.copyWith(
+        color: context.eg.colors.textTertiary,
+      ),
     );
   }
 }
@@ -249,10 +251,12 @@ class _ShortcutBadge extends StatelessWidget {
     return AnimatedDefaultTextStyle(
       duration: AppDurations.fast,
       curve: AppDurations.curve,
-      style: AppTypography.monoSmall.copyWith(
+      style: context.eg.text.monoSmall.copyWith(
         // Recuado, mas ainda legível: em `border` o badge some no fundo do
         // painel e deixa de ensinar o atalho, que é a razão de ele existir.
-        color: isActive ? AppColors.textSecondary : AppColors.textTertiary,
+        color: isActive
+            ? context.eg.colors.textSecondary
+            : context.eg.colors.textTertiary,
       ),
       child: Text(label),
     );

@@ -101,12 +101,11 @@ void main() {
     service.create(at: DateTime(2026, 8, 24, 10));
     service.create(at: DateTime(2026, 8, 22, 10));
 
-    final backups = containerWith(service).read(backupViewModelProvider).backups;
+    final backups = containerWith(
+      service,
+    ).read(backupViewModelProvider).backups;
 
-    expect(
-      backups.map((backup) => backup.createdAt.day),
-      [24, 22, 20],
-    );
+    expect(backups.map((backup) => backup.createdAt.day), [24, 22, 20]);
   });
 
   test('falhar ao gravar vira uma frase na tela, e não uma exceção', () {

@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../pin/models/clipboard_item_type.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A distribuição do que passou pela área de transferência no dia.
 ///
@@ -52,7 +51,7 @@ class TrackCopiedBreakdown extends StatelessWidget {
                 EgIcon(
                   entry.key.icon,
                   size: AppIconSizes.xs,
-                  color: AppColors.textTertiary,
+                  color: context.eg.colors.textTertiary,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 SizedBox(
@@ -62,28 +61,28 @@ class TrackCopiedBreakdown extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
-                    style: AppTypography.captionSmall,
+                    style: context.eg.text.captionSmall,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Expanded(child: _track(entry.value / largest)),
-                const SizedBox(width: AppSpacing.md),
+                Expanded(child: _track(context, entry.value / largest)),
+                SizedBox(width: AppSpacing.md),
                 SizedBox(
                   width: _countColumn,
                   child: Text(
                     '${entry.value}',
                     textAlign: TextAlign.right,
-                    style: AppTypography.bodyCompactEmphasis,
+                    style: context.eg.text.bodyCompactEmphasis,
                   ),
                 ),
               ],
             ),
           ),
-        const SizedBox(height: AppSpacing.xxs),
+        SizedBox(height: AppSpacing.xxs),
         Text(
           'Só o tipo e a contagem — o Track nunca lê o que foi copiado.',
-          style: AppTypography.captionXS.copyWith(
-            color: AppColors.textTertiary,
+          style: context.eg.text.captionXS.copyWith(
+            color: context.eg.colors.textTertiary,
           ),
         ),
       ],
@@ -95,11 +94,11 @@ class TrackCopiedBreakdown extends StatelessWidget {
   /// Proporcional ao tipo mais copiado do dia, e não ao total: com o total, um
   /// dia normal — em que "Textos" leva quase tudo — desenharia cinco fiapos
   /// idênticos, e a comparação entre os tipos menores sumiria.
-  Widget _track(double ratio) {
+  Widget _track(BuildContext context, double ratio) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.border,
-        borderRadius: AppRadii.badgeSmallAll,
+      decoration: BoxDecoration(
+        color: context.eg.colors.border,
+        borderRadius: context.eg.shapes.smallAll,
       ),
       child: SizedBox(
         height: _trackHeight,
@@ -108,10 +107,10 @@ class TrackCopiedBreakdown extends StatelessWidget {
           child: FractionallySizedBox(
             widthFactor: ratio.clamp(0.04, 1.0),
             heightFactor: 1,
-            child: const DecoratedBox(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.textTertiary,
-                borderRadius: AppRadii.badgeSmallAll,
+                color: context.eg.colors.textTertiary,
+                borderRadius: context.eg.shapes.smallAll,
               ),
             ),
           ),

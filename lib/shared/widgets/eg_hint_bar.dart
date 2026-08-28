@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_hoverable.dart';
 import 'eg_key_cap.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Uma dica de atalho: as teclas e, quando não for óbvio, o que elas fazem.
 @immutable
@@ -51,9 +50,9 @@ class EgHintBar extends StatelessWidget {
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.sm,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        border: Border(top: AppBorders.subtle),
+      decoration: BoxDecoration(
+        color: context.eg.colors.background,
+        border: Border(top: context.eg.hairline),
       ),
       child: Row(
         children: [
@@ -63,9 +62,7 @@ class EgHintBar extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final hint in hints) _HintLabel(hint: hint),
-                ],
+                children: [for (final hint in hints) _HintLabel(hint: hint)],
               ),
             ),
           ),
@@ -91,7 +88,7 @@ class _HintLabel extends StatelessWidget {
       // cortada no meio da palavra. Densidade antes de respiro, que é a regra
       // da casa para linha de legenda.
       padding: EdgeInsets.only(right: isLast ? 0 : AppSpacing.md),
-      child: hint.onTap == null ? _content() : _clickable(),
+      child: hint.onTap == null ? _content(context) : _clickable(context),
     );
   }
 
@@ -101,16 +98,17 @@ class _HintLabel extends StatelessWidget {
   /// de legenda, e um fundo aparecendo atrás de uma dica no rodapé pesaria mais
   /// que a ação que ela oferece. Cor de texto é o único degrau de estado que um
   /// rótulo tem — o resto da matriz de superfícies não se aplica a ele.
-  Widget _clickable() {
+  Widget _clickable(BuildContext context) {
     return EgHoverable(
       onTap: hint.onTap,
       builder: (context, state) => _content(
-        color: state.isHovered ? AppColors.textPrimary : null,
+        context,
+        color: state.isHovered ? context.eg.colors.textPrimary : null,
       ),
     );
   }
 
-  Widget _content({Color? color}) {
+  Widget _content(BuildContext context, {Color? color}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -122,8 +120,8 @@ class _HintLabel extends StatelessWidget {
             maxLines: 1,
             softWrap: false,
             style: color == null
-                ? AppTypography.captionXS
-                : AppTypography.captionXS.copyWith(color: color),
+                ? context.eg.text.captionXS
+                : context.eg.text.captionXS.copyWith(color: color),
           ),
         ],
       ],

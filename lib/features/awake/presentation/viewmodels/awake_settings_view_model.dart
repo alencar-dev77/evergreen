@@ -8,8 +8,8 @@ import '../../models/awake_settings.dart';
 
 final awakeSettingsViewModelProvider =
     NotifierProvider<AwakeSettingsViewModel, AwakeSettings>(
-  AwakeSettingsViewModel.new,
-);
+      AwakeSettingsViewModel.new,
+    );
 
 /// Preferências do Awake, com escrita imediata.
 ///

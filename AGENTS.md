@@ -53,11 +53,21 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   fica em ViewModels (`Notifier`).
 - Estrutura por feature em `lib/features/<modulo>/{data,models,presentation}`;
   `presentation` se divide em `viewmodels/`, `views/`, `widgets/`.
-- Tokens de design (cor, tipografia, métricas) em `lib/core/design/` são a
-  **única** fonte — nenhum `Color(0x...)` fora de `app_colors.dart`, nenhum
-  tamanho de fonte, ícone, espaçamento ou opacidade escrito à mão num widget.
-  `copyWith` em estilo de texto vale só para cor; peso e tamanho são degraus da
-  escala, e degrau que falta entra em `app_typography.dart` com nome.
+- **O app tem dois temas escuros — `evergreen` e `apple` — e widget nenhum sabe
+  qual está em vigor.** Todo valor visual vem do tema pelo contexto
+  (`context.eg.colors.accent`, `context.eg.text.body`,
+  `context.eg.shapes.radiusCard`); os literais existem só em
+  `lib/core/design/themes/`. Papel que falta nasce nos **dois** temas ao mesmo
+  tempo — todo campo dos tokens é `required`, então é o compilador que cobra.
+  Um `if` por tema dentro de um widget é um token faltando; a única bandeira que
+  se lê é `usesVibrancy`, e só quem desenha painel a lê. Ler `THEMING.md` antes
+  de acrescentar token ou tema.
+- Espaçamento, tamanho de ícone e **durações** seguem estáticos em
+  `app_metrics.dart`, e isso é decisão: o ritmo é do produto, não da pele — um
+  app que fica mais lento ao trocar de aparência estaria mentindo sobre o que a
+  troca faz. Do movimento, só a curva é do tema.
+- `copyWith` em estilo de texto vale só para cor; peso e tamanho são degraus da
+  escala, e degrau que falta entra na `EgTypeScale` dos dois temas com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
 - **A marca do Evergreen é um desenho só**, o canivete de
@@ -222,7 +232,7 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   os dois no fechamento. Sem esse acerto, abrir e fechar deixava a janela mais
   estreita e fora do centro a cada volta.
 - Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub,
-  o nome de quem usa) vai para `AppSettings` e para a tela do aplicativo
+  o nome de quem usa, a aparência) vai para `AppSettings` e para a tela do aplicativo
   (`app_settings_view.dart`), nunca para a tela de um módulo — foi assim que
   "iniciar com o macOS" acabou morando dentro do Pin até a v0.2.
 - **O nome de quem usa é preferência de aplicativo, e existe para o modelo

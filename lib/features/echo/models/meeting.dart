@@ -78,7 +78,9 @@ class Meeting {
   /// este rótulo é a única coisa que o faz escrever "Lucas ficou de revisar" em
   /// vez de "a pessoa ficou de revisar".
   String plainText({String userName = ''}) => segments
-      .map((segment) => '${segment.speaker.labelFor(userName)}: ${segment.text}')
+      .map(
+        (segment) => '${segment.speaker.labelFor(userName)}: ${segment.text}',
+      )
       .join('\n');
 
   Meeting copyWith({

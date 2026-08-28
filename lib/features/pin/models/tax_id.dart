@@ -174,5 +174,6 @@ abstract final class TaxId {
     return remainder < 2 ? 0 : 11 - remainder;
   }
 
-  static bool _isRepeated(String digits) => digits.split('').toSet().length == 1;
+  static bool _isRepeated(String digits) =>
+      digits.split('').toSet().length == 1;
 }

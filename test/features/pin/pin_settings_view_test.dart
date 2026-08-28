@@ -43,8 +43,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('limpar histórico pede confirmação antes de apagar',
-      (tester) async {
+  testWidgets('limpar histórico pede confirmação antes de apagar', (
+    tester,
+  ) async {
     await pumpSettings(tester);
 
     await tester.tap(find.text('Limpar'));
@@ -61,8 +62,9 @@ void main() {
     expect(repository.loadAll(), hasLength(2));
   });
 
-  testWidgets('confirmar remove os não fixados e preserva os fixados',
-      (tester) async {
+  testWidgets('confirmar remove os não fixados e preserva os fixados', (
+    tester,
+  ) async {
     await pumpSettings(tester);
 
     await tester.tap(find.text('Limpar'));
@@ -74,9 +76,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(EgConfirmDialog), findsNothing);
-    expect(
-      repository.loadAll().map((item) => item.content),
-      ['fixado'],
-    );
+    expect(repository.loadAll().map((item) => item.content), ['fixado']);
   });
 }

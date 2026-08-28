@@ -103,34 +103,37 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('o resumo chega ao banco mesmo com o Hub fechado no meio dele', () async {
-    final gate = Completer<void>();
-    channel.summaryGate = gate;
+  test(
+    'o resumo chega ao banco mesmo com o Hub fechado no meio dele',
+    () async {
+      final gate = Completer<void>();
+      channel.summaryGate = gate;
 
-    final hub = openHub();
-    final library = hub.read(echoLibraryViewModelProvider.notifier);
+      final hub = openHub();
+      final library = hub.read(echoLibraryViewModelProvider.notifier);
 
-    await library.load();
-    await library.summarize(meetingId);
+      await library.load();
+      await library.summarize(meetingId);
 
-    expect(
-      hub.read(echoLibraryViewModelProvider).summarizingId,
-      meetingId,
-      reason: 'a tela precisa dizer que o trabalho começou',
-    );
-    expect(repository.findById(meetingId)!.hasSummary, isFalse);
+      expect(
+        hub.read(echoLibraryViewModelProvider).summarizingId,
+        meetingId,
+        reason: 'a tela precisa dizer que o trabalho começou',
+      );
+      expect(repository.findById(meetingId)!.hasSummary, isFalse);
 
-    // A janela é fechada com o modelo ainda escrevendo. É aqui que o bug
-    // acontecia: com o engine do Hub, ia embora o resumo inteiro.
-    hub.dispose();
+      // A janela é fechada com o modelo ainda escrevendo. É aqui que o bug
+      // acontecia: com o engine do Hub, ia embora o resumo inteiro.
+      hub.dispose();
 
-    gate.complete();
-    await pumpEventQueue();
+      gate.complete();
+      await pumpEventQueue();
 
-    final saved = repository.findById(meetingId)!;
-    expect(saved.summary, '- escopo fechado');
-    expect(saved.hasSummaryPrompt, isTrue);
-  });
+      final saved = repository.findById(meetingId)!;
+      expect(saved.summary, '- escopo fechado');
+      expect(saved.hasSummaryPrompt, isTrue);
+    },
+  );
 
   test('o Hub reaberto encontra o resumo que terminou sem ele', () async {
     final gate = Completer<void>();
@@ -138,7 +141,9 @@ void main() {
 
     final first = openHub();
     await first.read(echoLibraryViewModelProvider.notifier).load();
-    await first.read(echoLibraryViewModelProvider.notifier).summarize(meetingId);
+    await first
+        .read(echoLibraryViewModelProvider.notifier)
+        .summarize(meetingId);
     first.dispose();
 
     gate.complete();
@@ -153,29 +158,35 @@ void main() {
     expect(state.selected!.summary, '- escopo fechado');
   });
 
-  test('o Hub aberto no meio do trabalho reencontra o resumo em curso', () async {
-    final gate = Completer<void>();
-    channel.summaryGate = gate;
+  test(
+    'o Hub aberto no meio do trabalho reencontra o resumo em curso',
+    () async {
+      final gate = Completer<void>();
+      channel.summaryGate = gate;
 
-    // Pedido feito por uma abertura anterior do Hub, que já foi embora.
-    final first = openHub();
-    await first.read(echoLibraryViewModelProvider.notifier).load();
-    await first.read(echoLibraryViewModelProvider.notifier).summarize(meetingId);
-    first.dispose();
+      // Pedido feito por uma abertura anterior do Hub, que já foi embora.
+      final first = openHub();
+      await first.read(echoLibraryViewModelProvider.notifier).load();
+      await first
+          .read(echoLibraryViewModelProvider.notifier)
+          .summarize(meetingId);
+      first.dispose();
 
-    final second = openHub();
-    addTearDown(second.dispose);
-    await second.read(echoLibraryViewModelProvider.notifier).load();
+      final second = openHub();
+      addTearDown(second.dispose);
+      await second.read(echoLibraryViewModelProvider.notifier).load();
 
-    expect(
-      second.read(echoLibraryViewModelProvider).summarizingId,
-      meetingId,
-      reason: 'quem reabre a janela precisa ver que ainda há resumo acontecendo',
-    );
+      expect(
+        second.read(echoLibraryViewModelProvider).summarizingId,
+        meetingId,
+        reason:
+            'quem reabre a janela precisa ver que ainda há resumo acontecendo',
+      );
 
-    gate.complete();
-    await pumpEventQueue();
-  });
+      gate.complete();
+      await pumpEventQueue();
+    },
+  );
 
   test('a instrução gravada é a que o modelo recebeu', () async {
     await preferences.setString('echo.summaryInstructions', 'Um parágrafo só.');
@@ -191,22 +202,29 @@ void main() {
     expect(repository.findById(meetingId)!.summaryPrompt, 'Um parágrafo só.');
   });
 
-  test('sem instrução escrita, o que fica gravado é a padrão do aplicativo', () async {
-    final hub = openHub();
-    addTearDown(hub.dispose);
+  test(
+    'sem instrução escrita, o que fica gravado é a padrão do aplicativo',
+    () async {
+      final hub = openHub();
+      addTearDown(hub.dispose);
 
-    await hub.read(echoLibraryViewModelProvider.notifier).load();
-    await hub.read(echoLibraryViewModelProvider.notifier).summarize(meetingId);
-    await pumpEventQueue();
+      await hub.read(echoLibraryViewModelProvider.notifier).load();
+      await hub
+          .read(echoLibraryViewModelProvider.notifier)
+          .summarize(meetingId);
+      await pumpEventQueue();
 
-    // Explícita no caminho, e não "manda vazio e deixa o Swift escolher": só
-    // assim dá para gravar a frase que o modelo de fato leu.
-    expect(channel.summarizedInstructions, [EchoSettings.defaultInstructions]);
-    expect(
-      repository.findById(meetingId)!.summaryPrompt,
-      EchoSettings.defaultInstructions,
-    );
-  });
+      // Explícita no caminho, e não "manda vazio e deixa o Swift escolher": só
+      // assim dá para gravar a frase que o modelo de fato leu.
+      expect(channel.summarizedInstructions, [
+        EchoSettings.defaultInstructions,
+      ]);
+      expect(
+        repository.findById(meetingId)!.summaryPrompt,
+        EchoSettings.defaultInstructions,
+      );
+    },
+  );
 
   test('dois pedidos seguidos não viram dois resumos', () async {
     final gate = Completer<void>();
@@ -223,7 +241,10 @@ void main() {
   });
 
   test('a falha do modelo fica guardada até alguém abrir a janela', () async {
-    channel.failWith = const EchoException('summary_failed', 'o modelo recusou');
+    channel.failWith = const EchoException(
+      'summary_failed',
+      'o modelo recusou',
+    );
 
     final runner = background.read(echoSummaryRunnerProvider);
     await runner.start(meetingId);
@@ -233,7 +254,10 @@ void main() {
     addTearDown(hub.dispose);
     await hub.read(echoLibraryViewModelProvider.notifier).load();
 
-    expect(hub.read(echoLibraryViewModelProvider).errorMessage, 'o modelo recusou');
+    expect(
+      hub.read(echoLibraryViewModelProvider).errorMessage,
+      'o modelo recusou',
+    );
     expect(repository.findById(meetingId)!.hasSummary, isFalse);
 
     // Contada uma vez, e só. Guardá-la faria a mesma falha reaparecer em toda

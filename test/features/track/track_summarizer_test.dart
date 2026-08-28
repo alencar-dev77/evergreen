@@ -90,9 +90,7 @@ void main() {
 
       final text = await TrackSummarizer(channel, '').write(
         dayWith(
-          focus: [
-            TrackEntry(at: date, duration: const Duration(minutes: 25)),
-          ],
+          focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
@@ -109,9 +107,7 @@ void main() {
 
       final text = await TrackSummarizer(channel, '').write(
         dayWith(
-          focus: [
-            TrackEntry(at: date, duration: const Duration(minutes: 25)),
-          ],
+          focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
@@ -123,9 +119,7 @@ void main() {
 
       final text = await TrackSummarizer(channel, '').write(
         dayWith(
-          focus: [
-            TrackEntry(at: date, duration: const Duration(minutes: 25)),
-          ],
+          focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 

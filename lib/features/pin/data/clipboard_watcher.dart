@@ -17,7 +17,7 @@ import 'package:flutter/services.dart';
 /// `docs/Ideis projeto/captura-de-clipboard-nativa.md`.
 class ClipboardWatcher {
   ClipboardWatcher({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel(_channelName);
+    : _channel = channel ?? const MethodChannel(_channelName);
 
   static const _channelName = 'pasteboard_watcher';
 

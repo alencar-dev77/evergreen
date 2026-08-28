@@ -6,7 +6,7 @@ import 'package:evergreen/features/focus/models/focus_session.dart';
 /// partir da segunda-feira.
 class FakeFocusSessionRepository implements FocusSessionRepository {
   FakeFocusSessionRepository([List<FocusSession> initial = const []])
-      : _sessions = [...initial];
+    : _sessions = [...initial];
 
   final List<FocusSession> _sessions;
 
@@ -14,13 +14,15 @@ class FakeFocusSessionRepository implements FocusSessionRepository {
 
   @override
   List<FocusSession> loadRecent({int limit = 50, DateTime? now}) {
-    final weekStart =
-        SqliteFocusSessionRepository.startOfWeek(now ?? DateTime.now());
+    final weekStart = SqliteFocusSessionRepository.startOfWeek(
+      now ?? DateTime.now(),
+    );
 
-    final sorted = _sessions
-        .where((session) => !session.startedAt.isBefore(weekStart))
-        .toList()
-      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    final sorted =
+        _sessions
+            .where((session) => !session.startedAt.isBefore(weekStart))
+            .toList()
+          ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
 
     return sorted.take(limit).toList(growable: false);
   }
@@ -48,8 +50,9 @@ class FakeFocusSessionRepository implements FocusSessionRepository {
 
   @override
   void trimToCurrentWeek({DateTime? now}) {
-    final weekStart =
-        SqliteFocusSessionRepository.startOfWeek(now ?? DateTime.now());
+    final weekStart = SqliteFocusSessionRepository.startOfWeek(
+      now ?? DateTime.now(),
+    );
 
     _sessions.removeWhere((session) => session.startedAt.isBefore(weekStart));
   }
@@ -67,10 +70,9 @@ class FakeFocusSessionRepository implements FocusSessionRepository {
   }
 
   Duration _sum(bool Function(FocusSession session) test) {
-    return _sessions.where(test).fold(
-          Duration.zero,
-          (total, session) => total + session.duration,
-        );
+    return _sessions
+        .where(test)
+        .fold(Duration.zero, (total, session) => total + session.duration);
   }
 
   static DateTime _startOfDay(DateTime moment) =>

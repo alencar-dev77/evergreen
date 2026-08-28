@@ -4,12 +4,18 @@ library;
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:evergreen/core/design/app_colors.dart';
+import 'package:evergreen/core/design/themes/evergreen_tokens.dart';
 import 'package:evergreen/shared/widgets/eg_brand_mark.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Gera os `.png` da marca a partir do desenho que está no Dart.
+///
+/// Sempre na paleta do tema da casa, e não na do tema em vigor: estes arquivos
+/// vivem **dentro do bundle**, e o macOS os lê uma vez ao instalar. O ícone do
+/// Dock e o da barra de menus não têm como acompanhar uma preferência que muda
+/// em tempo de execução — trocá-los pediria mexer no `NSApplication` de dentro
+/// do app. Dentro da janela, aí sim, a marca segue o tema como todo o resto.
 ///
 /// Rode com `flutter test --run-skipped -t assets test/tools/brand_assets_test.dart`.
 /// Fora da suíte padrão, como os goldens de conferência: isto **escreve** no
@@ -60,7 +66,7 @@ void main() {
             ),
             Radius.circular(box * radius),
           ),
-          Paint()..color = AppColors.background,
+          Paint()..color = EvergreenTokens.palette.background,
         );
 
         // 0.62 da laje: o bastante para a marca mandar no ícone, e não tanto
@@ -70,8 +76,8 @@ void main() {
           canvas,
           box,
           cover: 0.62,
-          blade: AppColors.greenPrimary,
-          handle: AppColors.greenShade,
+          blade: EvergreenTokens.palette.accent,
+          handle: EvergreenTokens.palette.accentShade,
         );
       });
 

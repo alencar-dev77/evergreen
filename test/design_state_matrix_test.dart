@@ -1,10 +1,10 @@
 @Tags(['preview'])
 library;
 
-import 'package:evergreen/core/design/app_colors.dart';
+import 'package:evergreen/core/design/app_theme_id.dart';
+import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
-import 'package:evergreen/core/design/app_typography.dart';
 import 'package:evergreen/shared/widgets/eg_button.dart';
 import 'package:evergreen/shared/widgets/eg_hoverable.dart';
 import 'package:evergreen/shared/widgets/eg_icon.dart';
@@ -37,59 +37,70 @@ import 'golden_fonts.dart';
 void main() {
   setUpAll(loadGoldenFonts);
 
-  testWidgets('matriz de estado dos componentes', (tester) async {
-    tester.view.physicalSize = const Size(2000, 1240);
-    tester.view.devicePixelRatio = 2.0;
-    addTearDown(tester.view.reset);
+  /// Uma folha por tema: a matriz é a mesma tabela, e o que muda é a pele.
+  /// Duas imagens lado a lado é a forma mais rápida de ver se um estado sumiu
+  /// numa das aparências — um hover que não se vê, uma seleção sem contraste.
+  for (final theme in AppThemeId.values) {
+    testWidgets('matriz de estado dos componentes — ${theme.name}', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(2000, 1240);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.build(),
-        home: const ColoredBox(
-          color: AppColors.background,
-          child: _StateMatrixGallery(),
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.build(theme),
+          home: ColoredBox(
+            color: EgTokens.of(theme).colors.background,
+            child: const _StateMatrixGallery(),
+          ),
         ),
-      ),
-    );
+      );
 
-    // Hover e pressed em componentes diferentes, no mesmo quadro: são dois
-    // ponteiros independentes, e é assim que a imagem mostra os dois estados
-    // sem precisar de dois goldens.
-    final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await hover.addPointer(
-      location: tester.getCenter(find.byKey(const Key('toggle-hover'))),
-    );
-    addTearDown(hover.removePointer);
+      // Hover e pressed em componentes diferentes, no mesmo quadro: são dois
+      // ponteiros independentes, e é assim que a imagem mostra os dois estados
+      // sem precisar de dois goldens.
+      final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await hover.addPointer(
+        location: tester.getCenter(find.byKey(const Key('toggle-hover'))),
+      );
+      addTearDown(hover.removePointer);
 
-    final press = await tester.startGesture(
-      tester.getCenter(find.byKey(const Key('button-pressed'))),
-    );
+      final press = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('button-pressed'))),
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    await expectLater(
-      find.byType(_StateMatrixGallery),
-      matchesGoldenFile('goldens/design_state_matrix.png'),
-    );
+      await expectLater(
+        find.byType(_StateMatrixGallery),
+        matchesGoldenFile('goldens/design_state_matrix_${theme.name}.png'),
+      );
 
-    await press.up();
-    await tester.pumpAndSettle();
-  });
+      await press.up();
+      await tester.pumpAndSettle();
+    });
+  }
 }
 
 class _StateMatrixGallery extends StatelessWidget {
   const _StateMatrixGallery();
 
-  static const _styles = <String, EgSurfaceStyle>{
-    'row': EgSurfaceStyle.row,
-    'ghost': EgSurfaceStyle.ghost,
-    'card': EgSurfaceStyle.card,
-    'segment': EgSurfaceStyle.segment,
-    'primary': EgSurfaceStyle.primary,
-    'secondary': EgSurfaceStyle.secondary,
-    'destructive': EgSurfaceStyle.destructive,
-  };
+  static Map<String, EgSurfaceStyle> _stylesOf(BuildContext context) {
+    final surfaces = context.eg.surfaces;
+
+    return {
+      'row': surfaces.row,
+      'ghost': surfaces.ghost,
+      'card': surfaces.card,
+      'segment': surfaces.segment,
+      'primary': surfaces.primary,
+      'secondary': surfaces.secondary,
+      'destructive': surfaces.destructive,
+    };
+  }
 
   static const _states = <String, EgInteraction>{
     'repouso': EgInteraction(),
@@ -107,18 +118,18 @@ class _StateMatrixGallery extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Matriz de estado', style: AppTypography.screenTitle),
+          Text('Matriz de estado', style: context.eg.text.screenTitle),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             'Toda superfície interativa do Evergreen resolve o próprio fundo '
             'por esta tabela.',
-            style: AppTypography.caption,
+            style: context.eg.text.caption,
           ),
           const SizedBox(height: AppSpacing.xxl),
-          _header(),
+          _header(context),
           const SizedBox(height: AppSpacing.sm),
-          for (final entry in _styles.entries) ...[
-            _row(entry.key, entry.value),
+          for (final entry in _stylesOf(context).entries) ...[
+            _row(context, entry.key, entry.value),
             const SizedBox(height: AppSpacing.sm),
           ],
           const SizedBox(height: AppSpacing.xxl),
@@ -128,43 +139,48 @@ class _StateMatrixGallery extends StatelessWidget {
     );
   }
 
-  Widget _header() {
+  Widget _header(BuildContext context) {
     return Row(
       children: [
         const SizedBox(width: _labelWidth),
         for (final name in _states.keys)
           SizedBox(
             width: _cellWidth,
-            child: Text(name.toUpperCase(), style: AppTypography.overline),
+            child: Text(name.toUpperCase(), style: context.eg.text.overline),
           ),
       ],
     );
   }
 
-  Widget _row(String name, EgSurfaceStyle style) {
+  Widget _row(BuildContext context, String name, EgSurfaceStyle style) {
     return Row(
       children: [
         SizedBox(
           width: _labelWidth,
-          child: Text(name, style: AppTypography.bodyCompactEmphasis),
+          child: Text(name, style: context.eg.text.bodyCompactEmphasis),
         ),
         for (final entry in _states.entries)
           SizedBox(
             width: _cellWidth,
-            child: _cell(style, entry.key, entry.value),
+            child: _cell(context, style, entry.key, entry.value),
           ),
       ],
     );
   }
 
-  Widget _cell(EgSurfaceStyle style, String name, EgInteraction state) {
+  Widget _cell(
+    BuildContext context,
+    EgSurfaceStyle style,
+    String name,
+    EgInteraction state,
+  ) {
     final isSelected = name == 'selecionado';
     final isEnabled = name != 'desabilitado';
 
     // A coluna sem estado selecionado deixa a célula vazia em vez de repetir o
     // repouso: o buraco na tabela é a informação.
     if (isSelected && style.selected == null) {
-      return Text('—', style: AppTypography.captionXS);
+      return Text('—', style: context.eg.text.captionXS);
     }
 
     return Opacity(
@@ -179,7 +195,7 @@ class _StateMatrixGallery extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           'Rótulo',
-          style: AppTypography.bodyCompactEmphasis.copyWith(
+          style: context.eg.text.bodyCompactEmphasis.copyWith(
             color: style.foregroundFor(
               state,
               isSelected: isSelected,
@@ -206,7 +222,7 @@ class _Components extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _group('Botões', [
+        _group(context, 'Botões', [
           Row(
             children: [
               EgButton(label: 'Primário', onPressed: () {}),
@@ -238,7 +254,7 @@ class _Components extends StatelessWidget {
           ),
         ]),
         const SizedBox(width: AppSpacing.huge),
-        _group('Switch', [
+        _group(context, 'Switch', [
           Row(
             children: [
               EgToggle(value: true, onChanged: (_) {}),
@@ -263,7 +279,7 @@ class _Components extends StatelessWidget {
           ),
         ]),
         const SizedBox(width: AppSpacing.huge),
-        _group('Navegação', [
+        _group(context, 'Navegação', [
           SizedBox(
             width: 232,
             child: Column(
@@ -291,11 +307,11 @@ class _Components extends StatelessWidget {
     );
   }
 
-  Widget _group(String title, List<Widget> children) {
+  Widget _group(BuildContext context, String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title.toUpperCase(), style: AppTypography.overline),
+        Text(title.toUpperCase(), style: context.eg.text.overline),
         const SizedBox(height: AppSpacing.md),
         ...children,
       ],

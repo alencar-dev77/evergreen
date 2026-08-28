@@ -117,7 +117,9 @@ class TrackSummarizer {
     if (day.copiedTotal > 0) {
       final byType = day.copied.entries
           .where((entry) => entry.value > 0)
-          .map((entry) => '${entry.value} ${entry.key.filterLabel.toLowerCase()}')
+          .map(
+            (entry) => '${entry.value} ${entry.key.filterLabel.toLowerCase()}',
+          )
           .join(', ');
 
       lines.add(

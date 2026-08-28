@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
@@ -11,6 +10,7 @@ import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../../home/presentation/widgets/hub_detail_region.dart';
 import '../viewmodels/focus_history_view_model.dart';
 import 'focus_session_detail.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A sessão aberta, na região dedicada do Hub.
 ///
@@ -49,14 +49,14 @@ class FocusReader extends ConsumerWidget {
             session.hasActivity ? session.activity! : 'Sessão',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.panelTitle,
+            style: context.eg.text.panelTitle,
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             '${DayLabel.of(session.startedAt)} · '
             '${DayLabel.time(session.startedAt)} · '
             '${DurationFormat.compact(session.duration)}',
-            style: AppTypography.captionXS,
+            style: context.eg.text.captionXS,
           ),
         ],
       ),
@@ -80,7 +80,8 @@ class FocusReader extends ConsumerWidget {
     final confirmed = await EgConfirmDialog.show(
       context,
       title: 'Apagar sessão?',
-      message: 'A sessão e o que você anotou nela serão removidos. '
+      message:
+          'A sessão e o que você anotou nela serão removidos. '
           'Não dá para desfazer.',
       confirmLabel: 'Apagar',
     );

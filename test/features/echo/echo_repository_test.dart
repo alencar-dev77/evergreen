@@ -17,7 +17,12 @@ void main() {
     language: TranscriptionLanguage.ptBR,
     isKept: isKept,
     segments: const [
-      MeetingSegment(speaker: Speaker.me, startMs: 0, endMs: 2000, text: 'bom dia'),
+      MeetingSegment(
+        speaker: Speaker.me,
+        startMs: 0,
+        endMs: 2000,
+        text: 'bom dia',
+      ),
       MeetingSegment(
         speaker: Speaker.others,
         startMs: 2500,
@@ -75,10 +80,11 @@ void main() {
     repository.insert(meetingAt(5));
     repository.insert(meetingAt(3));
 
-    expect(
-      repository.loadAll().map((meeting) => meeting.title),
-      ['Reunião 5', 'Reunião 3', 'Reunião 1'],
-    );
+    expect(repository.loadAll().map((meeting) => meeting.title), [
+      'Reunião 5',
+      'Reunião 3',
+      'Reunião 1',
+    ]);
   });
 
   test('a limpeza tira as mais antigas', () {
@@ -88,10 +94,11 @@ void main() {
 
     repository.trimHistory(3);
 
-    expect(
-      repository.loadAll().map((meeting) => meeting.title),
-      ['Reunião 5', 'Reunião 4', 'Reunião 3'],
-    );
+    expect(repository.loadAll().map((meeting) => meeting.title), [
+      'Reunião 5',
+      'Reunião 4',
+      'Reunião 3',
+    ]);
   });
 
   test('reunião guardada sobrevive à limpeza e não ocupa vaga', () {
@@ -102,7 +109,10 @@ void main() {
 
     repository.trimHistory(2);
 
-    final titles = repository.loadAll().map((meeting) => meeting.title).toList();
+    final titles = repository
+        .loadAll()
+        .map((meeting) => meeting.title)
+        .toList();
     // A guardada continua lá — e as duas vagas do teto foram para as ordinárias
     // mais recentes, não consumidas por ela.
     expect(titles, contains('Planejamento'));
@@ -134,34 +144,37 @@ void main() {
     expect(loaded.segments, hasLength(2));
   });
 
-  test('a instrução usada é gravada junto do resumo, e refazer troca as duas', () {
-    final saved = repository.insert(meetingAt(1));
+  test(
+    'a instrução usada é gravada junto do resumo, e refazer troca as duas',
+    () {
+      final saved = repository.insert(meetingAt(1));
 
-    expect(saved.summaryPrompt, isNull);
-    expect(repository.findById(saved.id!)!.hasSummaryPrompt, isFalse);
+      expect(saved.summaryPrompt, isNull);
+      expect(repository.findById(saved.id!)!.hasSummaryPrompt, isFalse);
 
-    repository.setSummary(
-      saved.id!,
-      '- decidimos começar',
-      prompt: 'Escreva em tópicos curtos.',
-    );
+      repository.setSummary(
+        saved.id!,
+        '- decidimos começar',
+        prompt: 'Escreva em tópicos curtos.',
+      );
 
-    var loaded = repository.findById(saved.id!)!;
-    expect(loaded.summaryPrompt, 'Escreva em tópicos curtos.');
-    expect(loaded.hasSummaryPrompt, isTrue);
+      var loaded = repository.findById(saved.id!)!;
+      expect(loaded.summaryPrompt, 'Escreva em tópicos curtos.');
+      expect(loaded.hasSummaryPrompt, isTrue);
 
-    // Refazer com outra instrução: o registro acompanha o texto novo, senão a
-    // tela mostraria um resumo com a instrução que produziu o anterior.
-    repository.setSummary(
-      saved.id!,
-      'Um parágrafo corrido.',
-      prompt: 'Escreva um parágrafo só.',
-    );
+      // Refazer com outra instrução: o registro acompanha o texto novo, senão a
+      // tela mostraria um resumo com a instrução que produziu o anterior.
+      repository.setSummary(
+        saved.id!,
+        'Um parágrafo corrido.',
+        prompt: 'Escreva um parágrafo só.',
+      );
 
-    loaded = repository.findById(saved.id!)!;
-    expect(loaded.summary, 'Um parágrafo corrido.');
-    expect(loaded.summaryPrompt, 'Escreva um parágrafo só.');
-  });
+      loaded = repository.findById(saved.id!)!;
+      expect(loaded.summary, 'Um parágrafo corrido.');
+      expect(loaded.summaryPrompt, 'Escreva um parágrafo só.');
+    },
+  );
 
   test('renomear ignora título em branco', () {
     final saved = repository.insert(meetingAt(1));

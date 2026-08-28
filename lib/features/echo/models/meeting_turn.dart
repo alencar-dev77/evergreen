@@ -65,11 +65,7 @@ class MeetingTurn {
       if (atual == null || buffer.isEmpty) return;
 
       turns.add(
-        MeetingTurn(
-          speaker: atual,
-          startMs: startMs,
-          text: _join(buffer),
-        ),
+        MeetingTurn(speaker: atual, startMs: startMs, text: _join(buffer)),
       );
       buffer.clear();
     }

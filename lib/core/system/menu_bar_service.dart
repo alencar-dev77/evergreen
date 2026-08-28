@@ -159,10 +159,7 @@ class MenuBarService with TrayListener {
       // ícone vai procurar quanto falta. Sem marca de seleção, apesar de ser um
       // estado ligado/desligado — clicar aqui abre o painel, como nos outros
       // módulos, e um item marcado prometeria que o clique desliga a trava.
-      MenuItem(
-        key: MenuBarAction.openAwake.key,
-        label: _awakeMenuLabel,
-      ),
+      MenuItem(key: MenuBarAction.openAwake.key, label: _awakeMenuLabel),
       MenuItem(
         key: MenuBarAction.openEcho.key,
         label: MenuBarAction.openEcho.menuLabel,
@@ -172,7 +169,10 @@ class MenuBarService with TrayListener {
         label: MenuBarAction.openHub.menuLabel,
       ),
       MenuItem.separator(),
-      MenuItem(key: MenuBarAction.quit.key, label: MenuBarAction.quit.menuLabel),
+      MenuItem(
+        key: MenuBarAction.quit.key,
+        label: MenuBarAction.quit.menuLabel,
+      ),
     ],
   );
 

@@ -50,8 +50,9 @@ void main() {
   List<FocusSession> saved(WidgetTester tester) =>
       repository.loadRecent(now: tester.binding.clock.now());
 
-  testWidgets('parte parado, com a duração configurada à vista',
-      (tester) async {
+  testWidgets('parte parado, com a duração configurada à vista', (
+    tester,
+  ) async {
     final container = containerFor(tester);
 
     expect(stateOf(container).isIdle, isTrue);
@@ -97,8 +98,9 @@ void main() {
     viewModelOf(container).dismiss();
   });
 
-  testWidgets('sessão completa entra no histórico e pede a tela',
-      (tester) async {
+  testWidgets('sessão completa entra no histórico e pede a tela', (
+    tester,
+  ) async {
     final container = containerFor(tester);
     viewModelOf(container).start(activity: 'Escrever o handoff');
 
@@ -114,8 +116,9 @@ void main() {
     expect(sessions.single.activity, 'Escrever o handoff');
   });
 
-  testWidgets('encerrar antes da hora registra o que foi focado',
-      (tester) async {
+  testWidgets('encerrar antes da hora registra o que foi focado', (
+    tester,
+  ) async {
     final container = containerFor(tester);
     viewModelOf(container).start();
 
@@ -139,8 +142,9 @@ void main() {
     expect(stateOf(container).lastSession, isNull);
   });
 
-  testWidgets('o resumo é gravado na sessão que acabou de terminar',
-      (tester) async {
+  testWidgets('o resumo é gravado na sessão que acabou de terminar', (
+    tester,
+  ) async {
     final container = containerFor(tester);
     viewModelOf(container).start();
 
@@ -172,8 +176,9 @@ void main() {
     );
   });
 
-  testWidgets('a observação carrega o minuto em que foi escrita',
-      (tester) async {
+  testWidgets('a observação carrega o minuto em que foi escrita', (
+    tester,
+  ) async {
     final container = containerFor(tester);
     viewModelOf(container).start(activity: 'Refatorar o módulo de auth');
 
@@ -254,8 +259,9 @@ void main() {
         overrides: [
           focusSessionRepositoryProvider.overrideWithValue(repository),
           sharedPreferencesProvider.overrideWithValue(preferences),
-          clockProvider
-              .overrideWithValue(() => tester.binding.clock.now().add(skew)),
+          clockProvider.overrideWithValue(
+            () => tester.binding.clock.now().add(skew),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -280,8 +286,9 @@ void main() {
       expect(saved(tester).single.duration, const Duration(minutes: 3));
     });
 
-    testWidgets('um tique atrasado não descarta o trabalho real',
-        (tester) async {
+    testWidgets('um tique atrasado não descarta o trabalho real', (
+      tester,
+    ) async {
       final (:container, :skip) = suspendable(tester);
       viewModelOf(container).start();
 
@@ -318,8 +325,9 @@ void main() {
   /// A sessão vive na memória do engine, e o que está na memória morre com o
   /// aplicativo. O rastro (`FocusRun`) é o que sobrevive.
   group('a sessão sobrevive ao fechamento do aplicativo', () {
-    testWidgets('o tempo focado até a morte do app entra no histórico',
-        (tester) async {
+    testWidgets('o tempo focado até a morte do app entra no histórico', (
+      tester,
+    ) async {
       final container = containerFor(tester);
       viewModelOf(container).start(activity: 'Escrever o handoff');
       viewModelOf(container).addNote('comecei pelo diagrama');
@@ -355,8 +363,9 @@ void main() {
       expect(saved(tester).single.duration, const Duration(seconds: 75));
     });
 
-    testWidgets('sessão terminada normalmente não é registrada duas vezes',
-        (tester) async {
+    testWidgets('sessão terminada normalmente não é registrada duas vezes', (
+      tester,
+    ) async {
       final container = containerFor(tester);
       viewModelOf(container).start();
 
@@ -387,14 +396,17 @@ void main() {
     });
   });
 
-  testWidgets('a serialização de notas sobrevive à ida e volta', (tester) async {
+  testWidgets('a serialização de notas sobrevive à ida e volta', (
+    tester,
+  ) async {
     const notes = [
       FocusSessionNote(minute: 0, text: 'começando'),
       FocusSessionNote(minute: 12, text: 'terminei a task | comecei outra'),
     ];
 
-    final decoded =
-        FocusSessionNote.decodeList(FocusSessionNote.encodeList(notes));
+    final decoded = FocusSessionNote.decodeList(
+      FocusSessionNote.encodeList(notes),
+    );
 
     expect(decoded, hasLength(2));
     expect(decoded[0].label, 'no início');

@@ -164,13 +164,10 @@ class _AwakeOverlayViewState extends ConsumerState<AwakeOverlayView> {
   }
 
   Widget _hintBar(AwakeState state) => EgHintBar(
-        hints: [
-          EgHint(
-            keys: const ['enter'],
-            label: state.isOn ? 'desligar' : 'ligar',
-          ),
-          const EgHint(keys: ['←', '→'], label: 'duração'),
-        ],
-        trailing: const EgHint(keys: ['esc'], label: 'fechar'),
-      );
+    hints: [
+      EgHint(keys: const ['enter'], label: state.isOn ? 'desligar' : 'ligar'),
+      const EgHint(keys: ['←', '→'], label: 'duração'),
+    ],
+    trailing: const EgHint(keys: ['esc'], label: 'fechar'),
+  );
 }

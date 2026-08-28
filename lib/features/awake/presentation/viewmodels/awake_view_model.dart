@@ -10,8 +10,9 @@ import '../../models/awake_duration.dart';
 import '../../models/awake_session.dart';
 import 'awake_state.dart';
 
-final awakeViewModelProvider =
-    NotifierProvider<AwakeViewModel, AwakeState>(AwakeViewModel.new);
+final awakeViewModelProvider = NotifierProvider<AwakeViewModel, AwakeState>(
+  AwakeViewModel.new,
+);
 
 /// Segura a tela acesa pelo prazo escolhido.
 ///
@@ -132,11 +133,7 @@ class AwakeViewModel extends Notifier<AwakeState> {
     if (duration < _minimumRecorded) return;
 
     _sessions.insert(
-      AwakeSession(
-        startedAt: startedAt,
-        duration: duration,
-        mode: state.mode,
-      ),
+      AwakeSession(startedAt: startedAt, duration: duration, mode: state.mode),
     );
   }
 

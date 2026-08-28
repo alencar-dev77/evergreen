@@ -49,7 +49,8 @@ class EchoSettingsViewModel extends Notifier<EchoSettings> {
     return _repository.load();
   }
 
-  void setLiveTranscription(bool value) => _save(state.copyWith(liveTranscription: value));
+  void setLiveTranscription(bool value) =>
+      _save(state.copyWith(liveTranscription: value));
 
   /// Troca o idioma e já pede o modelo dele, se faltar.
   ///

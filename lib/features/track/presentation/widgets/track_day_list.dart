@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/track_day.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Os dias do recorte, um por linha.
 ///
@@ -97,10 +96,10 @@ class _DayRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               softWrap: false,
               style: day.isEmpty
-                  ? AppTypography.bodyCompactEmphasis.copyWith(
-                      color: AppColors.textSecondary,
+                  ? context.eg.text.bodyCompactEmphasis.copyWith(
+                      color: context.eg.colors.textSecondary,
                     )
-                  : AppTypography.bodyCompactEmphasis,
+                  : context.eg.text.bodyCompactEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -112,8 +111,8 @@ class _DayRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: AppTypography.captionXS.copyWith(
-                color: AppColors.textTertiary,
+              style: context.eg.text.captionXS.copyWith(
+                color: context.eg.colors.textTertiary,
               ),
             ),
           ),
@@ -128,10 +127,10 @@ class _DayRow extends StatelessWidget {
                   : DurationFormat.compact(day.registered),
               textAlign: TextAlign.right,
               style: day.registered == Duration.zero
-                  ? AppTypography.bodyCompactEmphasis.copyWith(
-                      color: AppColors.textTertiary,
+                  ? context.eg.text.bodyCompactEmphasis.copyWith(
+                      color: context.eg.colors.textTertiary,
                     )
-                  : AppTypography.bodyCompactEmphasis,
+                  : context.eg.text.bodyCompactEmphasis,
             ),
           ),
         ],

@@ -194,7 +194,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
       curve: AppDurations.curve,
       alignment: Alignment.center,
       child: SizedBox(
-        width: LeafGrid.widthFor(LeafGrid.columnsFor(state)),
+        width: LeafGrid.widthFor(context, LeafGrid.columnsFor(state)),
         child: EgPanel(
           vibrant: true,
           child: Column(

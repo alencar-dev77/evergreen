@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_hoverable.dart';
 import 'eg_icon.dart';
 import 'eg_panel.dart';
 import 'eg_surface.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Item de navegação: badge de ícone, título e uma linha de apoio.
 ///
@@ -16,7 +15,7 @@ import 'eg_surface.dart';
 /// resto — densidade, alinhamento, matriz de estado — é igual por construção,
 /// que é o ponto de existir um componente em vez de dois.
 ///
-/// Os estados vêm da [EgSurfaceStyle.row]: selecionado em accent a 14%, hover
+/// Os estados vêm da [context.eg.surfaces.row]: selecionado em accent a 14%, hover
 /// neutro, pressed um degrau acima e anel de foco pelo teclado. Selecionado
 /// vence hover — sem isso o item aberto se perde assim que o mouse passa por
 /// outro.
@@ -47,7 +46,7 @@ class EgNavTile extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  /// Padrão: [AppTypography.bodyCompactEmphasis]. A marca usa o degrau acima.
+  /// Padrão: [context.eg.text.bodyCompactEmphasis]. A marca usa o degrau acima.
   final TextStyle? titleStyle;
 
   final double iconSize;
@@ -82,17 +81,21 @@ class EgNavTile extends StatelessWidget {
           children: [
             EgIconBadge(
               size: AppBadgeSizes.sm,
-              borderRadius: AppRadii.badgeAll,
+              borderRadius: context.eg.shapes.smallAll,
               bordered: borderedIcon,
-              color: iconBackground ??
-                  (isSelected ? AppColors.card : AppColors.hover),
+              color:
+                  iconBackground ??
+                  (isSelected
+                      ? context.eg.colors.card
+                      : context.eg.colors.hover),
               child: EgIcon(
                 icon,
                 size: iconSize,
-                color: iconColor ??
+                color:
+                    iconColor ??
                     (isSelected
-                        ? AppColors.greenPrimary
-                        : AppColors.textSecondary),
+                        ? context.eg.colors.accent
+                        : context.eg.colors.textSecondary),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -106,13 +109,13 @@ class EgNavTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     // O título só reage à seleção: hover e pressed são
                     // assunto da superfície, não do texto.
-                    style: (titleStyle ?? AppTypography.bodyCompactEmphasis)
+                    style: (titleStyle ?? context.eg.text.bodyCompactEmphasis)
                         .copyWith(
-                      color: EgSurfaceStyle.row.foregroundFor(
-                        const EgInteraction(),
-                        isSelected: isSelected,
-                      ),
-                    ),
+                          color: context.eg.surfaces.row.foregroundFor(
+                            const EgInteraction(),
+                            isSelected: isSelected,
+                          ),
+                        ),
                   ),
                   // Colados: título e apoio são um bloco só, e 4px já os leria
                   // como duas informações separadas.
@@ -121,7 +124,7 @@ class EgNavTile extends StatelessWidget {
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.captionXS,
+                    style: context.eg.text.captionXS,
                   ),
                 ],
               ),

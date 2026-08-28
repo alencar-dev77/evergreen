@@ -84,10 +84,8 @@ class LeafNote {
   /// guardar. O que some é o excesso: duas ou mais linhas vazias seguidas viram
   /// uma só, porque três linhas vazias no meio de um cartão de nove linhas
   /// gastam um terço do espaço sem dizer nada.
-  static String sanitize(String raw) => raw
-      .replaceAll('\r\n', '\n')
-      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-      .trim();
+  static String sanitize(String raw) =>
+      raw.replaceAll('\r\n', '\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
 
   LeafNote copyWith({int? slot, String? content, DateTime? updatedAt}) =>
       LeafNote(

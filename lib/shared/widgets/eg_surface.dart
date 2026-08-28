@@ -3,9 +3,9 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_colors.dart';
-import '../../core/design/app_gradients.dart';
 import '../../core/design/app_metrics.dart';
 import 'eg_hoverable.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// A matriz de estado das superfícies interativas do Evergreen.
 ///
@@ -28,7 +28,7 @@ import 'eg_hoverable.dart';
 /// | `rest` | — | repouso |
 ///
 /// `hover` e `focus` compartilham a superfície de propósito: o que distingue um
-/// do outro é o anel de foco ([AppShadows.focusRing]), que só o teclado acende.
+/// do outro é o anel de foco ([context.eg.elevations.focusRing]), que só o teclado acende.
 /// Já `selected` e `hover` **nunca** são a mesma cor — seleção é accent em
 /// baixa opacidade, hover é neutro (ver `colors.md`).
 @immutable
@@ -40,6 +40,7 @@ class EgSurfaceStyle {
     required this.foreground,
     this.restGradient,
     this.selected,
+    this.selectedGradient,
     this.hoverForeground,
     this.selectedForeground,
     this.border,
@@ -73,6 +74,13 @@ class EgSurfaceStyle {
   /// noção de seleção (botão, botão de ícone).
   final Color? selected;
 
+  /// O material do estado selecionado, quando o tema o pinta em degradê.
+  ///
+  /// É a seleção sólida do `NSTableView`: no tema Apple a linha escolhida é
+  /// preenchida inteira pelo accent, e um degradê de dois passos é o que
+  /// impede que esse preenchimento pareça um adesivo colado na lista.
+  final Gradient? selectedGradient;
+
   /// Conteúdo sob o mouse, o foco ou o clique. `null` mantém [foreground] —
   /// que é o caso comum: quem acusa a interação é a superfície, não o texto.
   /// Só componentes sem superfície própria em repouso (o botão de ícone)
@@ -103,82 +111,30 @@ class EgSurfaceStyle {
   /// Opacidade aplicada ao conteúdo quando o controle está indisponível.
   final double disabledOpacity;
 
-  /// Linha de lista, item de sidebar, entrada de menu: sem superfície própria
-  /// em repouso, seleção em accent a 14%.
-  static const row = EgSurfaceStyle(
-    rest: AppColors.transparent,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    selected: AppColors.selection,
-    foreground: AppColors.textPrimary,
-    selectedForeground: AppColors.greenLight,
-    selectedEdge: AppColors.greenPrimary,
-  );
+  /// Uma cópia com um ou outro papel trocado.
+  ///
+  /// Para a coluna que é "a mesma daquela, menos isto" — o cartão em edição do
+  /// Leaf, que é o cartão comum com a borda um degrau acima. Escrever a coluna
+  /// inteira de novo só para trocar a borda é como as cópias divergiam antes
+  /// desta classe existir.
+  EgSurfaceStyle copyWith({Color? border, Color? selectedBorder}) =>
+      EgSurfaceStyle(
+        rest: rest,
+        restGradient: restGradient,
+        hover: hover,
+        pressed: pressed,
+        foreground: foreground,
+        selected: selected,
+        selectedGradient: selectedGradient,
+        hoverForeground: hoverForeground,
+        selectedForeground: selectedForeground,
+        border: border ?? this.border,
+        selectedBorder: selectedBorder ?? this.selectedBorder,
+        selectedEdge: selectedEdge,
+        disabledOpacity: disabledOpacity,
+      );
 
-  /// Botão só de ícone e afordâncias que só aparecem sob o mouse: igual à
-  /// [row], mas sem estado selecionado e com conteúdo de segundo nível.
-  static const ghost = EgSurfaceStyle(
-    rest: AppColors.transparent,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    foreground: AppColors.textSecondary,
-    hoverForeground: AppColors.textPrimary,
-  );
-
-  /// Pílula de um segmented control: a mesma [row], com o rótulo um nível
-  /// atrás em repouso — são várias na tela ao mesmo tempo e só uma delas é a
-  /// resposta.
-  static const segment = EgSurfaceStyle(
-    rest: AppColors.transparent,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    selected: AppColors.selection,
-    foreground: AppColors.textSecondary,
-    selectedForeground: AppColors.greenLight,
-  );
-
-  /// Cartão com superfície própria — o cartão do Leaf. Em repouso já tem fundo,
-  /// então o hover precisa subir a partir dele, não do transparente.
-  static const card = EgSurfaceStyle(
-    rest: AppColors.card,
-    restGradient: AppGradients.cardSurface,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    selected: AppColors.selection,
-    foreground: AppColors.textPrimary,
-    selectedForeground: AppColors.greenLight,
-    border: AppColors.border,
-    selectedBorder: AppColors.greenDeep,
-    selectedEdge: AppColors.greenPrimary,
-  );
-
-  /// Ação primária: verde chapado com texto escuro.
-  static const primary = EgSurfaceStyle(
-    rest: AppColors.greenPrimary,
-    hover: AppColors.greenLight,
-    pressed: AppColors.greenDeep,
-    foreground: AppColors.background,
-  );
-
-  /// Ação secundária: superfície de campo com borda sutil.
-  static const secondary = EgSurfaceStyle(
-    rest: AppColors.card,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    foreground: AppColors.textPrimary,
-    border: AppColors.border,
-  );
-
-  /// Ação destrutiva: a mesma caixa da [secondary], só o texto em vermelho —
-  /// vermelho chapado gritaria mais que a ação primária de qualquer tela.
-  static const destructive = EgSurfaceStyle(
-    rest: AppColors.card,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    foreground: AppColors.error,
-    border: AppColors.border,
-  );
-
+  /// Fundo resolvido para um estado.
   /// Fundo resolvido para um estado.
   Color backgroundFor(
     EgInteraction state, {
@@ -204,6 +160,9 @@ class EgSurfaceStyle {
     bool isSelected = false,
     bool isEnabled = true,
   }) {
+    if (isSelected && selectedGradient != null && isEnabled) {
+      return selectedGradient;
+    }
     if (restGradient == null) return null;
     if (!isEnabled) return restGradient;
     if (isSelected && selected != null) return null;
@@ -240,8 +199,15 @@ class EgSurfaceStyle {
       isSelected ? selectedEdge : null;
 
   /// Anel de foco: só com o foco de teclado e só enquanto o controle responde.
-  List<BoxShadow>? shadowFor(EgInteraction state, {bool isEnabled = true}) =>
-      state.isFocused && isEnabled ? AppShadows.focusRing : null;
+  ///
+  /// O anel vem de fora porque ele é do **tema**, não da coluna: no Evergreen é
+  /// uma borda de 1px em accent, no Apple é um halo de 3,5px. A coluna decide
+  /// *quando* mostrar; o tema decide como ele é.
+  List<BoxShadow>? shadowFor(
+    EgInteraction state,
+    EgTokens eg, {
+    bool isEnabled = true,
+  }) => state.isFocused && isEnabled ? eg.elevations.focusRing : null;
 }
 
 /// A caixa de um componente interativo, já pintada pela matriz de estado.
@@ -259,10 +225,10 @@ class EgSurface extends StatelessWidget {
     super.key,
     required this.child,
     required this.state,
-    this.style = EgSurfaceStyle.row,
+    this.style,
     this.isSelected = false,
     this.isEnabled = true,
-    this.borderRadius = AppRadii.listItemAll,
+    this.borderRadius,
     this.padding,
     this.margin,
     this.width,
@@ -272,10 +238,13 @@ class EgSurface extends StatelessWidget {
 
   final Widget child;
   final EgInteraction state;
-  final EgSurfaceStyle style;
+
+  /// A coluna da matriz. `null` é a [EgSurfaces.row] do tema — a coluna do
+  /// caso comum, e a razão de quase nenhum chamador precisar passar uma.
+  final EgSurfaceStyle? style;
   final bool isSelected;
   final bool isEnabled;
-  final BorderRadius borderRadius;
+  final BorderRadius? borderRadius;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final double? width;
@@ -284,6 +253,12 @@ class EgSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final eg = context.eg;
+    // O que o chamador não disse, o tema diz — inclusive a curva do movimento e
+    // a espessura da borda, que mudam de uma aparência para a outra.
+    final style = this.style ?? eg.surfaces.row;
+    final radius = borderRadius ?? eg.shapes.rowAll;
+
     final borderColor = style.borderFor(state, isSelected: isSelected);
     final gradient = style.gradientFor(
       state,
@@ -296,8 +271,8 @@ class EgSurface extends StatelessWidget {
     return AnimatedContainer(
       // Pressed entra sem transição: o feedback de "registrei seu clique"
       // precisa ser instantâneo. A volta ao repouso é que ganha o easing.
-      duration: state.isPressed ? Duration.zero : AppDurations.instant,
-      curve: AppDurations.curve,
+      duration: state.isPressed ? Duration.zero : eg.motion.instant,
+      curve: eg.motion.curve,
       width: width,
       height: height,
       margin: margin,
@@ -312,9 +287,11 @@ class EgSurface extends StatelessWidget {
                 isEnabled: isEnabled,
               ),
         gradient: gradient,
-        borderRadius: borderRadius,
-        border: borderColor == null ? null : Border.all(color: borderColor),
-        boxShadow: style.shadowFor(state, isEnabled: isEnabled),
+        borderRadius: radius,
+        border: borderColor == null
+            ? null
+            : Border.all(color: borderColor, width: eg.shapes.hairline),
+        boxShadow: style.shadowFor(state, eg, isEnabled: isEnabled),
       ),
       // A aresta vai em primeiro plano, e não na `decoration`: o `Border` do
       // Flutter só aceita raio de canto quando os quatro lados são iguais, e
@@ -322,7 +299,11 @@ class EgSurface extends StatelessWidget {
       // que a asserção proíbe.
       foregroundDecoration: edgeColor == null
           ? null
-          : EgSelectionEdge(color: edgeColor, borderRadius: borderRadius),
+          : EgSelectionEdge(
+              color: edgeColor,
+              borderRadius: radius,
+              width: eg.shapes.selectionEdge,
+            ),
       child: child,
     );
   }
@@ -338,12 +319,12 @@ class EgInteractiveSurface extends StatelessWidget {
     super.key,
     this.child,
     this.onTap,
-    this.style = EgSurfaceStyle.row,
+    this.style,
     this.isSelected = false,
     this.focusable = true,
     this.focusNode,
     this.autofocus = false,
-    this.borderRadius = AppRadii.listItemAll,
+    this.borderRadius,
     this.padding,
     this.margin,
     this.width,
@@ -353,15 +334,18 @@ class EgInteractiveSurface extends StatelessWidget {
     this.semanticLabel,
     this.mergeDescendants = true,
   }) : assert(
-          child != null || builder != null,
-          'Informe child ou builder — a superfície precisa de conteúdo.',
-        );
+         child != null || builder != null,
+         'Informe child ou builder — a superfície precisa de conteúdo.',
+       );
 
   /// Conteúdo fixo. Use [builder] quando o conteúdo também mudar de cor com o
   /// estado.
   final Widget? child;
   final VoidCallback? onTap;
-  final EgSurfaceStyle style;
+
+  /// A coluna da matriz. `null` é a [EgSurfaces.row] do tema — a coluna do
+  /// caso comum, e a razão de quase nenhum chamador precisar passar uma.
+  final EgSurfaceStyle? style;
   final bool isSelected;
 
   /// Entra na navegação por Tab. Desligue em linhas navegadas pelas setas
@@ -370,7 +354,7 @@ class EgInteractiveSurface extends StatelessWidget {
 
   final FocusNode? focusNode;
   final bool autofocus;
-  final BorderRadius borderRadius;
+  final BorderRadius? borderRadius;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final double? width;
@@ -438,11 +422,11 @@ class EgSelectionEdge extends Decoration {
   const EgSelectionEdge({
     required this.color,
     required this.borderRadius,
-    this.width = AppBorders.selectionEdge,
+    required this.width,
   });
 
   final Color color;
-  final BorderRadius borderRadius;
+  final BorderRadius? borderRadius;
   final double width;
 
   @override
@@ -475,10 +459,10 @@ class EgSelectionEdge extends Decoration {
   /// A mesma aresta com [t] da opacidade — o caminho de ida e volta entre "não
   /// há aresta" e a aresta cheia.
   EgSelectionEdge _fade(double t) => EgSelectionEdge(
-        color: color.withValues(alpha: color.a * t.clamp(0.0, 1.0)),
-        borderRadius: borderRadius,
-        width: width,
-      );
+    color: color.withValues(alpha: color.a * t.clamp(0.0, 1.0)),
+    borderRadius: borderRadius,
+    width: width,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -504,11 +488,129 @@ class _EgSelectionEdgePainter extends BoxPainter {
     final rect = offset & size;
 
     canvas.save();
-    canvas.clipRRect(decoration.borderRadius.toRRect(rect));
+    canvas.clipRRect(
+      (decoration.borderRadius ?? BorderRadius.zero).toRRect(rect),
+    );
     canvas.drawRect(
       Rect.fromLTWH(rect.left, rect.top, decoration.width, rect.height),
       Paint()..color = decoration.color,
     );
     canvas.restore();
   }
+}
+
+/// A matriz de estados resolvida para um tema.
+///
+/// As colunas são as mesmas nos dois temas — o que muda são as cores que cada
+/// uma pede ao tema. Vive aqui, e não em `EgSurfaceStyle`, porque um estilo é
+/// um punhado de cores e isto é a **tabela**: quem quiser uma combinação nova
+/// compõe uma `EgSurfaceStyle` a partir dos tokens, e a ordem de precedência
+/// continua a mesma para todo mundo.
+@immutable
+class EgSurfaces {
+  const EgSurfaces(this._eg);
+
+  final EgTokens _eg;
+
+  /// O degradê de seleção do tema, quando ele pinta seleção sólida.
+  Gradient? get _selectionGradient {
+    final colors = _eg.colors.selectionGradient;
+    if (colors == null) return null;
+
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: colors,
+    );
+  }
+
+  /// Linha de lista, item de sidebar, entrada de menu: sem superfície própria
+  /// em repouso, seleção no tom de seleção do tema.
+  EgSurfaceStyle get row => EgSurfaceStyle(
+    rest: AppColors.transparent,
+    hover: _eg.colors.hover,
+    pressed: _eg.colors.pressed,
+    selected: _eg.colors.selection,
+    selectedGradient: _selectionGradient,
+    foreground: _eg.colors.textPrimary,
+    selectedForeground: _eg.colors.selectionLabel,
+    selectedEdge: _eg.shapes.selectionEdge > 0 ? _eg.colors.accent : null,
+  );
+
+  /// Botão só de ícone e afordâncias que só aparecem sob o mouse: igual à
+  /// [row], mas sem estado selecionado e com conteúdo de segundo nível.
+  EgSurfaceStyle get ghost => EgSurfaceStyle(
+    rest: AppColors.transparent,
+    hover: _eg.colors.hover,
+    pressed: _eg.colors.pressed,
+    foreground: _eg.colors.textSecondary,
+    hoverForeground: _eg.colors.textPrimary,
+  );
+
+  /// Pílula de um segmented control: a mesma [row], com o rótulo um nível
+  /// atrás em repouso — são várias na tela ao mesmo tempo e só uma delas é a
+  /// resposta.
+  EgSurfaceStyle get segment => EgSurfaceStyle(
+    rest: AppColors.transparent,
+    hover: _eg.colors.hover,
+    pressed: _eg.colors.pressed,
+    selected: _eg.colors.selection,
+    selectedGradient: _selectionGradient,
+    foreground: _eg.colors.textSecondary,
+    selectedForeground: _eg.colors.selectionLabel,
+  );
+
+  /// Cartão com superfície própria — o cartão do Leaf. Em repouso já tem fundo,
+  /// então o hover precisa subir a partir dele, não do transparente.
+  EgSurfaceStyle get card => EgSurfaceStyle(
+    rest: _eg.colors.card,
+    restGradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [_eg.colors.cardTop, _eg.colors.card],
+    ),
+    hover: _eg.colors.hover,
+    pressed: _eg.colors.pressed,
+    selected: _eg.colors.selection,
+    selectedGradient: _selectionGradient,
+    foreground: _eg.colors.textPrimary,
+    selectedForeground: _eg.colors.selectionLabel,
+    border: _eg.colors.border,
+    selectedBorder: _eg.colors.accentDeep,
+    selectedEdge: _eg.shapes.selectionEdge > 0 ? _eg.colors.accent : null,
+  );
+
+  /// Ação primária: o accent chapado — ou em degradê, no tema que tem um.
+  EgSurfaceStyle get primary => EgSurfaceStyle(
+    rest: _eg.colors.accent,
+    restGradient: _eg.colors.accentGradient == null
+        ? null
+        : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _eg.colors.accentGradient!,
+          ),
+    hover: _eg.colors.accentLight,
+    pressed: _eg.colors.accentDeep,
+    foreground: _eg.colors.onAccent,
+  );
+
+  /// Ação secundária: superfície de controle com borda sutil.
+  EgSurfaceStyle get secondary => EgSurfaceStyle(
+    rest: _eg.colors.control,
+    hover: _eg.colors.hover,
+    pressed: _eg.colors.pressed,
+    foreground: _eg.colors.textPrimary,
+    border: _eg.colors.border,
+  );
+
+  /// Ação destrutiva: a mesma caixa da [secondary], só o texto em vermelho —
+  /// vermelho chapado gritaria mais que a ação primária de qualquer tela.
+  EgSurfaceStyle get destructive => EgSurfaceStyle(
+    rest: _eg.colors.control,
+    hover: _eg.colors.hover,
+    pressed: _eg.colors.pressed,
+    foreground: _eg.colors.error,
+    border: _eg.colors.border,
+  );
 }

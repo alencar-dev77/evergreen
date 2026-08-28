@@ -33,7 +33,7 @@ enum AwakeDuration {
   static const options = values;
 
   static AwakeDuration fromName(String? name) => values.firstWhere(
-        (duration) => duration.name == name,
-        orElse: () => hour1,
-      );
+    (duration) => duration.name == name,
+    orElse: () => hour1,
+  );
 }

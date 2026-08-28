@@ -1,8 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Uma faixa de barras, uma por dia, com o rótulo do dia embaixo.
 ///
@@ -101,8 +100,8 @@ class _Bar extends StatelessWidget {
             child: Container(
               height: _height,
               decoration: BoxDecoration(
-                color: _color,
-                borderRadius: AppRadii.badgeSmallAll,
+                color: _colorOf(context),
+                borderRadius: context.eg.shapes.smallAll,
               ),
             ),
           ),
@@ -110,10 +109,10 @@ class _Bar extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           label,
-          style: AppTypography.captionXS.copyWith(
+          style: context.eg.text.captionXS.copyWith(
             color: isHighlighted
-                ? AppColors.textSecondary
-                : AppColors.textTertiary,
+                ? context.eg.colors.textSecondary
+                : context.eg.colors.textTertiary,
           ),
         ),
       ],
@@ -126,12 +125,17 @@ class _Bar extends StatelessWidget {
     }
 
     final ratio = total.inSeconds / longest.inSeconds;
-    return (EgDayBars.trackHeight * ratio)
-        .clamp(EgDayBars.emptyBarHeight, EgDayBars.trackHeight);
+    return (EgDayBars.trackHeight * ratio).clamp(
+      EgDayBars.emptyBarHeight,
+      EgDayBars.trackHeight,
+    );
   }
 
-  Color get _color {
-    if (isHighlighted) return AppColors.greenPrimary;
-    return total == Duration.zero ? AppColors.border : AppColors.textTertiary;
+  Color _colorOf(BuildContext context) {
+    if (isHighlighted) return context.eg.colors.accent;
+
+    return total == Duration.zero
+        ? context.eg.colors.border
+        : context.eg.colors.textTertiary;
   }
 }

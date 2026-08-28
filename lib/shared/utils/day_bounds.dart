@@ -25,8 +25,9 @@ abstract final class DayBounds {
   /// que o relógio anda, dois dias vizinhos ficam a 23 (ou 25) horas um do
   /// outro, e `inDays` responde 0 — o que jogaria a barra de segunda em cima da
   /// de domingo, uma vez por ano.
-  static int daysBetween(DateTime from, DateTime to) =>
-      DateTime.utc(to.year, to.month, to.day)
-          .difference(DateTime.utc(from.year, from.month, from.day))
-          .inDays;
+  static int daysBetween(DateTime from, DateTime to) => DateTime.utc(
+    to.year,
+    to.month,
+    to.day,
+  ).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
 }

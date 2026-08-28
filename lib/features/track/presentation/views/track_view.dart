@@ -65,7 +65,8 @@ class _TrackViewState extends ConsumerState<TrackView> {
               const EgEmptyState(
                 icon: EgIconData.track,
                 title: 'Nada registrado ainda',
-                message: 'O Track lê o que os outros módulos gravam. Foque uma '
+                message:
+                    'O Track lê o que os outros módulos gravam. Foque uma '
                     'sessão, grave uma reunião ou copie alguma coisa — o dia '
                     'aparece aqui sozinho.',
               )

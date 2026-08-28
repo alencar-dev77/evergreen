@@ -4,7 +4,7 @@ import 'package:evergreen/features/leaf/models/leaf_note.dart';
 /// Parede em memória, com a mesma ordenação por vaga do SQLite.
 class FakeLeafRepository implements LeafRepository {
   FakeLeafRepository([List<LeafNote> initial = const []])
-      : _notes = [...initial];
+    : _notes = [...initial];
 
   final List<LeafNote> _notes;
 

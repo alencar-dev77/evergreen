@@ -2,9 +2,9 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../core/app_info.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_background.dart';
 import '../../../../shared/widgets/eg_brand_mark.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A abertura do Hub: a lâmina da marca girando para fora do cabo.
 ///
@@ -171,11 +171,11 @@ class _HubIntroState extends State<HubIntro>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Evergreen', style: AppTypography.screenTitle),
+                        Text('Evergreen', style: context.eg.text.screenTitle),
                         const SizedBox(height: AppSpacing.xxs),
                         Text(
                           AppInfo.versionLabel,
-                          style: AppTypography.captionXS,
+                          style: context.eg.text.captionXS,
                         ),
                       ],
                     ),

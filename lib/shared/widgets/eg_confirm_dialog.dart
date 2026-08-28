@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_button.dart';
 import 'eg_panel.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Diálogo de confirmação do Evergreen.
 ///
@@ -52,7 +51,7 @@ class EgConfirmDialog extends StatelessWidget {
   }) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierColor: AppColors.scrim,
+      barrierColor: context.eg.colors.scrim,
       builder: (context) => EgConfirmDialog(
         title: title,
         message: message,
@@ -93,9 +92,9 @@ class EgConfirmDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: AppTypography.panelTitle),
+              Text(title, style: context.eg.text.panelTitle),
               const SizedBox(height: AppSpacing.sm),
-              Text(message, style: AppTypography.bodyCompact),
+              Text(message, style: context.eg.text.bodyCompact),
               const SizedBox(height: AppSpacing.xxl),
               // `Wrap`, e não `Row`: os dois botões têm largura própria e a
               // do diálogo é fixa, então um par de rótulos um pouco mais longo

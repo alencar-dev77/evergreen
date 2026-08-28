@@ -1,14 +1,13 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/clipboard_item_type.dart';
 import '../../models/tax_id.dart';
 import 'pin_list_item.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A linha "Gerar CPF" — ou "Gerar CNPJ" —, no topo da lista enquanto o filtro
 /// daquele documento está ativo.
@@ -89,12 +88,12 @@ class PinGeneratorRow extends StatelessWidget {
                   kind.itemType.icon,
                   size: compact ? AppIconSizes.xs : AppIconSizes.md,
                   color: isSelected
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                      ? context.eg.colors.textPrimary
+                      : context.eg.colors.textSecondary,
                 ),
               ),
               SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
-              Expanded(child: _label()),
+              Expanded(child: _label(context)),
               _RegenerateButton(onTap: onRegenerate, kind: kind),
             ],
           ),
@@ -108,14 +107,14 @@ class PinGeneratorRow extends StatelessWidget {
   /// primeiro o número, e o que a linha é continua legível na coluna estreita.
   ///
   /// O número vai em mono porque é para ser conferido dígito a dígito.
-  Widget _label() {
+  Widget _label(BuildContext context) {
     if (compact) {
       return Text(
         'Gerar ${kind.label}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         softWrap: false,
-        style: AppTypography.bodyCompactEmphasis,
+        style: context.eg.text.bodyCompactEmphasis,
       );
     }
 
@@ -125,8 +124,8 @@ class PinGeneratorRow extends StatelessWidget {
           TextSpan(text: 'Gerar ${kind.label}'),
           TextSpan(
             text: '   $taxId',
-            style: AppTypography.monoSmall.copyWith(
-              color: AppColors.textTertiary,
+            style: context.eg.text.monoSmall.copyWith(
+              color: context.eg.colors.textTertiary,
             ),
           ),
         ],
@@ -134,7 +133,7 @@ class PinGeneratorRow extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       softWrap: false,
-      style: AppTypography.bodyCompactEmphasis,
+      style: context.eg.text.bodyCompactEmphasis,
     );
   }
 }
@@ -160,17 +159,17 @@ class _RegenerateButton extends StatelessWidget {
       builder: (context, state) {
         return EgSurface(
           state: state,
-          style: EgSurfaceStyle.ghost,
+          style: context.eg.surfaces.ghost,
           width: _size,
           height: _size,
           alignment: Alignment.center,
-          borderRadius: AppRadii.badgeSmallAll,
+          borderRadius: context.eg.shapes.smallAll,
           child: EgIcon(
             EgIconData.shuffle,
             size: AppIconSizes.xs,
             color: state.isHovered
-                ? AppColors.textPrimary
-                : AppColors.textTertiary,
+                ? context.eg.colors.textPrimary
+                : context.eg.colors.textTertiary,
           ),
         );
       },

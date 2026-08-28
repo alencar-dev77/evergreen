@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../models/echo_capabilities.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Uma permissão do macOS: o que ela traz, como está, e o botão que resolve.
 ///
@@ -39,9 +38,9 @@ class EchoPermissionRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: AppTypography.bodyCompactEmphasis),
+              Text(title, style: context.eg.text.bodyCompactEmphasis),
               const SizedBox(height: AppSpacing.xxs),
-              Text(detail, style: AppTypography.captionXS),
+              Text(detail, style: context.eg.text.captionXS),
             ],
           ),
         ),
@@ -51,8 +50,8 @@ class EchoPermissionRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: AppSpacing.xxs),
             child: Text(
               'liberado',
-              style: AppTypography.captionXS.copyWith(
-                color: AppColors.greenPrimary,
+              style: context.eg.text.captionXS.copyWith(
+                color: context.eg.colors.accent,
               ),
             ),
           )

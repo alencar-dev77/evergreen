@@ -46,10 +46,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          clipboardRepositoryProvider
-              .overrideWithValue(FakeClipboardRepository([])),
-          focusSessionRepositoryProvider
-              .overrideWithValue(FakeFocusSessionRepository()),
+          clipboardRepositoryProvider.overrideWithValue(
+            FakeClipboardRepository([]),
+          ),
+          focusSessionRepositoryProvider.overrideWithValue(
+            FakeFocusSessionRepository(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
           // O Echo lê as reuniões do banco e pergunta ao sistema o que a
           // máquina permite — nem um nem outro existem dentro de um teste.
@@ -59,8 +61,9 @@ void main() {
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
           // A tela do aplicativo lê a pasta de backups ao
           // montar.
-          backupServiceProvider
-              .overrideWithValue(temporaryBackupService(database: db)),
+          backupServiceProvider.overrideWithValue(
+            temporaryBackupService(database: db),
+          ),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -116,35 +119,39 @@ void main() {
     /// clique num campo de preferência deixava a janela sem Esc até ser
     /// reaberta. Nas outras plataformas o campo não larga nada, e o teste
     /// passaria sem testar.
-    testWidgets('depois de sair de um campo, o Esc ainda esconde a janela',
-        (tester) async {
-      final lookups = watchWindowLookups();
-      await pumpHub(tester);
+    testWidgets(
+      'depois de sair de um campo, o Esc ainda esconde a janela',
+      (tester) async {
+        final lookups = watchWindowLookups();
+        await pumpHub(tester);
 
-      // O Echo é a única tela do Hub com campo de texto.
-      await tester.tap(find.text('Echo').first);
-      await tester.pumpAndSettle();
-      final field = find.byType(TextField).first;
-      await tester.dragUntilVisible(
-        field,
-        find.byType(SingleChildScrollView).first,
-        const Offset(0, -80),
-      );
-      await tester.tap(field);
-      await tester.pumpAndSettle();
+        // O Echo é a única tela do Hub com campo de texto.
+        await tester.tap(find.text('Echo').first);
+        await tester.pumpAndSettle();
+        final field = find.byType(TextField).first;
+        await tester.dragUntilVisible(
+          field,
+          find.byType(SingleChildScrollView).first,
+          const Offset(0, -80),
+        );
+        await tester.tap(field);
+        await tester.pumpAndSettle();
 
-      // Um clique em qualquer outro lugar da janela tira o cursor do campo.
-      await tester.tap(find.text('Evergreen').first);
-      await tester.pumpAndSettle();
+        // Um clique em qualquer outro lugar da janela tira o cursor do campo.
+        await tester.tap(find.text('Evergreen').first);
+        await tester.pumpAndSettle();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
 
-      expect(lookups, contains('getWindowDefinition'));
-    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+        expect(lookups, contains('getWindowDefinition'));
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
 
-    testWidgets('com a região aberta, fecha a região e a janela fica',
-        (tester) async {
+    testWidgets('com a região aberta, fecha a região e a janela fica', (
+      tester,
+    ) async {
       final lookups = watchWindowLookups();
       await pumpHub(tester);
 
@@ -169,8 +176,9 @@ void main() {
   /// atravessando a tela.
   ///
   /// Não há `expect`: um `RenderFlex overflowed` já reprova o teste sozinho.
-  testWidgets('nenhuma tela estoura na largura mínima da janela',
-      (tester) async {
+  testWidgets('nenhuma tela estoura na largura mínima da janela', (
+    tester,
+  ) async {
     await pumpHub(tester);
 
     tester.view.physicalSize = const Size(720, 900);
@@ -191,8 +199,9 @@ void main() {
   /// área de detalhe rola: sem esticar a linha do Hub, ela encolhia até a altura
   /// do conteúdo e o `Row` a centralizava verticalmente — o módulo abria com o
   /// texto no meio da tela enquanto Pin e Focus abriam no topo.
-  testWidgets('toda tela do Hub começa no topo, cheia ou vazia',
-      (tester) async {
+  testWidgets('toda tela do Hub começa no topo, cheia ou vazia', (
+    tester,
+  ) async {
     await pumpHub(tester);
 
     double topOf(EvergreenModule module) {

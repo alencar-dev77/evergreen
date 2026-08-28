@@ -34,9 +34,9 @@ enum ClipboardItemType {
   final EgIconData icon;
 
   static ClipboardItemType fromName(String name) => values.firstWhere(
-        (type) => type.name == name,
-        orElse: () => ClipboardItemType.text,
-      );
+    (type) => type.name == name,
+    orElse: () => ClipboardItemType.text,
+  );
 }
 
 /// A qual tipo do Pin cada documento corresponde.
@@ -85,11 +85,49 @@ abstract final class ClipboardItemClassifier {
   /// Executáveis comuns de terminal. Cobre o dia a dia de desenvolvimento sem
   /// tentar ser um parser de shell.
   static const _commandPrefixes = <String>{
-    'git', 'flutter', 'dart', 'npm', 'npx', 'yarn', 'pnpm', 'bun',
-    'cd', 'ls', 'mkdir', 'rm', 'cp', 'mv', 'cat', 'touch', 'chmod', 'chown',
-    'sudo', 'brew', 'docker', 'kubectl', 'ssh', 'scp', 'curl', 'wget',
-    'python', 'python3', 'pip', 'pip3', 'node', 'go', 'cargo', 'make',
-    'pod', 'xcodebuild', 'open', 'grep', 'find', 'sed', 'awk', 'echo', 'export',
+    'git',
+    'flutter',
+    'dart',
+    'npm',
+    'npx',
+    'yarn',
+    'pnpm',
+    'bun',
+    'cd',
+    'ls',
+    'mkdir',
+    'rm',
+    'cp',
+    'mv',
+    'cat',
+    'touch',
+    'chmod',
+    'chown',
+    'sudo',
+    'brew',
+    'docker',
+    'kubectl',
+    'ssh',
+    'scp',
+    'curl',
+    'wget',
+    'python',
+    'python3',
+    'pip',
+    'pip3',
+    'node',
+    'go',
+    'cargo',
+    'make',
+    'pod',
+    'xcodebuild',
+    'open',
+    'grep',
+    'find',
+    'sed',
+    'awk',
+    'echo',
+    'export',
   };
 
   static final _urlPattern = RegExp(

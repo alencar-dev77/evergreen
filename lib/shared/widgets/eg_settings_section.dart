@@ -78,7 +78,10 @@ class EgSettingsSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
-        children: [Expanded(child: EgSectionLabel(title)), trailing!],
+        children: [
+          Expanded(child: EgSectionLabel(title)),
+          trailing!,
+        ],
       ),
     );
   }

@@ -2,13 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../../../core/system/startup_service.dart';
+import '../../../../core/design/app_theme_id.dart';
 import '../../data/app_settings_repository.dart';
 import '../../models/app_settings.dart';
 
 final appSettingsViewModelProvider =
     NotifierProvider<AppSettingsViewModel, AppSettings>(
-  AppSettingsViewModel.new,
-);
+      AppSettingsViewModel.new,
+    );
 
 /// Preferências do aplicativo, com escrita imediata — mesma regra dos módulos:
 /// mexer no controle já persiste, sem botão de salvar.
@@ -43,11 +44,26 @@ class AppSettingsViewModel extends Notifier<AppSettings> {
   Future<void> setUserName(String value) =>
       _update(state.copyWith(userName: value.trim()));
 
+  Future<void> setTheme(AppThemeId value) =>
+      _update(state.copyWith(theme: value));
+
   Future<void> setStartMinimized(bool value) =>
       _update(state.copyWith(startMinimized: value));
 
   Future<void> setAutomaticBackup(bool value) =>
       _update(state.copyWith(automaticBackup: value));
+
+  /// Relê as preferências do disco e adota o que achar.
+  ///
+  /// Existe para a janela flutuante: ela roda em outro engine, com a própria
+  /// cópia em memória do `shared_preferences`, e não fica sabendo que a
+  /// aparência mudou no Hub. Sem isto, o painel do Pin continuaria no tema
+  /// antigo até o app reiniciar — e é justamente o painel que a pessoa abre
+  /// logo depois de trocar, para ver como ficou.
+  Future<void> refreshFromDisk() async {
+    await _repository.reload();
+    state = _repository.load();
+  }
 
   Future<void> _update(AppSettings settings) async {
     state = settings;

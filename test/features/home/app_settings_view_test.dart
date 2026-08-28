@@ -70,8 +70,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a marca da barra lateral abre as preferências do aplicativo',
-      (tester) async {
+  testWidgets('a marca da barra lateral abre as preferências do aplicativo', (
+    tester,
+  ) async {
     await pumpHub(tester);
 
     // O Hub abre no Pin, e o que é do aplicativo não mora mais lá.

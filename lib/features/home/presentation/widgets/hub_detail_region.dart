@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A terceira região do Hub: a coluna dedicada ao item que se está lendo.
 ///
@@ -68,15 +69,15 @@ class HubDetailRegion extends StatelessWidget {
           alignment: Alignment.centerLeft,
           minWidth: math.max(width, _minLayoutWidth),
           maxWidth: math.max(width, _minLayoutWidth),
-          child: _content(),
+          child: _content(context),
         ),
       ),
     );
   }
 
-  Widget _content() {
+  Widget _content(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(border: Border(left: AppBorders.subtle)),
+      decoration: BoxDecoration(border: Border(left: context.eg.hairline)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.xxl,

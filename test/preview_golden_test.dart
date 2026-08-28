@@ -3,11 +3,12 @@ library;
 
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
-import 'package:evergreen/core/design/app_colors.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/core/design/app_theme_id.dart';
+import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
 import 'package:evergreen/features/awake/presentation/views/awake_overlay_view.dart';
@@ -98,9 +99,10 @@ void main() {
     // exceção subia no meio do primeiro quadro e derrubava toda tela do Hub.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('previous_app_focus'),
-      (call) async => call.method == 'hasAccessibilityPermission' ? true : null,
-    );
+          const MethodChannel('previous_app_focus'),
+          (call) async =>
+              call.method == 'hasAccessibilityPermission' ? true : null,
+        );
 
     // O Echo lê as reuniões do banco; a conferência visual precisa de uma
     // reunião com transcrição para a tela do Hub não sair vazia.
@@ -209,8 +211,10 @@ void main() {
   final base = DateTime(2026, 7, 23, 12);
 
   ClipboardItem item(int id, String content, {bool isPinned = false}) =>
-      ClipboardItem.capture(content, at: base.subtract(Duration(minutes: id)))
-          .copyWith(id: id, isPinned: isPinned);
+      ClipboardItem.capture(
+        content,
+        at: base.subtract(Duration(minutes: id)),
+      ).copyWith(id: id, isPinned: isPinned);
 
   final repository = FakeClipboardRepository([
     item(1, 'Flutter', isPinned: true),
@@ -227,7 +231,7 @@ void main() {
     item(13, '(11) 98765-4321'),
     item(14, 'https://github.com/evergreen/pin'),
     item(21, '529.982.247-25'),
-    item(30, 'const AppColors.greenPrimary = Color(0xFF22C55E);'),
+    item(30, 'const context.eg.colors.accent = Color(0xFF22C55E);'),
   ]);
 
   // Ancoradas no dia de hoje, e não em `base`: o histórico rotula as datas
@@ -272,7 +276,8 @@ void main() {
     LeafNote(
       id: 2,
       slot: 2,
-      content: 'Marina fecha o contrato até sexta. Cobrar o jurídico antes de '
+      content:
+          'Marina fecha o contrato até sexta. Cobrar o jurídico antes de '
           'quarta e mandar a minuta revisada junto.',
       createdAt: anchor.subtract(const Duration(hours: 5)),
     ),
@@ -311,6 +316,7 @@ void main() {
     VoidCallback? beforeSettle,
     bool fakeClock = false,
     DateTime? now,
+    AppThemeId theme = AppThemeId.evergreen,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 2.0;
@@ -323,15 +329,19 @@ void main() {
           focusSessionRepositoryProvider.overrideWithValue(sessions),
           // Sem isso, ligar a trava chamaria o canal nativo do Awake, que não
           // existe sob `flutter test`.
-          sleepAssertionServiceProvider
-              .overrideWithValue(FakeSleepAssertionService()),
+          sleepAssertionServiceProvider.overrideWithValue(
+            FakeSleepAssertionService(),
+          ),
           leafRepositoryProvider.overrideWithValue(notes),
           sharedPreferencesProvider.overrideWithValue(preferences),
-          echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),
+          echoRepositoryProvider.overrideWithValue(
+            SqliteEchoRepository(echoDb),
+          ),
           echoChannelProvider.overrideWithValue(channel),
           // O Track lê o mesmo banco: ele não tem tabela própria.
-          trackRepositoryProvider
-              .overrideWithValue(SqliteTrackRepository(echoDb)),
+          trackRepositoryProvider.overrideWithValue(
+            SqliteTrackRepository(echoDb),
+          ),
           backupServiceProvider.overrideWithValue(backups),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now())
@@ -340,8 +350,11 @@ void main() {
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(),
-          home: ColoredBox(color: AppColors.background, child: home),
+          theme: AppTheme.build(theme),
+          home: ColoredBox(
+            color: EgTokens.of(theme).colors.background,
+            child: home,
+          ),
         ),
       ),
     );
@@ -380,6 +393,41 @@ void main() {
     await expectLater(
       find.byType(PinOverlayView),
       matchesGoldenFile('goldens/pin_overlay_preview.png'),
+    );
+  });
+
+  /// As duas peles, nas duas telas que mais as revelam: o painel flutuante
+  /// (onde o Apple troca superfície opaca por vidro) e o Hub (onde a densidade
+  /// e a linha de meio pixel aparecem lado a lado com a sidebar).
+  ///
+  /// O tema Evergreen já tem as suas imagens nos goldens de sempre — estas são
+  /// as do Apple, para a comparação ser um par de arquivos, e não uma memória.
+  testWidgets('tema Apple — overlay do Pin', (tester) async {
+    await pump(
+      tester,
+      const PinOverlayView(),
+      const Size(1120, 1000),
+      beforeSettle: () => _loadHistory(tester),
+      theme: AppThemeId.apple,
+    );
+
+    await expectLater(
+      find.byType(PinOverlayView),
+      matchesGoldenFile('goldens/apple_pin_overlay_list.png'),
+    );
+  });
+
+  testWidgets('tema Apple — Hub', (tester) async {
+    await pump(
+      tester,
+      const HubView(),
+      const Size(1800, 1200),
+      theme: AppThemeId.apple,
+    );
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/apple_hub_pin_settings.png'),
     );
   });
 
@@ -804,7 +852,7 @@ void seedTrack(Database db, DateTime today) {
 
 void _loadHistory(WidgetTester tester) {
   final element = tester.element(find.byType(PinOverlayView));
-  ProviderScope.containerOf(element)
-      .read(pinOverlayViewModelProvider.notifier)
-      .load();
+  ProviderScope.containerOf(
+    element,
+  ).read(pinOverlayViewModelProvider.notifier).load();
 }

@@ -4,9 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// O assert de teclado dessincronizado, do jeito que o framework o levanta.
 AssertionError _desyncAssert() => AssertionError(
-      'A KeyUpEvent is dispatched, but the state shows that the physical key '
-      'is not pressed.',
-    );
+  'A KeyUpEvent is dispatched, but the state shows that the physical key '
+  'is not pressed.',
+);
 
 void main() {
   test('reconhece os dois asserts de teclado dessincronizado', () {
@@ -32,7 +32,10 @@ void main() {
   });
 
   test('não engole nada além disso', () {
-    expect(KeyboardStateGuard.isDesync(AssertionError('outro assert')), isFalse);
+    expect(
+      KeyboardStateGuard.isDesync(AssertionError('outro assert')),
+      isFalse,
+    );
     expect(KeyboardStateGuard.isDesync(StateError('erro de verdade')), isFalse);
     expect(KeyboardStateGuard.isDesync(Exception('boom')), isFalse);
   });

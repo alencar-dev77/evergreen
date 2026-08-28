@@ -27,8 +27,9 @@ void main() {
   }
 
   group('elemento interativo', () {
-    testWidgets('botão se anuncia como botão, com o rótulo visível',
-        (tester) async {
+    testWidgets('botão se anuncia como botão, com o rótulo visível', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       await pump(tester, EgButton(label: 'Copiar', onPressed: () {}));
 
@@ -151,11 +152,13 @@ void main() {
   });
 
   group('o que o desenho não fala', () {
-    testWidgets('a linha do Pin diz o que é, o tipo e o atalho',
-        (tester) async {
+    testWidgets('a linha do Pin diz o que é, o tipo e o atalho', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
-      final item = ClipboardItem.capture('um texto qualquer')
-          .copyWith(alias: 'anotação', isPinned: true);
+      final item = ClipboardItem.capture(
+        'um texto qualquer',
+      ).copyWith(alias: 'anotação', isPinned: true);
 
       await pump(
         tester,
@@ -183,13 +186,11 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('o atalho é falado por extenso, não pelos símbolos',
-        (tester) async {
+    testWidgets('o atalho é falado por extenso, não pelos símbolos', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
-      await pump(
-        tester,
-        const EgShortcutDisplay(keys: ['⌘', '⇧', 'C']),
-      );
+      await pump(tester, const EgShortcutDisplay(keys: ['⌘', '⇧', 'C']));
 
       // `⌘⇧C` lido caractere a caractere não ensina o atalho a ninguém.
       expect(

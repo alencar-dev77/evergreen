@@ -91,29 +91,32 @@ void main() {
     expect(stateOf(container).display, '∞');
   });
 
-  testWidgets('trocar a duração com a trava ligada conta o prazo novo do zero',
-      (tester) async {
-    final container = containerFor(tester);
+  testWidgets(
+    'trocar a duração com a trava ligada conta o prazo novo do zero',
+    (tester) async {
+      final container = containerFor(tester);
 
-    await viewModelOf(container).selectDuration(AwakeDuration.minutes30);
-    await viewModelOf(container).turnOn();
-    await tester.pump(const Duration(minutes: 25));
+      await viewModelOf(container).selectDuration(AwakeDuration.minutes30);
+      await viewModelOf(container).turnOn();
+      await tester.pump(const Duration(minutes: 25));
 
-    await viewModelOf(container).selectDuration(AwakeDuration.hours2);
+      await viewModelOf(container).selectDuration(AwakeDuration.hours2);
 
-    // Duas horas cheias, e não o que sobrava da meia hora: quem escolhe "2 h"
-    // no meio do caminho está pedindo mais duas horas.
-    expect(stateOf(container).remaining, const Duration(hours: 2));
-    expect(stateOf(container).display, '2:00:00');
-    // E a trava nunca chegou a ser solta no meio da troca.
-    expect(sleep.enableCount, 1);
-    expect(sleep.isEnabled, isTrue);
+      // Duas horas cheias, e não o que sobrava da meia hora: quem escolhe "2 h"
+      // no meio do caminho está pedindo mais duas horas.
+      expect(stateOf(container).remaining, const Duration(hours: 2));
+      expect(stateOf(container).display, '2:00:00');
+      // E a trava nunca chegou a ser solta no meio da troca.
+      expect(sleep.enableCount, 1);
+      expect(sleep.isEnabled, isTrue);
 
-    await viewModelOf(container).turnOff();
-  });
+      await viewModelOf(container).turnOff();
+    },
+  );
 
-  testWidgets('a trava segue o modo escolhido nas preferências',
-      (tester) async {
+  testWidgets('a trava segue o modo escolhido nas preferências', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({'flutter.awake.mode': 'system'});
     preferences = await SharedPreferences.getInstance();
     final container = containerFor(tester);
@@ -129,8 +132,9 @@ void main() {
     await viewModelOf(container).turnOff();
   });
 
-  testWidgets('o modo em curso não muda por baixo de uma trava ligada',
-      (tester) async {
+  testWidgets('o modo em curso não muda por baixo de uma trava ligada', (
+    tester,
+  ) async {
     final container = containerFor(tester);
     await viewModelOf(container).turnOn();
     expect(sleep.mode, AwakeMode.screen);
@@ -146,8 +150,9 @@ void main() {
     await viewModelOf(container).turnOff();
   });
 
-  testWidgets('o período fica no histórico quando a trava se solta',
-      (tester) async {
+  testWidgets('o período fica no histórico quando a trava se solta', (
+    tester,
+  ) async {
     final container = containerFor(tester);
 
     await viewModelOf(container).selectDuration(AwakeDuration.minutes30);
@@ -176,8 +181,7 @@ void main() {
     expect(sessions.sessions.single.duration, const Duration(minutes: 30));
   });
 
-  testWidgets('ligar e desligar em segundos não vira registro',
-      (tester) async {
+  testWidgets('ligar e desligar em segundos não vira registro', (tester) async {
     final container = containerFor(tester);
 
     await viewModelOf(container).turnOn();
@@ -204,7 +208,9 @@ void main() {
     expect(stateOf(container).isOn, isFalse);
   });
 
-  testWidgets('a barra de menus só conta os minutos que faltam', (tester) async {
+  testWidgets('a barra de menus só conta os minutos que faltam', (
+    tester,
+  ) async {
     final container = containerFor(tester);
 
     expect(stateOf(container).menuBarDetail, isNull);
@@ -219,9 +225,12 @@ void main() {
     expect(stateOf(container).menuBarDetail, 'sem limite');
   });
 
-  testWidgets('a duração padrão vem das preferências e não atropela a trava',
-      (tester) async {
-    SharedPreferences.setMockInitialValues({'awake.default_duration': 'hours2'});
+  testWidgets('a duração padrão vem das preferências e não atropela a trava', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'awake.default_duration': 'hours2',
+    });
     preferences = await SharedPreferences.getInstance();
 
     final container = containerFor(tester);

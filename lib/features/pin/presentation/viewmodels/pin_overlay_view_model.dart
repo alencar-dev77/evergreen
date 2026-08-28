@@ -16,8 +16,8 @@ import 'pin_overlay_state.dart';
 
 final pinOverlayViewModelProvider =
     NotifierProvider<PinOverlayViewModel, PinOverlayState>(
-  PinOverlayViewModel.new,
-);
+      PinOverlayViewModel.new,
+    );
 
 /// Orquestra o histórico da área de transferência exibido no overlay.
 ///
@@ -139,8 +139,10 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     if (state.results.isEmpty && !state.hasGenerator) return;
 
     final floor = state.hasGenerator ? -1 : 0;
-    final next = (state.selectedIndex + delta)
-        .clamp(floor, state.results.length - 1);
+    final next = (state.selectedIndex + delta).clamp(
+      floor,
+      state.results.length - 1,
+    );
     if (next == state.selectedIndex) return;
 
     state = state.copyWith(selectedIndex: next);

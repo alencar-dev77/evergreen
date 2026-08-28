@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_icon.dart';
 import 'eg_panel.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Estado vazio padrão: badge 52x52, título e subtítulo centralizados.
 class EgEmptyState extends StatelessWidget {
@@ -32,8 +31,8 @@ class EgEmptyState extends StatelessWidget {
         children: [
           EgIconBadge(
             size: AppBadgeSizes.lg,
-            color: AppColors.card,
-            borderRadius: AppRadii.badgeAll,
+            color: context.eg.colors.card,
+            borderRadius: context.eg.shapes.smallAll,
             bordered: true,
             child: EgIcon(icon, size: AppIconSizes.xl),
           ),
@@ -41,13 +40,13 @@ class EgEmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: AppTypography.bodyCompactEmphasis,
+            style: context.eg.text.bodyCompactEmphasis,
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: AppTypography.captionSmall,
+            style: context.eg.text.captionSmall,
           ),
         ],
       ),

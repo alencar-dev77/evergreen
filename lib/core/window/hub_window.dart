@@ -51,10 +51,7 @@ class HubWindow {
     // `window_show` do pacote chama `NSApp.activate(ignoringOtherApps: true)`,
     // o foco do teclado ia para uma janela que ainda não tinha o que mostrar.
     await WindowController.create(
-      const WindowConfiguration(
-        arguments: 'hub',
-        hiddenAtLaunch: true,
-      ),
+      const WindowConfiguration(arguments: 'hub', hiddenAtLaunch: true),
     );
   }
 

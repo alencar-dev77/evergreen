@@ -119,28 +119,28 @@ class _EgHoverableState extends State<EgHoverable> {
   }
 
   void _setHovered(bool value) => _update(
-        EgInteraction(
-          isHovered: value,
-          isPressed: value && _state.isPressed,
-          isFocused: _state.isFocused,
-        ),
-      );
+    EgInteraction(
+      isHovered: value,
+      isPressed: value && _state.isPressed,
+      isFocused: _state.isFocused,
+    ),
+  );
 
   void _setPressed(bool value) => _update(
-        EgInteraction(
-          isHovered: _state.isHovered,
-          isPressed: value,
-          isFocused: _state.isFocused,
-        ),
-      );
+    EgInteraction(
+      isHovered: _state.isHovered,
+      isPressed: value,
+      isFocused: _state.isFocused,
+    ),
+  );
 
   void _setFocused(bool value) => _update(
-        EgInteraction(
-          isHovered: _state.isHovered,
-          isPressed: _state.isPressed,
-          isFocused: value,
-        ),
-      );
+    EgInteraction(
+      isHovered: _state.isHovered,
+      isPressed: _state.isPressed,
+      isFocused: value,
+    ),
+  );
 
   /// Enter e Espaço acionam o componente focado, como qualquer controle nativo
   /// — um anel de foco que não pode ser ativado pelo teclado não serve para
@@ -149,7 +149,8 @@ class _EgHoverableState extends State<EgHoverable> {
     if (!_isInteractive) return KeyEventResult.ignored;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    final isActivation = event.logicalKey == LogicalKeyboardKey.enter ||
+    final isActivation =
+        event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter ||
         event.logicalKey == LogicalKeyboardKey.space;
     if (!isActivation) return KeyEventResult.ignored;

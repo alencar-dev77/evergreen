@@ -139,7 +139,9 @@ void main() {
 
     test('um arquivo trazido de fora não adia o backup automático', () {
       service.directory.createSync(recursive: true);
-      service.directory.childFile('de-outra-maquina.db').writeAsBytesSync(<int>[]);
+      service.directory
+          .childFile('de-outra-maquina.db')
+          .writeAsBytesSync(<int>[]);
 
       // Ele não é uma cópia deste banco: contar com ele deixaria a máquina uma
       // semana sem backup de verdade.
@@ -248,7 +250,10 @@ void main() {
 
       // O registro é do banco que está rodando: restaurá-lo faria uma migração
       // já aplicada parecer pendente.
-      expect(db.select('SELECT id FROM schema_migrations;'), hasLength(applied));
+      expect(
+        db.select('SELECT id FROM schema_migrations;'),
+        hasLength(applied),
+      );
     });
 
     test('um backup de uma versão anterior do schema sobe antes de entrar', () {
@@ -337,8 +342,7 @@ void main() {
             .childFile('evergreen-antes-de-restaurar-2026-08-0$day-1000.db')
             .writeAsBytesSync(bytes);
       }
-      final target =
-          service.list().where((backup) => backup.isSafetyCopy).last;
+      final target = service.list().where((backup) => backup.isSafetyCopy).last;
 
       db.execute('DELETE FROM clipboard_items;');
       insertItem('o engano de agora', copiedAt: 2);

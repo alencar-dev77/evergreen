@@ -51,8 +51,12 @@ void main() {
       // a semelhança é medida sobre as minhas palavras, mas o tempo também
       // precisa bater, e concordar acontece depois.
       final limpo = CrossTalkFilter.clean([
-        segment(Speaker.others, 1000, 8000,
-            'Então a proposta é essa, isso resolve o problema todo'),
+        segment(
+          Speaker.others,
+          1000,
+          8000,
+          'Então a proposta é essa, isso resolve o problema todo',
+        ),
         segment(Speaker.me, 12000, 12500, 'isso'),
       ]);
 
@@ -63,10 +67,18 @@ void main() {
       // O que volta pela sala chega degradado, e o reconhecimento erra palavras
       // que acertou no áudio limpo. Exigir texto idêntico não filtraria nada.
       final limpo = CrossTalkFilter.clean([
-        segment(Speaker.others, 1000, 5000,
-            'Ficou decidido que o Lucas manda a proposta até sexta'),
-        segment(Speaker.me, 1300, 5200,
-            'ficou decidido que o lucas manda a proposta até serta'),
+        segment(
+          Speaker.others,
+          1000,
+          5000,
+          'Ficou decidido que o Lucas manda a proposta até sexta',
+        ),
+        segment(
+          Speaker.me,
+          1300,
+          5200,
+          'ficou decidido que o lucas manda a proposta até serta',
+        ),
       ]);
 
       expect(limpo, hasLength(1));

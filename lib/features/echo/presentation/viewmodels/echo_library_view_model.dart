@@ -65,7 +65,9 @@ class EchoLibraryState {
       meetings: meetings ?? this.meetings,
       selectedId: clearSelection ? null : (selectedId ?? this.selectedId),
       summaries: summaries ?? this.summaries,
-      summarizingId: clearSummarizing ? null : (summarizingId ?? this.summarizingId),
+      summarizingId: clearSummarizing
+          ? null
+          : (summarizingId ?? this.summarizingId),
       progress: clearSummarizing ? null : (progress ?? this.progress),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -149,7 +151,9 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     _repository.delete(id);
 
     final meetings = _repository.loadAll();
-    final stillThere = meetings.any((meeting) => meeting.id == state.selectedId);
+    final stillThere = meetings.any(
+      (meeting) => meeting.id == state.selectedId,
+    );
 
     state = state.copyWith(
       meetings: meetings,

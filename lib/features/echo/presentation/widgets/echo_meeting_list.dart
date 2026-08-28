@@ -1,8 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_groups.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
@@ -11,6 +9,7 @@ import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/meeting.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// As reuniões gravadas, da mais recente para a mais antiga.
 ///
@@ -108,19 +107,19 @@ class _MeetingRow extends StatelessWidget {
             width: _timeColumn,
             child: Text(
               DayLabel.time(meeting.startedAt),
-              style: AppTypography.monoSmall.copyWith(
-                color: AppColors.textTertiary,
+              style: context.eg.text.monoSmall.copyWith(
+                color: context.eg.colors.textTertiary,
               ),
             ),
           ),
-          Expanded(child: _label()),
+          Expanded(child: _label(context)),
           const SizedBox(width: AppSpacing.md),
           SizedBox(
             width: _durationColumn,
             child: Text(
               DurationFormat.compact(meeting.duration),
               textAlign: TextAlign.right,
-              style: AppTypography.bodyCompactEmphasis,
+              style: context.eg.text.bodyCompactEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -144,10 +143,10 @@ class _MeetingRow extends StatelessWidget {
                 // aparece em toda linha, e um chip aceso por linha competiria
                 // com o nome da reunião.
                 color: meeting.isKept
-                    ? AppColors.greenPrimary
+                    ? context.eg.colors.accent
                     : (starState.isHovered || starState.isPressed
-                          ? AppColors.textSecondary
-                          : AppColors.textTertiary),
+                          ? context.eg.colors.textSecondary
+                          : context.eg.colors.textTertiary),
               ),
             ),
           ),
@@ -159,9 +158,11 @@ class _MeetingRow extends StatelessWidget {
   /// O nome da reunião e, atrás dele, o aviso de que já existe resumo — que é o
   /// que decide se vale abrir. Num parágrafo só, como na linha do Focus: o
   /// corte por ellipsis come o aviso primeiro, nunca o nome.
-  Widget _label() {
-    final style = AppTypography.bodyCompactEmphasis.copyWith(
-      color: isSelected ? AppColors.greenLight : AppColors.textPrimary,
+  Widget _label(BuildContext context) {
+    final style = context.eg.text.bodyCompactEmphasis.copyWith(
+      color: isSelected
+          ? context.eg.colors.accentLight
+          : context.eg.colors.textPrimary,
     );
 
     if (!meeting.hasSummary) {
@@ -180,8 +181,8 @@ class _MeetingRow extends StatelessWidget {
         children: [
           TextSpan(
             text: '   resumida',
-            style: AppTypography.captionXS.copyWith(
-              color: AppColors.textTertiary,
+            style: context.eg.text.captionXS.copyWith(
+              color: context.eg.colors.textTertiary,
             ),
           ),
         ],

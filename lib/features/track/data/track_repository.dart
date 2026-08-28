@@ -66,12 +66,12 @@ class SqliteTrackRepository implements TrackRepository {
     )) {
       final at = row['started_at'] as int;
       bucketOf(at).focus.add(
-            TrackEntry(
-              at: DateTime.fromMillisecondsSinceEpoch(at),
-              duration: Duration(seconds: row['duration_seconds'] as int),
-              label: row['activity'] as String?,
-            ),
-          );
+        TrackEntry(
+          at: DateTime.fromMillisecondsSinceEpoch(at),
+          duration: Duration(seconds: row['duration_seconds'] as int),
+          label: row['activity'] as String?,
+        ),
+      );
     }
 
     for (final row in _db.select(
@@ -85,12 +85,12 @@ class SqliteTrackRepository implements TrackRepository {
     )) {
       final at = row['started_at'] as int;
       bucketOf(at).meetings.add(
-            TrackEntry(
-              at: DateTime.fromMillisecondsSinceEpoch(at),
-              duration: Duration(milliseconds: row['duration_ms'] as int),
-              label: row['title'] as String?,
-            ),
-          );
+        TrackEntry(
+          at: DateTime.fromMillisecondsSinceEpoch(at),
+          duration: Duration(milliseconds: row['duration_ms'] as int),
+          label: row['title'] as String?,
+        ),
+      );
     }
 
     for (final row in _db.select(
@@ -104,12 +104,12 @@ class SqliteTrackRepository implements TrackRepository {
     )) {
       final at = row['started_at'] as int;
       bucketOf(at).awake.add(
-            TrackEntry(
-              at: DateTime.fromMillisecondsSinceEpoch(at),
-              duration: Duration(seconds: row['duration_seconds'] as int),
-              label: AwakeMode.fromName(row['mode'] as String?).periodLabel,
-            ),
-          );
+        TrackEntry(
+          at: DateTime.fromMillisecondsSinceEpoch(at),
+          duration: Duration(seconds: row['duration_seconds'] as int),
+          label: AwakeMode.fromName(row['mode'] as String?).periodLabel,
+        ),
+      );
     }
 
     // `copied_at` e `type`. Nunca `content` — ver a nota da classe.
@@ -135,9 +135,7 @@ class SqliteTrackRepository implements TrackRepository {
 
     final dates = days.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    return [
-      for (final date in dates) days[date]!.freeze(date),
-    ];
+    return [for (final date in dates) days[date]!.freeze(date)];
   }
 }
 
@@ -150,11 +148,11 @@ class _DayBucket {
   int notesWritten = 0;
 
   TrackDay freeze(DateTime date) => TrackDay(
-        date: date,
-        focus: List.unmodifiable(focus),
-        meetings: List.unmodifiable(meetings),
-        awake: List.unmodifiable(awake),
-        copied: Map.unmodifiable(copied),
-        notesWritten: notesWritten,
-      );
+    date: date,
+    focus: List.unmodifiable(focus),
+    meetings: List.unmodifiable(meetings),
+    awake: List.unmodifiable(awake),
+    copied: Map.unmodifiable(copied),
+    notesWritten: notesWritten,
+  );
 }

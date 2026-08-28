@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Campo de texto de uma linha do design system.
 ///
@@ -109,10 +108,12 @@ class _EgTextFieldState extends State<EgTextField> {
         vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.buttonAll,
+        color: context.eg.colors.card,
+        borderRadius: context.eg.shapes.controlAll,
         border: Border.all(
-          color: _isFocused ? AppColors.greenPrimary : AppColors.border,
+          color: _isFocused
+              ? context.eg.colors.accent
+              : context.eg.colors.border,
         ),
       ),
       child: Opacity(
@@ -126,19 +127,20 @@ class _EgTextFieldState extends State<EgTextField> {
           onSubmitted: widget.onSubmitted,
           minLines: widget.minLines,
           maxLines: widget.maxLines,
-          cursorColor: AppColors.greenPrimary,
+          cursorColor: context.eg.colors.accent,
           cursorWidth: 1.5,
           // Altura fixa só faz sentido na linha única; em campo de várias
           // linhas ela descolaria do texto conforme ele quebra.
           cursorHeight: (widget.maxLines ?? 2) > 1 ? null : 16,
-          style: AppTypography.body,
+          style: context.eg.text.body,
           decoration: InputDecoration(
             isDense: true,
             border: InputBorder.none,
             contentPadding: EdgeInsets.zero,
             hintText: widget.hintText,
-            hintStyle:
-                AppTypography.body.copyWith(color: AppColors.textTertiary),
+            hintStyle: context.eg.text.body.copyWith(
+              color: context.eg.colors.textTertiary,
+            ),
           ),
         ),
       ),

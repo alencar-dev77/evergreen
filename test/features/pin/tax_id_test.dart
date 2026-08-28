@@ -11,18 +11,23 @@ void main() {
       expect(TaxId.isValid('52998224726', TaxIdKind.cpf), isFalse);
     });
 
-    test('aceita um CNPJ de verdade e recusa o mesmo com um dígito trocado', () {
-      expect(TaxId.isValid('11222333000181', TaxIdKind.cnpj), isTrue);
-      expect(TaxId.isValid('11222333000182', TaxIdKind.cnpj), isFalse);
-    });
+    test(
+      'aceita um CNPJ de verdade e recusa o mesmo com um dígito trocado',
+      () {
+        expect(TaxId.isValid('11222333000181', TaxIdKind.cnpj), isTrue);
+        expect(TaxId.isValid('11222333000182', TaxIdKind.cnpj), isFalse);
+      },
+    );
 
-    test('recusa dígitos repetidos, que fecham a conta mas não são de ninguém',
-        () {
-      expect(TaxId.isValid('11111111111', TaxIdKind.cpf), isFalse);
-      expect(TaxId.isValid('00000000000', TaxIdKind.cpf), isFalse);
-      expect(TaxId.isValid('11111111111111', TaxIdKind.cnpj), isFalse);
-      expect(TaxId.isValid('00000000000000', TaxIdKind.cnpj), isFalse);
-    });
+    test(
+      'recusa dígitos repetidos, que fecham a conta mas não são de ninguém',
+      () {
+        expect(TaxId.isValid('11111111111', TaxIdKind.cpf), isFalse);
+        expect(TaxId.isValid('00000000000', TaxIdKind.cpf), isFalse);
+        expect(TaxId.isValid('11111111111111', TaxIdKind.cnpj), isFalse);
+        expect(TaxId.isValid('00000000000000', TaxIdKind.cnpj), isFalse);
+      },
+    );
 
     test('recusa o que não tem o tamanho do documento', () {
       expect(TaxId.isValid('5299822472', TaxIdKind.cpf), isFalse);

@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/hub_window_channel.dart';
 import '../../../../shared/widgets/eg_background.dart';
@@ -28,6 +26,7 @@ import '../widgets/hub_intro.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import 'app_settings_view.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Painel principal do Evergreen.
 ///
@@ -115,7 +114,7 @@ class _HubViewState extends ConsumerState<HubView> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.eg.colors.background,
       // A abertura fica por cima, e não no lugar do Hub: a tela de baixo monta
       // e resolve o que tem para resolver enquanto a marca está na frente, de
       // modo que a cena não some para revelar um Hub ainda em branco.
@@ -233,11 +232,11 @@ class _HubViewState extends ConsumerState<HubView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(module?.name ?? 'Evergreen', style: AppTypography.screenTitle),
+        Text(module?.name ?? 'Evergreen', style: context.eg.text.screenTitle),
         const SizedBox(height: AppSpacing.xxs),
         Text(
           module?.tagline ?? 'Preferências do aplicativo',
-          style: AppTypography.caption,
+          style: context.eg.text.caption,
         ),
       ],
     );
