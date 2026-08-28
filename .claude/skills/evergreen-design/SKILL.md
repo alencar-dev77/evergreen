@@ -54,7 +54,7 @@ Consequências diretas dessa natureza:
 ## Stack e restrições técnicas relevantes ao design
 
 - **Flutter para macOS**, não Flutter para web/mobile. Isso significa: usar as convenções de teclado do macOS (Cmd em vez de Ctrl), respeitar `NSVisualEffectView`/blur nativo com moderação e considerar múltiplas densidades de tela Retina.
-- **O app é dark-only até (pelo menos) a v0.2**, por decisão explícita — light mode é dívida assumida, não esquecida. Não introduza tokens claro/escuro nem `ThemeMode` "já preparando" o terreno; ver `colors.md`, seção "Decisão do produto: dark-only".
+- **O app é dark-only**, por decisão explícita — light mode é dívida assumida, não esquecida. O escuro tem **duas peles** trocáveis em runtime (`evergreen`, a paleta da casa, e `apple`, o escuro do macOS), e é isso que o `ThemeExtension` do projeto serve: não introduza tokens claro/escuro nem `ThemeMode` "já preparando" o terreno. Todo valor visual vem do tema pelo contexto (`context.eg.…`) e um papel novo nasce nos dois temas ao mesmo tempo; ver `colors.md`, seção "Decisão do produto: dark-only, e duas peles escuras", e `THEMING.md` na raiz do repositório.
 - Componentes devem ser pensados em termos de **estados explícitos** (`default`, `hover`, `active/pressed`, `focus`, `disabled`, `selected`, `loading`, `error`) porque é assim que se implementa consistência em Flutter (widgets com builders de estado), e porque é assim que apps macOS nativos realmente se comportam.
 - Performance visual é parte do design, não um detalhe técnico posterior: uma sombra cara, um blur em excesso ou uma animação com muitos widgets rebuildando destroem a sensação de "app nativo rápido" que é a razão de existir do Evergreen.
 

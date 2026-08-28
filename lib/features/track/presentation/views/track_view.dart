@@ -47,8 +47,7 @@ class _TrackViewState extends ConsumerState<TrackView> {
     final viewModel = ref.read(trackViewModelProvider.notifier);
     final now = ref.watch(clockProvider)();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
         // "Balanço", e não "Resumo": resumo já é o nome do parágrafo que o
         // modelo escreve dentro do dia, e a mesma palavra para duas coisas
@@ -66,7 +65,8 @@ class _TrackViewState extends ConsumerState<TrackView> {
               const EgEmptyState(
                 icon: EgIconData.track,
                 title: 'Nada registrado ainda',
-                message: 'O Track lê o que os outros módulos gravam. Foque uma '
+                message:
+                    'O Track lê o que os outros módulos gravam. Foque uma '
                     'sessão, grave uma reunião ou copie alguma coisa — o dia '
                     'aparece aqui sozinho.',
               )

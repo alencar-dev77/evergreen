@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_button.dart';
@@ -18,6 +16,7 @@ import '../viewmodels/echo_recorder_state.dart';
 import '../viewmodels/echo_recorder_view_model.dart';
 import '../widgets/echo_permission_row.dart';
 import 'echo_overlay_intents.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Painel flutuante do Echo — a tela que o `⌘⇧E` abre.
 ///
@@ -181,7 +180,7 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
         ],
         if (state.errorMessage != null) ...[
           const SizedBox(height: AppSpacing.lg),
-          Text(state.errorMessage!, style: AppTypography.captionSmall),
+          Text(state.errorMessage!, style: context.eg.text.captionSmall),
         ],
         const SizedBox(height: AppSpacing.xxl),
         _primaryButton(state),
@@ -203,12 +202,12 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Antes de gravar', style: AppTypography.panelTitle),
+        Text('Antes de gravar', style: context.eg.text.panelTitle),
         const SizedBox(height: AppSpacing.sm),
         Text(
           'O Echo grava duas faixas separadas — é o que faz ele saber quem '
           'falou sem depender de reconhecimento de voz.',
-          style: AppTypography.captionSmall,
+          style: context.eg.text.captionSmall,
         ),
         const SizedBox(height: AppSpacing.xl),
         EchoPermissionRow(
@@ -233,7 +232,7 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
             'Depois de ligar a Gravação de Tela nos Ajustes, encerre e abra o '
             'Evergreen de novo — o macOS só libera a captura para um app que '
             'iniciou depois da permissão.',
-            style: AppTypography.captionSmall,
+            style: context.eg.text.captionSmall,
           ),
         ],
       ],
@@ -243,13 +242,13 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
   Widget _liveText(EchoRecorderState state) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.cardAll,
+      decoration: BoxDecoration(
+        color: context.eg.colors.card,
+        borderRadius: context.eg.shapes.cardAll,
       ),
       child: Text(
         state.liveText.join(' '),
-        style: AppTypography.captionSmall,
+        style: context.eg.text.captionSmall,
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
       ),
@@ -279,7 +278,11 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: (state.lastMeeting?.isEmpty ?? false)
           ? [
-              EgButton(label: 'Gravar de novo', expand: true, onPressed: _primary),
+              EgButton(
+                label: 'Gravar de novo',
+                expand: true,
+                onPressed: _primary,
+              ),
               const SizedBox(height: AppSpacing.sm),
               EgButton.secondary(
                 label: 'Abrir no Hub',
@@ -288,7 +291,11 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
               ),
             ]
           : [
-              EgButton(label: 'Abrir no Hub', expand: true, onPressed: _primary),
+              EgButton(
+                label: 'Abrir no Hub',
+                expand: true,
+                onPressed: _primary,
+              ),
               const SizedBox(height: AppSpacing.sm),
               EgButton.secondary(
                 label: 'Gravar de novo',
@@ -309,7 +316,9 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
     EchoPhase.recording => 'Gravando',
     EchoPhase.transcribing => 'Transcrevendo',
     EchoPhase.done =>
-      (state.lastMeeting?.isEmpty ?? false) ? 'Nenhuma fala' : 'Transcrição pronta',
+      (state.lastMeeting?.isEmpty ?? false)
+          ? 'Nenhuma fala'
+          : 'Transcrição pronta',
     EchoPhase.failed => 'Não deu certo',
   };
 
@@ -330,9 +339,10 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
     EchoPhase.idle => 'Sua voz e o áudio da reunião, em faixas separadas',
     EchoPhase.recording => 'Fechar o painel não para a gravação',
     EchoPhase.transcribing => 'Pode levar alguns minutos',
-    EchoPhase.done => (state.lastMeeting?.isEmpty ?? false)
-        ? 'A gravação saiu muda — confira o microfone e a saída de áudio'
-        : 'O resumo fica no Hub',
+    EchoPhase.done =>
+      (state.lastMeeting?.isEmpty ?? false)
+          ? 'A gravação saiu muda — confira o microfone e a saída de áudio'
+          : 'O resumo fica no Hub',
     EchoPhase.failed => null,
   };
 
@@ -345,8 +355,7 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
       if (state.phase != EchoPhase.transcribing &&
           (state.phase != EchoPhase.idle || state.capabilities.canRecord))
         EgHint(keys: const ['enter'], label: _primaryHint(state)),
-      if (state.isRecording)
-        const EgHint(keys: ['⌘', '.'], label: 'descartar'),
+      if (state.isRecording) const EgHint(keys: ['⌘', '.'], label: 'descartar'),
     ],
     // Sempre só "fechar". Gravando, quem explica que a reunião continua é a
     // linha logo acima do botão — repetir aqui estourava a largura do painel e

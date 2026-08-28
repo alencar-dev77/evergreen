@@ -15,8 +15,8 @@ import 'focus_timer_state.dart';
 
 final focusTimerViewModelProvider =
     NotifierProvider<FocusTimerViewModel, FocusTimerState>(
-  FocusTimerViewModel.new,
-);
+      FocusTimerViewModel.new,
+    );
 
 /// O cronômetro do Focus.
 ///
@@ -169,10 +169,7 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
 
     _accrue();
     _stopTicker();
-    state = state.copyWith(
-      status: FocusStatus.paused,
-      remaining: remaining,
-    );
+    state = state.copyWith(status: FocusStatus.paused, remaining: remaining);
     _syncRun();
   }
 
@@ -301,8 +298,7 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
       activity: state.activity,
       startedAt: state.startedAt,
       lastSession: session,
-      alerts: state.alerts +
-          (alert && state.settings.alertOnScreen ? 1 : 0),
+      alerts: state.alerts + (alert && state.settings.alertOnScreen ? 1 : 0),
       notes: state.notes,
       isExtended: state.isExtended,
     );
@@ -351,8 +347,7 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
   /// Som de alerta do próprio sistema, pelo canal de plataforma do Flutter —
   /// nenhum pacote de áudio, nenhum arquivo empacotado. Se o macOS estiver com
   /// os alertas silenciados, o aviso visual continua valendo.
-  void _playAlertSound() =>
-      unawaited(SystemSound.play(SystemSoundType.alert));
+  void _playAlertSound() => unawaited(SystemSound.play(SystemSoundType.alert));
 
   void _startTicker() {
     _ticker?.cancel();

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../models/track_day.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A manchete do período: o que aconteceu, numa frase.
 ///
@@ -28,47 +28,48 @@ class TrackHeadline extends StatelessWidget {
         children: [
           TextSpan(
             text: DurationFormat.compact(totals.focus),
-            style: AppTypography.screenTitle,
+            style: context.eg.text.screenTitle,
           ),
           TextSpan(
             text: totals.focusSessions == 0
                 ? '  focadas'
                 : '  focadas em '
-                    '${TrackCounts.of(totals.focusSessions, 'sessão', 'sessões')}',
-            style: AppTypography.captionXS,
+                      '${TrackCounts.of(totals.focusSessions, 'sessão', 'sessões')}',
+            style: context.eg.text.captionXS,
           ),
           if (totals.meetingCount > 0) ...[
             _separator,
             TextSpan(
               text: DurationFormat.compact(totals.meetings),
-              style: AppTypography.bodyEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
             TextSpan(
-              text: '  em '
+              text:
+                  '  em '
                   '${TrackCounts.of(totals.meetingCount, 'reunião', 'reuniões')}',
-              style: AppTypography.captionXS,
+              style: context.eg.text.captionXS,
             ),
           ],
           if (totals.copied > 0) ...[
             _separator,
             TextSpan(
               text: '${totals.copied}',
-              style: AppTypography.bodyEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
             TextSpan(
               text: totals.copied == 1 ? '  item copiado' : '  itens copiados',
-              style: AppTypography.captionXS,
+              style: context.eg.text.captionXS,
             ),
           ],
           if (totals.notesWritten > 0) ...[
             _separator,
             TextSpan(
               text: '${totals.notesWritten}',
-              style: AppTypography.bodyEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
             TextSpan(
               text: totals.notesWritten == 1 ? '  anotação' : '  anotações',
-              style: AppTypography.captionXS,
+              style: context.eg.text.captionXS,
             ),
           ],
         ],

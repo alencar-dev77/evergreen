@@ -125,7 +125,7 @@ class EchoException implements Exception {
 /// `macos/Runner/EchoChannel.swift`.
 class EchoChannel {
   EchoChannel({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel(_channelName);
+    : _channel = channel ?? const MethodChannel(_channelName);
 
   static const _channelName = 'echo';
 
@@ -157,7 +157,8 @@ class EchoChannel {
   }
 
   /// Pede o microfone — ou abre os Ajustes, se já tiver sido negado.
-  Future<EchoCapabilities> requestMicrophone() => _requestPermission('requestMicrophone');
+  Future<EchoCapabilities> requestMicrophone() =>
+      _requestPermission('requestMicrophone');
 
   /// Pede a gravação de tela — ou abre os Ajustes, se já tiver sido negada.
   Future<EchoCapabilities> requestScreenRecording() =>
@@ -271,14 +272,23 @@ class EchoChannel {
   /// Varre áudio que uma queda no meio de uma reunião deixou para trás.
   Future<void> cleanOrphanAudio() => _invoke<Object>('cleanOrphanAudio');
 
-  Future<T?> _invoke<T>(String method, [Map<String, Object?>? arguments]) async {
+  Future<T?> _invoke<T>(
+    String method, [
+    Map<String, Object?>? arguments,
+  ]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
     } on PlatformException catch (error) {
-      throw EchoException(error.code, error.message ?? 'Falha no canal do Echo.');
+      throw EchoException(
+        error.code,
+        error.message ?? 'Falha no canal do Echo.',
+      );
     } on MissingPluginException {
       // Sem lado nativo — em teste, ou fora do macOS.
-      throw const EchoException('unsupported_os', 'O Echo precisa do macOS 26 ou superior.');
+      throw const EchoException(
+        'unsupported_os',
+        'O Echo precisa do macOS 26 ou superior.',
+      );
     }
   }
 

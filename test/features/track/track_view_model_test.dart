@@ -16,18 +16,17 @@ void main() {
 
   /// Quarta-feira às 15h30 — "ontem" cai na mesma semana.
   final now = DateTime(2026, 8, 19, 15, 30);
-  DateTime day(int daysAgo) =>
-      DateTime(now.year, now.month, now.day - daysAgo);
+  DateTime day(int daysAgo) => DateTime(now.year, now.month, now.day - daysAgo);
 
   TrackDay withFocus(int daysAgo, int minutes) => TrackDay(
-        date: day(daysAgo),
-        focus: [
-          TrackEntry(
-            at: day(daysAgo).add(const Duration(hours: 9)),
-            duration: Duration(minutes: minutes),
-          ),
-        ],
-      );
+    date: day(daysAgo),
+    focus: [
+      TrackEntry(
+        at: day(daysAgo).add(const Duration(hours: 9)),
+        duration: Duration(minutes: minutes),
+      ),
+    ],
+  );
 
   late FakeTrackRepository repository;
   late FakeEchoChannel channel;
@@ -110,7 +109,10 @@ void main() {
     viewModel.select(day(0));
     await Future<void>.delayed(Duration.zero);
 
-    expect(container.read(trackViewModelProvider).selectedSummary.text, 'resumo');
+    expect(
+      container.read(trackViewModelProvider).selectedSummary.text,
+      'resumo',
+    );
 
     viewModel.closeSelection();
     viewModel.select(day(0));
@@ -136,40 +138,43 @@ void main() {
     expect(channel.summarizedTexts, hasLength(1));
   });
 
-  test('o parágrafo guardado é descartado se o dia mudou desde então', () async {
-    final first = containerWith();
-    first.read(trackViewModelProvider.notifier).select(day(0));
-    await Future<void>.delayed(Duration.zero);
-    first.dispose();
+  test(
+    'o parágrafo guardado é descartado se o dia mudou desde então',
+    () async {
+      final first = containerWith();
+      first.read(trackViewModelProvider.notifier).select(day(0));
+      await Future<void>.delayed(Duration.zero);
+      first.dispose();
 
-    // Uma sessão a mais no mesmo dia: a assinatura muda, e o texto guardado
-    // fala de um dia que não é mais este.
-    repository.days = [
-      TrackDay(
-        date: day(0),
-        focus: [
-          TrackEntry(
-            at: day(0).add(const Duration(hours: 9)),
-            duration: const Duration(minutes: 25),
-          ),
-          TrackEntry(
-            at: day(0).add(const Duration(hours: 14)),
-            duration: const Duration(minutes: 30),
-          ),
-        ],
-      ),
-    ];
+      // Uma sessão a mais no mesmo dia: a assinatura muda, e o texto guardado
+      // fala de um dia que não é mais este.
+      repository.days = [
+        TrackDay(
+          date: day(0),
+          focus: [
+            TrackEntry(
+              at: day(0).add(const Duration(hours: 9)),
+              duration: const Duration(minutes: 25),
+            ),
+            TrackEntry(
+              at: day(0).add(const Duration(hours: 14)),
+              duration: const Duration(minutes: 30),
+            ),
+          ],
+        ),
+      ];
 
-    final second = containerWith();
-    // Nada de resumo velho na tela antes mesmo de alguém abrir o dia.
-    expect(second.read(trackViewModelProvider).summaries, isEmpty);
+      final second = containerWith();
+      // Nada de resumo velho na tela antes mesmo de alguém abrir o dia.
+      expect(second.read(trackViewModelProvider).summaries, isEmpty);
 
-    second.read(trackViewModelProvider.notifier).select(day(0));
-    await Future<void>.delayed(Duration.zero);
+      second.read(trackViewModelProvider.notifier).select(day(0));
+      await Future<void>.delayed(Duration.zero);
 
-    // Foi reescrito, e não reaproveitado.
-    expect(channel.summarizedTexts, hasLength(2));
-  });
+      // Foi reescrito, e não reaproveitado.
+      expect(channel.summarizedTexts, hasLength(2));
+    },
+  );
 
   test('o modelo indisponível não é guardado como resposta', () async {
     channel.failWith = const EchoException('unsupported_os', 'macOS antigo');
@@ -196,7 +201,10 @@ void main() {
 
     viewModel.select(day(0));
     await Future<void>.delayed(Duration.zero);
-    expect(container.read(trackViewModelProvider).selectedSummary.hasText, isTrue);
+    expect(
+      container.read(trackViewModelProvider).selectedSummary.hasText,
+      isTrue,
+    );
 
     // Uma sessão registrada com o Hub aberto: os números mudam, e o parágrafo
     // que falava em uma sessão passaria a mentir ao lado deles.
@@ -218,7 +226,10 @@ void main() {
     ];
     viewModel.refresh();
 
-    expect(container.read(trackViewModelProvider).selectedSummary.hasText, isFalse);
+    expect(
+      container.read(trackViewModelProvider).selectedSummary.hasText,
+      isFalse,
+    );
   });
 
   test('o balanço soma os dias do recorte', () {

@@ -6,8 +6,9 @@ import '../../data/leaf_repository.dart';
 import '../../models/leaf_note.dart';
 import 'leaf_state.dart';
 
-final leafViewModelProvider =
-    NotifierProvider<LeafViewModel, LeafState>(LeafViewModel.new);
+final leafViewModelProvider = NotifierProvider<LeafViewModel, LeafState>(
+  LeafViewModel.new,
+);
 
 /// A parede de anotações do Leaf.
 ///

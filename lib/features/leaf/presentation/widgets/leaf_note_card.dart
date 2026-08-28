@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/design/app_colors.dart';
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/leaf_note.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Medidas do cartão da parede.
 ///
@@ -85,11 +84,11 @@ class LeafNoteCard extends StatelessWidget {
                   note.content,
                   maxLines: LeafCardMetrics.contentLines,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyCompact,
+                  style: context.eg.text.bodyCompact,
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              _footer(state.isHovered),
+              SizedBox(height: AppSpacing.sm),
+              _footer(context, state.isHovered),
             ],
           ),
         );
@@ -103,16 +102,18 @@ class LeafNoteCard extends StatelessWidget {
   /// Trocar em vez de somar: a lixeira precisa de um lugar previsível e o
   /// cartão não tem largura para os dois, e sobrepor o texto seria pior. É a
   /// mesma regra das ações que só aparecem no hover da linha, no Pin.
-  Widget _footer(bool isHovered) {
+  Widget _footer(BuildContext context, bool isHovered) {
     return Row(
       children: [
         Text(
           '${note.slot}',
-          style: AppTypography.monoSmall.copyWith(
-            color: isSelected ? AppColors.greenLight : AppColors.textSecondary,
+          style: context.eg.text.monoSmall.copyWith(
+            color: isSelected
+                ? context.eg.colors.accentLight
+                : context.eg.colors.textSecondary,
           ),
         ),
-        const Spacer(),
+        Spacer(),
         if (isHovered)
           _DeleteAffordance(onTap: onDelete)
         else
@@ -120,8 +121,8 @@ class LeafNoteCard extends StatelessWidget {
             // A idade do recado, não a do papel: uma anotação reescrita agora
             // dizia "há 3 semanas" — ver [LeafNote.changedAt].
             RelativeTime.format(note.changedAt, now: now),
-            style: AppTypography.captionXS.copyWith(
-              color: AppColors.textTertiary,
+            style: context.eg.text.captionXS.copyWith(
+              color: context.eg.colors.textTertiary,
             ),
           ),
       ],
@@ -164,8 +165,8 @@ class LeafNewNoteCell extends StatelessWidget {
               EgIconData.plus,
               size: AppIconSizes.lg,
               color: isSelected || state.isHovered
-                  ? AppColors.textSecondary
-                  : AppColors.textTertiary,
+                  ? context.eg.colors.textSecondary
+                  : context.eg.colors.textTertiary,
             ),
           ),
         );
@@ -203,37 +204,37 @@ class _LeafCardSurface extends StatelessWidget {
 
   /// A vaga livre. Igual ao cartão, menos a superfície de repouso — o que a
   /// desenha é a borda.
-  static const _emptyStyle = EgSurfaceStyle(
-    rest: AppColors.transparent,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    selected: AppColors.selection,
-    foreground: AppColors.textPrimary,
-    border: AppColors.border,
-    selectedBorder: AppColors.greenDeep,
-    selectedEdge: AppColors.greenPrimary,
-  );
+  EgSurfaceStyle _emptyStyle(BuildContext context) {
+    final eg = context.eg;
 
-  /// O cartão sendo escrito: borda accent cheia, em vez do [AppColors.greenDeep]
-  /// do apenas-selecionado. É um degrau a mais na mesma cor, não uma cor nova.
-  static const _editingStyle = EgSurfaceStyle(
-    rest: AppColors.card,
-    restGradient: AppGradients.cardSurface,
-    hover: AppColors.hover,
-    pressed: AppColors.pressed,
-    selected: AppColors.selection,
-    foreground: AppColors.textPrimary,
-    border: AppColors.greenPrimary,
-    selectedBorder: AppColors.greenPrimary,
-    // A aresta acompanha o cartão para dentro da edição: ela é o "aqui está o
-    // teclado" de toda superfície selecionada do app, e sumir bem na hora em
-    // que o teclado passa a ser mesmo do cartão seria dizer o contrário.
-    selectedEdge: AppColors.greenPrimary,
-  );
+    return EgSurfaceStyle(
+      rest: AppColors.transparent,
+      hover: eg.colors.hover,
+      pressed: eg.colors.pressed,
+      selected: eg.colors.selection,
+      selectedGradient: eg.surfaces.card.selectedGradient,
+      foreground: eg.colors.textPrimary,
+      selectedForeground: eg.colors.selectionLabel,
+      border: eg.colors.border,
+      selectedBorder: eg.colors.accentDeep,
+      selectedEdge: eg.shapes.selectionEdge > 0 ? eg.colors.accent : null,
+    );
+  }
 
-  EgSurfaceStyle get _style {
-    if (isEditing) return _editingStyle;
-    return isEmpty ? _emptyStyle : EgSurfaceStyle.card;
+  /// O cartão sendo escrito: borda accent cheia, em vez do `accentDeep` do
+  /// apenas-selecionado. É um degrau a mais na mesma cor, não uma cor nova.
+  EgSurfaceStyle _editingStyle(BuildContext context) {
+    final eg = context.eg;
+
+    return eg.surfaces.card.copyWith(
+      border: eg.colors.accent,
+      selectedBorder: eg.colors.accent,
+    );
+  }
+
+  EgSurfaceStyle _styleOf(BuildContext context) {
+    if (isEditing) return _editingStyle(context);
+    return isEmpty ? _emptyStyle(context) : context.eg.surfaces.card;
   }
 
   @override
@@ -243,12 +244,12 @@ class _LeafCardSurface extends StatelessWidget {
     // essa ordem é a matriz, não este arquivo.
     return EgSurface(
       state: state,
-      style: _style,
+      style: _styleOf(context),
       isSelected: isSelected,
       width: LeafCardMetrics.width,
       height: LeafCardMetrics.height,
       padding: const EdgeInsets.all(AppSpacing.md),
-      borderRadius: AppRadii.cardAll,
+      borderRadius: context.eg.shapes.cardAll,
       child: child,
     );
   }
@@ -271,8 +272,8 @@ class _DeleteAffordance extends StatelessWidget {
         // Vermelho já sob o mouse, e não só no clique: é a única ação
         // destrutiva do cartão, e ela precisa se anunciar antes de acontecer.
         color: state.isHovered || state.isPressed
-            ? AppColors.error
-            : AppColors.textTertiary,
+            ? context.eg.colors.error
+            : context.eg.colors.textTertiary,
       ),
     );
   }
@@ -310,62 +311,62 @@ class LeafNoteEditor extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: _field()),
+          Expanded(child: _field(context)),
           const SizedBox(height: AppSpacing.sm),
-          _footer(),
+          _footer(context),
         ],
       ),
     );
   }
 
-  Widget _field() {
+  Widget _field(BuildContext context) {
     return TextField(
       controller: controller,
       focusNode: focusNode,
-      style: AppTypography.bodyCompact,
-      cursorColor: AppColors.greenPrimary,
+      style: context.eg.text.bodyCompact,
+      cursorColor: context.eg.colors.accent,
       cursorWidth: 1.5,
       maxLines: LeafCardMetrics.contentLines,
       // O campo trata o Enter como quebra de linha, e é assim que o `⇧⏎`
       // funciona. O Enter puro nunca chega aqui: o `Shortcuts` do painel o
       // consome antes, para guardar a anotação (ver `LeafOverlayIntents`).
       textInputAction: TextInputAction.newline,
-      inputFormatters: [
-        LengthLimitingTextInputFormatter(LeafNote.maxLength),
-      ],
+      inputFormatters: [LengthLimitingTextInputFormatter(LeafNote.maxLength)],
       decoration: InputDecoration(
         isDense: true,
         border: InputBorder.none,
         contentPadding: EdgeInsets.zero,
         hintText: 'O que não pode escapar',
-        hintStyle:
-            AppTypography.bodyCompact.copyWith(color: AppColors.textTertiary),
+        hintStyle: context.eg.text.bodyCompact.copyWith(
+          color: context.eg.colors.textTertiary,
+        ),
       ),
     );
   }
 
-  Widget _footer() {
+  Widget _footer(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final remaining = LeafNote.maxLength - controller.text.characters.length;
+        final remaining =
+            LeafNote.maxLength - controller.text.characters.length;
 
         return Row(
           children: [
             Text(
               '$slot',
-              style: AppTypography.monoSmall.copyWith(
-                color: AppColors.greenLight,
+              style: context.eg.text.monoSmall.copyWith(
+                color: context.eg.colors.accentLight,
               ),
             ),
             const Spacer(),
             if (remaining <= _counterThreshold)
               Text(
                 '$remaining',
-                style: AppTypography.monoSmall.copyWith(
+                style: context.eg.text.monoSmall.copyWith(
                   color: remaining <= 0
-                      ? AppColors.warning
-                      : AppColors.textTertiary,
+                      ? context.eg.colors.warning
+                      : context.eg.colors.textTertiary,
                 ),
               ),
           ],

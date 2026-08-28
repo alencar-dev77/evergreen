@@ -1,8 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_groups.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
@@ -11,6 +9,7 @@ import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/focus_session.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O histórico da semana, agrupado por dia.
 ///
@@ -129,12 +128,12 @@ class _SessionRow extends StatelessWidget {
             width: _timeColumn,
             child: Text(
               DayLabel.time(session.startedAt),
-              style: AppTypography.monoSmall.copyWith(
-                color: AppColors.textTertiary,
+              style: context.eg.text.monoSmall.copyWith(
+                color: context.eg.colors.textTertiary,
               ),
             ),
           ),
-          Expanded(child: _label()),
+          Expanded(child: _label(context)),
           const SizedBox(width: AppSpacing.md),
           // Duração à direita, sempre na mesma coluna: é o número que se
           // compara entre linhas ao correr o olho pela lista.
@@ -143,7 +142,7 @@ class _SessionRow extends StatelessWidget {
             child: Text(
               DurationFormat.compact(session.duration),
               textAlign: TextAlign.right,
-              style: AppTypography.bodyCompactEmphasis,
+              style: context.eg.text.bodyCompactEmphasis,
             ),
           ),
         ],
@@ -156,18 +155,18 @@ class _SessionRow extends StatelessWidget {
   /// Num parágrafo só, como o apelido e o conteúdo na linha do Pin: assim o
   /// corte por ellipsis come primeiro o anúncio ("1 anotação · resumo"), que é
   /// acessório, e nunca o nome, que é como a pessoa reconhece a sessão.
-  Widget _label() {
+  Widget _label(BuildContext context) {
     final contents = _contents();
-    if (contents == null) return _title();
+    if (contents == null) return _title(context);
 
     return Text.rich(
       TextSpan(
-        text: _titleText(),
+        text: _titleText(context),
         children: [
           TextSpan(
             text: '   $contents',
-            style: AppTypography.captionXS.copyWith(
-              color: AppColors.textTertiary,
+            style: context.eg.text.captionXS.copyWith(
+              color: context.eg.colors.textTertiary,
             ),
           ),
         ],
@@ -175,31 +174,31 @@ class _SessionRow extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       softWrap: false,
-      style: _titleStyle(),
+      style: _titleStyle(context),
     );
   }
 
-  Widget _title() {
+  Widget _title(BuildContext context) {
     return Text(
-      _titleText(),
+      _titleText(context),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       softWrap: false,
-      style: _titleStyle(),
+      style: _titleStyle(context),
     );
   }
 
   /// Sem atividade escrita não há nome — e a hora, que antes fazia esse papel,
   /// agora tem coluna própria. "Sessão" se apresenta como o registro sem nome
   /// que é, em texto de segundo nível.
-  String _titleText() => session.hasActivity ? session.activity! : 'Sessão';
+  String _titleText(BuildContext context) =>
+      session.hasActivity ? session.activity! : 'Sessão';
 
-  TextStyle _titleStyle() => session.hasActivity
-      ? AppTypography.bodyCompactEmphasis
-      : AppTypography.bodyCompactEmphasis.copyWith(
-          color: AppColors.textSecondary,
+  TextStyle _titleStyle(BuildContext context) => session.hasActivity
+      ? context.eg.text.bodyCompactEmphasis
+      : context.eg.text.bodyCompactEmphasis.copyWith(
+          color: context.eg.colors.textSecondary,
         );
-
 
   /// O que a linha promete que existe lá dentro. `null` quando não há nada — e
   /// aí a linha não anuncia nada, em vez de anunciar um vazio.

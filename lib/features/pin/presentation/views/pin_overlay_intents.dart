@@ -47,6 +47,11 @@ class PinQuickCopyIntent extends Intent {
   final int number;
 }
 
+/// Sorteia outro CPF na linha do gerador.
+class PinGenerateTaxIdIntent extends Intent {
+  const PinGenerateTaxIdIntent();
+}
+
 /// Fixa ou desafixa o item selecionado.
 class PinTogglePinIntent extends Intent {
   const PinTogglePinIntent();
@@ -132,6 +137,11 @@ abstract final class PinOverlayIntents {
         const PinCycleFilterIntent(1),
     const SingleActivator(LogicalKeyboardKey.keyP, meta: true):
         const PinTogglePinIntent(),
+    // ⌘G de "gerar". No macOS a tecla é "buscar próximo" — função que este
+    // painel não tem: a busca aqui filtra a lista inteira, não percorre
+    // ocorrências. Fora do filtro de CPF ela não faz nada.
+    const SingleActivator(LogicalKeyboardKey.keyG, meta: true):
+        const PinGenerateTaxIdIntent(),
     // ⌘⌫, e não Delete puro: o campo de busca está sempre focado, então um
     // Backspace solto precisa continuar apagando o texto digitado.
     const SingleActivator(LogicalKeyboardKey.backspace, meta: true):
@@ -162,10 +172,14 @@ abstract final class PinOverlayIntents {
 
     return {
       for (var slot = 0; slot < PinQuickShortcut.slotsPerGroup; slot++) ...{
-        SingleActivator(digits[slot], meta: true):
-            PinQuickCopyIntent(PinShortcutGroup.recent, slot + 1),
-        SingleActivator(digits[slot], alt: true):
-            PinQuickCopyIntent(PinShortcutGroup.pinned, slot + 1),
+        SingleActivator(digits[slot], meta: true): PinQuickCopyIntent(
+          PinShortcutGroup.recent,
+          slot + 1,
+        ),
+        SingleActivator(digits[slot], alt: true): PinQuickCopyIntent(
+          PinShortcutGroup.pinned,
+          slot + 1,
+        ),
       },
     };
   }
@@ -178,8 +192,9 @@ abstract final class PinOverlayIntents {
     required VoidCallback onTogglePreview,
     required void Function(int delta) onCycleFilter,
     required Future<void> Function(PinShortcutGroup group, int number)
-        onQuickCopy,
+    onQuickCopy,
     required VoidCallback onTogglePin,
+    required VoidCallback onGenerateTaxId,
     required VoidCallback onDelete,
     required Future<void> Function() onOpenSettings,
     required VoidCallback onEditAlias,
@@ -223,6 +238,12 @@ abstract final class PinOverlayIntents {
       PinTogglePinIntent: CallbackAction<PinTogglePinIntent>(
         onInvoke: (_) {
           onTogglePin();
+          return null;
+        },
+      ),
+      PinGenerateTaxIdIntent: CallbackAction<PinGenerateTaxIdIntent>(
+        onInvoke: (_) {
+          onGenerateTaxId();
           return null;
         },
       ),

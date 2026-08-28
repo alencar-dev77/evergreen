@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/clipboard_item_type.dart';
 import '../../models/pin_quick_shortcut.dart';
+import '../../models/tax_id.dart';
 
 /// Estado renderizável do overlay do Pin.
 ///
@@ -22,6 +23,7 @@ class PinOverlayState {
     required this.availableTypes,
     required this.selectedIndex,
     required this.isLoading,
+    required this.generatedTaxId,
     required Map<int, PinQuickShortcut> shortcutsByItemId,
   }) : _shortcutsByItemId = shortcutsByItemId;
 
@@ -37,6 +39,7 @@ class PinOverlayState {
     List<ClipboardItemType> availableTypes = const [],
     int selectedIndex = -1,
     bool isLoading = true,
+    String? generatedTaxId,
   }) {
     final pinned = <ClipboardItem>[];
     final recent = <ClipboardItem>[];
@@ -58,6 +61,7 @@ class PinOverlayState {
       availableTypes: List.unmodifiable(availableTypes),
       selectedIndex: selectedIndex,
       isLoading: isLoading,
+      generatedTaxId: generatedTaxId,
       shortcutsByItemId: Map.unmodifiable(shortcuts),
     );
   }
@@ -98,10 +102,24 @@ class PinOverlayState {
   /// de uma vez não caberiam nos 420px do painel.
   final List<ClipboardItemType> availableTypes;
 
-  /// Índice da seleção dentro de [results]; -1 quando não há nada selecionado.
+  /// Índice da seleção dentro de [results].
+  ///
+  /// `-1` tem dois sentidos, e o que os separa é [hasGenerator]: com a linha do
+  /// gerador na tela, `-1` **é** essa linha, que fica acima do primeiro item;
+  /// sem ela, `-1` continua sendo "nada selecionado". Os dois convivem porque
+  /// [selectedItem] devolve `null` nos dois casos — é o que faz `⌘P`, `⌘R`,
+  /// `⌘⌫` e o `tab` saírem sozinhos, sem nenhum deles precisar saber que o
+  /// gerador existe.
   final int selectedIndex;
 
   final bool isLoading;
+
+  /// O documento sorteado que a linha do gerador exibe; `null` quando a linha
+  /// não está na tela.
+  ///
+  /// Vive no estado, e não no widget, porque `⌘G` sorteia outro e a busca não
+  /// pode sortear nenhum: quem decide quando o número muda é a ViewModel.
+  final String? generatedTaxId;
 
   final Map<int, PinQuickShortcut> _shortcutsByItemId;
 
@@ -120,8 +138,24 @@ class PinOverlayState {
     return item != null && item.isPinned && pinned.length > 1;
   }
 
+  /// Qual documento a linha do gerador sorteia — o do filtro aberto.
+  ///
+  /// Sai do filtro, e não de um campo próprio, porque é o filtro que põe a
+  /// linha ali: "Gerar CPF" dentro da pílula CPF, "Gerar CNPJ" dentro da de
+  /// CNPJ, e nenhuma linha em nenhuma das outras.
+  TaxIdKind? get generatorKind => typeFilter?.taxIdKind;
+
+  /// A linha "Gerar CPF" (ou "Gerar CNPJ") está na lista.
+  bool get hasGenerator => generatedTaxId != null;
+
+  /// A seleção está na linha do gerador — ver [selectedIndex].
+  bool get isGeneratorSelected => hasGenerator && selectedIndex == -1;
+
   /// Não há nada para mostrar — nem histórico, nem resultado de busca.
-  bool get isEmpty => !isLoading && results.isEmpty;
+  ///
+  /// A linha do gerador conta: com ela na tela há o que fazer ali, e um estado
+  /// vazio por cima diria que não há.
+  bool get isEmpty => !isLoading && results.isEmpty && !hasGenerator;
 
   /// A lista está vazia porque a busca ou o filtro não encontraram nada (e não
   /// porque o histórico está vazio). Muda a mensagem do estado vazio.
@@ -130,13 +164,20 @@ class PinOverlayState {
 
   /// A fila de pílulas tem o que oferecer.
   ///
-  /// Com um tipo só no histórico, "Tudo | Textos" são dois botões para a mesma
-  /// lista — a fila só aparece quando há de fato o que separar.
-  bool get hasTypeFilter => availableTypes.length > 1;
+  /// Era `availableTypes.length > 1`, com uma razão boa: com um tipo só no
+  /// histórico, "Tudo | Textos" eram dois botões para a mesma lista. Deixou de
+  /// valer quando o CPF ganhou o gerador dentro dele — a pílula do CPF nunca é
+  /// a mesma coisa que "Tudo", nem quando é o único tipo guardado, porque atrás
+  /// dela há um número que ainda não existe. E era exatamente esse o caso a
+  /// resolver: quem acabou de gerar o primeiro CPF tem um histórico só de CPF,
+  /// e a fila sumiria justamente ali, levando o gerador junto.
+  bool get hasTypeFilter => availableTypes.isNotEmpty;
 
   /// As opções da fila, na ordem em que aparecem: "Tudo" e os tipos presentes.
-  List<ClipboardItemType?> get typeFilterOptions =>
-      <ClipboardItemType?>[null, ...availableTypes];
+  List<ClipboardItemType?> get typeFilterOptions => <ClipboardItemType?>[
+    null,
+    ...availableTypes,
+  ];
 
   /// Atalho numérico do item, se ele estiver entre os primeiros do seu grupo.
   PinQuickShortcut? shortcutFor(ClipboardItem item) {
@@ -154,9 +195,10 @@ class PinOverlayState {
 
   /// Cópia com campos trocados.
   ///
-  /// `typeFilter` é o único que não segue o `?? this`: `null` ali é o valor
-  /// "Tudo", não "não mexe". Quem quer preservar o filtro passa
-  /// `keepTypeFilter: true` — que é o padrão.
+  /// `typeFilter` e `generatedTaxId` são os dois que não seguem o `?? this`:
+  /// `null` neles é um valor — "Tudo" e "sem linha de gerador" —, não "não
+  /// mexe". Quem quer preservá-los passa `keepTypeFilter` / `keepGeneratedTaxId`
+  /// — que é o padrão.
   PinOverlayState copyWith({
     List<ClipboardItem>? results,
     String? query,
@@ -165,6 +207,8 @@ class PinOverlayState {
     List<ClipboardItemType>? availableTypes,
     int? selectedIndex,
     bool? isLoading,
+    String? generatedTaxId,
+    bool keepGeneratedTaxId = true,
   }) {
     return PinOverlayState(
       results: results ?? this.results,
@@ -173,6 +217,9 @@ class PinOverlayState {
       availableTypes: availableTypes ?? this.availableTypes,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       isLoading: isLoading ?? this.isLoading,
+      generatedTaxId: keepGeneratedTaxId
+          ? (generatedTaxId ?? this.generatedTaxId)
+          : generatedTaxId,
     );
   }
 }

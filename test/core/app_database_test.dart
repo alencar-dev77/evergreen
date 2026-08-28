@@ -69,8 +69,11 @@ void main() {
     AppDatabase.migrate(database);
     final ids = appliedIn(database);
     database.execute('DROP TABLE schema_migrations;');
-    database.execute('INSERT INTO clipboard_items (content, type, is_pinned, '
-        'copied_at, pinned_at) VALUES (?, ?, 1, 10, 99);', ['pix', 'text']);
+    database.execute(
+      'INSERT INTO clipboard_items (content, type, is_pinned, '
+      'copied_at, pinned_at) VALUES (?, ?, 1, 10, 99);',
+      ['pix', 'text'],
+    );
 
     AppDatabase.migrate(database);
 
@@ -78,7 +81,11 @@ void main() {
     // Reaplicar a migração da ordem dos fixados teria jogado `pinned_at` de
     // volta para `copied_at` — é o dado que o registro protege.
     expect(
-      database.select('SELECT pinned_at FROM clipboard_items;').first.values.first,
+      database
+          .select('SELECT pinned_at FROM clipboard_items;')
+          .first
+          .values
+          .first,
       99,
     );
   });
@@ -89,8 +96,9 @@ void main() {
     // Uma branch paralela chegou antes, criou a própria tabela e deixou a
     // contagem no mesmo número que esta lista de migrações produz. Pelo número
     // não haveria nada pendente; pela chave, a última daqui nunca rodou.
-    database.execute('DELETE FROM schema_migrations WHERE id = ?;',
-        ['clipboard-alias']);
+    database.execute('DELETE FROM schema_migrations WHERE id = ?;', [
+      'clipboard-alias',
+    ]);
     database.execute('ALTER TABLE clipboard_items DROP COLUMN alias;');
 
     AppDatabase.migrate(database);
@@ -101,7 +109,10 @@ void main() {
   test('uma migração que falha de verdade não é engolida', () {
     database.execute('CREATE TABLE clipboard_items (wrong INTEGER);');
 
-    expect(() => AppDatabase.migrate(database), throwsA(isA<SqliteException>()));
+    expect(
+      () => AppDatabase.migrate(database),
+      throwsA(isA<SqliteException>()),
+    );
     // Transação: o banco não fica no meio do caminho.
     expect(versionOf(database), 0);
   });

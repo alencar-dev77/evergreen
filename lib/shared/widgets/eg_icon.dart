@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_colors.dart';
+import 'eg_brand_mark.dart';
+
+import '../../core/design/eg_tokens.dart';
 
 /// Conjunto de ícones do Evergreen.
 ///
@@ -27,6 +29,17 @@ enum EgIconData {
 
   /// Cartão com retrato e linha — representa um documento (CPF).
   identityCard,
+
+  /// Prédio com janelas — representa uma empresa (CNPJ).
+  ///
+  /// Ícone próprio, e não o [identityCard] repetido: num histórico com os dois,
+  /// duas linhas idênticas de ícone que só o rótulo separa é o mesmo que não
+  /// ter ícone — e pessoa e empresa são justamente a distinção que a lista
+  /// precisa deixar correr o olho.
+  building,
+
+  /// Duas setas em círculo — sortear outro, refazer.
+  shuffle,
 
   /// Lupa do campo de busca.
   search,
@@ -64,7 +77,8 @@ enum EgIconData {
   /// Trilha sinuosa com o marco no fim — identifica o módulo Track.
   track,
 
-  /// Árvore perene — a marca do Evergreen (preenchida, como a [star]).
+  /// O canivete — a marca do Evergreen, o mesmo desenho da abertura do Hub e
+  /// do ícone do aplicativo. Não é um path daqui: vem de `eg_brand_mark.dart`.
   evergreen,
 }
 
@@ -84,14 +98,17 @@ class EgIcon extends StatelessWidget {
     this.icon, {
     super.key,
     this.size = 14,
-    this.color = AppColors.textSecondary,
+    this.color,
     this.strokeWidth = 1.3,
     this.semanticLabel,
   });
 
   final EgIconData icon;
   final double size;
-  final Color color;
+
+  /// A cor do glifo. `null` é o padrão e quer dizer "a secundária do tema" —
+  /// ícone aqui é acessório de um texto, e acompanha a pele como ele.
+  final Color? color;
   final double strokeWidth;
 
   /// O que este ícone significa, quando ele é a única coisa que diz isso.
@@ -104,7 +121,7 @@ class EgIcon extends StatelessWidget {
       child: CustomPaint(
         painter: _EgIconPainter(
           icon: this.icon,
-          color: color,
+          color: color ?? context.eg.colors.textSecondary,
           strokeWidth: strokeWidth,
         ),
       ),
@@ -124,6 +141,8 @@ class _EgIconPainter extends CustomPainter {
   });
 
   final EgIconData icon;
+
+  /// Já resolvida: o `null` do widget virou a cor do tema antes de chegar aqui.
   final Color color;
   final double strokeWidth;
 
@@ -136,10 +155,28 @@ class _EgIconPainter extends CustomPainter {
     canvas.save();
     canvas.scale(scale);
 
-    final isFilled = icon == EgIconData.star || icon == EgIconData.evergreen;
-    if (isFilled) {
+    // A marca não é um glifo desta lista: ela é o desenho do canivete, o mesmo
+    // que a abertura do Hub anima e que o ícone do aplicativo mostra. Redesenhar
+    // uma versão de 16px aqui é como o pinheiro sobreviveu à aposentadoria —
+    // havia dois desenhos, e só um foi trocado.
+    //
+    // Numa cor só: quem separa lâmina de cabo neste tamanho é a silhueta e o
+    // furo do rebite, não o contraste entre os dois verdes.
+    if (icon == EgIconData.evergreen) {
+      paintBrandMarkFitted(
+        canvas,
+        _viewBox,
+        cover: 1,
+        blade: color,
+        handle: color,
+      );
+      canvas.restore();
+      return;
+    }
+
+    if (icon == EgIconData.star) {
       canvas.drawPath(
-        icon == EgIconData.star ? _starPath() : _evergreenPath(),
+        _starPath(),
         Paint()
           ..color = color
           ..style = PaintingStyle.fill
@@ -162,26 +199,30 @@ class _EgIconPainter extends CustomPainter {
   }
 
   Path _strokePath() => switch (icon) {
-        EgIconData.document => _documentPath(),
-        EgIconData.link => _linkPath(),
-        EgIconData.terminal => _terminalPath(),
-        EgIconData.envelope => _envelopePath(),
-        EgIconData.phone => _phonePath(),
-        EgIconData.identityCard => _identityCardPath(),
-        EgIconData.search => _searchPath(),
-        EgIconData.plus => _plusPath(),
-        EgIconData.close => _closePath(),
-        EgIconData.gear => _gearPath(),
-        EgIconData.trash => _trashPath(),
-        EgIconData.clipboard => _clipboardPath(),
-        EgIconData.timer => _timerPath(),
-        EgIconData.sun => _sunPath(),
-        EgIconData.note => _notePath(),
-        EgIconData.microphone => _microphonePath(),
-        EgIconData.track => _trackPath(),
-        EgIconData.star => _starPath(),
-        EgIconData.evergreen => _evergreenPath(),
-      };
+    EgIconData.document => _documentPath(),
+    EgIconData.link => _linkPath(),
+    EgIconData.terminal => _terminalPath(),
+    EgIconData.envelope => _envelopePath(),
+    EgIconData.phone => _phonePath(),
+    EgIconData.identityCard => _identityCardPath(),
+    EgIconData.building => _buildingPath(),
+    EgIconData.shuffle => _shufflePath(),
+    EgIconData.search => _searchPath(),
+    EgIconData.plus => _plusPath(),
+    EgIconData.close => _closePath(),
+    EgIconData.gear => _gearPath(),
+    EgIconData.trash => _trashPath(),
+    EgIconData.clipboard => _clipboardPath(),
+    EgIconData.timer => _timerPath(),
+    EgIconData.sun => _sunPath(),
+    EgIconData.note => _notePath(),
+    EgIconData.microphone => _microphonePath(),
+    EgIconData.track => _trackPath(),
+    EgIconData.star => _starPath(),
+    // A marca não passa por aqui: ela é pintada antes, direto do desenho
+    // do canivete.
+    EgIconData.evergreen => Path(),
+  };
 
   Path _documentPath() => Path()
     ..addRRect(
@@ -257,6 +298,67 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(12.2, 6.6)
     ..moveTo(9, 9.4)
     ..lineTo(12.2, 9.4);
+
+  /// Prédio de duas alturas com janelas — a empresa, atrás do CNPJ.
+  ///
+  /// Mesma gramática do [_identityCardPath]: um contorno arredondado e traços
+  /// curtos dentro. As janelas são segmentos, não retângulos — a 13px um
+  /// retângulo de um pixel e meio vira borrão, e o traço fica legível.
+  Path _buildingPath() => Path()
+    // O corpo alto, à esquerda.
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(2.5, 2.5, 6, 11),
+        const Radius.circular(1),
+      ),
+    )
+    // O anexo baixo, à direita, encostado nele.
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(8.5, 6.5, 5, 7),
+        const Radius.circular(1),
+      ),
+    )
+    ..moveTo(4.6, 5.3)
+    ..lineTo(6.4, 5.3)
+    ..moveTo(4.6, 8)
+    ..lineTo(6.4, 8)
+    ..moveTo(4.6, 10.7)
+    ..lineTo(6.4, 10.7)
+    ..moveTo(10.4, 9.2)
+    ..lineTo(11.6, 9.2)
+    ..moveTo(10.4, 11.4)
+    ..lineTo(11.6, 11.4);
+
+  /// Seta dando a volta — sortear outro.
+  ///
+  /// A ponta é um chevron de dois traços, e não um triângulo preenchido: no
+  /// viewBox de 16px o triângulo pesa mais que o próprio arco, e este ícone
+  /// aparece a 13px dentro de uma linha de lista, ao lado de traços finos.
+  Path _shufflePath() {
+    const center = Offset(8, 8);
+    const radius = 5.0;
+    const start = -math.pi / 3; // começa às duas horas
+    const sweep = 5 * math.pi / 3; // e dá quase a volta inteira
+    const end = start + sweep;
+
+    final tip = Offset(
+      center.dx + math.cos(end) * radius,
+      center.dy + math.sin(end) * radius,
+    );
+
+    // Tangente no fim do arco (para onde ele seguiria) e o raio, para abrir as
+    // duas asas do chevron simetricamente em volta dela.
+    final along = Offset(-math.sin(end), math.cos(end));
+    final across = Offset(math.cos(end), math.sin(end));
+    final back = tip - along * 2.3;
+
+    return Path()
+      ..addArc(Rect.fromCircle(center: center, radius: radius), start, sweep)
+      ..moveTo(back.dx + across.dx * 1.3, back.dy + across.dy * 1.3)
+      ..lineTo(tip.dx, tip.dy)
+      ..lineTo(back.dx - across.dx * 1.3, back.dy - across.dy * 1.3);
+  }
 
   Path _searchPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(7, 7), radius: 5))
@@ -382,23 +484,6 @@ class _EgIconPainter extends CustomPainter {
     ..moveTo(13, 9.4)
     ..lineTo(9.4, 9.4)
     ..lineTo(9.4, 13.2);
-
-  /// Árvore perene do Evergreen, centralizada no viewBox 16x16 (o mesmo
-  /// desenho de `assets/icons/evergreen_menu.svg`, reescalado a partir do
-  /// espaço 22 do SVG e centrado em (8, 8)).
-  Path _evergreenPath() => Path()
-    ..moveTo(8.0, 2.0)
-    ..lineTo(11.51, 5.69)
-    ..lineTo(9.75, 5.69)
-    ..lineTo(13.35, 9.38)
-    ..lineTo(10.58, 9.38)
-    ..lineTo(14.46, 14.0)
-    ..lineTo(1.54, 14.0)
-    ..lineTo(5.42, 9.38)
-    ..lineTo(2.65, 9.38)
-    ..lineTo(6.25, 5.69)
-    ..lineTo(4.49, 5.69)
-    ..close();
 
   Path _starPath() => Path()
     ..moveTo(8, 2)

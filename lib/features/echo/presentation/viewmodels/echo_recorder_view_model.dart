@@ -115,7 +115,10 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
         vocabulary: settings.vocabularyTerms,
       );
     } on EchoException catch (error) {
-      state = state.copyWith(phase: EchoPhase.failed, errorMessage: error.message);
+      state = state.copyWith(
+        phase: EchoPhase.failed,
+        errorMessage: error.message,
+      );
       return;
     }
 
@@ -146,7 +149,9 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
     // que o Echo está ouvindo, não um documento para ler ali.
     final updated = [...state.liveText, text];
     state = state.copyWith(
-      liveText: updated.length > 6 ? updated.sublist(updated.length - 6) : updated,
+      liveText: updated.length > 6
+          ? updated.sublist(updated.length - 6)
+          : updated,
     );
   }
 
@@ -208,8 +213,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       // faltou — uma faixa que não gravou, a captura interrompida pelo sistema
       // — a tela diz, em vez de mostrar uma transcrição muda e deixar a pessoa
       // adivinhar entre permissão, entrada de som e reconhecimento.
-      final explanation =
-          segments.isEmpty ? files.silenceExplanation : null;
+      final explanation = segments.isEmpty ? files.silenceExplanation : null;
 
       // Transcreveu, mas faltou uma das faixas: a reunião valeu, e ainda assim
       // a tela precisa dizer que metade da conversa não está ali.
@@ -278,8 +282,18 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   /// "Reunião de 14 de agosto, 15:30" — trocável na tela do Hub.
   String _defaultTitle(DateTime startedAt) {
     const months = [
-      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
     ];
 
     final hour = startedAt.hour.toString().padLeft(2, '0');

@@ -264,7 +264,12 @@ class OverlayWindow {
     for (final display in displays) {
       final origin = display.visiblePosition ?? Offset.zero;
       final size = display.visibleSize ?? display.size;
-      final bounds = Rect.fromLTWH(origin.dx, origin.dy, size.width, size.height);
+      final bounds = Rect.fromLTWH(
+        origin.dx,
+        origin.dy,
+        size.width,
+        size.height,
+      );
 
       if (bounds.contains(cursor)) return display;
     }

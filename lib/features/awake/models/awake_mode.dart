@@ -29,14 +29,11 @@ enum AwakeMode {
   /// linha e se leem uma ao lado da outra ("Tela · Sistema"), aqui a frase
   /// aparece sozinha numa lista com sessões de foco e reuniões, e precisa
   /// dizer o que aconteceu sem o contexto do seletor ao redor.
-  String get periodLabel =>
-      keepsScreenOn ? 'Tela acesa' : 'Sistema acordado';
+  String get periodLabel => keepsScreenOn ? 'Tela acesa' : 'Sistema acordado';
 
   /// Todas as opções, na ordem em que o seletor as mostra.
   static const options = values;
 
-  static AwakeMode fromName(String? name) => values.firstWhere(
-        (mode) => mode.name == name,
-        orElse: () => screen,
-      );
+  static AwakeMode fromName(String? name) =>
+      values.firstWhere((mode) => mode.name == name, orElse: () => screen);
 }

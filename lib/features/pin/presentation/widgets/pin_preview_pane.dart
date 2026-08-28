@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../../models/clipboard_item.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Coluna de preview do item selecionado.
 ///
@@ -46,11 +45,11 @@ class PinPreviewPane extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _header(),
+          _header(context),
           const SizedBox(height: AppSpacing.lg),
-          _aliasField(),
+          _aliasField(context),
           const SizedBox(height: AppSpacing.md),
-          Expanded(child: _contentCard()),
+          Expanded(child: _contentCard(context)),
           const SizedBox(height: AppSpacing.xl),
           _actions(),
         ],
@@ -65,7 +64,7 @@ class PinPreviewPane extends StatelessWidget {
   /// placeholder dizendo para que serve. Um campo escondido atrás de hover
   /// nunca seria descoberto por quem abre o preview justamente para entender o
   /// que dá para fazer ali.
-  Widget _aliasField() {
+  Widget _aliasField(BuildContext context) {
     return EgTextField(
       controller: aliasController,
       focusNode: aliasFocusNode,
@@ -74,12 +73,12 @@ class PinPreviewPane extends StatelessWidget {
     );
   }
 
-  Widget _header() {
+  Widget _header(BuildContext context) {
     return Row(
       children: [
         EgIconBadge(
           size: AppBadgeSizes.sm,
-          borderRadius: AppRadii.badgeAll,
+          borderRadius: context.eg.shapes.smallAll,
           child: EgIcon(item.type.icon, size: AppIconSizes.sm),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -88,7 +87,7 @@ class PinPreviewPane extends StatelessWidget {
             '${item.type.label} · copiado ${RelativeTime.format(item.copiedAt)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.overline,
+            style: context.eg.text.overline,
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -97,27 +96,29 @@ class PinPreviewPane extends StatelessWidget {
           tooltip: item.isPinned ? 'Desafixar (⌘P)' : 'Fixar (⌘P)',
           size: AppBadgeSizes.sm,
           iconSize: AppIconSizes.xs,
-          color: item.isPinned ? AppColors.greenPrimary : AppColors.textSecondary,
-          hoverColor: AppColors.greenLight,
+          color: item.isPinned
+              ? context.eg.colors.accent
+              : context.eg.colors.textSecondary,
+          hoverColor: context.eg.colors.accentLight,
           onPressed: onTogglePin,
         ),
       ],
     );
   }
 
-  Widget _contentCard() {
+  Widget _contentCard(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.buttonAll,
-        border: AppBorders.all,
+        color: context.eg.colors.card,
+        borderRadius: context.eg.shapes.controlAll,
+        border: context.eg.borderAll,
       ),
       child: SingleChildScrollView(
         child: SelectableText(
           item.content,
-          style: AppTypography.bodyCompact.copyWith(height: 1.6),
+          style: context.eg.text.bodyCompact.copyWith(height: 1.6),
         ),
       ),
     );
@@ -127,11 +128,7 @@ class PinPreviewPane extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: EgButton(
-            label: 'Copiar',
-            onPressed: onCopy,
-            expand: true,
-          ),
+          child: EgButton(label: 'Copiar', onPressed: onCopy, expand: true),
         ),
         const SizedBox(width: AppSpacing.md),
         EgButton.destructive(label: 'Excluir', onPressed: onDelete),

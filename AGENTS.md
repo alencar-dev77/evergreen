@@ -53,13 +53,38 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   fica em ViewModels (`Notifier`).
 - Estrutura por feature em `lib/features/<modulo>/{data,models,presentation}`;
   `presentation` se divide em `viewmodels/`, `views/`, `widgets/`.
-- Tokens de design (cor, tipografia, métricas) em `lib/core/design/` são a
-  **única** fonte — nenhum `Color(0x...)` fora de `app_colors.dart`, nenhum
-  tamanho de fonte, ícone, espaçamento ou opacidade escrito à mão num widget.
-  `copyWith` em estilo de texto vale só para cor; peso e tamanho são degraus da
-  escala, e degrau que falta entra em `app_typography.dart` com nome.
+- **O app tem dois temas escuros — `evergreen` e `apple` — e widget nenhum sabe
+  qual está em vigor.** Todo valor visual vem do tema pelo contexto
+  (`context.eg.colors.accent`, `context.eg.text.body`,
+  `context.eg.shapes.radiusCard`); os literais existem só em
+  `lib/core/design/themes/`. Papel que falta nasce nos **dois** temas ao mesmo
+  tempo — todo campo dos tokens é `required`, então é o compilador que cobra.
+  Um `if` por tema dentro de um widget é um token faltando; a única bandeira que
+  se lê é `usesVibrancy`, e só quem desenha painel a lê. Ler `THEMING.md` antes
+  de acrescentar token ou tema.
+- Espaçamento, tamanho de ícone e **durações** seguem estáticos em
+  `app_metrics.dart`, e isso é decisão: o ritmo é do produto, não da pele — um
+  app que fica mais lento ao trocar de aparência estaria mentindo sobre o que a
+  troca faz. Do movimento, só a curva é do tema.
+- `copyWith` em estilo de texto vale só para cor; peso e tamanho são degraus da
+  escala, e degrau que falta entra na `EgTypeScale` dos dois temas com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
+- **A marca do Evergreen é um desenho só**, o canivete de
+  `lib/shared/widgets/eg_brand_mark.dart`. A abertura do Hub, o ícone do
+  aplicativo, o da barra de menus e o glifo da barra lateral saem todos dele —
+  os `.png` são **gerados** por
+  `flutter test --run-skipped -t assets test/tools/brand_assets_test.dart`, e
+  não existe `.svg` ao lado. Havia um, e foi por causa dele que o pinheiro
+  continuou no ícone do aplicativo e na barra de menus depois de a marca do Hub
+  já ser o canivete: dois desenhos, e só um trocado.
+- **Tela de preferência tem ordem fixa de tópicos**: o que aconteceu (a lista do
+  módulo) → o que ele faz (interruptores no topo de cada tópico, depois
+  seletores, campos de texto por último) → limites e ações destrutivas → atalho
+  global → permissões. A pilha é a `EgSettingsPage`, que é quem dá o vão entre
+  tópicos; a seção não guarda espaço embaixo de si. Campo de texto usa
+  `EgSettingsRow.field`, nunca um rótulo com um campo solto embaixo. O detalhe
+  de cada regra está em `components.md` da skill de design.
 - Estado de elemento interativo (hover, pressed, foco, selecionado, desabilitado)
   vem da matriz `EgSurfaceStyle` (`eg_surface.dart`), via `EgInteractiveSurface`
   ou `EgSurface` — nunca de uma cadeia de `if`s dentro do widget. Selecionado é
@@ -125,7 +150,18 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   **subsequência não é solta sobre o conteúdo inteiro** — só sobre o apelido e a
   linha exibida. Solta, ela devolve o histórico inteiro para qualquer coisa
   digitada; o casamento literal é que continua alcançando o conteúdo todo.
-- Tipo de item do Pin (texto, link, e-mail, telefone, CPF, comando) é decidido
+- **O Pin escreve num lugar só: o gerador de CPF e CNPJ.** Ele é uma linha no
+  topo da lista dentro do filtro daquele documento, e paga três exceções às
+  regras daqui — as pílulas de CPF e CNPJ estão sempre na fila (senão o gerador
+  nasce escondido de quem nunca copiou um), clicar nela copia em vez de abrir o
+  preview (a linha não tem um "dentro"), e `selectedIndex == -1` passou a
+  significar duas coisas. **É uma linha só para os dois documentos**, e uma
+  conta só: o módulo 11 vive em `TaxId` (`lib/features/pin/models/tax_id.dart`),
+  onde CPF e CNPJ compartilham o mesmo `_checkDigit` e discordam apenas nos
+  pesos (`TaxIdKind.weightAt`) — o segundo documento não ganhou um segundo
+  arquivo, pelo mesmo motivo que a conta saiu do classificador. Ver
+  [docs/Ideis projeto/pin-gerador-de-cpf.md](docs/Ideis%20projeto/pin-gerador-de-cpf.md).
+- Tipo de item do Pin (texto, link, e-mail, telefone, CPF, CNPJ, comando) é decidido
   na captura e gravado na linha. Mexeu no `ClipboardItemClassifier`, suba o
   `version` dele: é o que faz `reclassifyOutdated` reprocessar o histórico já
   guardado uma vez, na abertura seguinte. Sem isso, um tipo novo nasce vazio
@@ -195,10 +231,24 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   deixou crescer e o passo lateral que ele deu para não vazar da borda, e paga
   os dois no fechamento. Sem esse acerto, abrir e fechar deixava a janela mais
   estreita e fora do centro a cada volta.
-- Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub)
-  vai para `AppSettings` e para a tela do aplicativo (`app_settings_view.dart`),
-  nunca para a tela de um módulo — foi assim que "iniciar com o macOS" acabou
-  morando dentro do Pin até a v0.2.
+- Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub,
+  o nome de quem usa, a aparência) vai para `AppSettings` e para a tela do aplicativo
+  (`app_settings_view.dart`), nunca para a tela de um módulo — foi assim que
+  "iniciar com o macOS" acabou morando dentro do Pin até a v0.2.
+- **O nome de quem usa é preferência de aplicativo, e existe para o modelo
+  local.** Sem ele o resumo da reunião diz "a pessoa" e o parágrafo do Track diz
+  o mesmo — texto sobre você escrito por quem não sabe seu nome. Quem quiser
+  usá-lo faz duas coisas, nunca uma: põe o nome **no texto** que vai ao modelo
+  (no Echo é o rótulo de quem falou, `Speaker.labelFor`) e **na instrução**,
+  dizendo que aquele nome é de quem pediu — o rótulo sozinho faz o modelo achar
+  que é mais um participante. Vazio é o estado normal e nada pode depender dele.
+  Módulo que roda no engine da janela 0 relê o disco antes
+  (`AppSettingsRepository.reload`): o nome é escrito no Hub, que é outro engine.
+- A pergunta do nome aparece **uma vez por instalação**, quando a abertura
+  animada termina: o Hub cai na tela do aplicativo, com a pergunta no topo e o
+  cursor dentro. Amarrada ao fim da cena, e não à abertura da janela, porque a
+  cena já roda uma vez por build — pergunta que reabre a cada Hub vira cobrança.
+  Depois disso o campo continua lá, como primeira linha de "Geral".
 - Módulo com painel flutuante: **não crie uma janela nova** — acrescente um
   valor a `OverlayPanel`, desenhe o painel em `OverlayHost` e registre o atalho
   global no `EvergreenBootstrap`. Só a janela 0 pode ser borderless/sempre no
@@ -238,6 +288,19 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Serviços que precisam sobreviver com todas as janelas fechadas (captura de
   clipboard, cronômetro do Focus, trava do Awake) vivem no engine da janela 0 e
   são ligados no `EvergreenBootstrap`.
+- **Trabalho demorado pedido de dentro do Hub também mora na janela 0.** Fechar
+  o Hub destrói a sub-janela e o engine dela, e com ele tudo o que estava
+  pendente — não há aviso, não há erro, o trabalho simplesmente não termina. Foi
+  o que acontecia com o resumo do Echo: pedir "Resumir" e sair da janela
+  cancelava o resumo no meio, e a reunião reaparecia sem ele. O arranjo é
+  `EchoSummaryRunner`: quem faz é o `LocalEchoSummaryRunner` da janela 0, quem
+  pede é o `WindowEchoSummaryRunner` do Hub, e o `echoSummaryRunnerProvider`
+  escolhe um ou outro pelo `windowKindProvider` — o chamador não sabe a
+  diferença. O Hub pergunta o andamento de meio em meio segundo enquanto há
+  trabalho (`EchoSummaryStatus`), o que também é o que faz uma janela reaberta
+  reencontrar um resumo em curso. Canal unidirecional, registrado uma única vez
+  na janela 0: nos dois sentidos, um Hub reaberto rápido demais poderia
+  encontrar o registro do engine morto ainda ocupado.
 - Arquivo Swift novo em `macos/Runner/` **não entra sozinho na build**: o
   `project.pbxproj` é da era anterior aos grupos sincronizados, então cada
   arquivo precisa de quatro entradas (`PBXBuildFile`, `PBXFileReference`, filho
@@ -257,6 +320,9 @@ UI e microcopy em português (pt-BR).
 - `flutter test` — rodar testes (unidade e widget)
 - `flutter test --run-skipped -t preview --update-goldens` — regerar goldens
   de conferência visual (fora da suíte padrão, dependem de fontes do sistema)
+- `flutter test --run-skipped -t assets test/tools/brand_assets_test.dart` —
+  reexportar o ícone do aplicativo e o da barra de menus a partir da marca em
+  Dart. Fora da suíte padrão porque **escreve** no repositório.
 - `./run_build_copy` — build release e instala em `/Applications`, reassinando
   com identidade estável. A assinatura ad-hoc do projeto muda de hash a cada
   build, e com ela o macOS descarta a permissão de Acessibilidade — que é o que

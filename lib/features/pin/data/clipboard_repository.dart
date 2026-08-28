@@ -131,8 +131,7 @@ class SqliteClipboardRepository implements ClipboardRepository {
 
     final order = {
       for (final row in rows)
-        row['id'] as int:
-            (row['pinned_at'] as int?) ?? row['copied_at'] as int,
+        row['id'] as int: (row['pinned_at'] as int?) ?? row['copied_at'] as int,
     };
 
     final first = order[firstId]!;
@@ -182,8 +181,9 @@ class SqliteClipboardRepository implements ClipboardRepository {
 
       try {
         for (final row in rows) {
-          final type =
-              ClipboardItemClassifier.classify(row['content'] as String);
+          final type = ClipboardItemClassifier.classify(
+            row['content'] as String,
+          );
           if (type.name != row['type'] as String) changed++;
 
           update.execute([

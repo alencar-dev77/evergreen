@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../../core/app_info.dart';
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_nav_tile.dart';
 import '../../models/evergreen_module.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Barra lateral do Hub: o aplicativo no topo e os módulos abaixo.
 class ModuleSidebar extends StatelessWidget {
@@ -27,12 +26,12 @@ class ModuleSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      // Superfície levemente translúcida (`AppColors.sidebar`): o brilho verde
+      // Superfície levemente translúcida (`context.eg.colors.sidebar`): o brilho verde
       // do fundo atravessa de leve no topo, unificando a sidebar com a área de
       // conteúdo sem custo de blur.
       decoration: BoxDecoration(
-        color: AppColors.sidebar,
-        border: const Border(right: AppBorders.subtle),
+        color: context.eg.colors.sidebar,
+        border: Border(right: context.eg.hairline),
       ),
       child: SizedBox(
         width: width,
@@ -87,25 +86,25 @@ class ModuleSidebar extends StatelessWidget {
                 icon: EgIconData.evergreen,
                 title: 'Evergreen',
                 subtitle: 'Preferências do aplicativo',
-                titleStyle: AppTypography.bodyStrong,
+                titleStyle: context.eg.text.bodyStrong,
                 // A marca não muda de cor com a lista: o verde dela é
                 // identidade, não estado.
-                iconColor: AppColors.greenPrimary,
-                iconBackground: AppColors.card,
+                iconColor: context.eg.colors.accent,
+                iconBackground: context.eg.colors.card,
                 iconSize: AppIconSizes.lg,
                 borderedIcon: true,
                 isSelected: selected == null,
                 onTap: () => onSelect(null),
               ),
             ),
-            _version(),
+            _version(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _version() {
+  Widget _version(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xxl,
@@ -113,7 +112,7 @@ class ModuleSidebar extends StatelessWidget {
         AppSpacing.xxl,
         AppSpacing.xl,
       ),
-      child: Text(AppInfo.versionLabel, style: AppTypography.captionSmall),
+      child: Text(AppInfo.versionLabel, style: context.eg.text.captionSmall),
     );
   }
 }

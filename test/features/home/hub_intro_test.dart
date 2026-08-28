@@ -69,9 +69,9 @@ void main() {
     });
 
     test('não mostra de novo na mesma build', () async {
-      await containerFor('build-1')
-          .read(hubIntroViewModelProvider.notifier)
-          .complete();
+      await containerFor(
+        'build-1',
+      ).read(hubIntroViewModelProvider.notifier).complete();
 
       expect(containerFor('build-1').read(hubIntroViewModelProvider), isFalse);
       expect(containerFor('build-2').read(hubIntroViewModelProvider), isTrue);
@@ -99,19 +99,26 @@ void main() {
       var done = 0;
       await pump(tester, onDone: () => done++);
 
-      EgBrandMark mark() => tester.widget<EgBrandMark>(find.byType(EgBrandMark));
+      EgBrandMark mark() =>
+          tester.widget<EgBrandMark>(find.byType(EgBrandMark));
 
       // Primeiro quadro: recolhida.
       expect(mark().openness, lessThan(0.05));
 
-      // No meio do giro ela já saiu, e ainda não travou.
-      await tester.pump(const Duration(milliseconds: 140));
+      // Na metade do giro ela está no meio do caminho. O giro dura 1,7s:
+      // curto demais e a cena não é vista, que é o motivo de ela existir.
+      await tester.pump(const Duration(milliseconds: 850));
       final meio = mark().openness;
       expect(meio, greaterThan(0.1));
       expect(meio, lessThan(1));
 
+      // Ainda girando muito depois de onde uma transição comum já teria
+      // acabado — a cena é deliberadamente maior que a escala de transições.
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(mark().openness, lessThan(1));
+
       // Depois do assentamento, travada — o estado normal do ícone.
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 450));
       expect(mark().openness, moreOrLessEquals(1, epsilon: 0.001));
 
       expect(done, 0, reason: 'a cena ainda está na pausa');
@@ -126,8 +133,11 @@ void main() {
       // O settle é o único spring do app: sem ele a lâmina para seca e a cena
       // parece cortada. Em algum quadro entre o fim do giro e a trava, a
       // abertura precisa passar de 1.
+      // Direto para o fim do giro: o que se procura mora nos 60ms do settle.
+      await tester.pump(const Duration(milliseconds: 1690));
+
       var passou = false;
-      for (var i = 0; i < 28; i++) {
+      for (var i = 0; i < 8; i++) {
         await tester.pump(const Duration(milliseconds: 10));
         final v = tester.widget<EgBrandMark>(find.byType(EgBrandMark)).openness;
         if (v > 1.001) passou = true;
@@ -137,23 +147,21 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('com movimento reduzido nasce travada e não anima',
-        (tester) async {
+    testWidgets('com movimento reduzido nasce travada e não anima', (
+      tester,
+    ) async {
       var done = 0;
       await pump(tester, onDone: () => done++, reducedMotion: true);
 
       // Sem giro nenhum: já no primeiro quadro a lâmina está no estado final.
-      expect(
-        tester.widget<EgBrandMark>(find.byType(EgBrandMark)).openness,
-        1,
-      );
+      expect(tester.widget<EgBrandMark>(find.byType(EgBrandMark)).openness, 1);
 
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 900));
       expect(done, 0);
 
       // A pausa é cumprida do mesmo jeito, e o carimbo acaba gravado — senão a
       // abertura voltaria a cada Hub para quem desligou animação.
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 900));
       expect(done, 1);
     });
   });

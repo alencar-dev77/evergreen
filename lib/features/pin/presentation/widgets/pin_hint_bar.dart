@@ -15,9 +15,17 @@ class PinHintBar extends StatelessWidget {
     this.isFiltered = false,
     this.hasTypes = false,
     this.isSelectedPinned = false,
+    this.isGeneratorSelected = false,
   });
 
   final bool isPreviewOpen;
+
+  /// A seleção está na linha "Gerar CPF".
+  ///
+  /// Ali o rodapé fala de outra coisa: fixar, renomear e reordenar não existem
+  /// para uma linha que ainda não é um item, e o `⌘G` — que em qualquer outro
+  /// lugar não faz nada — é justamente o que a linha tem de próprio.
+  final bool isGeneratorSelected;
 
   /// O item selecionado já está fixado.
   ///
@@ -67,8 +75,23 @@ class PinHintBar extends StatelessWidget {
   /// a segunda só entra se a primeira não tiver cabido. É assim que o `tab`
   /// sobrevive numa linha cheia — sem o verbo, mas presente, que é o que
   /// importa para uma tecla cujo trabalho é abrir e fechar o item.
-  List<EgHint> get _candidates =>
-      isPreviewOpen ? _itemHints : _listHints;
+  List<EgHint> get _candidates {
+    if (isGeneratorSelected) return _generatorHints;
+
+    return isPreviewOpen ? _itemHints : _listHints;
+  }
+
+  /// Na linha do gerador, três coisas: sortear outro, copiar este e sair dela.
+  ///
+  /// O `enter` ganha rótulo aqui, e não na lista: em cima de um item ele é o
+  /// óbvio de um painel de área de transferência, mas em cima de uma linha que
+  /// diz "Gerar CPF" a dúvida é real — se o Enter gera ou se copia o que já
+  /// está escrito ali.
+  List<EgHint> get _generatorHints => const [
+    EgHint(keys: ['⌘G'], label: 'sortear'),
+    EgHint(keys: ['enter'], label: 'copiar'),
+    EgHint(keys: ['↑↓']),
+  ];
 
   /// Com o item aberto, a linha fala **do item**: renomear, (des)fixar e
   /// voltar.
@@ -77,26 +100,26 @@ class PinHintBar extends StatelessWidget {
   /// item está lendo o item, e é sobre ele que a dúvida aparece. Foi a régua
   /// que impôs a escolha: cinco dicas com rótulo não cabem em linha nenhuma.
   List<EgHint> get _itemHints => [
-        EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
-        const EgHint(keys: ['⌘R'], label: 'apelido'),
-        const EgHint(keys: ['tab'], label: 'voltar'),
-        const EgHint(keys: ['tab']),
-      ];
+    EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
+    const EgHint(keys: ['⌘R'], label: 'apelido'),
+    const EgHint(keys: ['tab'], label: 'voltar'),
+    const EgHint(keys: ['tab']),
+  ];
 
   /// Na lista, a linha fala da navegação — e o que só existe num estado vem
   /// antes do que se adivinha olhando.
   List<EgHint> get _listHints => [
-        if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
-        if (hasTypes) const EgHint(keys: ['←→'], label: 'filtro'),
-        EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
-        const EgHint(keys: ['tab'], label: 'ver'),
-        // O par vertical só quando o ⌥↑↓ não o está desenhando ao lado.
-        if (!canMovePinned) const EgHint(keys: ['↑↓']),
-        // As variantes curtas, para o caso de a linha já estar cheia.
-        const EgHint(keys: ['tab']),
-        const EgHint(keys: ['⌘P']),
-        const EgHint(keys: ['enter']),
-      ];
+    if (canMovePinned) const EgHint(keys: ['⌥↑↓'], label: 'mover'),
+    if (hasTypes) const EgHint(keys: ['←→'], label: 'filtro'),
+    EgHint(keys: const ['⌘P'], label: isSelectedPinned ? 'desfixar' : 'fixar'),
+    const EgHint(keys: ['tab'], label: 'ver'),
+    // O par vertical só quando o ⌥↑↓ não o está desenhando ao lado.
+    if (!canMovePinned) const EgHint(keys: ['↑↓']),
+    // As variantes curtas, para o caso de a linha já estar cheia.
+    const EgHint(keys: ['tab']),
+    const EgHint(keys: ['⌘P']),
+    const EgHint(keys: ['enter']),
+  ];
 
   List<EgHint> _fitted() {
     var left = _budget;
@@ -121,7 +144,9 @@ class PinHintBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isEditingAlias) {
       return const EgHintBar(
-        hints: [EgHint(keys: ['enter'], label: 'guardar apelido')],
+        hints: [
+          EgHint(keys: ['enter'], label: 'guardar apelido'),
+        ],
         trailing: EgHint(keys: ['esc'], label: 'descartar'),
       );
     }

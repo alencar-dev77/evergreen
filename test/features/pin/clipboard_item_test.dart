@@ -26,12 +26,15 @@ void main() {
       );
     });
 
-    test('trata bloco de várias linhas como texto, mesmo começando com comando', () {
-      expect(
-        ClipboardItemClassifier.classify('git add .\ngit commit -m "x"'),
-        ClipboardItemType.text,
-      );
-    });
+    test(
+      'trata bloco de várias linhas como texto, mesmo começando com comando',
+      () {
+        expect(
+          ClipboardItemClassifier.classify('git add .\ngit commit -m "x"'),
+          ClipboardItemType.text,
+        );
+      },
+    );
 
     test('não confunde frase que começa com palavra de comando', () {
       expect(
@@ -90,11 +93,11 @@ void main() {
     test('reconhece CPF com e sem pontuação', () {
       expect(
         ClipboardItemClassifier.classify('529.982.247-25'),
-        ClipboardItemType.taxId,
+        ClipboardItemType.cpf,
       );
       expect(
         ClipboardItemClassifier.classify('52998224725'),
-        ClipboardItemType.taxId,
+        ClipboardItemType.cpf,
       );
     });
 
@@ -123,7 +126,9 @@ void main() {
 
   group('ClipboardItem', () {
     test('title usa a primeira linha não vazia', () {
-      final item = ClipboardItem.capture('\n\n  Flutter Desktop  \nsegunda linha');
+      final item = ClipboardItem.capture(
+        '\n\n  Flutter Desktop  \nsegunda linha',
+      );
       expect(item.title, 'Flutter Desktop');
       expect(item.hasMoreThanTitle, isTrue);
     });
@@ -135,8 +140,9 @@ void main() {
     });
 
     test('o apelido vai para a frente do conteúdo na lista', () {
-      final item =
-          ClipboardItem.capture('12345678900').copyWith(alias: 'chave pix');
+      final item = ClipboardItem.capture(
+        '12345678900',
+      ).copyWith(alias: 'chave pix');
 
       expect(item.hasAlias, isTrue);
       expect(item.displayTitle, 'chave pix');
@@ -147,8 +153,7 @@ void main() {
     });
 
     test('apelido em branco é o mesmo que não ter apelido', () {
-      final item =
-          ClipboardItem.capture('12345678900').copyWith(alias: '   ');
+      final item = ClipboardItem.capture('12345678900').copyWith(alias: '   ');
 
       expect(item.hasAlias, isFalse);
       expect(item.displayTitle, '12345678900');

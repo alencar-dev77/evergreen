@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_button.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
 import '../../models/meeting_segment.dart';
 import '../../models/meeting_turn.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O corpo da região de leitura: o resumo ou a transcrição da reunião aberta.
 ///
@@ -28,6 +28,7 @@ class EchoMeetingDetail extends StatefulWidget {
   const EchoMeetingDetail({
     super.key,
     required this.meeting,
+    required this.userName,
     required this.summaries,
     required this.isSummarizing,
     required this.progress,
@@ -36,6 +37,10 @@ class EchoMeetingDetail extends StatefulWidget {
   });
 
   final Meeting meeting;
+
+  /// Como chamar quem falou pelo microfone. Vazio, o rótulo é "Você".
+  final String userName;
+
   final SummaryAvailability summaries;
   final bool isSummarizing;
 
@@ -102,7 +107,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         'Nenhuma fala foi reconhecida. As causas comuns: o microfone estava '
         'sem permissão, ninguém falou, ou o idioma da transcrição não era o '
         'idioma da reunião.',
-        style: AppTypography.captionSmall,
+        style: context.eg.text.captionSmall,
       );
     }
 
@@ -124,21 +129,22 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.isSummarizing) ...[
-            Text(_summarizingLabel(), style: AppTypography.captionSmall),
+            Text(_summarizingLabel(), style: context.eg.text.captionSmall),
             const SizedBox(height: AppSpacing.md),
           ],
-          SelectableText(meeting.summary!, style: AppTypography.reading),
+          SelectableText(meeting.summary!, style: context.eg.text.reading),
+          if (meeting.hasSummaryPrompt) _prompt(meeting.summaryPrompt!),
         ],
       );
     }
 
     if (widget.isSummarizing) {
-      return Text(_summarizingLabel(), style: AppTypography.captionSmall);
+      return Text(_summarizingLabel(), style: context.eg.text.captionSmall);
     }
 
     final explanation = widget.summaries.explanation;
     if (explanation != null) {
-      return Text(explanation, style: AppTypography.captionSmall);
+      return Text(explanation, style: context.eg.text.captionSmall);
     }
 
     // Sem resumo ainda, o lugar dele explica o que ele é — melhor que um vazio
@@ -146,7 +152,35 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     return Text(
       'Esta reunião ainda não foi resumida. O resumo é feito na sua máquina, '
       'a partir da transcrição, e leva alguns segundos.',
-      style: AppTypography.captionSmall,
+      style: context.eg.text.captionSmall,
+    );
+  }
+
+  /// A instrução que o modelo recebeu para escrever o resumo acima.
+  ///
+  /// **Depois do resumo, não antes.** O resumo é o que a pessoa veio ler; a
+  /// instrução é a procedência dele, e procedência se consulta depois de ler,
+  /// como uma nota de rodapé. Acima, ela empurraria o texto para baixo em toda
+  /// abertura e faria a leitura começar por um parágrafo que não é o conteúdo.
+  ///
+  /// Existe porque refazer o resumo é barato e é assim que se experimenta
+  /// formatos: o campo das preferências guarda a instrução **da próxima vez**,
+  /// e sobrescrevê-lo apagava a memória de como o texto que está na tela foi
+  /// pedido. O rótulo diz "deste resumo" justamente para separar as duas.
+  ///
+  /// Selecionável como o resumo e a transcrição — o uso previsto é copiá-la de
+  /// volta para as preferências e mexer em uma frase.
+  Widget _prompt(String prompt) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xxxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const EgSectionLabel('Instrução deste resumo'),
+          const SizedBox(height: AppSpacing.xs),
+          SelectableText(prompt, style: context.eg.text.captionSmall),
+        ],
+      ),
     );
   }
 
@@ -168,7 +202,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final turn in turns) ...[
-          _TurnBlock(turn: turn),
+          _TurnBlock(turn: turn, userName: widget.userName),
           if (turn != turns.last) const SizedBox(height: AppSpacing.xl),
         ],
       ],
@@ -189,7 +223,8 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     // antigo, porque `_summary` trata "já tem resumo" antes de "está
     // resumindo", então não sobrava indicação nenhuma. Agora o botão fica, e é
     // ele que carrega a espera.
-    final canSummarize = !meeting.isEmpty &&
+    final canSummarize =
+        !meeting.isEmpty &&
         widget.summaries.isAvailable &&
         _tab == _DetailTab.summary;
 
@@ -226,9 +261,10 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
 /// Sem balões de conversa: isso é vocabulário de aplicativo de mensagem, e o
 /// que está aqui é um documento para reler, não um bate-papo.
 class _TurnBlock extends StatelessWidget {
-  const _TurnBlock({required this.turn});
+  const _TurnBlock({required this.turn, required this.userName});
 
   final MeetingTurn turn;
+  final String userName;
 
   @override
   Widget build(BuildContext context) {
@@ -240,20 +276,22 @@ class _TurnBlock extends StatelessWidget {
         Row(
           children: [
             Text(
-              turn.speaker.label,
+              turn.speaker.labelFor(userName),
               // Verde para você, neutro para a reunião: é a única cor da tela e
               // carrega significado. Quem não distingue a cor lê o nome, que
               // está escrito do lado.
-              style: AppTypography.overline.copyWith(
-                color: isMe ? AppColors.greenPrimary : AppColors.textSecondary,
+              style: context.eg.text.overline.copyWith(
+                color: isMe
+                    ? context.eg.colors.accent
+                    : context.eg.colors.textSecondary,
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Text(turn.timestamp, style: AppTypography.monoSmall),
+            Text(turn.timestamp, style: context.eg.text.monoSmall),
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
-        SelectableText(turn.text, style: AppTypography.reading),
+        SelectableText(turn.text, style: context.eg.text.reading),
       ],
     );
   }

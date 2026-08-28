@@ -11,6 +11,7 @@ import '../core/window/overlay_panel.dart';
 import '../core/window/overlay_window.dart';
 import '../features/awake/presentation/viewmodels/awake_state.dart';
 import '../features/awake/presentation/viewmodels/awake_view_model.dart';
+import '../features/echo/data/echo_summary_runner.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
@@ -39,7 +40,12 @@ class EvergreenBootstrap {
 
   Future<void> start() async {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
-    unawaited(_container.read(echoRecorderViewModelProvider.notifier).initialize());
+    unawaited(
+      _container.read(echoRecorderViewModelProvider.notifier).initialize(),
+    );
+    unawaited(
+      EchoSummaryHost.register(_container.read(echoSummaryRunnerProvider)),
+    );
 
     // Antes de qualquer coisa que possa iniciar uma sessão nova: se o
     // Evergreen morreu no meio de uma, o tempo focado até ali entra no
@@ -120,26 +126,25 @@ class EvergreenBootstrap {
   /// A assinatura também é o que segura o cronômetro vivo fora da árvore de
   /// widgets: a sessão precisa continuar correndo com o painel fechado.
   void _watchFocusSession() {
-    _container.listen<FocusTimerState>(
-      focusTimerViewModelProvider,
-      (previous, next) {
-        // Na primeira emissão (`previous` nulo) o rótulo é escrito sempre, até
-        // quando é nulo: o texto na barra de menus vive no lado nativo e
-        // sobrevive a um hot restart — sem essa escrita, um cronômetro que
-        // morreu com o engine continuaria "rodando" na barra.
-        if (previous == null || previous.menuBarLabel != next.menuBarLabel) {
-          unawaited(MenuBarService.instance.setSessionLabel(next.menuBarLabel));
-        }
+    _container.listen<FocusTimerState>(focusTimerViewModelProvider, (
+      previous,
+      next,
+    ) {
+      // Na primeira emissão (`previous` nulo) o rótulo é escrito sempre, até
+      // quando é nulo: o texto na barra de menus vive no lado nativo e
+      // sobrevive a um hot restart — sem essa escrita, um cronômetro que
+      // morreu com o engine continuaria "rodando" na barra.
+      if (previous == null || previous.menuBarLabel != next.menuBarLabel) {
+        unawaited(MenuBarService.instance.setSessionLabel(next.menuBarLabel));
+      }
 
-        // O contador de alertas só sobe quando uma fase termina sozinha e o
-        // aviso na tela está ligado — comparar com o anterior evita reabrir o
-        // painel a cada tique.
-        if (next.alerts > (previous?.alerts ?? 0)) {
-          unawaited(showOverlay(OverlayPanel.focus));
-        }
-      },
-      fireImmediately: true,
-    );
+      // O contador de alertas só sobe quando uma fase termina sozinha e o
+      // aviso na tela está ligado — comparar com o anterior evita reabrir o
+      // painel a cada tique.
+      if (next.alerts > (previous?.alerts ?? 0)) {
+        unawaited(showOverlay(OverlayPanel.focus));
+      }
+    }, fireImmediately: true);
   }
 
   /// Mantém a barra de menus em dia com a trava do Awake.
@@ -148,15 +153,11 @@ class EvergreenBootstrap {
   /// ela precisa continuar valendo com o painel fechado, e o painel é a única
   /// outra coisa que observa esta ViewModel.
   void _watchAwake() {
-    _container.listen<AwakeState>(
-      awakeViewModelProvider,
-      (previous, next) {
-        if (previous?.menuBarDetail == next.menuBarDetail) return;
+    _container.listen<AwakeState>(awakeViewModelProvider, (previous, next) {
+      if (previous?.menuBarDetail == next.menuBarDetail) return;
 
-        unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
-      },
-      fireImmediately: true,
-    );
+      unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
+    }, fireImmediately: true);
   }
 
   /// Mantém a barra de menus em dia com a gravação do Echo.
@@ -165,15 +166,14 @@ class EvergreenBootstrap {
   /// widgets: a reunião continua sendo gravada com o painel fechado, que é o
   /// caso normal — ninguém fica olhando um painel por trinta minutos.
   void _watchEcho() {
-    _container.listen<EchoRecorderState>(
-      echoRecorderViewModelProvider,
-      (previous, next) {
-        if (previous?.menuBarLabel == next.menuBarLabel) return;
+    _container.listen<EchoRecorderState>(echoRecorderViewModelProvider, (
+      previous,
+      next,
+    ) {
+      if (previous?.menuBarLabel == next.menuBarLabel) return;
 
-        unawaited(MenuBarService.instance.setEchoLabel(next.menuBarLabel));
-      },
-      fireImmediately: true,
-    );
+      unawaited(MenuBarService.instance.setEchoLabel(next.menuBarLabel));
+    }, fireImmediately: true);
   }
 
   /// Alinha a preferência salva com o estado real do sistema.
@@ -209,8 +209,9 @@ class EvergreenBootstrap {
   /// Traz um painel para a frente sem nunca fechá-lo — o caminho do aviso de
   /// fim de sessão, onde esconder a janela seria o oposto do pedido.
   Future<void> showOverlay(OverlayPanel panel) {
-    return _pending =
-        _pending.then((_) => _showOverlay(panel)).catchError((Object _) {});
+    return _pending = _pending
+        .then((_) => _showOverlay(panel))
+        .catchError((Object _) {});
   }
 
   Future<void> _toggleOverlay(OverlayPanel panel) async {
@@ -253,9 +254,7 @@ class EvergreenBootstrap {
       case OverlayPanel.leaf:
         await _container.read(leafViewModelProvider.notifier).prepareForOpen();
       case OverlayPanel.awake:
-        await _container
-            .read(awakeViewModelProvider.notifier)
-            .prepareForOpen();
+        await _container.read(awakeViewModelProvider.notifier).prepareForOpen();
       case OverlayPanel.echo:
         await _container
             .read(echoRecorderViewModelProvider.notifier)

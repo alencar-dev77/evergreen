@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../../home/presentation/widgets/hub_detail_region.dart';
 import '../viewmodels/track_view_model.dart';
 import 'track_day_detail.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O dia aberto, na região dedicada do Hub.
 ///
@@ -50,12 +50,12 @@ class TrackReader extends ConsumerWidget {
             DayLabel.of(day.date, now: now),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.panelTitle,
+            style: context.eg.text.panelTitle,
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             day.isEmpty ? 'Nada registrado' : day.highlights.join(' · '),
-            style: AppTypography.captionXS,
+            style: context.eg.text.captionXS,
           ),
         ],
       ),

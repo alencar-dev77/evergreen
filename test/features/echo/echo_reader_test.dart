@@ -28,11 +28,13 @@ void main() {
   late Database db;
 
   setUp(() async {
+    // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
+    // apresentação de boas-vindas (que espera cinco cliques em "Próximo") e a
+    // pergunta do nome (que leva o Hub para a tela do aplicativo). Aqui o app
+    // já foi apresentado e já sabe com quem fala.
     SharedPreferences.setMockInitialValues({
-      // Sem isto o Hub nasce coberto pela apresentação de boas-vindas, e ela
-      // espera alguém apertar "Próximo" cinco vezes. Um teste do Hub não é um
-      // teste de primeira instalação: aqui o app já foi apresentado.
       'app.onboarding_seen': true,
+      'app.user_name': 'Lucas',
     });
     preferences = await SharedPreferences.getInstance();
 

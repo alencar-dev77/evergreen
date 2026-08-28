@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_metrics.dart';
-import '../../core/design/app_typography.dart';
 import 'eg_toggle.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Linha de configuração: label à esquerda, controle à direita.
 ///
@@ -15,7 +15,8 @@ class EgSettingsRow extends StatelessWidget {
     required this.trailing,
     this.description,
     this.showDivider = true,
-  });
+  }) : _alwaysStacked = false,
+       _stretchTrailing = false;
 
   /// Atalho para a linha mais comum: label + toggle.
   EgSettingsRow.toggle({
@@ -25,12 +26,42 @@ class EgSettingsRow extends StatelessWidget {
     ValueChanged<bool>? onChanged,
     this.description,
     this.showDivider = true,
-  }) : trailing = EgToggle(value: value, onChanged: onChanged);
+  }) : trailing = EgToggle(value: value, onChanged: onChanged),
+       _alwaysStacked = false,
+       _stretchTrailing = false;
+
+  /// A linha cuja resposta é um texto que a pessoa escreve.
+  ///
+  /// O campo desce para baixo do rótulo e ocupa a largura toda, em vez de ir
+  /// para a coluna da direita onde moram os outros controles. Quem decide é o
+  /// tamanho da resposta: um seletor cabe ao lado do rótulo, um texto de três
+  /// linhas não — espremido em 260px ele mostraria meia frase por vez e faria
+  /// escrever numa fresta.
+  ///
+  /// Era feito à mão no Echo, com um `SizedBox.shrink()` no lugar do controle e
+  /// o campo logo abaixo, fora da linha: o rótulo e o campo eram dois widgets
+  /// que por acaso estavam perto: perto até alguém mexer no espaçamento.
+  const EgSettingsRow.field({
+    super.key,
+    required this.label,
+    required Widget field,
+    this.description,
+    this.showDivider = true,
+  }) : trailing = field,
+       _alwaysStacked = true,
+       _stretchTrailing = true;
 
   final String label;
   final Widget trailing;
   final String? description;
   final bool showDivider;
+
+  /// O controle desce para baixo do rótulo mesmo numa janela larga.
+  final bool _alwaysStacked;
+
+  /// E, descendo, ocupa a linha inteira — o que vale para um campo de texto e
+  /// não vale para um seletor, que tem a largura das opções dele.
+  final bool _stretchTrailing;
 
   /// Largura abaixo da qual o controle desce para baixo do rótulo.
   ///
@@ -49,51 +80,58 @@ class EgSettingsRow extends StatelessWidget {
       builder: (context, constraints) => Container(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         decoration: BoxDecoration(
-          border: showDivider ? AppBorders.bottom : null,
+          border: showDivider ? context.eg.borderBottom : null,
         ),
         // O rótulo é o nome do controle, e os dois só significam alguma coisa
         // juntos: fundidos, o leitor de tela anuncia "Iniciar com o macOS,
         // ativado" numa parada só. Separados, ele lê um texto solto e, depois,
         // um interruptor sem nome — que é o mesmo que não anunciar.
         child: MergeSemantics(
-          child: constraints.maxWidth < _stackBelow ? _stacked() : _inline(),
+          child: _alwaysStacked || constraints.maxWidth < _stackBelow
+              ? _stacked(context)
+              : _inline(context),
         ),
       ),
     );
   }
 
-  Widget _inline() {
+  Widget _inline(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _label()),
+        Expanded(child: _label(context)),
         const SizedBox(width: AppSpacing.xl),
         trailing,
       ],
     );
   }
 
-  Widget _stacked() {
+  Widget _stacked(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: _stretchTrailing
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.start,
       children: [
-        _label(),
+        _label(context),
         const SizedBox(height: AppSpacing.md),
         // Alinhado à esquerda, sob o rótulo que ele responde — e não centrado
         // nem à direita, que seria o controle procurando um lugar em vez de
         // pertencer a um.
-        Align(alignment: Alignment.centerLeft, child: trailing),
+        if (_stretchTrailing)
+          trailing
+        else
+          Align(alignment: Alignment.centerLeft, child: trailing),
       ],
     );
   }
 
-  Widget _label() {
+  Widget _label(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.bodyCompactEmphasis),
+        Text(label, style: context.eg.text.bodyCompactEmphasis),
         if (description != null) ...[
           const SizedBox(height: AppSpacing.xxs),
-          Text(description!, style: AppTypography.captionSmall),
+          Text(description!, style: context.eg.text.captionSmall),
         ],
       ],
     );

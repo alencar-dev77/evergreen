@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../data/echo_channel.dart';
 import '../../data/echo_repository.dart';
-import '../../data/echo_settings_repository.dart';
+import '../../data/echo_summary_runner.dart';
 import '../../models/echo_capabilities.dart';
+import '../../models/echo_summary_status.dart';
 import '../../models/meeting.dart';
-import '../../models/summary_chunker.dart';
 
 final echoLibraryViewModelProvider =
     NotifierProvider<EchoLibraryViewModel, EchoLibraryState>(
@@ -63,7 +65,9 @@ class EchoLibraryState {
       meetings: meetings ?? this.meetings,
       selectedId: clearSelection ? null : (selectedId ?? this.selectedId),
       summaries: summaries ?? this.summaries,
-      summarizingId: clearSummarizing ? null : (summarizingId ?? this.summarizingId),
+      summarizingId: clearSummarizing
+          ? null
+          : (summarizingId ?? this.summarizingId),
       progress: clearSummarizing ? null : (progress ?? this.progress),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -75,27 +79,32 @@ class EchoLibraryState {
 /// É aqui que a transcrição é lida e o resumo é pedido — o painel flutuante só
 /// grava. Texto de meia hora de reunião não cabe num painel estreito, e o
 /// histórico das reuniões passadas menos ainda.
+///
+/// **Pedir o resumo não é fazer o resumo.** Quem escreve é o
+/// [EchoSummaryRunner] da janela 0, que sobrevive a esta janela ser fechada;
+/// esta ViewModel manda começar e depois pergunta como vai. Enquanto o
+/// trabalho corria aqui, fechar o Hub no meio dele matava o engine e o resumo
+/// junto — a reunião voltava sem resumo e sem nada explicando por quê.
 class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
-  /// Instrução dos resumos de bloco.
+  /// De quanto em quanto tempo se pergunta ao fundo como vai o resumo.
   ///
-  /// Fixa e neutra de propósito: os blocos são matéria-prima, não resposta. Se
-  /// o formato pedido pela pessoa fosse aplicado aqui, o passo final receberia
-  /// tópicos de tópicos e perderia o material bruto de que precisa para
-  /// organizar. Bloco preserva fato; o formato entra só no fim.
-  static const _blockInstructions =
-      'Resuma este trecho de reunião preservando fatos, decisões, números e '
-      'nomes próprios. Escreva em texto corrido, sem formatação. Não invente '
-      'nada que não esteja no trecho.';
+  /// Um bloco leva segundos, então meio segundo de atraso na contagem não é
+  /// perceptível — e é uma pergunta barata, feita só enquanto há trabalho.
+  static const _pollInterval = Duration(milliseconds: 500);
 
   late final EchoRepository _repository;
-  late final EchoSettingsRepository _settings;
   late final EchoChannel _channel;
+  late final EchoSummaryRunner _runner;
+
+  Timer? _poll;
 
   @override
   EchoLibraryState build() {
     _repository = ref.watch(echoRepositoryProvider);
-    _settings = ref.watch(echoSettingsRepositoryProvider);
     _channel = ref.watch(echoChannelProvider);
+    _runner = ref.watch(echoSummaryRunnerProvider);
+
+    ref.onDispose(() => _poll?.cancel());
 
     return const EchoLibraryState();
   }
@@ -116,6 +125,11 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
       selectedId: state.selectedId ?? meetings.firstOrNull?.id,
       clearError: true,
     );
+
+    // Pode haver um resumo correndo desde antes desta janela abrir — pedido e
+    // deixado para trás. É aqui que a tela o reencontra, com a contagem de
+    // blocos no ponto em que ela está.
+    await _syncSummary();
   }
 
   void select(int id) => state = state.copyWith(selectedId: id);
@@ -137,7 +151,9 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     _repository.delete(id);
 
     final meetings = _repository.loadAll();
-    final stillThere = meetings.any((meeting) => meeting.id == state.selectedId);
+    final stillThere = meetings.any(
+      (meeting) => meeting.id == state.selectedId,
+    );
 
     state = state.copyWith(
       meetings: meetings,
@@ -146,75 +162,70 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     );
   }
 
-  /// Resume a reunião selecionada com o modelo local.
+  /// Manda resumir a reunião — e volta assim que o pedido foi aceito.
   ///
-  /// Em dois passos quando o texto não cabe de uma vez: cada bloco vira um
-  /// resumo neutro, e o passo final junta os resumos aplicando a instrução que
-  /// a pessoa escreveu nas preferências. Com um bloco só, o passo final é o
-  /// único que existe.
+  /// O resultado não chega por aqui: ele é gravado no banco pelo runner, e esta
+  /// tela o descobre no [_syncSummary] seguinte. É o que permite fechar o Hub
+  /// no meio e encontrar o resumo pronto na volta.
   Future<void> summarize(int id) async {
     if (state.summarizingId != null) return;
 
-    final meeting = _repository.findById(id);
-    if (meeting == null || meeting.isEmpty) return;
+    try {
+      await _runner.start(id);
+    } on EchoException catch (error) {
+      state = state.copyWith(errorMessage: error.message);
+      return;
+    }
 
-    // A instrução mora no Hub, mas pode ter sido editada em outra janela desde
-    // que esta tela abriu.
-    await _settings.reload();
-    final instructions = _settings.load().summaryInstructions.trim();
+    await _syncSummary();
+  }
 
-    final chunks = SummaryChunker.chunk(meeting.plainText);
-    if (chunks.isEmpty) return;
-
-    state = state.copyWith(
-      summarizingId: id,
-      progress: (0, chunks.length),
-      clearError: true,
-    );
+  /// Copia para a tela o que o runner está fazendo, e liga (ou desliga) a
+  /// pergunta periódica conforme houver trabalho.
+  Future<void> _syncSummary() async {
+    final wasRunning = state.summarizingId != null;
+    final EchoSummaryStatus status;
 
     try {
-      final summary = chunks.length == 1
-          ? await _summarize(chunks.single, instructions)
-          : await _summarizeInBlocks(chunks, instructions);
+      status = await _runner.status();
+    } on EchoException catch (error) {
+      _stopPolling();
 
-      _repository.setSummary(id, summary);
+      // A tela volta a mostrar o que o banco tem — o resumo pode ter ficado
+      // pronto, e é a única resposta honesta quando não dá mais para perguntar.
+      // O aviso só aparece se havia trabalho sendo acompanhado: perder o canal
+      // com nada em curso não é assunto de quem só abriu a janela.
       state = state.copyWith(
         meetings: _repository.loadAll(),
         clearSummarizing: true,
+        errorMessage: wasRunning ? error.message : null,
+        clearError: !wasRunning,
       );
-    } on EchoException catch (error) {
-      state = state.copyWith(errorMessage: error.message, clearSummarizing: true);
+      return;
     }
+
+    state = state.copyWith(
+      // O trabalho acabou desde a última pergunta: a lista é relida para que o
+      // resumo recém-gravado apareça. Só nessa transição — reler a cada meio
+      // segundo seria consultar o banco por nada.
+      meetings: wasRunning && !status.isRunning ? _repository.loadAll() : null,
+      summarizingId: status.meetingId,
+      progress: status.isRunning ? (status.done, status.total) : null,
+      clearSummarizing: !status.isRunning,
+      errorMessage: status.errorMessage,
+      clearError: status.errorMessage == null,
+    );
+
+    if (status.isRunning) {
+      _poll ??= Timer.periodic(_pollInterval, (_) => _syncSummary());
+      return;
+    }
+
+    _stopPolling();
   }
 
-  Future<String> _summarizeInBlocks(List<String> chunks, String instructions) async {
-    final partials = <String>[];
-
-    for (var index = 0; index < chunks.length; index++) {
-      state = state.copyWith(progress: (index + 1, chunks.length));
-      partials.add(await _summarize(chunks[index], _blockInstructions));
-    }
-
-    return _summarize(partials.join('\n\n'), instructions);
-  }
-
-  /// Uma chamada ao modelo, com a saída para o texto que não coube.
-  ///
-  /// O estouro de janela é o único erro que dá para resolver aqui: repartir o
-  /// bloco ao meio e resumir as metades chega no mesmo lugar, só mais devagar.
-  Future<String> _summarize(String text, String instructions) async {
-    try {
-      return await _channel.summarize(text: text, instructions: instructions);
-    } on EchoException catch (error) {
-      if (!error.isContextWindowExceeded || text.length < 500) rethrow;
-
-      final halves = SummaryChunker.chunk(text, maxChars: text.length ~/ 2);
-      final partials = <String>[];
-      for (final half in halves) {
-        partials.add(await _summarize(half, _blockInstructions));
-      }
-
-      return _summarize(partials.join('\n\n'), instructions);
-    }
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
   }
 }

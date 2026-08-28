@@ -4,6 +4,7 @@ import '../../../../core/design/app_metrics.dart';
 import '../../models/leaf_note.dart';
 import '../viewmodels/leaf_state.dart';
 import 'leaf_note_card.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A parede: até nove vagas em três colunas.
 ///
@@ -51,11 +52,11 @@ class LeafGrid extends StatelessWidget {
   /// ela reduz a largura que sobra para os cartões. Sem esses 2px a última
   /// coluna passava do painel por um fio, e o viewport sem rolagem a recortava
   /// em silêncio — os cartões 3, 6 e 9 ficavam sem a borda direita.
-  static double widthFor(int columns) =>
+  static double widthFor(BuildContext context, int columns) =>
       columns * LeafCardMetrics.width +
       (columns - 1) * LeafCardMetrics.gap +
       AppSpacing.xxl * 2 +
-      AppBorders.subtle.width * 2;
+      context.eg.hairline.width * 2;
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +128,7 @@ class _EmptySlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const SizedBox(
-        width: LeafCardMetrics.width,
-        height: LeafCardMetrics.height,
-      );
+    width: LeafCardMetrics.width,
+    height: LeafCardMetrics.height,
+  );
 }

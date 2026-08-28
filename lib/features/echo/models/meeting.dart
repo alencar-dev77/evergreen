@@ -17,6 +17,7 @@ class Meeting {
     required this.language,
     required this.segments,
     this.summary,
+    this.summaryPrompt,
     this.isKept = false,
   });
 
@@ -35,6 +36,19 @@ class Meeting {
   /// deliberado: é o único momento em que o modelo de linguagem entra.
   final String? summary;
 
+  /// A instrução que o modelo recebeu para escrever [summary].
+  ///
+  /// Guardada junto do texto porque ela é o que explica o formato dele — e
+  /// porque refazer o resumo usa a instrução que estiver nas preferências
+  /// **naquele momento**, não esta. Sem o registro, trocar a instrução e
+  /// refazer deixava dois textos diferentes sem nada dizendo o que mudou entre
+  /// eles.
+  ///
+  /// `null` em resumo feito antes de esta coluna existir. Nunca vazia: quando
+  /// a pessoa não escreveu instrução nenhuma, o que fica gravado é a padrão do
+  /// aplicativo, que foi a que de fato valeu.
+  final String? summaryPrompt;
+
   /// Guardada contra a limpeza automática do histórico.
   ///
   /// Mesma ideia do item fixado no Pin: o teto de reuniões só come o que é
@@ -45,6 +59,11 @@ class Meeting {
 
   bool get hasSummary => (summary ?? '').trim().isNotEmpty;
 
+  /// Só quando há resumo **e** o registro da instrução dele: um prompt sem o
+  /// texto que ele produziu não descreve nada.
+  bool get hasSummaryPrompt =>
+      hasSummary && (summaryPrompt ?? '').trim().isNotEmpty;
+
   bool get isEmpty => segments.isEmpty;
 
   /// A transcrição inteira como texto corrido, que é o que vai para o resumo.
@@ -52,14 +71,23 @@ class Meeting {
   /// Com o rótulo de quem falou em cada linha: sem ele o modelo não teria como
   /// distinguir o que *você* disse do que te disseram, e essa é justamente a
   /// distinção que faz um resumo de reunião útil.
-  String get plainText => segments
-      .map((segment) => '${segment.speaker.label}: ${segment.text}')
+  /// A conversa em texto corrido — é isto que vai para o modelo.
+  ///
+  /// [userName] troca o "Você" pelo nome de quem está do outro lado; vazio,
+  /// nada muda. O modelo não recebe nenhuma outra pista de quem é quem, então
+  /// este rótulo é a única coisa que o faz escrever "Lucas ficou de revisar" em
+  /// vez de "a pessoa ficou de revisar".
+  String plainText({String userName = ''}) => segments
+      .map(
+        (segment) => '${segment.speaker.labelFor(userName)}: ${segment.text}',
+      )
       .join('\n');
 
   Meeting copyWith({
     int? id,
     String? title,
     String? summary,
+    String? summaryPrompt,
     bool? isKept,
     List<MeetingSegment>? segments,
   }) {
@@ -71,6 +99,7 @@ class Meeting {
       language: language,
       segments: segments ?? this.segments,
       summary: summary ?? this.summary,
+      summaryPrompt: summaryPrompt ?? this.summaryPrompt,
       isKept: isKept ?? this.isKept,
     );
   }

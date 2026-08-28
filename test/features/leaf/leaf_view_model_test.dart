@@ -146,10 +146,7 @@ void main() {
     expect(stateOf(container).noteAt(4), isNull);
 
     // E o banco enxerga o mesmo, não só a tela.
-    expect(
-      repository.loadAll().map((note) => note.slot),
-      [1, 2, 3],
-    );
+    expect(repository.loadAll().map((note) => note.slot), [1, 2, 3]);
   });
 
   test('a parede encolhe de linha quando a última esvazia', () {
@@ -326,24 +323,26 @@ void main() {
       viewModelOf(container)
         ..selectSlot(2)
         ..deleteSelected();
-      expect(
-        stateOf(container).notes.map((note) => note.content),
-        ['anotação 1', 'anotação 3'],
-      );
+      expect(stateOf(container).notes.map((note) => note.content), [
+        'anotação 1',
+        'anotação 3',
+      ]);
       expect(stateOf(container).canUndoDelete, isTrue);
 
       viewModelOf(container).undoDelete();
 
-      expect(
-        stateOf(container).notes.map((note) => note.content),
-        ['anotação 1', 'anotação 2', 'anotação 3'],
-      );
+      expect(stateOf(container).notes.map((note) => note.content), [
+        'anotação 1',
+        'anotação 2',
+        'anotação 3',
+      ]);
       // No banco também, e com as vagas contíguas.
       expect(repository.loadAll().map((note) => note.slot), [1, 2, 3]);
-      expect(
-        repository.loadAll().map((note) => note.content),
-        ['anotação 1', 'anotação 2', 'anotação 3'],
-      );
+      expect(repository.loadAll().map((note) => note.content), [
+        'anotação 1',
+        'anotação 2',
+        'anotação 3',
+      ]);
       // A seleção vai para o cartão que voltou: é onde o olho está.
       expect(stateOf(container).selectedSlot, 2);
       // Uma vez só — o Leaf não tem pilha de desfazer.
@@ -397,10 +396,12 @@ void main() {
       viewModelOf(container).undoDelete();
 
       // O cartão volta para a vaga dele e empurra o resto para baixo.
-      expect(
-        stateOf(container).notes.map((note) => note.content),
-        ['anotação 1', 'anotação 2', 'anotação 3', 'a que veio depois'],
-      );
+      expect(stateOf(container).notes.map((note) => note.content), [
+        'anotação 1',
+        'anotação 2',
+        'anotação 3',
+        'a que veio depois',
+      ]);
     });
 
     test('a parede que encheu retira a oferta em vez de prometê-la', () {

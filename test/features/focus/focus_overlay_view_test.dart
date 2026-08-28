@@ -68,33 +68,37 @@ void main() {
   /// painel —, e dali nenhuma tecla voltava a descer: o Esc, o space e o Enter
   /// paravam juntos. Nas outras plataformas o campo não larga nada, e o teste
   /// passaria sem testar.
-  testWidgets('clicar fora do campo não emudece o Esc do painel',
-      (tester) async {
-    final closing = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    const channel = MethodChannel('previous_app_focus');
-    messenger.setMockMethodCallHandler(channel, (call) async {
-      closing.add(call.method);
-      return null;
-    });
-    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-    OverlayWindow.instance.resetForTest();
+  testWidgets(
+    'clicar fora do campo não emudece o Esc do painel',
+    (tester) async {
+      final closing = <String>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channel = MethodChannel('previous_app_focus');
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        closing.add(call.method);
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      OverlayWindow.instance.resetForTest();
 
-    await pumpOverlay(tester);
+      await pumpOverlay(tester);
 
-    // Um clique dentro do painel, fora do campo: o número da contagem.
-    await tester.tapAt(tester.getCenter(find.text('25:00')));
-    await tester.pumpAndSettle();
+      // Um clique dentro do painel, fora do campo: o número da contagem.
+      await tester.tapAt(tester.getCenter(find.text('25:00')));
+      await tester.pumpAndSettle();
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
 
-    expect(closing, contains('beginHide'));
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+      expect(closing, contains('beginHide'));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
-  testWidgets('a tela de partida propõe a sessão e pergunta a atividade',
-      (tester) async {
+  testWidgets('a tela de partida propõe a sessão e pergunta a atividade', (
+    tester,
+  ) async {
     await pumpOverlay(tester);
 
     expect(find.text('FOCO'), findsOneWidget);
@@ -109,8 +113,9 @@ void main() {
     expect(field.focusNode?.hasFocus, isTrue);
   });
 
-  testWidgets('apenas Pomodoro tira o campo de atividade do caminho',
-      (tester) async {
+  testWidgets('apenas Pomodoro tira o campo de atividade do caminho', (
+    tester,
+  ) async {
     await pumpOverlay(tester, preferences: {'focus.pomodoro_only': true});
 
     expect(find.byType(EgTextField), findsNothing);
@@ -158,8 +163,9 @@ void main() {
     stop(container);
   });
 
-  testWidgets('encerrar leva à tela de conclusão, com a pausa à mão',
-      (tester) async {
+  testWidgets('encerrar leva à tela de conclusão, com a pausa à mão', (
+    tester,
+  ) async {
     await pumpOverlay(tester);
 
     await tester.tap(find.text('Iniciar foco'));
@@ -196,8 +202,9 @@ void main() {
     stop(container);
   });
 
-  testWidgets('Enter anota com o minuto e o espaço volta a ser espaço',
-      (tester) async {
+  testWidgets('Enter anota com o minuto e o espaço volta a ser espaço', (
+    tester,
+  ) async {
     final container = await pumpOverlay(tester);
 
     await tester.tap(find.text('Iniciar foco'));
@@ -218,10 +225,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      tester
-          .widget<EgTextField>(find.byType(EgTextField))
-          .controller
-          .text,
+      tester.widget<EgTextField>(find.byType(EgTextField)).controller.text,
       isEmpty,
       reason: 'o campo limpa para a próxima anotação',
     );
@@ -229,8 +233,9 @@ void main() {
     stop(container);
   });
 
-  testWidgets('+5 min aparece na reta final e some depois de usado',
-      (tester) async {
+  testWidgets('+5 min aparece na reta final e some depois de usado', (
+    tester,
+  ) async {
     final container = await pumpOverlay(tester);
 
     await tester.tap(find.text('Iniciar foco'));
@@ -252,8 +257,9 @@ void main() {
     stop(container);
   });
 
-  testWidgets('o diário da sessão sobrevive a fechar e reabrir o painel',
-      (tester) async {
+  testWidgets('o diário da sessão sobrevive a fechar e reabrir o painel', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
@@ -311,8 +317,9 @@ void main() {
     container.read(focusTimerViewModelProvider.notifier).dismiss();
   });
 
-  testWidgets('apenas Pomodoro também tira o campo de anotação da sessão',
-      (tester) async {
+  testWidgets('apenas Pomodoro também tira o campo de anotação da sessão', (
+    tester,
+  ) async {
     final container = await pumpOverlay(
       tester,
       preferences: {'focus.pomodoro_only': true},
@@ -327,8 +334,9 @@ void main() {
     stop(container);
   });
 
-  testWidgets('preferência mudada no Hub vale na próxima abertura do painel',
-      (tester) async {
+  testWidgets('preferência mudada no Hub vale na próxima abertura do painel', (
+    tester,
+  ) async {
     final container = await pumpOverlay(tester);
 
     // O Hub roda em outro engine e grava direto no plist.
@@ -350,8 +358,9 @@ void main() {
     stop(container);
   });
 
-  testWidgets('o campo de resumo sobrevive ao caminho real do fim de sessão',
-      (tester) async {
+  testWidgets('o campo de resumo sobrevive ao caminho real do fim de sessão', (
+    tester,
+  ) async {
     final container = await pumpOverlay(
       tester,
       preferences: {'focus.ask_summary': true},
@@ -371,7 +380,9 @@ void main() {
     stop(container);
   });
 
-  testWidgets('o fim de sessão não promete nada sobre a tarefa', (tester) async {
+  testWidgets('o fim de sessão não promete nada sobre a tarefa', (
+    tester,
+  ) async {
     final container = await pumpOverlay(tester);
 
     await tester.tap(find.text('Iniciar foco'));

@@ -3,22 +3,36 @@ import 'package:evergreen/features/echo/models/meeting_turn.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  MeetingSegment segment(Speaker speaker, int startMs, int endMs, String text) =>
-      MeetingSegment(
-        speaker: speaker,
-        startMs: startMs,
-        endMs: endMs,
-        text: text,
-      );
+  MeetingSegment segment(
+    Speaker speaker,
+    int startMs,
+    int endMs,
+    String text,
+  ) => MeetingSegment(
+    speaker: speaker,
+    startMs: startMs,
+    endMs: endMs,
+    text: text,
+  );
 
   group('MeetingTurn', () {
     test('junta os pedaços de uma frase num parágrafo só', () {
       // Exatamente o que o modelo devolveu num teste real de 8 segundos.
       final turns = MeetingTurn.from([
-        segment(Speaker.others, 0, 3800, 'Bom dia pessoal, vamos fechar o escopo do projeto'),
+        segment(
+          Speaker.others,
+          0,
+          3800,
+          'Bom dia pessoal, vamos fechar o escopo do projeto',
+        ),
         segment(Speaker.others, 3800, 4600, ' hoje.'),
         segment(Speaker.others, 4600, 5000, ' ficou'),
-        segment(Speaker.others, 5000, 7800, ' decidido que o Lucas manda a proposta até'),
+        segment(
+          Speaker.others,
+          5000,
+          7800,
+          ' decidido que o Lucas manda a proposta até',
+        ),
         segment(Speaker.others, 7800, 8600, ' sexta-feira.'),
       ]);
 

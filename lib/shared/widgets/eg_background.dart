@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/app_gradients.dart';
+import '../../core/design/eg_tokens.dart';
 
 /// Fundo padrão das janelas do Evergreen.
 ///
@@ -17,9 +17,11 @@ class EgBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(gradient: AppGradients.windowBackground),
+      decoration: BoxDecoration(
+        gradient: context.eg.gradients.windowBackground,
+      ),
       child: DecoratedBox(
-        decoration: BoxDecoration(gradient: AppGradients.windowGlow),
+        decoration: BoxDecoration(gradient: context.eg.gradients.windowGlow),
         child: child,
       ),
     );

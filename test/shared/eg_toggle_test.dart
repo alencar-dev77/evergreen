@@ -1,7 +1,8 @@
-import 'package:evergreen/core/design/app_colors.dart';
 import 'package:evergreen/shared/widgets/eg_toggle.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
+import 'package:evergreen/core/design/app_theme_id.dart';
+import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// O switch é o controle mais repetido das telas de configuração e o único com
@@ -9,6 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// documentada em `EgToggle` — em especial o `pressed`, que faltava até a
 /// componentização do design system.
 void main() {
+  // O trilho conta o estado pela cor, e a cor é do tema: prendendo o do
+  // Evergreen, o teste continua sendo sobre o estado, não sobre a pele.
+  final eg = EgTokens.of(AppThemeId.evergreen);
+
   Future<void> pump(
     WidgetTester tester, {
     required bool value,
@@ -17,7 +22,9 @@ void main() {
     return tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
-        child: Center(child: EgToggle(value: value, onChanged: onChanged)),
+        child: Center(
+          child: EgToggle(value: value, onChanged: onChanged),
+        ),
       ),
     );
   }
@@ -31,14 +38,15 @@ void main() {
 
   testWidgets('em repouso, o trilho conta o estado', (tester) async {
     await pump(tester, value: true, onChanged: (_) {});
-    expect(trackColor(tester), AppColors.greenPrimary);
+    expect(trackColor(tester), eg.colors.accent);
 
     await pump(tester, value: false, onChanged: (_) {});
-    expect(trackColor(tester), AppColors.border);
+    expect(trackColor(tester), eg.colors.border);
   });
 
-  testWidgets('o mouse por cima clareia o trilho nas duas colunas',
-      (tester) async {
+  testWidgets('o mouse por cima clareia o trilho nas duas colunas', (
+    tester,
+  ) async {
     await pump(tester, value: true, onChanged: (_) {});
 
     final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -46,19 +54,20 @@ void main() {
     addTearDown(pointer.removePointer);
     await tester.pumpAndSettle();
 
-    expect(trackColor(tester), AppColors.greenLight);
+    expect(trackColor(tester), eg.colors.accentLight);
   });
 
   testWidgets('o clique dá sinal antes de a preferência virar', (tester) async {
     await pump(tester, value: true, onChanged: (_) {});
 
-    final gesture =
-        await tester.startGesture(tester.getCenter(find.byType(EgToggle)));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(EgToggle)),
+    );
     await tester.pump();
 
     expect(
       trackColor(tester),
-      AppColors.greenDeep,
+      eg.colors.accentDeep,
       reason: 'ligado, o pressed escurece o verde',
     );
 
@@ -69,24 +78,26 @@ void main() {
   testWidgets('desligado, o pressed clareia o cinza', (tester) async {
     await pump(tester, value: false, onChanged: (_) {});
 
-    final gesture =
-        await tester.startGesture(tester.getCenter(find.byType(EgToggle)));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(EgToggle)),
+    );
     await tester.pump();
 
-    expect(trackColor(tester), AppColors.pressed);
+    expect(trackColor(tester), eg.colors.pressed);
 
     await gesture.up();
     await tester.pumpAndSettle();
   });
 
-  testWidgets('desabilitado não reage a clique nem muda de superfície',
-      (tester) async {
+  testWidgets('desabilitado não reage a clique nem muda de superfície', (
+    tester,
+  ) async {
     await pump(tester, value: false);
 
     await tester.tap(find.byType(EgToggle));
     await tester.pumpAndSettle();
 
-    expect(trackColor(tester), AppColors.border);
+    expect(trackColor(tester), eg.colors.border);
     expect(tester.widget<Opacity>(find.byType(Opacity).first).opacity, 0.4);
   });
 }

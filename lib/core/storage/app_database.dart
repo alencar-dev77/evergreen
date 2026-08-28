@@ -156,6 +156,20 @@ class AppDatabase {
     CREATE INDEX IF NOT EXISTS idx_awake_sessions_recent
       ON awake_sessions (started_at DESC);
     ''',
+    // A instrução que produziu o resumo que está na linha.
+    //
+    // Refazer um resumo é barato e é o jeito de experimentar formatos — mas
+    // sem esta coluna o texto novo chegava sem nada dizendo de qual instrução
+    // ele saiu, e a anterior já tinha sido sobrescrita no campo de
+    // preferências. Comparar dois formatos exigia lembrar de cor o que estava
+    // escrito ali semana passada.
+    //
+    // Guardada por reunião, e não uma vez só nas preferências, porque a
+    // instrução das preferências é a **próxima**; esta é a que valeu para este
+    // texto. Nulo é resumo feito antes desta coluna existir.
+    'echo-summary-prompt': '''
+    ALTER TABLE echo_meetings ADD COLUMN summary_prompt TEXT;
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

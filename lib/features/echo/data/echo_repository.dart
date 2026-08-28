@@ -13,7 +13,12 @@ abstract interface class EchoRepository {
   /// Grava uma reunião nova e devolve com o `id` que o banco deu.
   Meeting insert(Meeting meeting);
 
-  void setSummary(int id, String summary);
+  /// Grava o resumo **e** a instrução que o produziu — sempre os dois juntos.
+  ///
+  /// Um parâmetro só, e obrigatório, porque texto e instrução são o mesmo
+  /// fato: um resumo cuja instrução não foi registrada é o que esta coluna
+  /// existe para acabar.
+  void setSummary(int id, String summary, {required String prompt});
 
   void setTitle(int id, String title);
 
@@ -34,7 +39,8 @@ class SqliteEchoRepository implements EchoRepository {
   final Database _db;
 
   static const _columns =
-      'id, title, started_at, duration_ms, language, transcript, summary, is_kept';
+      'id, title, started_at, duration_ms, language, transcript, summary, '
+      'summary_prompt, is_kept';
 
   @override
   List<Meeting> loadAll({int limit = 200}) {
@@ -61,8 +67,9 @@ class SqliteEchoRepository implements EchoRepository {
     _db.execute(
       '''
       INSERT INTO echo_meetings
-        (title, started_at, duration_ms, language, transcript, summary, is_kept)
-      VALUES (?, ?, ?, ?, ?, ?, ?);
+        (title, started_at, duration_ms, language, transcript, summary,
+         summary_prompt, is_kept)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
       ''',
       [
         meeting.title,
@@ -71,6 +78,7 @@ class SqliteEchoRepository implements EchoRepository {
         meeting.language.locale,
         meeting.encodeSegments(),
         meeting.summary,
+        meeting.summaryPrompt,
         meeting.isKept ? 1 : 0,
       ],
     );
@@ -79,8 +87,11 @@ class SqliteEchoRepository implements EchoRepository {
   }
 
   @override
-  void setSummary(int id, String summary) {
-    _db.execute('UPDATE echo_meetings SET summary = ? WHERE id = ?;', [summary, id]);
+  void setSummary(int id, String summary, {required String prompt}) {
+    _db.execute(
+      'UPDATE echo_meetings SET summary = ?, summary_prompt = ? WHERE id = ?;',
+      [summary, prompt, id],
+    );
   }
 
   @override
@@ -88,15 +99,18 @@ class SqliteEchoRepository implements EchoRepository {
     final trimmed = title.trim();
     if (trimmed.isEmpty) return;
 
-    _db.execute('UPDATE echo_meetings SET title = ? WHERE id = ?;', [trimmed, id]);
+    _db.execute('UPDATE echo_meetings SET title = ? WHERE id = ?;', [
+      trimmed,
+      id,
+    ]);
   }
 
   @override
   void setKept(int id, {required bool isKept}) {
-    _db.execute(
-      'UPDATE echo_meetings SET is_kept = ? WHERE id = ?;',
-      [isKept ? 1 : 0, id],
-    );
+    _db.execute('UPDATE echo_meetings SET is_kept = ? WHERE id = ?;', [
+      isKept ? 1 : 0,
+      id,
+    ]);
   }
 
   @override
@@ -131,9 +145,12 @@ class SqliteEchoRepository implements EchoRepository {
     title: row['title'] as String,
     startedAt: DateTime.fromMillisecondsSinceEpoch(row['started_at'] as int),
     durationMs: row['duration_ms'] as int,
-    language: TranscriptionLanguage.fromLocale(row['language'] as String? ?? 'pt-BR'),
+    language: TranscriptionLanguage.fromLocale(
+      row['language'] as String? ?? 'pt-BR',
+    ),
     segments: Meeting.decodeSegments(row['transcript'] as String?),
     summary: row['summary'] as String?,
+    summaryPrompt: row['summary_prompt'] as String?,
     isKept: (row['is_kept'] as int? ?? 0) == 1,
   );
 }

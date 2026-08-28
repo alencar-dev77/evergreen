@@ -21,13 +21,13 @@ class TrackSummary {
   const TrackSummary._(this.text, this.signature, {required this.isWriting});
 
   const TrackSummary.writing(String signature)
-      : this._(null, signature, isWriting: true);
+    : this._(null, signature, isWriting: true);
 
   const TrackSummary.written(String text, String signature)
-      : this._(text, signature, isWriting: false);
+    : this._(text, signature, isWriting: false);
 
   const TrackSummary.unavailable(String signature)
-      : this._(null, signature, isWriting: false);
+    : this._(null, signature, isWriting: false);
 
   final String? text;
   final bool isWriting;
@@ -130,10 +130,10 @@ class TrackViewModel extends Notifier<TrackState> {
   }
 
   void refresh() => state = _read(
-        state.range,
-        selectedDate: state.selectedDate,
-        summaries: state.summaries,
-      );
+    state.range,
+    selectedDate: state.selectedDate,
+    summaries: state.summaries,
+  );
 
   void setRange(TrackRange range) {
     if (range == state.range) return;
@@ -190,9 +190,7 @@ class TrackViewModel extends Notifier<TrackState> {
   }
 
   void _setSummary(DateTime date, TrackSummary summary) {
-    state = state.copyWith(
-      summaries: {...state.summaries, date: summary},
-    );
+    state = state.copyWith(summaries: {...state.summaries, date: summary});
   }
 
   TrackState _read(

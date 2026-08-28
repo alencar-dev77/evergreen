@@ -1,14 +1,13 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/track_day.dart';
 import '../viewmodels/track_view_model.dart';
 import 'track_copied_breakdown.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O corpo da região de leitura do Track: o dia inteiro, de cima a baixo.
 ///
@@ -20,11 +19,7 @@ import 'track_copied_breakdown.dart';
 /// num item copiado vai ao Pin — cada registro se edita no módulo que o criou,
 /// e um botão de apagar aqui apagaria dado de outro módulo pelas costas dele.
 class TrackDayDetail extends StatelessWidget {
-  const TrackDayDetail({
-    super.key,
-    required this.day,
-    required this.summary,
-  });
+  const TrackDayDetail({super.key, required this.day, required this.summary});
 
   final TrackDay day;
 
@@ -41,23 +36,23 @@ class TrackDayDetail extends StatelessWidget {
       padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: _blocks(),
+        children: _blocks(context),
       ),
     );
   }
 
-  List<Widget> _blocks() {
+  List<Widget> _blocks(BuildContext context) {
     if (day.isEmpty) {
       return [
         Text(
           'Nada foi registrado neste dia.',
-          style: AppTypography.captionSmall,
+          style: context.eg.text.captionSmall,
         ),
       ];
     }
 
     return [
-      ..._summary(),
+      ..._summary(context),
       if (day.focus.isNotEmpty) ...[
         const EgSectionLabel(
           'Foco',
@@ -96,7 +91,7 @@ class TrackDayDetail extends StatelessWidget {
       if (day.notesWritten > 0)
         Text(
           '${TrackCounts.of(day.notesWritten, 'anotação escrita', 'anotações escritas')} no Leaf.',
-          style: AppTypography.captionSmall,
+          style: context.eg.text.captionSmall,
         ),
     ];
   }
@@ -106,13 +101,13 @@ class TrackDayDetail extends StatelessWidget {
   /// Sem aviso de "resumo indisponível" e sem espaço reservado: o resumo é
   /// enfeite, o dado é o produto, e uma tela que anuncia o que não tem só chama
   /// atenção para a falta.
-  List<Widget> _summary() {
+  List<Widget> _summary(BuildContext context) {
     if (summary.isWriting) {
       return [
         Text(
           'Escrevendo o resumo do dia…',
-          style: AppTypography.captionSmall.copyWith(
-            color: AppColors.textTertiary,
+          style: context.eg.text.captionSmall.copyWith(
+            color: context.eg.colors.textTertiary,
           ),
         ),
         const SizedBox(height: AppSpacing.xxl),
@@ -122,7 +117,7 @@ class TrackDayDetail extends StatelessWidget {
     if (!summary.hasText) return const [];
 
     return [
-      Text(summary.text!, style: AppTypography.reading),
+      Text(summary.text!, style: context.eg.text.reading),
       const SizedBox(height: AppSpacing.xxl),
     ];
   }
@@ -153,8 +148,8 @@ class _EntryRow extends StatelessWidget {
             width: _timeColumn,
             child: Text(
               DayLabel.time(entry.at),
-              style: AppTypography.monoSmall.copyWith(
-                color: AppColors.textTertiary,
+              style: context.eg.text.monoSmall.copyWith(
+                color: context.eg.colors.textTertiary,
               ),
             ),
           ),
@@ -165,9 +160,9 @@ class _EntryRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               softWrap: false,
               style: entry.hasLabel
-                  ? AppTypography.bodyCompact
-                  : AppTypography.bodyCompact.copyWith(
-                      color: AppColors.textSecondary,
+                  ? context.eg.text.bodyCompact
+                  : context.eg.text.bodyCompact.copyWith(
+                      color: context.eg.colors.textSecondary,
                     ),
             ),
           ),
@@ -177,7 +172,7 @@ class _EntryRow extends StatelessWidget {
             child: Text(
               DurationFormat.compact(entry.duration),
               textAlign: TextAlign.right,
-              style: AppTypography.captionSmall,
+              style: context.eg.text.captionSmall,
             ),
           ),
         ],

@@ -37,7 +37,9 @@ class FocusSessionNote {
       final minute = int.tryParse(line.substring(0, divider));
       if (minute == null) continue;
 
-      notes.add(FocusSessionNote(minute: minute, text: line.substring(divider + 1)));
+      notes.add(
+        FocusSessionNote(minute: minute, text: line.substring(divider + 1)),
+      );
     }
 
     return List.unmodifiable(notes);

@@ -47,13 +47,11 @@ class SqliteLeafRepository implements LeafRepository {
 
   @override
   List<LeafNote> loadAll() {
-    final rows = _db.select(
-      '''
+    final rows = _db.select('''
       SELECT id, slot, content, created_at, updated_at
         FROM leaf_notes
        ORDER BY slot ASC;
-      ''',
-    );
+      ''');
 
     return rows.map(_fromRow).toList(growable: false);
   }
@@ -104,7 +102,9 @@ class SqliteLeafRepository implements LeafRepository {
   /// ocupado quando a segunda passada começa.
   @override
   void reassignSlots(List<int> idsInOrder) {
-    final statement = _db.prepare('UPDATE leaf_notes SET slot = ? WHERE id = ?;');
+    final statement = _db.prepare(
+      'UPDATE leaf_notes SET slot = ? WHERE id = ?;',
+    );
 
     try {
       _db.execute('BEGIN IMMEDIATE;');

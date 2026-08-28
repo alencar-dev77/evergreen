@@ -14,12 +14,12 @@ void main() {
     calls = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call.method);
-      // A pergunta que o fechamento por blur faz antes de fechar: "o foco
-      // voltou?". Não voltou — é o caminho que interessa testar.
-      if (call.method == 'isFocused') return false;
-      return null;
-    });
+          calls.add(call.method);
+          // A pergunta que o fechamento por blur faz antes de fechar: "o foco
+          // voltou?". Não voltou — é o caminho que interessa testar.
+          if (call.method == 'isFocused') return false;
+          return null;
+        });
   });
 
   tearDown(() {
@@ -31,12 +31,12 @@ void main() {
   Future<void> sendBlur(WidgetTester tester) async {
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      channel.name,
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('onEvent', {'eventName': 'blur'}),
-      ),
-      null,
-    );
+          channel.name,
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('onEvent', {'eventName': 'blur'}),
+          ),
+          null,
+        );
     // A casca espera a margem de tolerância antes de confirmar o blur.
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump();
@@ -70,41 +70,45 @@ void main() {
     /// então não há `onWindowFocus` nem `onShow`. Sem nó focado, nenhum
     /// `Shortcuts` é consultado: o painel fica na tela e cada tecla vira o bipe
     /// do macOS.
-    testWidgets('o painel que nasce sem ninguém pedir foco ainda ouve o teclado',
-        (tester) async {
-      final teclas = <String>[];
+    testWidgets(
+      'o painel que nasce sem ninguém pedir foco ainda ouve o teclado',
+      (tester) async {
+        final teclas = <String>[];
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Material(
-            child: Shortcuts(
-              shortcuts: const {
-                SingleActivator(LogicalKeyboardKey.arrowDown): ActivateIntent(),
-              },
-              child: Actions(
-                actions: {
-                  ActivateIntent: CallbackAction<ActivateIntent>(
-                    onInvoke: (_) => teclas.add('↓'),
-                  ),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Material(
+              child: Shortcuts(
+                shortcuts: const {
+                  SingleActivator(LogicalKeyboardKey.arrowDown):
+                      ActivateIntent(),
                 },
-                // Nenhum campo, nenhum autofocus, nenhum `onShow`: exatamente o
-                // painel trocado com a janela já visível.
-                child: EgOverlayShell(onClose: () {}, child: const _Painel()),
+                child: Actions(
+                  actions: {
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (_) => teclas.add('↓'),
+                    ),
+                  },
+                  // Nenhum campo, nenhum autofocus, nenhum `onShow`: exatamente o
+                  // painel trocado com a janela já visível.
+                  child: EgOverlayShell(onClose: () {}, child: const _Painel()),
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
+        );
+        await tester.pump();
+        await tester.pump();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
 
-      expect(teclas, ['↓']);
-    });
+        expect(teclas, ['↓']);
+      },
+    );
 
-    testWidgets('o nó do módulo tem preferência sobre o da casca',
-        (tester) async {
+    testWidgets('o nó do módulo tem preferência sobre o da casca', (
+      tester,
+    ) async {
       final doModulo = FocusNode(debugLabel: 'do-modulo');
       addTearDown(doModulo.dispose);
 
@@ -124,8 +128,9 @@ void main() {
       expect(doModulo.hasFocus, isTrue);
     });
 
-    testWidgets('o campo do módulo não é atropelado pela casca',
-        (tester) async {
+    testWidgets('o campo do módulo não é atropelado pela casca', (
+      tester,
+    ) async {
       final doCampo = FocusNode(debugLabel: 'campo-do-modulo');
       addTearDown(doCampo.dispose);
 
@@ -153,10 +158,7 @@ void main() {
       var closed = 0;
       await tester.pumpWidget(
         MaterialApp(
-          home: EgOverlayShell(
-            onClose: () => closed++,
-            child: const _Painel(),
-          ),
+          home: EgOverlayShell(onClose: () => closed++, child: const _Painel()),
         ),
       );
       await tester.pump();
@@ -236,9 +238,9 @@ class _Painel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        key: const Key('painel'),
-        width: 200,
-        height: 120,
-        color: const Color(0xFF141414),
-      );
+    key: const Key('painel'),
+    width: 200,
+    height: 120,
+    color: const Color(0xFF141414),
+  );
 }

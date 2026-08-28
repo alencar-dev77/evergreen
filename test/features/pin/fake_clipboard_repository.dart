@@ -5,7 +5,7 @@ import 'package:evergreen/features/pin/models/clipboard_item.dart';
 /// depois por data de cópia decrescente).
 class FakeClipboardRepository implements ClipboardRepository {
   FakeClipboardRepository([List<ClipboardItem> initial = const []])
-      : _items = [...initial];
+    : _items = [...initial];
 
   final List<ClipboardItem> _items;
 
@@ -19,7 +19,8 @@ class FakeClipboardRepository implements ClipboardRepository {
   /// do mais novo para o mais antigo.
   @override
   List<ClipboardItem> loadAll({int limit = 500}) {
-    final sorted = [..._items]..sort((a, b) {
+    final sorted = [..._items]
+      ..sort((a, b) {
         if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
 
         if (a.isPinned) {

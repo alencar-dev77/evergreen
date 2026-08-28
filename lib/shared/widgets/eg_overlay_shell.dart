@@ -131,8 +131,10 @@ class _EgOverlayShellState extends State<EgOverlayShell>
     value: 1,
   );
 
-  late final _entranceOpacity =
-      CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
+  late final _entranceOpacity = CurvedAnimation(
+    parent: _entrance,
+    curve: Curves.easeOut,
+  );
 
   /// O escopo do painel. Explícito, e não o implícito do `FocusScope`, porque
   /// a rede precisa perguntar a ele se o foco ainda está aqui dentro.

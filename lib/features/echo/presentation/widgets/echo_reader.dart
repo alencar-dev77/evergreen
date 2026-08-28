@@ -2,13 +2,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../../home/presentation/widgets/hub_detail_region.dart';
+import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
 import '../viewmodels/echo_library_view_model.dart';
 import 'echo_meeting_detail.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// A reunião aberta, na região dedicada do Hub.
 ///
@@ -45,19 +46,22 @@ class EchoReader extends ConsumerWidget {
             meeting.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.panelTitle,
+            style: context.eg.text.panelTitle,
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             '${DayLabel.of(meeting.startedAt)} · '
             '${DayLabel.time(meeting.startedAt)} · '
             '${DurationFormat.compact(meeting.duration)}',
-            style: AppTypography.captionXS,
+            style: context.eg.text.captionXS,
           ),
         ],
       ),
       child: EchoMeetingDetail(
         meeting: meeting,
+        userName: ref.watch(
+          appSettingsViewModelProvider.select((settings) => settings.userName),
+        ),
         summaries: library.summaries,
         isSummarizing: library.summarizingId == meeting.id,
         progress: library.progress,

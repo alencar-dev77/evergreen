@@ -3,11 +3,12 @@ library;
 
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
-import 'package:evergreen/core/design/app_colors.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/core/design/app_theme_id.dart';
+import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
 import 'package:evergreen/features/awake/presentation/views/awake_overlay_view.dart';
@@ -87,11 +88,13 @@ void main() {
   final backupToday = DateTime(2026, 8, 25, 16, 20);
 
   setUp(() async {
+    // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
+    // apresentação de boas-vindas (que espera cinco cliques em "Próximo") e a
+    // pergunta do nome (que leva o Hub para a tela do aplicativo). Aqui o app
+    // já foi apresentado e já sabe com quem fala.
     SharedPreferences.setMockInitialValues({
-      // Sem isto o Hub nasce coberto pela apresentação de boas-vindas, e ela
-      // espera alguém apertar "Próximo" cinco vezes. Um teste do Hub não é um
-      // teste de primeira instalação: aqui o app já foi apresentado.
       'app.onboarding_seen': true,
+      'app.user_name': 'Lucas',
     });
     preferences = await SharedPreferences.getInstance();
 
@@ -119,6 +122,11 @@ void main() {
             '- O escopo da v1 fica só na transcrição; o resumo entra depois.\n'
             '- Lucas fecha a proposta até sexta.\n'
             '- Ficou pendente decidir quem apresenta na terça.',
+        // A instrução que produziu o resumo acima: é ela que a folha de
+        // conferência precisa mostrar embaixo dele, em caps e discreta.
+        summaryPrompt:
+            'Escreva em tópicos curtos. Registre decisões, pendências e quem '
+            'ficou responsável por cada coisa.',
         // Fragmentado como o modelo de fala realmente devolve — é o
         // agrupamento em turnos que a imagem precisa mostrar.
         segments: const [
@@ -227,7 +235,7 @@ void main() {
     item(13, '(11) 98765-4321'),
     item(14, 'https://github.com/evergreen/pin'),
     item(21, '529.982.247-25'),
-    item(30, 'const AppColors.greenPrimary = Color(0xFF22C55E);'),
+    item(30, 'const context.eg.colors.accent = Color(0xFF22C55E);'),
   ]);
 
   // Ancoradas no dia de hoje, e não em `base`: o histórico rotula as datas
@@ -312,6 +320,7 @@ void main() {
     VoidCallback? beforeSettle,
     bool fakeClock = false,
     DateTime? now,
+    AppThemeId theme = AppThemeId.evergreen,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 2.0;
@@ -345,8 +354,11 @@ void main() {
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(),
-          home: ColoredBox(color: AppColors.background, child: home),
+          theme: AppTheme.build(theme),
+          home: ColoredBox(
+            color: EgTokens.of(theme).colors.background,
+            child: home,
+          ),
         ),
       ),
     );
@@ -385,6 +397,41 @@ void main() {
     await expectLater(
       find.byType(PinOverlayView),
       matchesGoldenFile('goldens/pin_overlay_preview.png'),
+    );
+  });
+
+  /// As duas peles, nas duas telas que mais as revelam: o painel flutuante
+  /// (onde o Apple troca superfície opaca por vidro) e o Hub (onde a densidade
+  /// e a linha de meio pixel aparecem lado a lado com a sidebar).
+  ///
+  /// O tema Evergreen já tem as suas imagens nos goldens de sempre — estas são
+  /// as do Apple, para a comparação ser um par de arquivos, e não uma memória.
+  testWidgets('tema Apple — overlay do Pin', (tester) async {
+    await pump(
+      tester,
+      const PinOverlayView(),
+      const Size(1120, 1000),
+      beforeSettle: () => _loadHistory(tester),
+      theme: AppThemeId.apple,
+    );
+
+    await expectLater(
+      find.byType(PinOverlayView),
+      matchesGoldenFile('goldens/apple_pin_overlay_list.png'),
+    );
+  });
+
+  testWidgets('tema Apple — Hub', (tester) async {
+    await pump(
+      tester,
+      const HubView(),
+      const Size(1800, 1200),
+      theme: AppThemeId.apple,
+    );
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/apple_hub_pin_settings.png'),
     );
   });
 

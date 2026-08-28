@@ -96,8 +96,9 @@ class EchoCapabilities {
   factory EchoCapabilities.fromMap(Map<Object?, Object?> map) =>
       EchoCapabilities(
         microphone: PermissionStatus.fromName(map['microphone'] as String?),
-        screenRecording:
-            PermissionStatus.fromName(map['screenRecording'] as String?),
+        screenRecording: PermissionStatus.fromName(
+          map['screenRecording'] as String?,
+        ),
         summaries: SummaryAvailability.fromName(map['summaries'] as String?),
       );
 }

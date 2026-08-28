@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/hub_window_channel.dart';
 import '../../../../shared/widgets/eg_background.dart';
@@ -21,6 +19,7 @@ import '../../../track/presentation/views/track_view.dart';
 import '../../../track/presentation/widgets/track_reader.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
+import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/hub_intro_view_model.dart';
 import '../viewmodels/onboarding_view_model.dart';
 import '../widgets/hub_detail_region.dart';
@@ -29,6 +28,7 @@ import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import 'app_settings_view.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Painel principal do Evergreen.
 ///
@@ -52,6 +52,24 @@ class HubView extends ConsumerStatefulWidget {
 class _HubViewState extends ConsumerState<HubView> {
   /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
   EvergreenModule? _selected = EvergreenModule.pin;
+
+  /// O que acontece quando a abertura animada termina.
+  ///
+  /// Além de carimbar a build, ela decide onde o Hub cai: no Pin, como sempre,
+  /// ou na tela do aplicativo, quando ainda não se sabe o nome de quem está do
+  /// outro lado. A pergunta do nome mora lá, no topo, com o cursor dentro.
+  ///
+  /// Amarrada à cena, e não à abertura da janela: a cena roda **uma vez por
+  /// instalação**, então a pergunta aparece uma vez e nunca mais — mesmo de
+  /// quem deixar o campo em branco. Uma pergunta que reabre a cada Hub deixa de
+  /// ser pergunta e vira cobrança. E é o lugar certo também pelo tempo: ela
+  /// chega logo depois da marca, como a primeira coisa que o app diz.
+  void _introDone() {
+    ref.read(hubIntroViewModelProvider.notifier).complete();
+
+    if (ref.read(appSettingsViewModelProvider).userName.isNotEmpty) return;
+    setState(() => _selected = null);
+  }
 
   void _select(EvergreenModule? module) {
     // Trocar de módulo fecha a região: uma reunião aberta ao lado das
@@ -98,7 +116,7 @@ class _HubViewState extends ConsumerState<HubView> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.eg.colors.background,
       // A abertura fica por cima, e não no lugar do Hub: a tela de baixo monta
       // e resolve o que tem para resolver enquanto a marca está na frente, de
       // modo que a cena não some para revelar um Hub ainda em branco.
@@ -111,10 +129,7 @@ class _HubViewState extends ConsumerState<HubView> {
           // estava embaixo dela é a primeira coisa que a pessoa vê.
           if (ref.watch(onboardingViewModelProvider).visible) _onboarding(),
           if (ref.watch(hubIntroViewModelProvider))
-            HubIntro(
-              onDone: () =>
-                  ref.read(hubIntroViewModelProvider.notifier).complete(),
-            ),
+            HubIntro(onDone: _introDone),
         ],
       ),
     );
@@ -257,11 +272,11 @@ class _HubViewState extends ConsumerState<HubView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(module?.name ?? 'Evergreen', style: AppTypography.screenTitle),
+        Text(module?.name ?? 'Evergreen', style: context.eg.text.screenTitle),
         const SizedBox(height: AppSpacing.xxs),
         Text(
           module?.tagline ?? 'Preferências do aplicativo',
-          style: AppTypography.caption,
+          style: context.eg.text.caption,
         ),
       ],
     );

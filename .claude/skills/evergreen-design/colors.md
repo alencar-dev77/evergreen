@@ -23,15 +23,32 @@ Sugestão de organização (ajuste os hex reais durante implementação, o que i
 - `text/secondary` — labels, metadados, texto de apoio.
 - `text/tertiary` — placeholders, texto desabilitado, timestamps discretos.
 
-### Decisão do produto: dark-only até (pelo menos) a v0.2
+### Decisão do produto: dark-only, e duas peles escuras
 
-O Evergreen v0.1 é **dark-only, por decisão explícita** — não por esquecimento. Light mode é **dívida assumida**: a paleta em `app_colors.dart` são cores diretas, não um par claro/escuro, e nenhuma tela foi calibrada para fundo claro.
+O Evergreen é **dark-only** — light mode segue sendo dívida assumida, não
+esquecida. O que mudou (v0.11+) é que o escuro passou a ter duas linguagens, e a
+pessoa escolhe entre elas em Ajustes → Evergreen → Aparência:
 
-Consequências práticas enquanto essa decisão valer:
+- **Evergreen** — a paleta da casa. Superfícies opacas, verde `#22C55E`, linha de
+  1px, seleção em accent a 14% **mais** a aresta de 3px à esquerda, densidade
+  confortável (linha de controle de 36px).
+- **Apple** — o escuro do macOS. Vibrancy no painel flutuante, verde do sistema
+  `#30D158` com degradê, hairline de **meio pixel**, seleção sólida em accent
+  como no `NSTableView` (sem aresta — os dois juntos seriam dizer a mesma coisa
+  duas vezes), densidade do System Settings (linha de 26px), e cinzas de texto no
+  `#EBEBF5` com opacidade, que sobre fundo escuro puxa levemente para o azul e é
+  o que faz o texto secundário do macOS não parecer sujo.
 
-- Não adicione `Brightness`/`ThemeMode`/tokens duplicados "já preparando" o light mode. Preparar sem calibrar produz um light mode de segunda classe, que é exatamente o que a seção abaixo proíbe.
-- Não force uma cor a "funcionar nos dois modos" ao custo de ficar morna no escuro. Otimize para o escuro, que é o único modo que existe hoje.
-- Quando o light mode entrar (v0.2+), ele é uma tarefa de recalibração inteira — cada papel de superfície, o accent e as cores semânticas —, não um `if (isDark)` espalhado pelos widgets.
+**Isso não é um convite para uma terceira paleta**, nem para light mode entrar
+pela porta dos fundos. A regra que sustenta as duas continua sendo a mesma: uma
+cor de destaque por tema, neutros em 90% da superfície, cor só quando significa
+alguma coisa.
+
+O que a existência de dois temas cobra de quem desenha telas: **nenhum valor
+visual escrito à mão**. Cor, tipo, raio, sombra e espessura de linha vêm do tema
+pelo contexto (`context.eg.…`), e um papel novo nasce nos dois ao mesmo tempo —
+o compilador cobra o segundo. Um `if` por tema dentro de um widget é um token
+faltando. Ver `THEMING.md` na raiz do repositório.
 
 ### Light mode e dark mode como cidadãos de primeira classe
 

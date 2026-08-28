@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../shared/utils/byte_size.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/backup_file.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Os backups da pasta, para escolher qual restaurar.
 ///
@@ -97,7 +96,7 @@ class _BackupRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: AppTypography.bodyCompactEmphasis,
+              style: context.eg.text.bodyCompactEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -111,8 +110,8 @@ class _BackupRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: AppTypography.captionXS.copyWith(
-                color: AppColors.textTertiary,
+              style: context.eg.text.captionXS.copyWith(
+                color: context.eg.colors.textTertiary,
               ),
             ),
           ),
@@ -122,7 +121,7 @@ class _BackupRow extends StatelessWidget {
             child: Text(
               ByteSize.compact(backup.sizeBytes),
               textAlign: TextAlign.right,
-              style: AppTypography.captionSmall,
+              style: context.eg.text.captionSmall,
             ),
           ),
         ],

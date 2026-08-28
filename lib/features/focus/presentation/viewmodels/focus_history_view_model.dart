@@ -42,8 +42,8 @@ class FocusHistoryState {
 
 final focusHistoryViewModelProvider =
     NotifierProvider<FocusHistoryViewModel, FocusHistoryState>(
-  FocusHistoryViewModel.new,
-);
+      FocusHistoryViewModel.new,
+    );
 
 /// Histórico e resumo do Focus, lidos sob demanda.
 ///
@@ -74,10 +74,10 @@ class FocusHistoryViewModel extends Notifier<FocusHistoryState> {
   /// desenha — e quem faz a janela crescer — é o Hub. Aqui fica só *qual*
   /// sessão está aberta.
   void select(int id) => state = FocusHistoryState(
-        sessions: state.sessions,
-        stats: state.stats,
-        selectedId: id,
-      );
+    sessions: state.sessions,
+    stats: state.stats,
+    selectedId: id,
+  );
 
   /// Apaga uma sessão só — o oposto de "limpar histórico", que leva a semana
   /// inteira.

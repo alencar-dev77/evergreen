@@ -121,6 +121,13 @@ class FakeEchoChannel implements EchoChannel {
     return segments;
   }
 
+  /// Segura a resposta do modelo até o teste soltar.
+  ///
+  /// É o que permite olhar para o que acontece **durante** um resumo — que é
+  /// justamente onde mora o caso interessante: a janela que pediu ser fechada
+  /// no meio do trabalho.
+  Completer<void>? summaryGate;
+
   @override
   Future<String> summarize({
     required String text,
@@ -130,6 +137,9 @@ class FakeEchoChannel implements EchoChannel {
 
     summarizedTexts.add(text);
     summarizedInstructions.add(instructions);
+
+    await summaryGate?.future;
+
     return summaryValue;
   }
 

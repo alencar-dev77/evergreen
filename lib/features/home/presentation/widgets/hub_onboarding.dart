@@ -2,10 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
-import '../../../../core/design/app_gradients.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
+import '../../../../core/design/eg_tokens.dart';
 import '../../../../shared/widgets/eg_background.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_hint_bar.dart';
@@ -71,13 +69,13 @@ class HubOnboarding extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _stage(),
+                    _stage(context),
                     const SizedBox(height: AppSpacing.xxxl),
-                    _title(),
+                    _title(context),
                     const SizedBox(height: AppSpacing.md),
-                    _line(),
+                    _line(context),
                     const SizedBox(height: AppSpacing.xxxl),
-                    _footer(),
+                    _footer(context),
                   ],
                 ),
               ),
@@ -101,19 +99,19 @@ class HubOnboarding extends StatelessWidget {
   }
 
   /// O palco. É o único lugar do app onde um gradiente deve ser visto como
-  /// gradiente — ver [AppGradients.onboardingStage].
-  Widget _stage() {
+  /// gradiente — ver `EgGradients.onboardingStage`.
+  Widget _stage(BuildContext context) {
     return SizedBox(
       width: _stageWidth,
       height: _stageHeight,
       child: ClipRRect(
-        borderRadius: AppRadii.panelAll,
+        borderRadius: context.eg.shapes.panelAll,
         child: Stack(
           children: [
-            const Positioned.fill(
+            Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: AppGradients.onboardingStage,
+                  gradient: context.eg.gradients.onboardingStage,
                 ),
               ),
             ),
@@ -129,9 +127,16 @@ class HubOnboarding extends StatelessWidget {
                   child: SizedBox(
                     width: math.min(step.imageWidth, constraints.maxWidth),
                     child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(11)),
-                        boxShadow: AppShadows.floatingPanel,
+                      decoration: BoxDecoration(
+                        // Onze, e não um token de raio: este canto é o do
+                        // **print**, que já vem arredondado dentro do arquivo.
+                        // A sombra precisa acompanhar aquele canto, não o que o
+                        // tema em vigor usaria — ela é a sombra da imagem, não
+                        // de um painel desenhado aqui.
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(11),
+                        ),
+                        boxShadow: context.eg.elevations.floatingPanel,
                       ),
                       child: Image.asset(
                         step.image,
@@ -166,34 +171,34 @@ class HubOnboarding extends StatelessWidget {
     return _stageInset.top + math.max(0.0, sobra / 2);
   }
 
-  Widget _title() {
+  Widget _title(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(step.module.name, style: AppTypography.screenTitle),
+        Text(step.module.name, style: context.eg.text.screenTitle),
         const SizedBox(width: AppSpacing.md),
         EgKeyCap(step.shortcut),
       ],
     );
   }
 
-  Widget _line() {
+  Widget _line(BuildContext context) {
     return SizedBox(
       width: 480,
       child: Text(
         step.line,
         textAlign: TextAlign.center,
-        style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        style: context.eg.text.body.copyWith(color: context.eg.colors.textSecondary),
       ),
     );
   }
 
-  Widget _footer() {
+  Widget _footer(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _dots(),
+        _dots(context),
         const SizedBox(height: AppSpacing.xxl),
         SizedBox(
           width: 200,
@@ -210,7 +215,7 @@ class HubOnboarding extends StatelessWidget {
 
   /// Quantos passos faltam. Sem número escrito: numa sequência de cinco, contar
   /// pontos é mais rápido que ler "3 de 5".
-  Widget _dots() {
+  Widget _dots(BuildContext context) {
     return Semantics(
       label: 'Passo ${index + 1} de $total',
       excludeSemantics: true,
@@ -229,8 +234,8 @@ class HubOnboarding extends StatelessWidget {
                 height: 6,
                 decoration: BoxDecoration(
                   color: i == index
-                      ? AppColors.greenPrimary
-                      : AppColors.pressed,
+                      ? context.eg.colors.accent
+                      : context.eg.colors.pressed,
                   borderRadius: const BorderRadius.all(Radius.circular(3)),
                 ),
               ),

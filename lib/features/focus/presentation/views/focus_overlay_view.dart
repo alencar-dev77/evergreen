@@ -244,10 +244,10 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
   }
 
   Widget _body(FocusTimerState state) => switch (state.status) {
-        FocusStatus.idle => _idle(state),
-        FocusStatus.running || FocusStatus.paused => _active(state),
-        FocusStatus.finished => _finished(state),
-      };
+    FocusStatus.idle => _idle(state),
+    FocusStatus.running || FocusStatus.paused => _active(state),
+    FocusStatus.finished => _finished(state),
+  };
 
   /// Partida. O número já mostra a duração configurada, esmaecida: a tela toda
   /// é uma proposta esperando um Enter.
@@ -411,34 +411,36 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
   /// As dicas mudam com o estado: cada tela anuncia o que dá para fazer nela,
   /// não o mapa inteiro de atalhos do módulo.
   Widget _hintBar(FocusTimerState state) => switch (state.status) {
-        FocusStatus.idle => const EgHintBar(
-            hints: [EgHint(keys: ['enter'], label: 'iniciar')],
-            trailing: EgHint(keys: ['esc'], label: 'sair'),
+    FocusStatus.idle => const EgHintBar(
+      hints: [
+        EgHint(keys: ['enter'], label: 'iniciar'),
+      ],
+      trailing: EgHint(keys: ['esc'], label: 'sair'),
+    ),
+    FocusStatus.running || FocusStatus.paused => EgHintBar(
+      hints: [
+        // Digitando, o espaço é do texto e o Enter é da anotação; as
+        // dicas acompanham para não prometer um atalho desligado.
+        if (_noteFocusNode.hasFocus)
+          const EgHint(keys: ['enter'], label: 'anotar')
+        else
+          EgHint(
+            keys: const ['space'],
+            label: state.isPaused ? 'retomar' : 'pausar',
           ),
-        FocusStatus.running || FocusStatus.paused => EgHintBar(
-            hints: [
-              // Digitando, o espaço é do texto e o Enter é da anotação; as
-              // dicas acompanham para não prometer um atalho desligado.
-              if (_noteFocusNode.hasFocus)
-                const EgHint(keys: ['enter'], label: 'anotar')
-              else
-                EgHint(
-                  keys: const ['space'],
-                  label: state.isPaused ? 'retomar' : 'pausar',
-                ),
-              const EgHint(keys: ['⌘.'], label: 'encerrar'),
-              if (state.canExtend) const EgHint(keys: ['⌘+'], label: '+5 min'),
-            ],
-            trailing: const EgHint(keys: ['esc'], label: 'fechar'),
-          ),
-        FocusStatus.finished => EgHintBar(
-            hints: [
-              EgHint(
-                keys: const ['enter'],
-                label: state.phase.isFocus ? 'pausa' : 'foco',
-              ),
-            ],
-            trailing: const EgHint(keys: ['esc'], label: 'encerrar'),
-          ),
-      };
+        const EgHint(keys: ['⌘.'], label: 'encerrar'),
+        if (state.canExtend) const EgHint(keys: ['⌘+'], label: '+5 min'),
+      ],
+      trailing: const EgHint(keys: ['esc'], label: 'fechar'),
+    ),
+    FocusStatus.finished => EgHintBar(
+      hints: [
+        EgHint(
+          keys: const ['enter'],
+          label: state.phase.isFocus ? 'pausa' : 'foco',
+        ),
+      ],
+      trailing: const EgHint(keys: ['esc'], label: 'encerrar'),
+    ),
+  };
 }

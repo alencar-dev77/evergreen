@@ -88,11 +88,9 @@ void main() {
     test('devolve o que o modelo escreveu', () async {
       final channel = FakeEchoChannel()..summaryValue = 'Foi um dia de foco.';
 
-      final text = await TrackSummarizer(channel).write(
+      final text = await TrackSummarizer(channel, '').write(
         dayWith(
-          focus: [
-            TrackEntry(at: date, duration: const Duration(minutes: 25)),
-          ],
+          focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
@@ -107,11 +105,9 @@ void main() {
           'O Echo precisa do macOS 26 ou superior.',
         );
 
-      final text = await TrackSummarizer(channel).write(
+      final text = await TrackSummarizer(channel, '').write(
         dayWith(
-          focus: [
-            TrackEntry(at: date, duration: const Duration(minutes: 25)),
-          ],
+          focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
@@ -121,11 +117,9 @@ void main() {
     test('um retorno vazio é o mesmo que não ter parágrafo', () async {
       final channel = FakeEchoChannel()..summaryValue = '   ';
 
-      final text = await TrackSummarizer(channel).write(
+      final text = await TrackSummarizer(channel, '').write(
         dayWith(
-          focus: [
-            TrackEntry(at: date, duration: const Duration(minutes: 25)),
-          ],
+          focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
@@ -135,8 +129,26 @@ void main() {
     test('não incomoda o modelo com um dia vazio', () async {
       final channel = FakeEchoChannel();
 
-      expect(await TrackSummarizer(channel).write(dayWith()), isNull);
+      expect(await TrackSummarizer(channel, '').write(dayWith()), isNull);
       expect(channel.summarizedTexts, isEmpty);
+    });
+  });
+
+  /// Sem nome, o parágrafo é sobre "a pessoa" — um relatório escrito por quem
+  /// não sabe de quem está falando.
+  group('o nome na instrução', () {
+    test('vazio, a instrução fala de "a pessoa"', () {
+      expect(
+        TrackSummarizer.instructionsFor(''),
+        contains('contando o que a pessoa fez'),
+      );
+    });
+
+    test('preenchido, a instrução chama pelo nome', () {
+      final instructions = TrackSummarizer.instructionsFor('Lucas');
+
+      expect(instructions, contains('contando o que Lucas fez'));
+      expect(instructions, isNot(contains('a pessoa')));
     });
   });
 }

@@ -4,8 +4,8 @@ import '../../../../core/system/previous_app_focus_channel.dart';
 
 final accessibilityPermissionProvider =
     NotifierProvider<AccessibilityPermissionViewModel, bool>(
-  AccessibilityPermissionViewModel.new,
-);
+      AccessibilityPermissionViewModel.new,
+    );
 
 /// Estado da permissão de Acessibilidade do macOS, que é o que sustenta o
 /// auto-colar do Pin.

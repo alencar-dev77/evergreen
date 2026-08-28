@@ -1,9 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../models/focus_session_note.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// O que foi escrito nesta sessão: a atividade do início e as observações
 /// anotadas ao longo dela, em ordem cronológica.
@@ -40,8 +39,8 @@ class FocusSessionLog extends StatelessWidget {
         if (activity != null && activity!.isNotEmpty)
           Text(
             activity!,
-            style: AppTypography.bodyCompact.copyWith(
-              color: AppColors.textSecondary,
+            style: context.eg.text.bodyCompact.copyWith(
+              color: context.eg.colors.textSecondary,
             ),
           ),
         for (final note in notes) ...[
@@ -57,10 +56,7 @@ class FocusSessionLog extends StatelessWidget {
     // recém-escrita é a que importa, e ela é sempre a última.
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight!),
-      child: SingleChildScrollView(
-        reverse: true,
-        child: content,
-      ),
+      child: SingleChildScrollView(reverse: true, child: content),
     );
   }
 }
@@ -79,11 +75,11 @@ class _NoteLine extends StatelessWidget {
           // quem se lê é o que foi escrito.
           TextSpan(
             text: '${note.label} — ',
-            style: AppTypography.captionXS.copyWith(
-              color: AppColors.textTertiary,
+            style: context.eg.text.captionXS.copyWith(
+              color: context.eg.colors.textTertiary,
             ),
           ),
-          TextSpan(text: note.text, style: AppTypography.captionXS),
+          TextSpan(text: note.text, style: context.eg.text.captionXS),
         ],
       ),
     );

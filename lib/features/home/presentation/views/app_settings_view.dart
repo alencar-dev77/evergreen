@@ -5,9 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../../../core/app_info.dart';
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/design/app_typography.dart';
 import '../../../../core/storage/backup_service.dart';
 import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/utils/relative_time.dart';
@@ -16,9 +14,12 @@ import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/app_settings_view_model.dart';
+import '../widgets/theme_picker.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../widgets/backup_list.dart';
+import '../../../../core/design/eg_tokens.dart';
 
 /// Preferências do Evergreen como aplicativo.
 ///
@@ -35,9 +36,22 @@ class AppSettingsView extends ConsumerStatefulWidget {
 }
 
 class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
+  late final TextEditingController _name;
+  final _nameFocus = FocusNode(debugLabel: 'app-user-name');
+
   @override
   void initState() {
     super.initState();
+
+    _name = TextEditingController(
+      text: ref.read(appSettingsViewModelProvider).userName,
+    );
+    // Guarda ao sair do campo, por qualquer caminho — a mesma regra do apelido
+    // do Pin e dos campos do Echo.
+    _nameFocus.addListener(() {
+      if (_nameFocus.hasFocus) return;
+      ref.read(appSettingsViewModelProvider.notifier).setUserName(_name.text);
+    });
 
     // O backup automático roda no engine da janela flutuante, que não avisa
     // este aqui. Reler a pasta ao abrir a tela é o que faz o backup de ontem
@@ -48,16 +62,47 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
   }
 
   @override
+  void dispose() {
+    _name.dispose();
+    _nameFocus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsViewModelProvider);
     final viewModel = ref.read(appSettingsViewModelProvider.notifier);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Sem nome, a pergunta abre a tela; com nome, ela vira uma linha comum
+    // dentro de "Geral". É a mesma pergunta nos dois casos — o que muda é
+    // quanto ela pesa: no primeiro dia ela é a única coisa que o Evergreen tem
+    // a perguntar, e depois é só mais um campo que se pode corrigir.
+    final hasName = settings.userName.isNotEmpty;
+
+    return EgSettingsPage(
       children: [
+        if (!hasName)
+          EgSettingsSection(
+            title: 'Como você se chama',
+            children: [_nameField(autofocus: true)],
+          ),
         EgSettingsSection(
           title: 'Geral',
           children: [
+            if (hasName) _nameField(autofocus: false),
+            // A aparência abre o tópico depois do nome: é a única preferência
+            // que muda o app inteiro, e a única que se responde olhando em vez
+            // de lendo.
+            EgSettingsRow(
+              label: 'Aparência',
+              description:
+                  'O Evergreen é a paleta da casa. O Apple segue o escuro do '
+                  'macOS — mais denso, com vidro e linhas de meio pixel.',
+              trailing: ThemePicker(
+                value: settings.theme,
+                onChanged: viewModel.setTheme,
+              ),
+            ),
             EgSettingsRow.toggle(
               label: 'Iniciar com o macOS',
               description: 'O Evergreen sobe junto com o sistema.',
@@ -91,11 +136,31 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
             ),
           ],
         ),
-        const EgSettingsSection(
-          title: 'Sobre',
-          children: [_AboutLine()],
-        ),
+        const EgSettingsSection(title: 'Sobre', children: [_AboutLine()]),
       ],
+    );
+  }
+
+  /// O campo do nome, o mesmo nos dois lugares em que ele aparece.
+  ///
+  /// A descrição muda com o estado porque a pergunta muda: no primeiro dia é
+  /// preciso dizer para que serve, e depois já se sabe.
+  Widget _nameField({required bool autofocus}) {
+    return EgSettingsRow.field(
+      label: 'Seu nome',
+      description: autofocus
+          ? 'O resumo da reunião e o parágrafo do dia passam a falar de você '
+                'pelo nome, em vez de "a pessoa" — e a transcrição mostra ele '
+                'no lugar de "Você". Fica só nesta máquina, como todo o resto. '
+                'Dá para deixar em branco e preencher depois.'
+          : 'Como o resumo e a transcrição chamam você.',
+      showDivider: !autofocus,
+      field: EgTextField(
+        controller: _name,
+        focusNode: _nameFocus,
+        autofocus: autofocus,
+        hintText: 'Seu primeiro nome',
+      ),
     );
   }
 }
@@ -125,7 +190,8 @@ class _BackupSection extends ConsumerWidget {
       children: [
         EgSettingsRow.toggle(
           label: 'Backup semanal automático',
-          description: 'Uma cópia do banco por semana, guardada nesta máquina. '
+          description:
+              'Uma cópia do banco por semana, guardada nesta máquina. '
               'Ficam as ${BackupService.maxBackups} mais recentes; as antigas '
               'saem sozinhas.',
           value: isAutomatic,
@@ -136,7 +202,7 @@ class _BackupSection extends ConsumerWidget {
           description: latest == null
               ? 'Nenhum backup ainda.'
               : 'Último backup: '
-                  '${RelativeTime.format(latest.createdAt, now: now)}.',
+                    '${RelativeTime.format(latest.createdAt, now: now)}.',
           trailing: EgButton.secondary(
             label: 'Fazer backup',
             onPressed: viewModel.createNow,
@@ -176,7 +242,7 @@ class _RestoreSection extends ConsumerWidget {
             child: Text(
               'Nenhum backup na pasta ainda. Um arquivo .db colocado lá também '
               'aparece aqui — é assim que se traz o backup de outra máquina.',
-              style: AppTypography.captionSmall,
+              style: context.eg.text.captionSmall,
             ),
           )
         else ...[
@@ -208,8 +274,8 @@ class _RestoreSection extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           Text(
             state.message!,
-            style: AppTypography.captionSmall.copyWith(
-              color: AppColors.textSecondary,
+            style: context.eg.text.captionSmall.copyWith(
+              color: context.eg.colors.textSecondary,
             ),
           ),
         ],
@@ -227,7 +293,8 @@ class _RestoreSection extends ConsumerWidget {
     final confirmed = await EgConfirmDialog.show(
       context,
       title: 'Restaurar este backup?',
-      message: 'O histórico do Pin, as sessões do Focus, as anotações do Leaf '
+      message:
+          'O histórico do Pin, as sessões do Focus, as anotações do Leaf '
           'e as reuniões do Echo passam a ser os do backup. O estado de agora '
           'é guardado antes de qualquer coisa, e volta para a lista como '
           '"antes de restaurar".',
@@ -249,7 +316,7 @@ class _AboutLine extends StatelessWidget {
       child: Text(
         'Evergreen ${AppInfo.versionLabel}\n'
         'Todos os dados ficam nesta máquina. Nada é enviado para a internet.',
-        style: AppTypography.captionSmall,
+        style: context.eg.text.captionSmall,
       ),
     );
   }

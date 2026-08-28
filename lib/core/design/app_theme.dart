@@ -1,63 +1,73 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
-import 'app_typography.dart';
+import 'app_theme_id.dart';
+import 'eg_tokens.dart';
 
-/// Tema único do Evergreen. Todas as janelas (Hub e overlays) o compartilham,
-/// garantindo que os módulos pareçam o mesmo aplicativo.
+/// Monta o `ThemeData` de um tema do Evergreen.
+///
+/// Todas as janelas (Hub e overlays) usam o mesmo, e é assim que os seis
+/// módulos parecem o mesmo aplicativo — inclusive na hora de trocar de
+/// aparência, que troca as duas ao mesmo tempo.
+///
+/// Este arquivo **não escolhe cor nenhuma**: ele traduz os tokens do
+/// [EgTokens] para os campos que o Material exige. Quem tem valores é
+/// `themes/evergreen_tokens.dart` e `themes/apple_tokens.dart`.
 abstract final class AppTheme {
-  static ThemeData build() {
+  static ThemeData build([AppThemeId id = AppThemeId.evergreen]) {
     final base = ThemeData.dark(useMaterial3: true);
+    final eg = EgTokens.of(id);
+    final colors = eg.colors;
 
     return base.copyWith(
-      scaffoldBackgroundColor: AppColors.background,
-      canvasColor: AppColors.background,
+      extensions: [eg],
+      scaffoldBackgroundColor: colors.background,
+      canvasColor: colors.background,
       colorScheme: base.colorScheme.copyWith(
         brightness: Brightness.dark,
-        primary: AppColors.greenPrimary,
-        onPrimary: AppColors.background,
-        surface: AppColors.surface,
-        onSurface: AppColors.textPrimary,
-        error: AppColors.error,
-        outline: AppColors.border,
+        primary: colors.accent,
+        onPrimary: colors.onAccent,
+        surface: colors.surface,
+        onSurface: colors.textPrimary,
+        error: colors.error,
+        outline: colors.border,
       ),
-      textTheme: _textTheme(base.textTheme),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.border,
-        thickness: 1,
-        space: 1,
+      textTheme: _textTheme(base.textTheme, eg),
+      dividerTheme: DividerThemeData(
+        color: colors.border,
+        thickness: eg.shapes.hairline,
+        space: eg.shapes.hairline,
       ),
-      textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: AppColors.greenPrimary,
-        selectionColor: AppColors.textSelection,
-        selectionHandleColor: AppColors.greenPrimary,
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: colors.accent,
+        selectionColor: colors.textSelection,
+        selectionHandleColor: colors.accent,
       ),
       scrollbarTheme: ScrollbarThemeData(
         thickness: const WidgetStatePropertyAll(6),
         radius: const Radius.circular(3),
-        thumbColor: const WidgetStatePropertyAll(AppColors.border),
-        trackColor: const WidgetStatePropertyAll(AppColors.transparent),
+        thumbColor: WidgetStatePropertyAll(colors.border),
+        trackColor: const WidgetStatePropertyAll(Color(0x00000000)),
         crossAxisMargin: 2,
       ),
       splashFactory: NoSplash.splashFactory,
-      highlightColor: AppColors.transparent,
-      hoverColor: AppColors.hover,
+      highlightColor: const Color(0x00000000),
+      hoverColor: colors.hover,
       visualDensity: VisualDensity.compact,
     );
   }
 
-  static TextTheme _textTheme(TextTheme base) => base.copyWith(
-        displayLarge: AppTypography.screenTitle,
-        headlineMedium: AppTypography.sectionTitle,
-        titleMedium: AppTypography.panelTitle,
-        titleSmall: AppTypography.bodyEmphasis,
-        bodyLarge: AppTypography.body,
-        bodyMedium: AppTypography.bodyCompact,
-        bodySmall: AppTypography.caption,
-        labelSmall: AppTypography.overline,
-        labelLarge: AppTypography.button,
-      );
+  static TextTheme _textTheme(TextTheme base, EgTokens eg) => base.copyWith(
+    displayLarge: eg.text.screenTitle,
+    headlineMedium: eg.text.sectionTitle,
+    titleMedium: eg.text.panelTitle,
+    titleSmall: eg.text.bodyEmphasis,
+    bodyLarge: eg.text.body,
+    bodyMedium: eg.text.bodyCompact,
+    bodySmall: eg.text.caption,
+    labelSmall: eg.text.overline,
+    labelLarge: eg.text.button,
+  );
 }
 
 /// Remove o glow de overscroll do Material e habilita arraste do scroll com o
@@ -67,32 +77,30 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
   @override
   Set<PointerDeviceKind> get dragDevices => const {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-        PointerDeviceKind.stylus,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
 
   @override
   Widget buildOverscrollIndicator(
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) =>
-      child;
+  ) => child;
 
   @override
   Widget buildScrollbar(
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) =>
-      RawScrollbar(
-        controller: details.controller,
-        thumbColor: AppColors.border,
-        radius: const Radius.circular(3),
-        thickness: 6,
-        crossAxisMargin: 2,
-        child: child,
-      );
+  ) => RawScrollbar(
+    controller: details.controller,
+    thumbColor: context.eg.colors.border,
+    radius: const Radius.circular(3),
+    thickness: 6,
+    crossAxisMargin: 2,
+    child: child,
+  );
 }

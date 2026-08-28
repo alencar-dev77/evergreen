@@ -43,8 +43,7 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
     // faz falta nenhuma, e um aviso permanente vira ruído que ninguém mais lê.
     final needsPermission = settings.autoPaste && !hasPermission;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EgSettingsPage(
       children: [
         EgSettingsSection(
           title: 'Geral',
@@ -61,7 +60,8 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
             if (needsPermission)
               EgSettingsRow(
                 label: 'Permissão de Acessibilidade',
-                description: 'O macOS não está concedendo a permissão. '
+                description:
+                    'O macOS não está concedendo a permissão. '
                     'Sem ela o item é copiado, mas não colado.',
                 showDivider: false,
                 trailing: EgButton.secondary(
@@ -71,19 +71,6 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
                       .request,
                 ),
               ),
-          ],
-        ),
-        EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir Pin',
-              description: 'Funciona com qualquer aplicativo em foco.',
-              showDivider: false,
-              trailing: const EgShortcutDisplay(
-                keys: GlobalShortcutService.pinShortcutKeys,
-              ),
-            ),
           ],
         ),
         EgSettingsSection(
@@ -106,6 +93,19 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
               trailing: EgButton.destructive(
                 label: 'Limpar',
                 onPressed: () => _clearHistory(context, ref),
+              ),
+            ),
+          ],
+        ),
+        EgSettingsSection(
+          title: 'Atalho global',
+          children: [
+            EgSettingsRow(
+              label: 'Abrir Pin',
+              description: 'Funciona com qualquer aplicativo em foco.',
+              showDivider: false,
+              trailing: const EgShortcutDisplay(
+                keys: GlobalShortcutService.pinShortcutKeys,
               ),
             ),
           ],
