@@ -5,6 +5,7 @@ import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/features/home/models/app_settings.dart';
 import 'package:evergreen/features/home/presentation/viewmodels/hub_intro_view_model.dart';
+import 'package:evergreen/features/home/presentation/viewmodels/onboarding_view_model.dart';
 import 'package:evergreen/features/home/presentation/views/app_settings_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/theme_picker.dart';
 import 'package:evergreen/shared/feature_flags.dart';
@@ -113,5 +114,21 @@ void main() {
     // não roda — e, o que importa, **não gasta** a abertura desta build.
     expect(container.read(hubIntroViewModelProvider), FeatureFlags.intro);
     expect(preferences.getString('app.last_seen_build'), isNull);
+  });
+
+  /// A apresentação de boas-vindas, pela mesma régua da abertura.
+  test('a apresentação acompanha a bandeira', () {
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(onboardingViewModelProvider).visible,
+      FeatureFlags.onboarding,
+    );
+    // Desligada, ela não consome a apresentação de ninguém: o "já vi" fica por
+    // gravar, e religar a bandeira apresenta quem nunca foi apresentado.
+    expect(preferences.getBool('app.onboarding_seen'), isNull);
   });
 }

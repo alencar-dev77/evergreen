@@ -6,6 +6,7 @@ import 'package:evergreen/features/home/presentation/viewmodels/onboarding_view_
 import 'package:evergreen/features/home/presentation/widgets/hub_onboarding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:evergreen/shared/feature_flags.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,7 +42,9 @@ void main() {
     });
   });
 
-  group('OnboardingViewModel', () {
+  /// A condução da apresentação — que só existe com a bandeira ligada. Com ela
+  /// desligada não há passo por onde andar, e o "já vi" de ninguém é gravado.
+  group('OnboardingViewModel', skip: !FeatureFlags.onboarding, () {
     ProviderContainer container() {
       final c = ProviderContainer(
         overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],

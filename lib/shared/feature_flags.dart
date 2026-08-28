@@ -40,4 +40,16 @@ abstract final class FeatureFlags {
   /// no topo daquela tela, esperando quem for. É o preço de desligar a
   /// cerimônia de primeira vez: ela vai inteira.
   static const intro = false;
+
+  /// A apresentação de boas-vindas: os cinco passos com o print de cada painel,
+  /// na primeira abertura de uma instalação.
+  ///
+  /// É a irmã da [intro], e por isso vive ao lado dela: a abertura animada
+  /// mostra a marca, a apresentação mostra o que o app faz. Desligar as duas é
+  /// o app entrando direto no assunto, que é o que ele faz da segunda abertura
+  /// em diante.
+  ///
+  /// Como na [intro], desligada ela **não** grava o "já vi": ligada de volta,
+  /// quem nunca foi apresentado é apresentado.
+  static const onboarding = false;
 }

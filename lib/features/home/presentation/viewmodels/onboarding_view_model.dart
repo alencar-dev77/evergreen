@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../shared/feature_flags.dart';
 import '../../data/onboarding_repository.dart';
 import '../../models/onboarding_step.dart';
 
@@ -35,7 +36,13 @@ class OnboardingViewModel extends Notifier<OnboardingState> {
   @override
   OnboardingState build() {
     _repository = ref.watch(onboardingRepositoryProvider);
-    return OnboardingState(index: 0, visible: _repository.shouldShow());
+
+    // A bandeira responde antes do "já vi", e de propósito não o grava:
+    // desligada, ela não consome a apresentação de ninguém.
+    return OnboardingState(
+      index: 0,
+      visible: FeatureFlags.onboarding && _repository.shouldShow(),
+    );
   }
 
   /// Avança; no último passo, encerra.

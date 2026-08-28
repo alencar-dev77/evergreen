@@ -60,9 +60,12 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   entrega uma ruína. Teste de bandeira passa **nos dois estados** (`skip:
   !FeatureFlags.x` no que só existe de um lado); teste que só passa ligada
   obriga a mexer na suíte para desligar a funcionalidade, e aí ninguém desliga.
-  Hoje existem duas, as duas em `false`: `themes` (a escolha de aparência) e
-  `intro` (a abertura animada do Hub). Cada uma decide num ponto só —
-  `AppSettings.activeTheme` e `HubIntroViewModel.build`.
+  Hoje existem três, as três em `false`: `themes` (a escolha de aparência),
+  `intro` (a abertura animada do Hub) e `onboarding` (a apresentação de
+  boas-vindas). Cada uma decide num ponto só — `AppSettings.activeTheme`,
+  `HubIntroViewModel.build` e `OnboardingViewModel.build` —, e as duas de
+  primeira vez não gravam o "já vi" quando desligadas: religar apresenta quem
+  nunca foi apresentado, em vez de ter consumido a vez dele calado.
 - **O app tem dois temas escuros — `evergreen` e `apple` — e widget nenhum sabe
   qual está em vigor.** Todo valor visual vem do tema pelo contexto
   (`context.eg.colors.accent`, `context.eg.text.body`,
