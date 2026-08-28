@@ -35,7 +35,12 @@ void main() {
       DateTime(now.year, now.month, now.day - daysAgo, hour, minute);
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      // Sem isto o Hub nasce coberto pela apresentação de boas-vindas, e ela
+      // espera alguém apertar "Próximo" cinco vezes. Um teste do Hub não é um
+      // teste de primeira instalação: aqui o app já foi apresentado.
+      'app.onboarding_seen': true,
+    });
     preferences = await SharedPreferences.getInstance();
 
     db = sqlite3.openInMemory();
@@ -88,10 +93,12 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
-          clipboardRepositoryProvider
-              .overrideWithValue(FakeClipboardRepository([])),
-          focusSessionRepositoryProvider
-              .overrideWithValue(FakeFocusSessionRepository()),
+          clipboardRepositoryProvider.overrideWithValue(
+            FakeClipboardRepository([]),
+          ),
+          focusSessionRepositoryProvider.overrideWithValue(
+            FakeFocusSessionRepository(),
+          ),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel),
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
@@ -108,10 +115,8 @@ void main() {
 
   /// O texto dentro da lista de dias — "Hoje" também é o nome de uma pílula do
   /// recorte, e sem isto o `find` acharia as duas.
-  Finder inDayList(String text) => find.descendant(
-        of: find.byType(TrackDayList),
-        matching: find.text(text),
-      );
+  Finder inDayList(String text) =>
+      find.descendant(of: find.byType(TrackDayList), matching: find.text(text));
 
   testWidgets('o balanço conta o período numa frase', (tester) async {
     insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
@@ -149,8 +154,9 @@ void main() {
     expect(inDayList('Nada registrado'), findsOneWidget);
   });
 
-  testWidgets('o recorte de hoje encolhe a lista e recolhe a faixa',
-      (tester) async {
+  testWidgets('o recorte de hoje encolhe a lista e recolhe a faixa', (
+    tester,
+  ) async {
     insertFocus(at(0, 9, 0), const Duration(minutes: 25));
     insertFocus(at(1, 9, 0), const Duration(minutes: 50));
 
@@ -166,8 +172,9 @@ void main() {
     expect(find.byType(TrackWeekStrip), findsNothing);
   });
 
-  testWidgets('clicar num dia abre a região de leitura com o dia inteiro',
-      (tester) async {
+  testWidgets('clicar num dia abre a região de leitura com o dia inteiro', (
+    tester,
+  ) async {
     insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
     insertMeeting(at(0, 10, 0), const Duration(minutes: 45), 'Weekly do time');
     insertCopy(at(0, 11, 0), 'https://exemplo.com', ClipboardItemType.link);
@@ -203,8 +210,9 @@ void main() {
     );
   });
 
-  testWidgets('sem modelo, o dia continua inteiro e só falta o parágrafo',
-      (tester) async {
+  testWidgets('sem modelo, o dia continua inteiro e só falta o parágrafo', (
+    tester,
+  ) async {
     channel.failWith = const EchoException(
       'unsupported_os',
       'O Echo precisa do macOS 26 ou superior.',
@@ -221,8 +229,9 @@ void main() {
     expect(find.textContaining('resumo'), findsNothing);
   });
 
-  testWidgets('sem nada registrado, a tela diz o que falta acontecer',
-      (tester) async {
+  testWidgets('sem nada registrado, a tela diz o que falta acontecer', (
+    tester,
+  ) async {
     await pumpTrack(tester);
 
     expect(find.text('Nada registrado ainda'), findsOneWidget);

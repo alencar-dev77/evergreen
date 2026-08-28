@@ -78,4 +78,27 @@ abstract final class AppGradients {
     colors: [AppColors.cardTop, AppColors.card],
     stops: [0.0, 0.55],
   );
+
+  /// O palco da apresentação de boas-vindas: do preto ao verde, na diagonal.
+  ///
+  /// É o único gradiente do app que a pessoa deve **ver** como gradiente, e ele
+  /// custa uma justificativa: o `colors.md` proíbe gradiente decorativo porque
+  /// ferramenta de trabalho não decora. Isto não é tela de trabalho — é a única
+  /// vez em que o Evergreen se apresenta, e nela o verde da marca é o assunto,
+  /// não um estado. A regra continua valendo para todo o resto.
+  ///
+  /// Mesmo aqui ele é contido: parte do preto do app, chega no [greenShade] e
+  /// para antes do accent, para o print que fica em cima continuar sendo a
+  /// coisa mais clara da composição. Se o fundo chegasse no [greenPrimary], ele
+  /// competiria com o botão verde que aparece dentro do próprio print.
+  static const onboardingStage = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      AppColors.backgroundDeep,
+      AppColors.background,
+      AppColors.greenShade,
+    ],
+    stops: [0.0, 0.42, 1.0],
+  );
 }

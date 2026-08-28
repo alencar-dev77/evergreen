@@ -6,6 +6,16 @@ Use este arquivo como checklist final antes de considerar qualquer tela, compone
 
 - ❌ **Não centralizar conteúdo de trabalho.** Listas, formulários, painéis de configuração e áreas de conteúdo principal nunca são centralizados na largura da janela — isso é vocabulário de site/documento, não de ferramenta desktop. Ver `spacing.md` para a exceção legítima (modais pequenos).
 - ❌ **Não criar layouts de landing page.** Nada de seção "hero", CTA gigante, texto de marketing ("Transforme sua produtividade!"), carrossel de destaques, ou qualquer estrutura pensada para "converter visitante", porque não existe visitante — existe usuário que já decidiu usar o app.
+  **Exceção decidida em conversa (v0.8.3+): a apresentação de boas-vindas.** Na
+  primeira abertura depois da instalação — e só nela —, o Hub mostra os cinco
+  painéis, um por tela, com o print do painel de verdade, duas linhas e o
+  atalho. O argumento acima ("não existe visitante") vale para todo o resto do
+  app justamente porque esta tela existe: é aqui que a pessoa deixa de ser
+  visitante. Ela roda **uma vez por instalação e nunca mais**, atualização
+  inclusive, e pular conta como visto — quem fechou respondeu, não adiou.
+  A alavanca `kAlwaysShowOnboarding` (em `onboarding_repository.dart`) força a
+  apresentação em toda abertura para trabalhar nela; nasce `false` e um teste
+  falha se alguém subir com `true`.
 - ❌ **Não deixar telas vazias com espaço em excesso.** Se uma tela parece "vazia demais", o problema quase sempre é falta de conteúdo/hierarquia real ali, não falta de padding decorativo ao redor de pouco conteúdo. Ver `components.md` (Empty states) para o padrão correto.
 - ❌ **Não empilhar cards dentro de cards.** Se um bloco de conteúdo dentro de um card parece precisar do mesmo tratamento de container do pai, resolva com espaçamento e tipografia, não com mais uma camada de card. Ver `components.md`.
 - ❌ **Não usar grid de 12 colunas típico de web design.** O Evergreen é composto por regiões fixas/redimensionáveis (sidebar, conteúdo, painel de detalhe), não por um sistema de colunas fluidas de site responsivo.
@@ -13,6 +23,13 @@ Use este arquivo como checklist final antes de considerar qualquer tela, compone
 ## Cor
 
 - ❌ **Não usar gradientes chamativos.** Nada de gradiente multi-hue, diagonal, ou "roxo-para-azul genérico de app de IA" em botões, fundos ou ícones. O único gradiente aceitável é sutilíssimo, para evitar banding em superfícies grandes, imperceptível como "gradiente".
+  **Uma exceção, e só uma: o palco da apresentação de boas-vindas**
+  (`AppGradients.onboardingStage`), que vai do preto ao verde na diagonal e é
+  para ser visto como gradiente. Ele passa porque não é tela de trabalho — é a
+  única vez em que o Evergreen se apresenta, e nela o verde da marca é o
+  assunto, não um estado. Mesmo assim é contido: para no `greenShade` e não
+  chega no accent, para o print que fica em cima continuar sendo a coisa mais
+  clara da composição.
 - ❌ **Não criar interfaces coloridas demais.** A paleta é 90%+ neutra; cor de destaque e cores semânticas aparecem em contextos pontuais de ação e estado, nunca espalhadas pela tela "para dar vida".
 - ❌ **Não usar cor sem significado.** Toda cor fora do neutro precisa representar algo real (ação primária, estado, seleção) — nunca decoração pura.
 - ❌ **Não usar mais de uma cor de destaque (accent) no mesmo app.** Varie opacidade/peso da mesma cor antes de introduzir uma segunda.

@@ -28,7 +28,12 @@ void main() {
   late Database db;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      // Sem isto o Hub nasce coberto pela apresentação de boas-vindas, e ela
+      // espera alguém apertar "Próximo" cinco vezes. Um teste do Hub não é um
+      // teste de primeira instalação: aqui o app já foi apresentado.
+      'app.onboarding_seen': true,
+    });
     preferences = await SharedPreferences.getInstance();
 
     db = sqlite3.openInMemory();
@@ -97,8 +102,9 @@ void main() {
     expect(find.text('Transcrição'), findsOneWidget);
   });
 
-  testWidgets('a transcrição e o resumo se alternam, um de cada vez',
-      (tester) async {
+  testWidgets('a transcrição e o resumo se alternam, um de cada vez', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openMeeting(tester);
 
@@ -141,8 +147,9 @@ void main() {
   /// todas as linhas de configuração da tela do Echo.
   ///
   /// Não há `expect`: um `RenderFlex overflowed` já reprova o teste sozinho.
-  testWidgets('a região cede largura em vez de espremer o conteúdo',
-      (tester) async {
+  testWidgets('a região cede largura em vez de espremer o conteúdo', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openMeeting(tester);
 

@@ -87,7 +87,12 @@ void main() {
   final backupToday = DateTime(2026, 8, 25, 16, 20);
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      // Sem isto o Hub nasce coberto pela apresentação de boas-vindas, e ela
+      // espera alguém apertar "Próximo" cinco vezes. Um teste do Hub não é um
+      // teste de primeira instalação: aqui o app já foi apresentado.
+      'app.onboarding_seen': true,
+    });
     preferences = await SharedPreferences.getInstance();
 
     // A tela do Pin pergunta ao canal nativo se a permissão de Acessibilidade
@@ -95,9 +100,10 @@ void main() {
     // exceção subia no meio do primeiro quadro e derrubava toda tela do Hub.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('previous_app_focus'),
-      (call) async => call.method == 'hasAccessibilityPermission' ? true : null,
-    );
+          const MethodChannel('previous_app_focus'),
+          (call) async =>
+              call.method == 'hasAccessibilityPermission' ? true : null,
+        );
 
     // O Echo lê as reuniões do banco; a conferência visual precisa de uma
     // reunião com transcrição para a tela do Hub não sair vazia.
@@ -201,8 +207,10 @@ void main() {
   final base = DateTime(2026, 7, 23, 12);
 
   ClipboardItem item(int id, String content, {bool isPinned = false}) =>
-      ClipboardItem.capture(content, at: base.subtract(Duration(minutes: id)))
-          .copyWith(id: id, isPinned: isPinned);
+      ClipboardItem.capture(
+        content,
+        at: base.subtract(Duration(minutes: id)),
+      ).copyWith(id: id, isPinned: isPinned);
 
   final repository = FakeClipboardRepository([
     item(1, 'Flutter', isPinned: true),
@@ -264,7 +272,8 @@ void main() {
     LeafNote(
       id: 2,
       slot: 2,
-      content: 'Marina fecha o contrato até sexta. Cobrar o jurídico antes de '
+      content:
+          'Marina fecha o contrato até sexta. Cobrar o jurídico antes de '
           'quarta e mandar a minuta revisada junto.',
       createdAt: anchor.subtract(const Duration(hours: 5)),
     ),
@@ -315,15 +324,19 @@ void main() {
           focusSessionRepositoryProvider.overrideWithValue(sessions),
           // Sem isso, ligar a trava chamaria o canal nativo do Awake, que não
           // existe sob `flutter test`.
-          sleepAssertionServiceProvider
-              .overrideWithValue(FakeSleepAssertionService()),
+          sleepAssertionServiceProvider.overrideWithValue(
+            FakeSleepAssertionService(),
+          ),
           leafRepositoryProvider.overrideWithValue(notes),
           sharedPreferencesProvider.overrideWithValue(preferences),
-          echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(echoDb)),
+          echoRepositoryProvider.overrideWithValue(
+            SqliteEchoRepository(echoDb),
+          ),
           echoChannelProvider.overrideWithValue(channel),
           // O Track lê o mesmo banco: ele não tem tabela própria.
-          trackRepositoryProvider
-              .overrideWithValue(SqliteTrackRepository(echoDb)),
+          trackRepositoryProvider.overrideWithValue(
+            SqliteTrackRepository(echoDb),
+          ),
           backupServiceProvider.overrideWithValue(backups),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now())
@@ -796,7 +809,7 @@ void seedTrack(Database db, DateTime today) {
 
 void _loadHistory(WidgetTester tester) {
   final element = tester.element(find.byType(PinOverlayView));
-  ProviderScope.containerOf(element)
-      .read(pinOverlayViewModelProvider.notifier)
-      .load();
+  ProviderScope.containerOf(
+    element,
+  ).read(pinOverlayViewModelProvider.notifier).load();
 }

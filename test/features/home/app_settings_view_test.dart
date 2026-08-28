@@ -23,7 +23,12 @@ void main() {
   late BackupService backup;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      // Sem isto o Hub nasce coberto pela apresentação de boas-vindas, e ela
+      // espera alguém apertar "Próximo" cinco vezes. Um teste do Hub não é um
+      // teste de primeira instalação: aqui o app já foi apresentado.
+      'app.onboarding_seen': true,
+    });
     preferences = await SharedPreferences.getInstance();
 
     // A versão do rodapé "Sobre" vem do bundle, que não existe em teste.
@@ -67,8 +72,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a marca da barra lateral abre as preferências do aplicativo',
-      (tester) async {
+  testWidgets('a marca da barra lateral abre as preferências do aplicativo', (
+    tester,
+  ) async {
     await pumpHub(tester);
 
     // O Hub abre no Pin, e o que é do aplicativo não mora mais lá.

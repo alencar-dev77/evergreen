@@ -22,8 +22,10 @@ import '../../../track/presentation/widgets/track_reader.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
 import '../viewmodels/hub_intro_view_model.dart';
+import '../viewmodels/onboarding_view_model.dart';
 import '../widgets/hub_detail_region.dart';
 import '../widgets/hub_intro.dart';
+import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import 'app_settings_view.dart';
@@ -104,12 +106,50 @@ class _HubViewState extends ConsumerState<HubView> {
         fit: StackFit.expand,
         children: [
           _hub(),
+          // A apresentação vem antes da abertura animada na pilha porque a
+          // abertura é quem cobre tudo: a marca entra, a marca sai, e o que
+          // estava embaixo dela é a primeira coisa que a pessoa vê.
+          if (ref.watch(onboardingViewModelProvider).visible) _onboarding(),
           if (ref.watch(hubIntroViewModelProvider))
             HubIntro(
               onDone: () =>
                   ref.read(hubIntroViewModelProvider.notifier).complete(),
             ),
         ],
+      ),
+    );
+  }
+
+  /// A apresentação de boas-vindas, com o teclado dela.
+  ///
+  /// Os atalhos ficam aqui, e não dentro do `HubOnboarding`: enquanto ela está
+  /// na tela, o Esc não pode chegar ao `_handleEscape` do Hub — ali ele
+  /// esconderia a janela, e sair pela janela em vez de pela apresentação
+  /// deixaria a preferência por gravar e a apresentação voltaria na próxima
+  /// abertura.
+  Widget _onboarding() {
+    final state = ref.watch(onboardingViewModelProvider);
+    final model = ref.read(onboardingViewModelProvider.notifier);
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): model.next,
+        const SingleActivator(LogicalKeyboardKey.arrowRight): model.next,
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): model.previous,
+        const SingleActivator(LogicalKeyboardKey.escape): model.finish,
+      },
+      child: FocusScope(
+        child: Focus(
+          autofocus: true,
+          child: HubOnboarding(
+            step: state.step,
+            index: state.index,
+            total: state.total,
+            onNext: model.next,
+            onPrevious: model.previous,
+            onSkip: model.finish,
+          ),
+        ),
       ),
     );
   }
