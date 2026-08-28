@@ -39,6 +39,7 @@ void main() {
     required Meeting meeting,
     required bool isSummarizing,
     (int, int)? progress,
+    String userName = '',
   }) async {
     tester.view.physicalSize = const Size(900, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -50,6 +51,7 @@ void main() {
         home: Scaffold(
           body: EchoMeetingDetail(
             meeting: meeting,
+            userName: userName,
             summaries: SummaryAvailability.available,
             isSummarizing: isSummarizing,
             progress: progress,

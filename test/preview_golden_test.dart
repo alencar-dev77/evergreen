@@ -87,7 +87,10 @@ void main() {
   final backupToday = DateTime(2026, 8, 25, 16, 20);
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    // Com um nome guardado: sem ele, a abertura animada termina levando o Hub
+    // para a tela do aplicativo, onde a pergunta do nome espera. É o caminho
+    // da primeira vez, e tem teste próprio em `app_settings_view_test.dart`.
+    SharedPreferences.setMockInitialValues({'app.user_name': 'Lucas'});
     preferences = await SharedPreferences.getInstance();
 
     // A tela do Pin pergunta ao canal nativo se a permissão de Acessibilidade

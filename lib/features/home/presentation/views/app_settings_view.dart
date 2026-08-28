@@ -16,6 +16,7 @@ import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../widgets/backup_list.dart';
@@ -35,9 +36,24 @@ class AppSettingsView extends ConsumerStatefulWidget {
 }
 
 class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
+  late final TextEditingController _name;
+  final _nameFocus = FocusNode(debugLabel: 'app-user-name');
+
   @override
   void initState() {
     super.initState();
+
+    _name = TextEditingController(
+      text: ref.read(appSettingsViewModelProvider).userName,
+    );
+    // Guarda ao sair do campo, por qualquer caminho — a mesma regra do apelido
+    // do Pin e dos campos do Echo.
+    _nameFocus.addListener(() {
+      if (_nameFocus.hasFocus) return;
+      ref
+          .read(appSettingsViewModelProvider.notifier)
+          .setUserName(_name.text);
+    });
 
     // O backup automático roda no engine da janela flutuante, que não avisa
     // este aqui. Reler a pasta ao abrir a tela é o que faz o backup de ontem
@@ -48,15 +64,34 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
   }
 
   @override
+  void dispose() {
+    _name.dispose();
+    _nameFocus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsViewModelProvider);
     final viewModel = ref.read(appSettingsViewModelProvider.notifier);
 
+    // Sem nome, a pergunta abre a tela; com nome, ela vira uma linha comum
+    // dentro de "Geral". É a mesma pergunta nos dois casos — o que muda é
+    // quanto ela pesa: no primeiro dia ela é a única coisa que o Evergreen tem
+    // a perguntar, e depois é só mais um campo que se pode corrigir.
+    final hasName = settings.userName.isNotEmpty;
+
     return EgSettingsPage(
       children: [
+        if (!hasName)
+          EgSettingsSection(
+            title: 'Como você se chama',
+            children: [_nameField(autofocus: true)],
+          ),
         EgSettingsSection(
           title: 'Geral',
           children: [
+            if (hasName) _nameField(autofocus: false),
             EgSettingsRow.toggle(
               label: 'Iniciar com o macOS',
               description: 'O Evergreen sobe junto com o sistema.',
@@ -95,6 +130,29 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           children: [_AboutLine()],
         ),
       ],
+    );
+  }
+
+  /// O campo do nome, o mesmo nos dois lugares em que ele aparece.
+  ///
+  /// A descrição muda com o estado porque a pergunta muda: no primeiro dia é
+  /// preciso dizer para que serve, e depois já se sabe.
+  Widget _nameField({required bool autofocus}) {
+    return EgSettingsRow.field(
+      label: 'Seu nome',
+      description: autofocus
+          ? 'O resumo da reunião e o parágrafo do dia passam a falar de você '
+                'pelo nome, em vez de "a pessoa" — e a transcrição mostra ele '
+                'no lugar de "Você". Fica só nesta máquina, como todo o resto. '
+                'Dá para deixar em branco e preencher depois.'
+          : 'Como o resumo e a transcrição chamam você.',
+      showDivider: !autofocus,
+      field: EgTextField(
+        controller: _name,
+        focusNode: _nameFocus,
+        autofocus: autofocus,
+        hintText: 'Seu primeiro nome',
+      ),
     );
   }
 }

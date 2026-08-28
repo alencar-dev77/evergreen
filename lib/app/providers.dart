@@ -160,6 +160,7 @@ final echoSummaryRunnerProvider = Provider<EchoSummaryRunner>((ref) {
   return LocalEchoSummaryRunner(
     repository: ref.watch(echoRepositoryProvider),
     settings: ref.watch(echoSettingsRepositoryProvider),
+    appSettings: ref.watch(appSettingsRepositoryProvider),
     channel: ref.watch(echoChannelProvider),
   );
 });
@@ -176,7 +177,10 @@ final trackRepositoryProvider = Provider<TrackRepository>(
 /// reuniões do Echo — e com a mesma degradação silenciosa quando ele não está
 /// disponível.
 final trackSummarizerProvider = Provider<TrackSummarizer>(
-  (ref) => TrackSummarizer(ref.watch(echoChannelProvider)),
+  (ref) => TrackSummarizer(
+    ref.watch(echoChannelProvider),
+    ref.watch(appSettingsRepositoryProvider).load().userName,
+  ),
 );
 
 /// O parágrafo já escrito de cada dia, no plist — ver [TrackSummaryCache].

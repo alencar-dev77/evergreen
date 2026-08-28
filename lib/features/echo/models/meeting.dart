@@ -71,8 +71,14 @@ class Meeting {
   /// Com o rótulo de quem falou em cada linha: sem ele o modelo não teria como
   /// distinguir o que *você* disse do que te disseram, e essa é justamente a
   /// distinção que faz um resumo de reunião útil.
-  String get plainText => segments
-      .map((segment) => '${segment.speaker.label}: ${segment.text}')
+  /// A conversa em texto corrido — é isto que vai para o modelo.
+  ///
+  /// [userName] troca o "Você" pelo nome de quem está do outro lado; vazio,
+  /// nada muda. O modelo não recebe nenhuma outra pista de quem é quem, então
+  /// este rótulo é a única coisa que o faz escrever "Lucas ficou de revisar" em
+  /// vez de "a pessoa ficou de revisar".
+  String plainText({String userName = ''}) => segments
+      .map((segment) => '${segment.speaker.labelFor(userName)}: ${segment.text}')
       .join('\n');
 
   Meeting copyWith({

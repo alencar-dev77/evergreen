@@ -37,6 +37,12 @@ class AppSettingsViewModel extends Notifier<AppSettings> {
     await _update(state.copyWith(launchAtLogin: value));
   }
 
+  /// Guardado sem espaço sobrando: o nome vira rótulo de quem falou na
+  /// transcrição e entra na instrução que vai para o modelo, e nos dois lugares
+  /// um espaço à toa aparece.
+  Future<void> setUserName(String value) =>
+      _update(state.copyWith(userName: value.trim()));
+
   Future<void> setStartMinimized(bool value) =>
       _update(state.copyWith(startMinimized: value));
 

@@ -20,16 +20,27 @@ import '../models/track_day.dart';
 /// nunca: ele nem chega até aqui, porque o repositório não o lê (ver
 /// [TrackRepository]).
 class TrackSummarizer {
-  const TrackSummarizer(this._channel);
+  const TrackSummarizer(this._channel, this._userName);
 
   final EchoChannel _channel;
 
-  static const _instructions =
-      'Escreva um parágrafo único, em português do Brasil, no passado, '
-      'contando o que a pessoa fez neste dia de trabalho. No máximo três '
-      'frases. Use apenas os dados fornecidos — não invente atividade, número '
-      'nem conclusão que não esteja neles. Não escreva título, lista nem '
-      'introdução: devolva só o parágrafo.';
+  /// Como chamar quem viveu o dia. Vazio, o parágrafo diz "a pessoa".
+  final String _userName;
+
+  /// Com o nome, o parágrafo é sobre alguém; sem ele, sobre "a pessoa".
+  ///
+  /// É a diferença entre "Lucas passou a manhã no módulo de auth" e "a pessoa
+  /// passou a manhã no módulo de auth" — a segunda é um relatório que alguém
+  /// escreveu sobre você sem saber quem você é.
+  static String instructionsFor(String userName) {
+    final who = userName.isEmpty ? 'a pessoa' : userName;
+
+    return 'Escreva um parágrafo único, em português do Brasil, no passado, '
+        'contando o que $who fez neste dia de trabalho. No máximo três '
+        'frases. Use apenas os dados fornecidos — não invente atividade, número '
+        'nem conclusão que não esteja neles. Não escreva título, lista nem '
+        'introdução: devolva só o parágrafo.';
+  }
 
   /// Escreve o parágrafo do dia, ou `null` quando não dá para escrever.
   Future<String?> write(TrackDay day) async {
@@ -39,7 +50,7 @@ class TrackSummarizer {
     try {
       final text = await _channel.summarize(
         text: facts,
-        instructions: _instructions,
+        instructions: instructionsFor(_userName),
       );
       final trimmed = text.trim();
 

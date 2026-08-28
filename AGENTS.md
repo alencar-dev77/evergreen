@@ -221,10 +221,24 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   deixou crescer e o passo lateral que ele deu para não vazar da borda, e paga
   os dois no fechamento. Sem esse acerto, abrir e fechar deixava a janela mais
   estreita e fora do centro a cada volta.
-- Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub)
-  vai para `AppSettings` e para a tela do aplicativo (`app_settings_view.dart`),
-  nunca para a tela de um módulo — foi assim que "iniciar com o macOS" acabou
-  morando dentro do Pin até a v0.2.
+- Preferência que não é de módulo nenhum (iniciar com o macOS, atalho do Hub,
+  o nome de quem usa) vai para `AppSettings` e para a tela do aplicativo
+  (`app_settings_view.dart`), nunca para a tela de um módulo — foi assim que
+  "iniciar com o macOS" acabou morando dentro do Pin até a v0.2.
+- **O nome de quem usa é preferência de aplicativo, e existe para o modelo
+  local.** Sem ele o resumo da reunião diz "a pessoa" e o parágrafo do Track diz
+  o mesmo — texto sobre você escrito por quem não sabe seu nome. Quem quiser
+  usá-lo faz duas coisas, nunca uma: põe o nome **no texto** que vai ao modelo
+  (no Echo é o rótulo de quem falou, `Speaker.labelFor`) e **na instrução**,
+  dizendo que aquele nome é de quem pediu — o rótulo sozinho faz o modelo achar
+  que é mais um participante. Vazio é o estado normal e nada pode depender dele.
+  Módulo que roda no engine da janela 0 relê o disco antes
+  (`AppSettingsRepository.reload`): o nome é escrito no Hub, que é outro engine.
+- A pergunta do nome aparece **uma vez por instalação**, quando a abertura
+  animada termina: o Hub cai na tela do aplicativo, com a pergunta no topo e o
+  cursor dentro. Amarrada ao fim da cena, e não à abertura da janela, porque a
+  cena já roda uma vez por build — pergunta que reabre a cada Hub vira cobrança.
+  Depois disso o campo continua lá, como primeira linha de "Geral".
 - Módulo com painel flutuante: **não crie uma janela nova** — acrescente um
   valor a `OverlayPanel`, desenhe o painel em `OverlayHost` e registre o atalho
   global no `EvergreenBootstrap`. Só a janela 0 pode ser borderless/sempre no

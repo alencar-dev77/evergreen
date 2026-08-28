@@ -23,7 +23,10 @@ void main() {
   late BackupService backup;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    // Com nome guardado, que é o estado de quem já usa o app: sem ele, a
+    // abertura animada termina levando o Hub para a tela do aplicativo, e é
+    // isso que o grupo "a primeira vez" testa de propósito.
+    SharedPreferences.setMockInitialValues({'app.user_name': 'Lucas'});
     preferences = await SharedPreferences.getInstance();
 
     // A versão do rodapé "Sobre" vem do bundle, que não existe em teste.
@@ -96,6 +99,71 @@ void main() {
 
     expect(find.byType(AppSettingsView), findsNothing);
     expect(find.byType(PinSettingsView), findsOneWidget);
+  });
+
+  /// O nome existe para o modelo local ter como chamar quem está do outro lado:
+  /// sem ele, o resumo da reunião diz "a pessoa" e a transcrição diz "Você".
+  group('o nome', () {
+    Future<void> openSettings(WidgetTester tester) async {
+      await pumpHub(tester);
+      await tester.tap(find.text('Preferências do aplicativo'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('preenchido, é uma linha comum em Geral', (tester) async {
+      await openSettings(tester);
+
+      expect(find.text('Seu nome'), findsOneWidget);
+      // A pergunta de primeira vez não aparece mais para quem já respondeu.
+      expect(find.text('COMO VOCÊ SE CHAMA'), findsNothing);
+    });
+
+    testWidgets('sair do campo guarda o que foi escrito', (tester) async {
+      await openSettings(tester);
+
+      await tester.enterText(find.byType(TextField).first, '  Ana  ');
+      // Sem Enter: o que guarda é perder o foco, como toda preferência do
+      // Evergreen. E o nome é guardado sem o espaço sobrando, porque ele vira
+      // rótulo na transcrição e texto dentro da instrução do modelo.
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+
+      expect(preferences.getString('app.user_name'), 'Ana');
+    });
+  });
+
+  /// A primeira vez de uma instalação: a cena da marca termina e o Hub cai na
+  /// tela do aplicativo, onde a pergunta espera com o cursor dentro. Uma vez
+  /// por instalação, inclusive para quem deixar em branco — pergunta que reabre
+  /// a cada Hub vira cobrança.
+  group('a primeira vez', () {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      preferences = await SharedPreferences.getInstance();
+    });
+
+    testWidgets('sem nome, a abertura entrega a pergunta', (tester) async {
+      await pumpHub(tester);
+
+      expect(find.byType(AppSettingsView), findsOneWidget);
+      expect(find.byType(PinSettingsView), findsNothing);
+      expect(find.text('COMO VOCÊ SE CHAMA'), findsOneWidget);
+
+      // Com o cursor dentro: a pergunta se responde sem tocar no mouse.
+      final field = tester.widget<TextField>(find.byType(TextField).first);
+      expect(field.autofocus, isTrue);
+    });
+
+    testWidgets('respondida, a pergunta some da tela', (tester) async {
+      await pumpHub(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'Ana');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+
+      expect(find.text('COMO VOCÊ SE CHAMA'), findsNothing);
+      expect(find.text('Seu nome'), findsOneWidget);
+    });
   });
 
   /// O backup é do banco inteiro, e por isso mora aqui e não na tela de módulo
