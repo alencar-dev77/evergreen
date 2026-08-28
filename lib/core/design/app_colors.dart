@@ -84,6 +84,16 @@ abstract final class AppColors {
   /// Pressed do botão primário — um degrau abaixo do [greenPrimary].
   static const greenDeep = Color(0xFF16A34A);
 
+  /// A face sombreada da marca — dois degraus abaixo do [greenPrimary].
+  ///
+  /// Existe para um uso só: o cabo do canivete, atrás da lâmina em
+  /// [greenPrimary]. Não é estado de componente nenhum e não entra em botão,
+  /// linha ou badge — é pigmento de identidade, e a matriz do `EgSurfaceStyle`
+  /// continua não conhecendo esta cor. O [greenDeep] foi tentado antes e não
+  /// serve: um degrau só não separa duas superfícies encostadas, e as duas
+  /// peças da marca liam como uma mancha só.
+  static const greenShade = Color(0xFF15803D);
+
   /// Item selecionado (linha de lista, item de sidebar) — [greenPrimary] a 14%.
   ///
   /// Seleção usa accent em baixa opacidade, nunca a cor sólida cobrindo a

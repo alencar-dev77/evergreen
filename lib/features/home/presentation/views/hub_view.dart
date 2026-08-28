@@ -21,7 +21,9 @@ import '../../../track/presentation/views/track_view.dart';
 import '../../../track/presentation/widgets/track_reader.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
+import '../viewmodels/hub_intro_view_model.dart';
 import '../widgets/hub_detail_region.dart';
+import '../widgets/hub_intro.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import 'app_settings_view.dart';
@@ -85,7 +87,6 @@ class _HubViewState extends ConsumerState<HubView> {
 
   @override
   Widget build(BuildContext context) {
-    final detail = ref.watch(hubDetailProvider);
     // A janela acompanha a região: cresce ao abrir, volta ao fechar. Fora do
     // `build` (num `listen`) porque isto é efeito, não desenho.
     ref.listen<EvergreenModule?>(hubDetailProvider, (previous, next) {
@@ -94,40 +95,58 @@ class _HubViewState extends ConsumerState<HubView> {
       );
     });
 
-    final isDetailOpen = detail != null && detail == _selected;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
-        },
-        // O escopo é o chão do teclado do Hub: no macOS o campo de texto de uma
-        // tela de preferências larga o foco a cada clique fora dele, e sem um
-        // escopo aqui esse foco cai na rota — acima do `CallbackShortcuts`, de
-        // onde nenhuma tecla volta a descer. Era o que deixava o Hub sem Esc
-        // depois de um clique num campo, e é a mesma falha do painel flutuante
-        // (ver `EgOverlayShell`).
-        child: FocusScope(
-          child: Focus(
-            autofocus: true,
-            child: EgBackground(
-              child: LayoutBuilder(
-                builder: (context, constraints) => Row(
-                  // Estica: a área de detalhe rola, e um `SingleChildScrollView`
-                  // se encolhe até a altura do conteúdo quando ele cabe na tela.
-                  // Com o alinhamento padrão do `Row` (center), a tela de um
-                  // módulo curto — o Awake — nascia centralizada verticalmente,
-                  // enquanto Pin e Focus, que enchem a janela, começavam no topo.
-                  // Toda tela do Hub começa no mesmo lugar.
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ModuleSidebar(selected: _selected, onSelect: _select),
-                    Expanded(child: _detail()),
-                    if (isDetailOpen)
-                      _region(detail, _regionWidth(constraints.maxWidth)),
-                  ],
-                ),
+      // A abertura fica por cima, e não no lugar do Hub: a tela de baixo monta
+      // e resolve o que tem para resolver enquanto a marca está na frente, de
+      // modo que a cena não some para revelar um Hub ainda em branco.
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          _hub(),
+          if (ref.watch(hubIntroViewModelProvider))
+            HubIntro(
+              onDone: () =>
+                  ref.read(hubIntroViewModelProvider.notifier).complete(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hub() {
+    final detail = ref.watch(hubDetailProvider);
+    final isDetailOpen = detail != null && detail == _selected;
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
+      },
+      // O escopo é o chão do teclado do Hub: no macOS o campo de texto de uma
+      // tela de preferências larga o foco a cada clique fora dele, e sem um
+      // escopo aqui esse foco cai na rota — acima do `CallbackShortcuts`, de
+      // onde nenhuma tecla volta a descer. Era o que deixava o Hub sem Esc
+      // depois de um clique num campo, e é a mesma falha do painel flutuante
+      // (ver `EgOverlayShell`).
+      child: FocusScope(
+        child: Focus(
+          autofocus: true,
+          child: EgBackground(
+            child: LayoutBuilder(
+              builder: (context, constraints) => Row(
+                // Estica: a área de detalhe rola, e um `SingleChildScrollView`
+                // se encolhe até a altura do conteúdo quando ele cabe na tela.
+                // Com o alinhamento padrão do `Row` (center), a tela de um
+                // módulo curto — o Awake — nascia centralizada verticalmente,
+                // enquanto Pin e Focus, que enchem a janela, começavam no topo.
+                // Toda tela do Hub começa no mesmo lugar.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ModuleSidebar(selected: _selected, onSelect: _select),
+                  Expanded(child: _detail()),
+                  if (isDetailOpen)
+                    _region(detail, _regionWidth(constraints.maxWidth)),
+                ],
               ),
             ),
           ),
@@ -162,14 +181,14 @@ class _HubViewState extends ConsumerState<HubView> {
 
   /// A região dedicada do módulo que a abriu.
   Widget _region(EvergreenModule module, double width) => switch (module) {
-        EvergreenModule.echo => EchoReader(width: width),
-        EvergreenModule.focus => FocusReader(width: width),
-        EvergreenModule.track => TrackReader(width: width),
-        // Os outros módulos ainda não têm nada longo para ler; o `switch`
-        // existe para que o próximo entre aqui, e não num `if` espalhado pela
-        // tela.
-        _ => const SizedBox.shrink(),
-      };
+    EvergreenModule.echo => EchoReader(width: width),
+    EvergreenModule.focus => FocusReader(width: width),
+    EvergreenModule.track => TrackReader(width: width),
+    // Os outros módulos ainda não têm nada longo para ler; o `switch`
+    // existe para que o próximo entre aqui, e não num `if` espalhado pela
+    // tela.
+    _ => const SizedBox.shrink(),
+  };
 
   Widget _detail() {
     return SingleChildScrollView(
@@ -198,10 +217,7 @@ class _HubViewState extends ConsumerState<HubView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          module?.name ?? 'Evergreen',
-          style: AppTypography.screenTitle,
-        ),
+        Text(module?.name ?? 'Evergreen', style: AppTypography.screenTitle),
         const SizedBox(height: AppSpacing.xxs),
         Text(
           module?.tagline ?? 'Preferências do aplicativo',
@@ -221,11 +237,11 @@ class _HubViewState extends ConsumerState<HubView> {
   }
 
   Widget _settingsFor(EvergreenModule module) => switch (module) {
-        EvergreenModule.pin => const PinSettingsView(),
-        EvergreenModule.focus => const FocusSettingsView(),
-        EvergreenModule.leaf => const LeafSettingsView(),
-        EvergreenModule.awake => const AwakeSettingsView(),
-        EvergreenModule.echo => const EchoSettingsView(),
-        EvergreenModule.track => const TrackView(),
-      };
+    EvergreenModule.pin => const PinSettingsView(),
+    EvergreenModule.focus => const FocusSettingsView(),
+    EvergreenModule.leaf => const LeafSettingsView(),
+    EvergreenModule.awake => const AwakeSettingsView(),
+    EvergreenModule.echo => const EchoSettingsView(),
+    EvergreenModule.track => const TrackView(),
+  };
 }

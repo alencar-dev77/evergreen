@@ -33,7 +33,25 @@ Use este arquivo como checklist final antes de considerar qualquer tela, compone
 
 - ❌ **Não usar animações chamativas.** Sem parallax, sem stagger dramático de elementos entrando em cascata, sem bounce/spring exagerado como padrão geral, sem ícones "com vida própria" pulsando/flutuando sem representar um estado real. Ver `motion.md` para as durações e curvas corretas.
 - ❌ **Não animar escala em hover/click de botões** ("cresce ao passar o mouse", "encolhe ao clicar") — isso é linguagem de site/app mobile consumer.
-- ❌ **Não usar telas de loading dramáticas** com logo animado ou splash screen no meio do uso normal do app.
+- ❌ **Não usar telas de loading dramáticas** com logo animado no meio do uso normal do app.
+  **Exceção decidida em conversa (v0.8.3+): a abertura animada do Hub.** O Hub
+  ganha uma animação de entrada — a lâmina do ícone girando para fora do cabo,
+  280ms no total — que roda **uma vez por atualização**: na primeira vez que o
+  Hub abre depois de o binário mudar, e nunca mais até a atualização seguinte.
+  O que separa isso de uma tela de loading é a frequência: 300ms cobrados de
+  quem abre o app quarenta vezes por dia são pedágio; cobrados uma vez a cada
+  versão nova, são a marca dizendo que alguma coisa mudou.
+  O gatilho é a **data de modificação do executável**
+  (`File(Platform.resolvedExecutable).statSync().modified`), guardada em
+  `AppSettings` — não a versão do `pubspec`, porque `run_build_copy` reinstala
+  sem bumpar e a animação precisa aparecer no ciclo de desenvolvimento também.
+  A data é gravada **depois** de a animação terminar, para quem fechar o Hub no
+  meio do giro ver de novo. Com `MediaQuery.disableAnimations` ligado, a lâmina
+  nasce travada e a data é gravada do mesmo jeito. O estado final da animação é
+  o estado normal do ícone, então não existe degrau visual entre a primeira
+  abertura e todas as outras.
+  É uma vez por **instalação**, não por abertura: abrir o Hub dez vezes no
+  mesmo dia toca o giro na primeira.
 - ❌ **Não celebrar visualmente ações rotineiras** (confete, animação elaborada de sucesso) para tarefas cotidianas como marcar algo como concluído.
 
 ## Tipografia e conteúdo
