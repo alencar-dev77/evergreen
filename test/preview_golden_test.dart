@@ -113,6 +113,11 @@ void main() {
             '- O escopo da v1 fica só na transcrição; o resumo entra depois.\n'
             '- Lucas fecha a proposta até sexta.\n'
             '- Ficou pendente decidir quem apresenta na terça.',
+        // A instrução que produziu o resumo acima: é ela que a folha de
+        // conferência precisa mostrar embaixo dele, em caps e discreta.
+        summaryPrompt:
+            'Escreva em tópicos curtos. Registre decisões, pendências e quem '
+            'ficou responsável por cada coisa.',
         // Fragmentado como o modelo de fala realmente devolve — é o
         // agrupamento em turnos que a imagem precisa mostrar.
         segments: const [

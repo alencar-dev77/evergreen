@@ -11,6 +11,7 @@ import '../core/window/overlay_panel.dart';
 import '../core/window/overlay_window.dart';
 import '../features/awake/presentation/viewmodels/awake_state.dart';
 import '../features/awake/presentation/viewmodels/awake_view_model.dart';
+import '../features/echo/data/echo_summary_runner.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
@@ -40,6 +41,9 @@ class EvergreenBootstrap {
   Future<void> start() async {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
     unawaited(_container.read(echoRecorderViewModelProvider.notifier).initialize());
+    unawaited(
+      EchoSummaryHost.register(_container.read(echoSummaryRunnerProvider)),
+    );
 
     // Antes de qualquer coisa que possa iniciar uma sessão nova: se o
     // Evergreen morreu no meio de uma, o tempo focado até ali entra no

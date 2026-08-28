@@ -32,6 +32,9 @@ Future<void> main() async {
       sharedPreferencesProvider.overrideWithValue(
         await SharedPreferences.getInstance(),
       ),
+      // Quem é esta janela decide, entre outras coisas, se o resumo do Echo
+      // acontece aqui ou é pedido à janela 0 — ver `echoSummaryRunnerProvider`.
+      windowKindProvider.overrideWithValue(kind),
     ],
   );
 

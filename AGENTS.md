@@ -249,6 +249,19 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Serviços que precisam sobreviver com todas as janelas fechadas (captura de
   clipboard, cronômetro do Focus, trava do Awake) vivem no engine da janela 0 e
   são ligados no `EvergreenBootstrap`.
+- **Trabalho demorado pedido de dentro do Hub também mora na janela 0.** Fechar
+  o Hub destrói a sub-janela e o engine dela, e com ele tudo o que estava
+  pendente — não há aviso, não há erro, o trabalho simplesmente não termina. Foi
+  o que acontecia com o resumo do Echo: pedir "Resumir" e sair da janela
+  cancelava o resumo no meio, e a reunião reaparecia sem ele. O arranjo é
+  `EchoSummaryRunner`: quem faz é o `LocalEchoSummaryRunner` da janela 0, quem
+  pede é o `WindowEchoSummaryRunner` do Hub, e o `echoSummaryRunnerProvider`
+  escolhe um ou outro pelo `windowKindProvider` — o chamador não sabe a
+  diferença. O Hub pergunta o andamento de meio em meio segundo enquanto há
+  trabalho (`EchoSummaryStatus`), o que também é o que faz uma janela reaberta
+  reencontrar um resumo em curso. Canal unidirecional, registrado uma única vez
+  na janela 0: nos dois sentidos, um Hub reaberto rápido demais poderia
+  encontrar o registro do engine morto ainda ocupado.
 - Arquivo Swift novo em `macos/Runner/` **não entra sozinho na build**: o
   `project.pbxproj` é da era anterior aos grupos sincronizados, então cada
   arquivo precisa de quatro entradas (`PBXBuildFile`, `PBXFileReference`, filho

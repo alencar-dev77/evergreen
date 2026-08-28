@@ -1415,6 +1415,12 @@ final class EchoLiveTranscriber {
 @available(macOS 26.0, *)
 enum EchoSummarizer {
   /// Instrução usada quando a pessoa não escreveu a dela nas preferências.
+  ///
+  /// Hoje é rede, não caminho: o Echo grava com cada resumo a instrução que o
+  /// produziu, e para isso o Dart resolve a padrão antes de chamar e a manda
+  /// explícita (`EchoSettings.defaultInstructions`, com esta mesma frase). Só
+  /// chega aqui vazio quem chamar o canal sem passar por lá. Mexeu numa,
+  /// mexa na outra.
   static let defaultInstructions = """
     Você resume reuniões em português do Brasil. \
     Escreva em tópicos curtos. \

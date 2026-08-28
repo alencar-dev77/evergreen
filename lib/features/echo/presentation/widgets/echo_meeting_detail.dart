@@ -4,6 +4,7 @@ import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/app_typography.dart';
 import '../../../../shared/widgets/eg_button.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
@@ -128,6 +129,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
             const SizedBox(height: AppSpacing.md),
           ],
           SelectableText(meeting.summary!, style: AppTypography.reading),
+          if (meeting.hasSummaryPrompt) _prompt(meeting.summaryPrompt!),
         ],
       );
     }
@@ -147,6 +149,34 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       'Esta reunião ainda não foi resumida. O resumo é feito na sua máquina, '
       'a partir da transcrição, e leva alguns segundos.',
       style: AppTypography.captionSmall,
+    );
+  }
+
+  /// A instrução que o modelo recebeu para escrever o resumo acima.
+  ///
+  /// **Depois do resumo, não antes.** O resumo é o que a pessoa veio ler; a
+  /// instrução é a procedência dele, e procedência se consulta depois de ler,
+  /// como uma nota de rodapé. Acima, ela empurraria o texto para baixo em toda
+  /// abertura e faria a leitura começar por um parágrafo que não é o conteúdo.
+  ///
+  /// Existe porque refazer o resumo é barato e é assim que se experimenta
+  /// formatos: o campo das preferências guarda a instrução **da próxima vez**,
+  /// e sobrescrevê-lo apagava a memória de como o texto que está na tela foi
+  /// pedido. O rótulo diz "deste resumo" justamente para separar as duas.
+  ///
+  /// Selecionável como o resumo e a transcrição — o uso previsto é copiá-la de
+  /// volta para as preferências e mexer em uma frase.
+  Widget _prompt(String prompt) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xxxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const EgSectionLabel('Instrução deste resumo'),
+          const SizedBox(height: AppSpacing.xs),
+          SelectableText(prompt, style: AppTypography.captionSmall),
+        ],
+      ),
     );
   }
 
