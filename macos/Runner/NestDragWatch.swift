@@ -1,10 +1,11 @@
 import Cocoa
 
-/// Chacoalhar o arquivo no meio do arraste para chamar a prateleira.
+/// Quem sabe que há um arquivo sendo arrastado agora.
 ///
-/// É o gesto que quem vem do Dropover tenta primeiro, e ele foi descartado na
-/// primeira versão do Nest por uma razão que estava errada: "exigiria monitorar
-/// eventos globais, mais uma permissão". Não exige nenhuma das duas coisas.
+/// Duas coisas dependem dessa resposta, e é por isso que ela mora num lugar só:
+/// o **chacoalhar**, que chama a prateleira no meio do arraste, e a **faixa do
+/// recorte**, que só aparece quando há o que soltar nela. Fossem dois
+/// vigilantes, seriam dois relógios lendo o mesmo mouse.
 ///
 /// **Consulta, não evento.** Durante uma sessão de arraste do sistema o AppKit
 /// não entrega os movimentos do mouse a monitor nenhum — foi por isso que o
@@ -22,12 +23,19 @@ import Cocoa
 /// aplicativo (Finder, Mail, navegador), e o único arraste que nasce dentro do
 /// Evergreen é o da própria prateleira — que já está na tela, e onde chacoalhar
 /// não deve fazer nada.
-enum NestShakeMonitor {
-  /// A preferência de quem usa. Ver `NestSettings.useShake`.
-  private static var isEnabled = false
+enum NestDragWatch {
+  /// As duas preferências que dependem disto. O vigia é instalado se **qualquer
+  /// uma** estiver ligada, e sai do sistema quando as duas caem.
+  private static var wantsShake = false
+  private static var wantsNotch = false
 
   private static var downMonitor: Any?
   private static var sampler: Timer?
+
+  /// A área de transferência do arraste, guardada porque o vigia a consulta a
+  /// cada quadro e pedi-la pelo nome sessenta vezes por segundo é trabalho para
+  /// não descobrir nada.
+  private static let dragPasteboard = NSPasteboard(name: .drag)
 
   // MARK: - O estado de um aperto de botão
 
@@ -36,8 +44,15 @@ enum NestShakeMonitor {
   /// É metade do filtro que separa "arrastando arquivo" de "chacoalhando uma
   /// janela pela barra de título". A outra metade é o tipo do conteúdo: o tipo
   /// sozinho sobra de um arraste anterior, e a mudança sozinha não diz que é
-  /// arquivo. Ver [isDraggingFiles].
+  /// arquivo. Ver [checkForFiles].
   private static var dragCountAtDown = 0
+
+  /// A resposta de "tem arquivo na mão?", já dada neste aperto de botão.
+  ///
+  /// Guardada porque ela não muda no meio de um arraste, e perguntar ao servidor
+  /// de área de transferência sessenta vezes por segundo seria conversa fiada
+  /// com o sistema.
+  private static var hasFiles = false
 
   private static var lastPoint: NSPoint?
 
@@ -69,11 +84,18 @@ enum NestShakeMonitor {
 
   // MARK: - Ligar e desligar
 
-  static func setEnabled(_ enabled: Bool) {
-    guard enabled != isEnabled else { return }
-    isEnabled = enabled
+  static func setShakeEnabled(_ enabled: Bool) {
+    wantsShake = enabled
+    refresh()
+  }
 
-    if enabled {
+  static func setNotchEnabled(_ enabled: Bool) {
+    wantsNotch = enabled
+    refresh()
+  }
+
+  private static func refresh() {
+    if wantsShake || wantsNotch {
       install()
     } else {
       uninstall()
@@ -99,7 +121,7 @@ enum NestShakeMonitor {
   private static func begin() {
     stop()
 
-    dragCountAtDown = NSPasteboard(name: .drag).changeCount
+    dragCountAtDown = dragPasteboard.changeCount
 
     sampler = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
       sample()
@@ -113,6 +135,11 @@ enum NestShakeMonitor {
     leg = .zero
     reversals = []
     hasFired = false
+
+    if hasFiles {
+      hasFiles = false
+      NestNotchWindow.setArmed(false)
+    }
   }
 
   private static func sample() {
@@ -124,7 +151,9 @@ enum NestShakeMonitor {
       return
     }
 
-    guard !hasFired else { return }
+    checkForFiles()
+
+    guard wantsShake, !hasFired else { return }
 
     let point = NSEvent.mouseLocation
 
@@ -155,32 +184,39 @@ enum NestShakeMonitor {
     leg = step
   }
 
+  /// Tem arquivo na mão? Pergunta uma vez por aperto de botão.
+  ///
+  /// As duas condições juntas, e nunca uma só: a área de transferência de
+  /// arraste guarda o conteúdo do último arraste depois que ele termina, então
+  /// o tipo sozinho diria "sim" para quem está chacoalhando o mouse à toa cinco
+  /// minutos depois de mover um arquivo.
+  ///
+  /// A comparação de `changeCount` é a barata, e vem primeiro de propósito: ela
+  /// é a que roda a cada quadro enquanto o arraste não começou.
+  private static func checkForFiles() {
+    guard !hasFiles else { return }
+
+    guard dragPasteboard.changeCount != dragCountAtDown else { return }
+
+    guard dragPasteboard.canReadObject(
+      forClasses: [NSURL.self],
+      options: [.urlReadingFileURLsOnly: true]
+    ) else { return }
+
+    hasFiles = true
+    NestNotchWindow.setArmed(true)
+  }
+
   private static func registerReversal() {
     let now = Date.timeIntervalSinceReferenceDate
 
     reversals.append(now)
     reversals.removeAll { now - $0 > timeWindow }
 
-    guard reversals.count >= neededReversals, isDraggingFiles() else { return }
+    guard reversals.count >= neededReversals, hasFiles else { return }
 
     hasFired = true
     NestChannel.reportShake()
-  }
-
-  /// Tem arquivo na mão agora?
-  ///
-  /// As duas condições juntas, e nunca uma só: a área de transferência de
-  /// arraste guarda o conteúdo do último arraste depois que ele termina, então
-  /// o tipo sozinho diria "sim" para quem está chacoalhando o mouse à toa cinco
-  /// minutos depois de mover um arquivo.
-  private static func isDraggingFiles() -> Bool {
-    let pasteboard = NSPasteboard(name: .drag)
-    guard pasteboard.changeCount != dragCountAtDown else { return false }
-
-    return pasteboard.canReadObject(
-      forClasses: [NSURL.self],
-      options: [.urlReadingFileURLsOnly: true]
-    )
   }
 
   private static func length(_ vector: CGVector) -> CGFloat {

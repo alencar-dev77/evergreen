@@ -6,8 +6,8 @@ import QuickLookThumbnailing
 ///
 /// Quatro coisas, e nenhuma tem equivalente em Dart:
 ///
-/// - **Receber um arraste do Finder.** Quem se registra como destino é uma
-///   `NSView` do AppKit; o Flutter não expõe a sessão de arraste do sistema.
+/// - **Receber um arraste do Finder.** Quem recebe é o delegate de uma
+///   `NSWindow` do AppKit; o Flutter não expõe a sessão de arraste do sistema.
 /// - **Gerar a miniatura de um arquivo qualquer.** `QLThumbnailGenerator` é o
 ///   mesmo mecanismo que desenha as prévias do Finder, e cobre de graça PDF,
 ///   vídeo, Keynote, código com realce e tudo o mais que o sistema saiba abrir.
@@ -90,7 +90,7 @@ class NestChannel: NSObject {
         result(nil)
 
       case "setShakeEnabled":
-        NestShakeMonitor.setEnabled(arguments?["enabled"] as? Bool ?? false)
+        NestDragWatch.setShakeEnabled(arguments?["enabled"] as? Bool ?? false)
         result(nil)
 
       case "setDropEnabled":
@@ -439,10 +439,14 @@ class NestChannel: NSObject {
 ///    `registerForDraggedTypes:`, e quem recebe as mensagens é o **delegate**
 ///    da janela.
 ///
-/// Então é o delegate. A janela do recorte não tem outro e usa a view direto
-/// (ali nada mais precisa do mouse); a janela 0 já tem o do `window_manager` —
-/// que é quem avisa o Flutter sobre foco e fechamento —, e por isso o
-/// [NestWindowDropDelegate] se põe na frente dele e repassa todo o resto.
+/// Então é o delegate, nas duas janelas. A do recorte não tem outro, e passa o
+/// seu direto; a janela 0 já tem o do `window_manager` — que é quem avisa o
+/// Flutter sobre foco e fechamento —, e por isso o [NestWindowDropDelegate] se
+/// põe na frente dele e repassa todo o resto.
+///
+/// A janela do recorte chegou a tentar a view, por ali não haver delegate a
+/// preservar, e nunca recebeu um arquivo. Duas tentativas erradas viraram três:
+/// o caminho do delegate é o único que este projeto viu funcionar.
 enum NestDrop {
   /// A janela do recorte aceita sempre; a janela 0 só com o painel do Nest à
   /// vista, porque ela é compartilhada pelos sete módulos.
@@ -502,21 +506,39 @@ class NestWindowDropDelegate: NSObject, NSWindowDelegate, NSDraggingDestination 
   /// O delegate anterior. Fraco: quem o retém é quem o criou.
   weak var next: NSObject?
 
-  init(alwaysAccepts: Bool, next: NSObject?) {
+  /// Quem acende o realce de "pode soltar", quando há algo a acender.
+  ///
+  /// A janela 0 não usa: quem pinta a borda dela é o Flutter, avisado por
+  /// `NestChannel.report(isOver:)`. A do recorte usa, porque ali não há engine
+  /// para avisar — quem desenha é a `NestNotchView`.
+  private let onHighlight: ((Bool) -> Void)?
+
+  init(
+    alwaysAccepts: Bool,
+    next: NSObject?,
+    onHighlight: ((Bool) -> Void)? = nil
+  ) {
     self.alwaysAccepts = alwaysAccepts
     self.next = next
+    self.onHighlight = onHighlight
   }
 
   func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-    NestDrop.entered(sender, alwaysAccepts: alwaysAccepts)
+    let operation = NestDrop.entered(sender, alwaysAccepts: alwaysAccepts)
+    onHighlight?(!operation.isEmpty)
+
+    return operation
   }
 
   func draggingExited(_ sender: NSDraggingInfo?) {
+    onHighlight?(false)
     NestDrop.exited()
   }
 
   func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-    NestDrop.perform(sender, alwaysAccepts: alwaysAccepts)
+    onHighlight?(false)
+
+    return NestDrop.perform(sender, alwaysAccepts: alwaysAccepts)
   }
 
   // O resto do protocolo de janela continua sendo do delegate anterior. As duas
@@ -557,34 +579,5 @@ class NestDragSource: NSObject, NSDraggingSource {
     operation: NSDragOperation
   ) {
     NestChannel.dragOutEnded(operation)
-  }
-}
-
-/// A superfície de arraste da janela do recorte.
-///
-/// Uma view basta ali porque a janela não tem mais nada: nenhum clique a
-/// disputar, nenhum delegate a preservar. Sem `hitTest` sobrescrito — foi
-/// justamente ele que fez a primeira versão não receber arquivo nenhum.
-class NestDropView: NSView {
-  override init(frame frameRect: NSRect) {
-    super.init(frame: frameRect)
-    registerForDraggedTypes([.fileURL])
-  }
-
-  @available(*, unavailable)
-  required init?(coder: NSCoder) {
-    fatalError("init(coder:) não é usado")
-  }
-
-  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-    NestDrop.entered(sender, alwaysAccepts: true)
-  }
-
-  override func draggingExited(_ sender: NSDraggingInfo?) {
-    NestDrop.exited()
-  }
-
-  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-    NestDrop.perform(sender, alwaysAccepts: true)
   }
 }

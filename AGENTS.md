@@ -61,14 +61,21 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   é a própria prateleira — sem essa recusa o arquivo atravessaria o painel e
   cairia na janela que estava atrás dele. Junto vem
   a **segunda janela sempre no topo do projeto**, a do recorte da tela
-  (`NestNotchWindow`) — que não desenha um pixel e não tem engine, e por isso a
-  regra continua sendo "só a janela 0 desenha". A terceira porta é **chacoalhar
+  (`NestNotchWindow`) — que não tem engine, e por isso a regra continua sendo
+  "só a janela 0 desenha **Flutter**". Ela pinta duas formas em AppKit, e só
+  enquanto há arquivo sendo arrastado: o recorte é um furo físico no painel, sem
+  pixel para acender, então a faixa de "solte aqui" aparece **abaixo** dele e a
+  janela cresce para caber — o que invadiria a área de conteúdo se não fosse
+  desfeito no instante em que o botão sobe. Quem recebe o arraste é o delegate
+  nas duas janelas: a view foi tentada aqui também, e também não recebeu nada. A terceira porta é **chacoalhar
   o arquivo** (`NestShakeMonitor`), e a regra dela é *perguntar, nunca escutar*:
   durante uma sessão de arraste o AppKit não entrega movimento de mouse a
   monitor nenhum, então quem responde é `NSEvent.mouseLocation` e
   `NSEvent.pressedMouseButtons`, que são propriedades e não custam permissão —
   o mesmo motivo do relógio do `followCursor`. O único evento apanhado é o botão
-  descendo, que acontece antes do arraste. Só dispara com arquivo na mão
+  descendo, que acontece antes do arraste. O vigia é um só (`NestDragWatch`) e
+  serve aos dois que precisam da mesma resposta — o chacoalhar e a faixa do
+  recorte. Só dispara com arquivo na mão
   (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta em
   que o painel vai até o cursor em vez do contrário
   (`OverlayWindow.positionForCursor`). Ver

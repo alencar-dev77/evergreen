@@ -42,13 +42,15 @@ A `NestNotchWindow` é uma `NSPanel` sem borda, no nível acima da barra de menu
 com `collectionBehavior` de atravessar Spaces. Até aqui, uma segunda janela
 sempre no topo.
 
-Mas ela **não desenha nada e não tem engine Flutter**. Ela se registra para
-`.fileURL` e só sabe uma coisa: recebeu arquivos, avisa o Dart. A regra que a
-v0.1 escreveu era sobre superfície viva: engine, quadros desenhados, blur
-recomposto. Disso, a janela do recorte não tem nada. O custo é uma `NSWindow`
-vazia no servidor de janelas.
+Mas ela **não tem engine Flutter**. A regra que a v0.1 escreveu era sobre
+superfície viva: engine, quadros desenhados, blur recomposto. Disso, a janela do
+recorte não tem nada — ela pinta duas formas com `NSBezierPath` e mais nada.
 
-Por isso a regra continua valendo com uma vírgula: **só a janela 0 desenha.**
+Por isso a regra continua valendo com uma palavra a mais: **só a janela 0
+desenha Flutter.**
+
+Ela chegou a não desenhar coisa nenhuma, e isso durou até o recorte ser testado
+de verdade. Ver "O alvo precisava se anunciar", mais abaixo.
 
 ## Não existe API de recorte
 
@@ -68,9 +70,9 @@ aqui a resposta certa é a tela não mencionar uma escolha que aquela máquina n
 tem. É a mesma decisão da bandeira `themes`, com a diferença de que esta é
 resolvida em tempo de execução, por máquina, e não na hora de compilar.
 
-## Quem recebe o arraste: duas tentativas erradas antes da certa
+## Quem recebe o arraste: três tentativas erradas antes da certa
 
-As duas erradas falhavam do mesmo jeito — o arquivo caía, nada acontecia,
+As erradas falhavam do mesmo jeito — o arquivo caía, nada acontecia,
 nenhum erro em lugar nenhum:
 
 **1. Uma `NSView` transparente por cima do Flutter**, registrada para
@@ -85,13 +87,24 @@ nela. `NSWindow` não implementa esse protocolo: o `NSWindow.h` do SDK declara s
 o `registerForDraggedTypes:`, e quem recebe as mensagens é o **delegate** da
 janela. Compila, registra e não chega nada.
 
-**A certa é o delegate.** A janela do recorte não tem outro, e usa uma
-`NestDropView` como `contentView` — ali nada mais precisa do mouse, então a view
-pode responder ao `hitTest` normalmente. A janela 0 já tem o delegate do
-`window_manager`, que é quem avisa o Flutter sobre foco e fechamento; o
-`NestWindowDropDelegate` se põe na frente dele e devolve todo o resto pelo
-encaminhamento do ObjC (`responds(to:)` **e** `forwardingTarget(for:)` — o
-AppKit pergunta antes de enviar, então as duas metades são necessárias).
+**3. Uma `NSView` registrada na janela do recorte.** Esta parecia diferente das
+outras duas: sem `hitTest` sobrescrito, sem cliques a disputar, uma janela que
+só tem essa view dentro. Foi escrita por analogia com a tentativa 1, corrigindo
+o que se sabia estar errado nela — e nunca recebeu um arquivo. Ficou meses no
+repositório parecendo pronta, porque a única forma de descobrir era arrastar um
+arquivo até o recorte, e um alvo invisível de 200x32 pt não convida ninguém a
+testar.
+
+**A certa é o delegate, nas duas janelas.** A do recorte não tem outro, então
+passa o seu direto. A janela 0 já tem o delegate do `window_manager`, que é quem
+avisa o Flutter sobre foco e fechamento; o `NestWindowDropDelegate` se põe na
+frente dele e devolve todo o resto pelo encaminhamento do ObjC
+(`responds(to:)` **e** `forwardingTarget(for:)` — o AppKit pergunta antes de
+enviar, então as duas metades são necessárias).
+
+A lição não é sobre AppKit: **o caminho que funciona é o que já foi visto
+funcionando.** Havia um caminho provado a três metros de distância, e o outro
+foi escrito por raciocínio.
 
 O delegate é reinstalado a cada abertura do painel, não só na montagem: se o
 `window_manager` reescrever o delegate da janela algum dia, o arraste voltaria a
@@ -224,6 +237,54 @@ prateleira no `draggingEntered` e deixar o arquivo cair dentro dela. É frágil:
 uma janela que aparece no meio de uma sessão de arraste nem sempre entra no hit
 test do AppKit, e o gesto falharia de vez em quando — que é pior que nunca
 funcionar. O recorte conclui o drop sozinho; o painel é a consequência.
+
+## O alvo precisava se anunciar
+
+O caminho errado do arraste era metade do problema. A outra metade é que **o
+recorte não tem pixels**: é um furo físico no painel, e a janela ali não pintava
+nada de propósito. Duas consequências, e as duas doem:
+
+- **Ninguém consegue mirar no que não vê.** O alvo tem uns 200x32 pt, é
+  invisível, e a única forma de saber se acertou é o arquivo não voltar. Errar
+  e acertar são indistinguíveis até o fim.
+- **Uma janela não-opaca cuja superfície nunca foi desenhada** tem chance de ser
+  tratada como buraco pelo servidor de janelas. Nunca foi provado que era esse o
+  caso aqui, mas custa um `fill` a 1% de alfa descartar a hipótese, e o preço de
+  mantê-la em aberto era continuar depurando às cegas.
+
+Então o alvo passou a se anunciar, e a forma disso é ditada pela física: **como
+o recorte não tem pixels, a faixa aparece logo abaixo dele**, na barra de menus.
+Isso invadiria a área de conteúdo, onde a janela bloquearia cliques — e é por
+isso que ela é **transitória**: enquanto há um arquivo sendo arrastado, a janela
+cresce 28 pt para baixo e desenha a faixa; solto o botão, encolhe de volta ao
+retângulo do recorte.
+
+O instante em que ela é grande é exatamente o instante em que não existe clique
+a bloquear: armada quer dizer "o botão esquerdo está pressionado com arquivo na
+mão".
+
+Quem responde "tem arquivo na mão?" é o `NestDragWatch`, o mesmo vigia do
+chacoalhar — e é essa a razão de ele ter deixado de se chamar
+`NestShakeMonitor`. Dois relógios lendo o mesmo mouse para responder à mesma
+pergunta seria o mesmo erro de dois desenhos para a mesma marca.
+
+Sem cor de marca na faixa, e isso é decisão: o recorte é hardware, não
+interface. Branco com alfa faz parecer o próprio recorte crescendo; o verde do
+Evergreen faria parecer um elemento do aplicativo pousado em cima da tela.
+
+**E o alvo visível é também o diagnóstico.** Se um dia isto voltar a falhar: a
+faixa não aparece, o problema é a janela (detecção da tela ou geometria); a
+faixa aparece e o arquivo não entra, o problema é a entrega do evento, e o
+próximo botão a girar é o nível da janela.
+
+### A geometria ganhou rede
+
+`auxiliaryTopLeftArea` e `auxiliaryTopRightArea` são opcionais, e o código
+antigo tratava nulo como zero. O resultado silencioso disso é a largura virar a
+**tela inteira**: um alvo de arraste invisível cobrindo a barra de menus, com os
+cliques dela bloqueados junto. Agora largura implausível — não positiva, ou mais
+de 40% da tela — cai para uma faixa centrada de 200 pt, e a janela que não nasce
+diz no Console por quê.
 
 ## Chacoalhar acabou dando
 
