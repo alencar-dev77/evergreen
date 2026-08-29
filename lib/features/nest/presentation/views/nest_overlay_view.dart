@@ -227,8 +227,11 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
     title: state.notice ?? 'A prateleira está vazia',
     message: state.notice != null && state.canUndo
         ? '⌘Z desfaz.'
-        : 'Arraste arquivos para cá — ou até o recorte no topo da tela — e '
-              'mande todos juntos para uma pasta.',
+        // Chacoalhar, e não o recorte: as duas portas cabem numa frase só, e a
+        // do chacoalhar existe em qualquer Mac. A do recorte é ensinada na tela
+        // de preferências, que é onde ela só aparece se a máquina tiver um.
+        : 'Arraste arquivos para cá — ou chacoalhe um arquivo no meio do '
+              'arraste — e mande todos juntos para uma pasta.',
   );
 
   Widget _items(NestState state) {

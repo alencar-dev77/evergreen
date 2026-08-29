@@ -20,9 +20,10 @@ Finder e, a caminho de lugar nenhum, decide juntá-lo a outros.
 
 As alternativas:
 
-- **Chacoalhar o mouse**, como o Dropover. Exige um monitor global de
-  `.leftMouseDragged` — outra permissão a pedir, para um gesto que nem todo
-  mundo descobre.
+- **Chacoalhar o mouse**, como o Dropover. Foi descartado aqui por uma razão
+  que estava errada — "exige um monitor global de `.leftMouseDragged`, outra
+  permissão a pedir". Não exige nem uma coisa nem outra, e hoje o gesto existe:
+  ver "Chacoalhar acabou dando", no fim deste documento.
 - **Um atalho de teclado durante o arraste.** Funciona (`RegisterEventHotKey`
   entrega a tecla no meio de uma sessão de arraste), mas apertar `⌘⇧S` com o
   polegar segurando o botão do trackpad é desconfortável o bastante para que
@@ -223,6 +224,54 @@ prateleira no `draggingEntered` e deixar o arquivo cair dentro dela. É frágil:
 uma janela que aparece no meio de uma sessão de arraste nem sempre entra no hit
 test do AppKit, e o gesto falharia de vez em quando — que é pior que nunca
 funcionar. O recorte conclui o drop sozinho; o painel é a consequência.
+
+## Chacoalhar acabou dando
+
+O gesto entrou depois, e o que o destravou foi uma descoberta feita depurando
+outra coisa — a mesma que fez o `followCursor` virar um relógio:
+
+**Durante uma sessão de arraste do sistema, o AppKit não entrega os movimentos
+do mouse a monitor nenhum.** Ou seja, o monitor global de `.leftMouseDragged`
+que "exigiria uma permissão" não teria funcionado de qualquer forma: ele fica
+mudo exatamente durante o gesto que deveria observar.
+
+O que funciona é perguntar em vez de escutar. `NSEvent.mouseLocation` e
+`NSEvent.pressedMouseButtons` são propriedades — respondem certo com o botão
+apertado, no meio do arraste, e não custam permissão nenhuma. Um relógio de
+60 Hz lendo as duas é a detecção inteira.
+
+Sobra um evento a apanhar: o instante em que o botão **desce**, que é o que faz
+o relógio começar. Esse acontece *antes* de a sessão de arraste existir, então
+um monitor global comum o recebe — e monitor global de mouse, diferente do de
+teclado, não pede Acessibilidade. Com o botão solto não há relógio rodando: em
+repouso o custo é um bloco parado esperando um clique.
+
+**O filtro é o que separa o gesto do ruído.** Chacoalhar o mouse à toa,
+arrastar uma janela pela barra de título ou puxar um slider não podem abrir a
+prateleira. Quem responde "tem arquivo na mão?" é a área de transferência de
+arraste (`NSPasteboard(name: .drag)`), e são duas perguntas, nunca uma: o tipo
+do conteúdo **e** o `changeCount` ter mudado depois de o botão descer. O tipo
+sozinho sobra de um arraste que terminou faz cinco minutos.
+
+**A conta do chacoalhar não tem eixo privilegiado.** Contar inversões de sinal
+em `dx` é o caminho óbvio e erra o gesto real, que é tão diagonal quanto
+horizontal. Em vez disso: entre duas amostras há um vetor; enquanto ele
+concordar com a perna atual (produto escalar positivo) a perna cresce, e quando
+discordar com a perna já longa o bastante (~45 pt), conta-se uma inversão. Três
+inversões em 0,6 s são um chacoalhar.
+
+**A prateleira nasce debaixo do cursor**, e é a única porta do aplicativo em que
+o painel vai até a pessoa. Não é capricho: quem já está com o arquivo na mão não
+deve ter de levá-lo até o centro da tela depois de chamar a prateleira — o
+arquivo chega em cima dela e basta soltar. Como o painel é centralizado *dentro*
+da janela 0, centrar a janela no cursor centra o painel nele; o resto é prender
+a janela dentro da borda da tela (`OverlayWindow.positionForCursor`).
+
+**E o risco assumido é justamente o que o recorte evitava**: a janela aparece no
+meio de uma sessão de arraste. O que salva é que o AppKit refaz a busca pelo
+destino a cada movimento do mouse, e quem acabou de chacoalhar está movendo o
+mouse. Vale a pena registrar que isto continua sendo o ponto frágil do gesto —
+se um dia ele falhar de vez em quando, é aqui que se olha primeiro.
 
 ## O que ficou de fora
 

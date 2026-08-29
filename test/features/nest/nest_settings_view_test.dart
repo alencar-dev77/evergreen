@@ -80,10 +80,27 @@ void main() {
 
     expect(find.text('Receber arquivos pelo recorte da tela'), findsOneWidget);
 
-    await tester.tap(find.byType(EgToggle));
+    // O primeiro, porque o chacoalhar tem outro logo abaixo.
+    await tester.tap(find.byType(EgToggle).first);
     await tester.pumpAndSettle();
 
     expect(channel.isNotchEnabled, isFalse);
+  });
+
+  testWidgets('a linha do chacoalhar aparece em qualquer Mac', (tester) async {
+    await pumpSettings(tester);
+
+    expect(find.text('Chacoalhar para chamar a prateleira'), findsOneWidget);
+  });
+
+  testWidgets('desligar o chacoalhar avisa o lado nativo', (tester) async {
+    final container = await pumpSettings(tester);
+
+    await tester.tap(find.byType(EgToggle));
+    await tester.pumpAndSettle();
+
+    expect(container.read(nestSettingsViewModelProvider).useShake, isFalse);
+    expect(channel.isShakeEnabled, isFalse);
   });
 
   testWidgets('a escolha entre copiar e mover é escrita na hora', (

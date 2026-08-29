@@ -7,7 +7,8 @@ roda localmente, nada é enviado para a internet. São sete módulos: Pin
 registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
 `⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`), Echo (grava,
 transcreve e resume reuniões, `⌘⇧E`), Nest (prateleira que junta arquivos de
-várias pastas e manda todos para uma só, `⌘⇧S` — e pelo recorte da tela) e
+várias pastas e manda todos para uma só, `⌘⇧S`, pelo recorte da tela e
+chacoalhando o arquivo no meio do arraste) e
 Track (reconstrói o dia a partir do que os outros gravaram — só tela do Hub,
 sem atalho global e sem painel).
 
@@ -61,7 +62,16 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   cairia na janela que estava atrás dele. Junto vem
   a **segunda janela sempre no topo do projeto**, a do recorte da tela
   (`NestNotchWindow`) — que não desenha um pixel e não tem engine, e por isso a
-  regra continua sendo "só a janela 0 desenha". Ver
+  regra continua sendo "só a janela 0 desenha". A terceira porta é **chacoalhar
+  o arquivo** (`NestShakeMonitor`), e a regra dela é *perguntar, nunca escutar*:
+  durante uma sessão de arraste o AppKit não entrega movimento de mouse a
+  monitor nenhum, então quem responde é `NSEvent.mouseLocation` e
+  `NSEvent.pressedMouseButtons`, que são propriedades e não custam permissão —
+  o mesmo motivo do relógio do `followCursor`. O único evento apanhado é o botão
+  descendo, que acontece antes do arraste. Só dispara com arquivo na mão
+  (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta em
+  que o painel vai até o cursor em vez do contrário
+  (`OverlayWindow.positionForCursor`). Ver
   [docs/Ideis projeto/nest-janela-do-recorte.md](docs/Ideis%20projeto/nest-janela-do-recorte.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão

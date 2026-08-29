@@ -10,10 +10,15 @@ import Cocoa
 /// superfície viva.
 ///
 /// Por que o recorte, e não um atalho: a prateleira precisa ser invocada com o
-/// botão do mouse já pressionado, no meio de um arraste. Chacoalhar o mouse
-/// exigiria monitorar eventos globais (mais uma permissão), e apertar um atalho
+/// botão do mouse já pressionado, no meio de um arraste, e apertar um atalho
 /// segurando o botão é desconfortável. O recorte está sempre lá, no caminho de
 /// quem já está arrastando, e não custa permissão nenhuma.
+///
+/// Chacoalhar o arquivo faz a mesma coisa e chegou depois, no
+/// `NestShakeMonitor` — a justificativa que o descartava aqui ("exigiria
+/// monitorar eventos globais, mais uma permissão") estava errada nas duas
+/// metades. As duas portas convivem: o recorte já está de pé antes de o arraste
+/// começar, enquanto a janela do chacoalhar nasce no meio dele.
 ///
 /// Não existe API de recorte no macOS. O que existe é a medida da área segura
 /// (`safeAreaInsets`, macOS 12+) e as duas faixas úteis ao lado dele

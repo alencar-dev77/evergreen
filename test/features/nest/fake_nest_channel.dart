@@ -14,6 +14,7 @@ class FakeNestChannel implements NestChannel {
   final _dragOver = StreamController<bool>.broadcast();
   final _thumbnails = StreamController<NestThumbnail>.broadcast();
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
+  final _shakes = StreamController<void>.broadcast();
 
   /// O que a máquina imaginária deste teste responde.
   bool notch = false;
@@ -26,6 +27,7 @@ class FakeNestChannel implements NestChannel {
   /// Onde o painel disse que está desenhado. `null` quando ele saiu de cena.
   Rect? interactiveRect;
   bool isNotchEnabled = true;
+  bool isShakeEnabled = true;
 
   final revealed = <String>[];
   final trashed = <String>[];
@@ -44,6 +46,9 @@ class FakeNestChannel implements NestChannel {
   void sendThumbnail(String path, Uint8List bytes) =>
       _thumbnails.add(NestThumbnail(path: path, bytes: bytes));
 
+  /// Chacoalha um arquivo, como o lado nativo faria.
+  void shake() => _shakes.add(null);
+
   /// Termina o arraste para fora, como o destino faria.
   void endDragOut(NestTransferMode? operation) => _dragOutEnded.add(operation);
 
@@ -60,6 +65,9 @@ class FakeNestChannel implements NestChannel {
   Stream<NestTransferMode?> get onDragOutEnded => _dragOutEnded.stream;
 
   @override
+  Stream<void> get onShake => _shakes.stream;
+
+  @override
   void listen() {}
 
   @override
@@ -68,6 +76,11 @@ class FakeNestChannel implements NestChannel {
   @override
   Future<void> setNotchEnabled({required bool enabled}) async {
     isNotchEnabled = enabled;
+  }
+
+  @override
+  Future<void> setShakeEnabled({required bool enabled}) async {
+    isShakeEnabled = enabled;
   }
 
   @override
@@ -112,5 +125,6 @@ class FakeNestChannel implements NestChannel {
     _dragOver.close();
     _thumbnails.close();
     _dragOutEnded.close();
+    _shakes.close();
   }
 }

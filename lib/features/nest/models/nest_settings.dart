@@ -6,6 +6,7 @@ class NestSettings {
   const NestSettings({
     this.defaultMode = NestTransferMode.copy,
     this.useNotch = true,
+    this.useShake = true,
     this.destinations = const [],
   });
 
@@ -19,6 +20,14 @@ class NestSettings {
   /// janela invisível simplesmente não nasce, e a linha nem aparece na tela de
   /// preferências. Ver `NestNotchWindow`.
   final bool useNotch;
+
+  /// Deixar o chacoalhar chamar a prateleira no meio de um arraste.
+  ///
+  /// Ligado por padrão, e sem hardware nenhum por trás: diferente do recorte, o
+  /// gesto existe em qualquer Mac, então a linha nunca some das preferências.
+  /// Só vale com arquivo na mão — chacoalhar o mouse à toa não abre nada. Ver
+  /// `NestShakeMonitor`.
+  final bool useShake;
 
   /// As pastas favoritas, na ordem em que a lista as mostra — que é a ordem dos
   /// atalhos `⌘1..⌘9`.
@@ -36,10 +45,12 @@ class NestSettings {
   NestSettings copyWith({
     NestTransferMode? defaultMode,
     bool? useNotch,
+    bool? useShake,
     List<NestDestination>? destinations,
   }) => NestSettings(
     defaultMode: defaultMode ?? this.defaultMode,
     useNotch: useNotch ?? this.useNotch,
+    useShake: useShake ?? this.useShake,
     destinations: destinations ?? this.destinations,
   );
 }

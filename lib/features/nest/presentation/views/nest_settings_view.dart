@@ -50,6 +50,18 @@ class NestSettingsView extends ConsumerWidget {
                 onChanged: (value) =>
                     unawaited(viewModel.setUseNotch(enabled: value)),
               ),
+            // Sem `if` nenhum, diferente do recorte: o gesto não depende de
+            // hardware, então a linha existe em qualquer Mac.
+            EgSettingsRow.toggle(
+              label: 'Chacoalhar para chamar a prateleira',
+              description:
+                  'Com um arquivo sendo arrastado, sacuda o mouse e a '
+                  'prateleira aparece debaixo do cursor. Sem arquivo na mão, '
+                  'chacoalhar não faz nada.',
+              value: settings.useShake,
+              onChanged: (value) =>
+                  unawaited(viewModel.setUseShake(enabled: value)),
+            ),
             EgSettingsRow(
               label: 'Ao enviar para uma pasta',
               description:

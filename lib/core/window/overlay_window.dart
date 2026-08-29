@@ -112,7 +112,13 @@ class OverlayWindow {
   ///
   /// Reposicionar a cada abertura é o que mantém o painel sempre no monitor que
   /// o usuário está usando, em vez de onde ele foi aberto da última vez.
-  Future<void> show() async {
+  ///
+  /// Com [at], a janela nasce **centrada nesse ponto da tela** em vez do lugar
+  /// de sempre — e o painel junto com ela, já que ele é centralizado dentro da
+  /// janela. É o caminho do chacoalhar do Nest: quem está com um arquivo na mão
+  /// não deve ter de levá-lo até o centro da tela depois de chamar a
+  /// prateleira. Sem [at], nada muda para nenhum painel.
+  Future<void> show({Offset? at}) async {
     // Quem está na frente agora é para quem o auto-colar vai colar depois. O
     // painel não-ativante não tira ninguém da frente, então esta foto tende a
     // continuar valendo quando o item for escolhido — mas ela é tirada aqui,
@@ -120,7 +126,7 @@ class OverlayWindow {
     // resposta é certamente a de antes do atalho.
     await PreviousAppFocusChannel.capture();
 
-    await reposition();
+    await reposition(at: at);
 
     // O painel volta a ser desenhado só agora: o quadro gravado na janela
     // escondida é o branco deixado por `hide`, e é ele que aparece no instante
@@ -151,8 +157,8 @@ class OverlayWindow {
   /// de o painel aparecer, e ela já foi tirada na primeira abertura. Repeti-la
   /// agora fotografaria o próprio Evergreen se a pessoa tivesse clicado no
   /// painel — e o auto-colar do Pin colaria nele mesmo.
-  Future<void> reassert() async {
-    await reposition();
+  Future<void> reassert({Offset? at}) async {
+    await reposition(at: at);
     await OverlayWindowChannel.show();
   }
 
@@ -228,15 +234,55 @@ class OverlayWindow {
   /// Público porque trocar de painel com a janela já visível também precisa
   /// dele: o cursor pode estar em outro monitor, e reposicionar é mais barato
   /// (e não pisca) comparado a esconder e reexibir a janela.
-  Future<void> reposition() async {
+  Future<void> reposition({Offset? at}) async {
     final display = await _activeDisplay();
-    final visible = display.visiblePosition ?? Offset.zero;
+    final origin = display.visiblePosition ?? Offset.zero;
     final size = display.visibleSize ?? display.size;
+    final visible = Rect.fromLTWH(
+      origin.dx,
+      origin.dy,
+      size.width,
+      size.height,
+    );
 
-    final x = visible.dx + (size.width - _windowSize.width) / 2;
-    final y = _verticalPosition(visible.dy, size.height);
+    if (at != null) {
+      await windowManager.setPosition(positionForCursor(at, visible));
+      return;
+    }
+
+    final x = visible.left + (visible.width - _windowSize.width) / 2;
+    final y = _verticalPosition(visible.top, visible.height);
 
     await windowManager.setPosition(Offset(x, y));
+  }
+
+  /// O canto da janela para que o **centro dela** caia em [cursor].
+  ///
+  /// O painel é centralizado dentro da janela, então centrar a janela no cursor
+  /// põe o painel embaixo dele — que é o ponto do gesto: o arquivo arrastado
+  /// chega já em cima da prateleira e basta soltar.
+  ///
+  /// Estática e pura para poder ser conferida sem `window_manager`: é geometria,
+  /// e geometria de janela é onde um sinal trocado só aparece no monitor da
+  /// direita.
+  @visibleForTesting
+  static Offset positionForCursor(Offset cursor, Rect visible) => Offset(
+    _clamped(cursor.dx - _windowSize.width / 2, visible.left, visible.width, _windowSize.width),
+    _clamped(cursor.dy - _windowSize.height / 2, visible.top, visible.height, _windowSize.height),
+  );
+
+  /// Preso dentro da área útil: janela que passa da borda leva o painel junto
+  /// para fora da tela. Em tela menor que a própria janela não há o que
+  /// prender, e aí ela nasce centralizada — sobra o mesmo tanto para cada lado.
+  static double _clamped(
+    double value,
+    double start,
+    double extent,
+    double size,
+  ) {
+    if (extent < size) return start + (extent - size) / 2;
+
+    return value.clamp(start, start + extent - size);
   }
 
   /// Topo da janela para que o centro dela caia em [_opticalCenter] da tela.

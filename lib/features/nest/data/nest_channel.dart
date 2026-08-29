@@ -43,6 +43,7 @@ class NestChannel {
   final _dragOver = StreamController<bool>.broadcast();
   final _thumbnails = StreamController<NestThumbnail>.broadcast();
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
+  final _shakes = StreamController<void>.broadcast();
 
   /// Caminhos soltos sobre o painel ou sobre o recorte da tela.
   Stream<List<String>> get onDropped => _dropped.stream;
@@ -55,6 +56,12 @@ class NestChannel {
   Stream<bool> get onDragOver => _dragOver.stream;
 
   Stream<NestThumbnail> get onThumbnail => _thumbnails.stream;
+
+  /// Alguém chacoalhou um arquivo no meio de um arraste.
+  ///
+  /// Chega uma vez por aperto de botão: o lado nativo trava depois de avisar,
+  /// senão um chacoalhar viraria três aberturas. Ver `NestShakeMonitor`.
+  Stream<void> get onShake => _shakes.stream;
 
   /// O arraste que saiu da prateleira terminou: com o que o destino fez, ou
   /// `null` quando ele foi solto em lugar nenhum.
@@ -84,6 +91,9 @@ class NestChannel {
             _ => null,
           });
 
+        case 'onShake':
+          if (!_shakes.isClosed) _shakes.add(null);
+
         case 'onThumbnail':
           final path = arguments?['path'] as String?;
           final bytes = arguments?['bytes'] as Uint8List?;
@@ -100,6 +110,13 @@ class NestChannel {
   /// que decide se a linha do notch aparece nas preferências — some, não fica
   /// desabilitada.
   Future<bool> hasNotch() async => await _invoke<bool>('hasNotch') ?? false;
+
+  /// Liga ou desliga a detecção do chacoalhar.
+  ///
+  /// Desligada, o monitor de mouse sai do sistema — não fica um relógio parado
+  /// esperando uma preferência que ninguém quer.
+  Future<void> setShakeEnabled({required bool enabled}) =>
+      _invoke<void>('setShakeEnabled', {'enabled': enabled});
 
   /// Liga ou desliga a janela invisível sobre o recorte.
   Future<void> setNotchEnabled({required bool enabled}) =>
@@ -178,6 +195,7 @@ class NestChannel {
     _channel.setMethodCallHandler(null);
     _dropped.close();
     _dragOutEnded.close();
+    _shakes.close();
     _dragOver.close();
     _thumbnails.close();
   }

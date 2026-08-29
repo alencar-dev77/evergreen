@@ -89,6 +89,10 @@ class NestChannel: NSObject {
         NestNotchWindow.setEnabled(arguments?["enabled"] as? Bool ?? false)
         result(nil)
 
+      case "setShakeEnabled":
+        NestShakeMonitor.setEnabled(arguments?["enabled"] as? Bool ?? false)
+        result(nil)
+
       case "setDropEnabled":
         isDropEnabled = arguments?["enabled"] as? Bool ?? false
         if isDropEnabled { installDropDelegate() } else { setInteractiveRect(nil) }
@@ -325,6 +329,22 @@ class NestChannel: NSObject {
       }
 
       channel.invokeMethod("onDropped", arguments: ["paths": paths])
+    }
+  }
+
+  /// Alguém chacoalhou um arquivo. Ver `NestShakeMonitor`.
+  ///
+  /// Com o `NSLog` de guarda pelo mesmo motivo do [report(paths:)]: sem canal, o
+  /// gesto morre aqui sem erro nenhum, e a falha deste módulo é sempre
+  /// silenciosa.
+  static func reportShake() {
+    DispatchQueue.main.async {
+      guard let channel = overlayChannel else {
+        NSLog("[Nest] chacoalhar sem canal para avisar o Dart.")
+        return
+      }
+
+      channel.invokeMethod("onShake", arguments: nil)
     }
   }
 

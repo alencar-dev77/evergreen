@@ -52,6 +52,15 @@ class NestSettingsViewModel extends Notifier<NestSettings> {
     await _channel.setNotchEnabled(enabled: enabled);
   }
 
+  Future<void> setUseShake({required bool enabled}) async {
+    state = state.copyWith(useShake: enabled);
+    await _repository.save(state);
+
+    // Pelo mesmo motivo do recorte: quem observa o mouse vive fora de qualquer
+    // engine, e desligado é o monitor que sai do sistema.
+    await _channel.setShakeEnabled(enabled: enabled);
+  }
+
   /// Abre o seletor de pasta do sistema e guarda o que voltar.
   ///
   /// Devolve `false` quando nada foi acrescentado — cancelou, a lista está
