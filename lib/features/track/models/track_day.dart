@@ -38,6 +38,7 @@ class TrackDay {
     this.awake = const [],
     this.copied = const {},
     this.notesWritten = 0,
+    this.filesOrganized = 0,
   });
 
   /// Meia-noite local do dia.
@@ -59,6 +60,13 @@ class TrackDay {
   /// Quantos itens de cada tipo passaram pela área de transferência. Só a
   /// contagem — o conteúdo nunca sai do banco.
   final Map<ClipboardItemType, int> copied;
+
+  /// Arquivos que o Nest mandou para alguma pasta neste dia.
+  ///
+  /// A contagem, e nada mais: a tabela do módulo não guarda caminho nem nome de
+  /// arquivo, pela mesma razão que a do Pin não guarda conteúdo. "12 arquivos
+  /// organizados" é o que o dia tem a dizer sobre isso.
+  final int filesOrganized;
 
   /// Anotações do Leaf escritas neste dia.
   ///
@@ -95,7 +103,8 @@ class TrackDay {
       meetings.isEmpty &&
       awake.isEmpty &&
       copiedTotal == 0 &&
-      notesWritten == 0;
+      notesWritten == 0 &&
+      filesOrganized == 0;
 
   /// O que aconteceu no dia, em pedaços curtos — "4 sessões", "2 reuniões".
   ///
@@ -113,6 +122,8 @@ class TrackDay {
     if (copiedTotal > 0)
       TrackCounts.of(copiedTotal, 'item copiado', 'itens copiados'),
     if (notesWritten > 0) TrackCounts.of(notesWritten, 'anotação', 'anotações'),
+    if (filesOrganized > 0)
+      TrackCounts.of(filesOrganized, 'arquivo organizado', 'arquivos organizados'),
   ];
 
   /// Assinatura barata do conteúdo do dia.

@@ -9,6 +9,7 @@ enum MenuBarAction {
   openLeaf('open_leaf', 'Leaf', '⌘⇧D'),
   openAwake('open_awake', 'Awake', '⌘⇧X'),
   openEcho('open_echo', 'Echo', '⌘⇧E'),
+  openNest('open_nest', 'Nest', '⌘⇧S'),
   openHub('open_hub', 'Preferências', '⌘⇧,'),
   quit('quit', 'Encerrar Evergreen');
 

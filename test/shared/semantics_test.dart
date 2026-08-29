@@ -1,6 +1,8 @@
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/models/pin_quick_shortcut.dart';
+import 'package:evergreen/features/nest/models/nest_item.dart';
+import 'package:evergreen/features/nest/presentation/widgets/nest_item_card.dart';
 import 'package:evergreen/features/pin/presentation/widgets/pin_list_item.dart';
 import 'package:evergreen/shared/widgets/eg_button.dart';
 import 'package:evergreen/shared/widgets/eg_icon.dart';
@@ -115,6 +117,69 @@ void main() {
       expect(
         tester.getSemantics(find.byType(PinListItem)),
         isSemantics(hasSelectedState: false),
+      );
+
+      handle.dispose();
+    });
+
+    testWidgets('a linha da prateleira diz o nome e o que o arquivo é', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      await pump(
+        tester,
+        SizedBox(
+          width: 400,
+          child: NestItemCard(
+            item: NestItem(
+              path: '/Users/eu/Documentos/contrato.pdf',
+              isDirectory: false,
+              sizeInBytes: 2048,
+              modifiedAt: DateTime(2026, 8, 28),
+            ),
+            isSelected: false,
+            onTap: () {},
+          ),
+        ),
+      );
+
+      // A miniatura é uma imagem sem texto: sem esta frase a lista sai como uma
+      // sequência de nomes de arquivo sem nada que os distinga.
+      expect(
+        tester.getSemantics(find.byType(NestItemCard)),
+        isSemantics(label: 'contrato.pdf, 2 KB'),
+      );
+
+      handle.dispose();
+    });
+
+    testWidgets('o arquivo que sumiu diz isso, e não só fica apagado', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+
+      await pump(
+        tester,
+        SizedBox(
+          width: 400,
+          child: NestItemCard(
+            item: NestItem(
+              path: '/Users/eu/Documentos/contrato.pdf',
+              isDirectory: false,
+              sizeInBytes: 2048,
+              modifiedAt: DateTime(2026, 8, 28),
+              isMissing: true,
+            ),
+            isSelected: false,
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSemantics(find.byType(NestItemCard)),
+        isSemantics(label: 'contrato.pdf, não está mais no lugar'),
       );
 
       handle.dispose();

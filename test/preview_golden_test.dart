@@ -27,6 +27,9 @@ import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/leaf/models/leaf_note.dart';
 import 'package:evergreen/features/leaf/presentation/viewmodels/leaf_view_model.dart';
 import 'package:evergreen/features/leaf/presentation/views/leaf_overlay_view.dart';
+import 'package:evergreen/features/nest/data/nest_transfer_repository.dart';
+import 'package:evergreen/features/nest/presentation/viewmodels/nest_view_model.dart';
+import 'package:evergreen/features/nest/presentation/views/nest_overlay_view.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
@@ -41,12 +44,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 import 'features/awake/fake_sleep_assertion_service.dart';
 import 'features/echo/fake_echo_channel.dart';
 import 'features/focus/fake_focus_session_repository.dart';
 import 'features/leaf/fake_leaf_repository.dart';
+import 'features/nest/fake_nest_channel.dart';
 import 'features/pin/fake_clipboard_repository.dart';
 import 'golden_fonts.dart';
 
@@ -76,6 +81,12 @@ void main() {
   late Database echoDb;
   late FakeEchoChannel channel;
   late BackupService backups;
+  late FakeNestChannel nestChannel;
+
+  /// Os arquivos que aparecem na prateleira do Nest. Existem no disco de
+  /// verdade, numa pasta temporária: o cartão lê tamanho e data do sistema de
+  /// arquivos, e uma imitação teria de mentir sobre as duas coisas.
+  late Directory nestFiles;
 
   /// O "hoje" das imagens do Track: a quinta-feira em que a reunião do Echo
   /// acontece. Fixo porque o módulo lê a semana corrente — com o relógio real
@@ -97,6 +108,11 @@ void main() {
       'app.user_name': 'Lucas',
     });
     preferences = await SharedPreferences.getInstance();
+
+    nestChannel = FakeNestChannel();
+    nestFiles = Directory.systemTemp.createTempSync('nest_golden');
+    addTearDown(() => nestFiles.deleteSync(recursive: true));
+    addTearDown(nestChannel.dispose);
 
     // A tela do Pin pergunta ao canal nativo se a permissão de Acessibilidade
     // existe, e sob `flutter test` não há lado nativo para responder: a
@@ -336,12 +352,21 @@ void main() {
           sleepAssertionServiceProvider.overrideWithValue(
             FakeSleepAssertionService(),
           ),
+          // E o histórico do Awake, pelo mesmo motivo: soltar a trava grava uma
+          // linha, e o banco do aplicativo não existe sob `flutter test`.
+          awakeSessionRepositoryProvider.overrideWithValue(
+            FakeAwakeSessionRepository(),
+          ),
           leafRepositoryProvider.overrideWithValue(notes),
           sharedPreferencesProvider.overrideWithValue(preferences),
           echoRepositoryProvider.overrideWithValue(
             SqliteEchoRepository(echoDb),
           ),
           echoChannelProvider.overrideWithValue(channel),
+          nestChannelProvider.overrideWithValue(nestChannel),
+          nestTransferRepositoryProvider.overrideWithValue(
+            SqliteNestTransferRepository(echoDb),
+          ),
           // O Track lê o mesmo banco: ele não tem tabela própria.
           trackRepositoryProvider.overrideWithValue(
             SqliteTrackRepository(echoDb),
@@ -616,6 +641,75 @@ void main() {
     await expectLater(
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_echo_transcript.png'),
+    );
+  });
+
+  /// A prateleira com o que se junta num dia de trabalho: uma pasta, um
+  /// documento e um vídeo, de origens diferentes, esperando o mesmo destino.
+  testWidgets('painel do Nest — prateleira cheia', (tester) async {
+    await preferences.setStringList('nest.destinations', [
+      '{"path":"/Users/lucas/Documentos/Recibos","alias":""}',
+      '{"path":"/Users/lucas/Clientes/Marina","alias":"Marina"}',
+      '{"path":"/Users/lucas/Desktop/Triagem","alias":""}',
+    ]);
+
+    final paths = <String>[];
+    for (final name in const [
+      'contrato-marina.pdf',
+      'reuniao-23-07.mov',
+      'notas fiscais',
+    ]) {
+      final path = p.join(nestFiles.path, name);
+      if (name.contains('.')) {
+        File(path).writeAsStringSync('x' * 2400);
+      } else {
+        Directory(path).createSync();
+      }
+      paths.add(path);
+    }
+
+    await pump(tester, const NestOverlayView(), const Size(1120, 900));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NestOverlayView)),
+    );
+    // `runAsync` porque encher a prateleira lê o disco de verdade — tamanho e
+    // data de cada arquivo —, e o relógio falso do teste de widget não entrega
+    // a resposta de uma leitura de arquivo.
+    await tester.runAsync(
+      () => container.read(nestViewModelProvider.notifier).addPaths(paths),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(NestOverlayView),
+      matchesGoldenFile('goldens/nest_overlay_filled.png'),
+    );
+  });
+
+  testWidgets('painel do Nest — vazia', (tester) async {
+    await pump(tester, const NestOverlayView(), const Size(1120, 700));
+
+    await expectLater(
+      find.byType(NestOverlayView),
+      matchesGoldenFile('goldens/nest_overlay_empty.png'),
+    );
+  });
+
+  testWidgets('Hub — Nest', (tester) async {
+    await preferences.setStringList('nest.destinations', [
+      '{"path":"/Users/lucas/Documentos/Recibos","alias":""}',
+      '{"path":"/Users/lucas/Clientes/Marina","alias":"Marina"}',
+    ]);
+
+    await pump(tester, const HubView(), const Size(1800, 1400));
+
+    await tester.tap(find.text(EvergreenModule.nest.name));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_nest.png'),
     );
   });
 

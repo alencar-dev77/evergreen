@@ -77,6 +77,12 @@ enum EgIconData {
   /// Trilha sinuosa com o marco no fim — identifica o módulo Track.
   track,
 
+  /// Bandeja com uma seta entrando — identifica o módulo Nest.
+  tray,
+
+  /// Pasta — o item da prateleira que não é um arquivo.
+  folder,
+
   /// O canivete — a marca do Evergreen, o mesmo desenho da abertura do Hub e
   /// do ícone do aplicativo. Não é um path daqui: vem de `eg_brand_mark.dart`.
   evergreen,
@@ -218,6 +224,8 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.note => _notePath(),
     EgIconData.microphone => _microphonePath(),
     EgIconData.track => _trackPath(),
+    EgIconData.tray => _trayPath(),
+    EgIconData.folder => _folderPath(),
     EgIconData.star => _starPath(),
     // A marca não passa por aqui: ela é pintada antes, direto do desenho
     // do canivete.
@@ -438,6 +446,65 @@ class _EgIconPainter extends CustomPainter {
     ..cubicTo(5.6, 13.2, 4.6, 8.4, 8.0, 8.4)
     ..cubicTo(10.2, 8.4, 10.4, 5.6, 11.3, 4.4)
     ..addOval(Rect.fromCircle(center: const Offset(12.9, 2.9), radius: 1.5));
+
+  /// Bandeja com uma seta entrando — o Nest.
+  ///
+  /// A seta é o que separa este ícone de uma caixa qualquer: a bandeja sozinha
+  /// lê como "arquivo morto", e o módulo é sobre coisas **chegando** e saindo
+  /// em seguida. O rebaixo no meio da tampa é o mesmo desenho de caixa de
+  /// entrada que o macOS usa — é ele que faz o retângulo virar bandeja em 14px.
+  Path _trayPath() => Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(2.5, 7, 11, 6.5),
+        const Radius.circular(1.5),
+      ),
+    )
+    ..moveTo(2.5, 9.6)
+    ..lineTo(5.7, 9.6)
+    ..lineTo(6.5, 11)
+    ..lineTo(9.5, 11)
+    ..lineTo(10.3, 9.6)
+    ..lineTo(13.5, 9.6)
+    ..moveTo(8, 1.8)
+    ..lineTo(8, 5.5)
+    ..moveTo(6.2, 3.7)
+    ..lineTo(8, 5.5)
+    ..lineTo(9.8, 3.7);
+
+  /// Pasta de traço: o corpo e a aba, sem nada dentro.
+  ///
+  /// Existe separada do [_trayPath] porque as duas aparecem na **mesma lista**
+  /// — a bandeja é o módulo, a pasta é o item —, e um desenho servindo aos dois
+  /// papéis a três centímetros de distância um do outro não distingue nada.
+  Path _folderPath() => Path()
+    ..moveTo(2, 12.5)
+    ..lineTo(2, 4.2)
+    ..arcToPoint(
+      const Offset(3.2, 3),
+      radius: const Radius.circular(1.2),
+      clockwise: true,
+    )
+    ..lineTo(6.2, 3)
+    ..lineTo(7.8, 5)
+    ..lineTo(12.8, 5)
+    ..arcToPoint(
+      const Offset(14, 6.2),
+      radius: const Radius.circular(1.2),
+      clockwise: true,
+    )
+    ..lineTo(14, 11.8)
+    ..arcToPoint(
+      const Offset(12.8, 13),
+      radius: const Radius.circular(1.2),
+      clockwise: true,
+    )
+    ..lineTo(3.2, 13)
+    ..arcToPoint(
+      const Offset(2, 11.8),
+      radius: const Radius.circular(1.2),
+      clockwise: true,
+    );
 
   Path _timerPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(8, 9), radius: 5))

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 
 import '../core/system/global_shortcut_service.dart';
 import '../core/system/menu_bar_service.dart';
@@ -18,6 +20,7 @@ import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
 import '../features/leaf/presentation/viewmodels/leaf_view_model.dart';
+import '../features/nest/presentation/viewmodels/nest_view_model.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'providers.dart';
 
@@ -38,8 +41,21 @@ class EvergreenBootstrap {
   /// Relógio do backup automático. Ver [_scheduleBackups].
   Timer? _backupTimer;
 
+  /// Assinatura dos arquivos soltos no painel. Ver [_watchNestDrops].
+  StreamSubscription<List<String>>? _nestDrops;
+
+  /// Assinatura do chacoalhar. Ver [_watchNestShake].
+  StreamSubscription<void>? _nestShakes;
+
   Future<void> start() async {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
+    // Antes de qualquer painel existir: o chacoalhar chega com tudo fechado, e
+    // é ele quem manda o painel aparecer.
+    _container.read(nestChannelProvider).listen();
+    _container.read(nestViewModelProvider.notifier).startListening();
+    _watchNestDrops();
+    _watchNestShake();
+    unawaited(_applyNestSettings());
     unawaited(
       _container.read(echoRecorderViewModelProvider.notifier).initialize(),
     );
@@ -114,6 +130,7 @@ class EvergreenBootstrap {
     );
     await shortcuts.registerLeafToggle(() => toggleOverlay(OverlayPanel.leaf));
     await shortcuts.registerEchoToggle(() => toggleOverlay(OverlayPanel.echo));
+    await shortcuts.registerNestToggle(() => toggleOverlay(OverlayPanel.nest));
     await shortcuts.registerHubOpen(HubWindow.instance.open);
   }
 
@@ -158,6 +175,57 @@ class EvergreenBootstrap {
 
       unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
     }, fireImmediately: true);
+  }
+
+  /// Põe a prateleira na tela quando arquivos chegam com ela fechada.
+  ///
+  /// É o mesmo caminho do alerta de fim de sessão do Focus: um evento de fundo
+  /// que **mostra** o painel, nunca o esconde.
+  void _watchNestDrops() {
+    _nestDrops = _container
+        .read(nestChannelProvider)
+        .onDropped
+        .listen((_) => unawaited(showOverlay(OverlayPanel.nest)));
+  }
+
+  /// Põe a prateleira debaixo do cursor quando alguém chacoalha um arquivo.
+  ///
+  /// A porta que quem vem do Dropover tenta primeiro, e a única em que o painel
+  /// vai até a pessoa em vez de o contrário: quem já está com um arquivo na mão
+  /// não deve ter de arrastá-lo até o centro da tela.
+  ///
+  /// Com a prateleira já na tela, o gesto não faz nada — mover a janela debaixo
+  /// de um arraste em curso seria pior que não reagir.
+  void _watchNestShake() {
+    _nestShakes = _container.read(nestChannelProvider).onShake.listen((_) {
+      unawaited(_openNestAtCursor());
+    });
+  }
+
+  Future<void> _openNestAtCursor() async {
+    final overlay = OverlayWindow.instance;
+    if (await overlay.isVisible() &&
+        _container.read(overlayPanelProvider) == OverlayPanel.nest) {
+      return;
+    }
+
+    final cursor = await screenRetriever.getCursorScreenPoint();
+    await showOverlay(OverlayPanel.nest, at: cursor);
+  }
+
+  /// Manda as preferências do Nest para o lado nativo na abertura.
+  ///
+  /// O chacoalhar vive fora de qualquer engine e nasce desligado a cada
+  /// lançamento — sem isto, o interruptor mostraria "ligado" com o gesto morto.
+  Future<void> _applyNestSettings() async {
+    final repository = _container.read(nestSettingsRepositoryProvider);
+    await repository.reload();
+
+    final settings = repository.load();
+
+    await _container
+        .read(nestChannelProvider)
+        .setShakeEnabled(enabled: settings.useShake);
   }
 
   /// Mantém a barra de menus em dia com a gravação do Echo.
@@ -208,9 +276,9 @@ class EvergreenBootstrap {
 
   /// Traz um painel para a frente sem nunca fechá-lo — o caminho do aviso de
   /// fim de sessão, onde esconder a janela seria o oposto do pedido.
-  Future<void> showOverlay(OverlayPanel panel) {
+  Future<void> showOverlay(OverlayPanel panel, {Offset? at}) {
     return _pending = _pending
-        .then((_) => _showOverlay(panel))
+        .then((_) => _showOverlay(panel, at: at))
         .catchError((Object _) {});
   }
 
@@ -227,7 +295,7 @@ class EvergreenBootstrap {
     await _showOverlay(panel);
   }
 
-  Future<void> _showOverlay(OverlayPanel panel) async {
+  Future<void> _showOverlay(OverlayPanel panel, {Offset? at}) async {
     await _prepare(panel);
     _container.read(overlayPanelProvider.notifier).show(panel);
 
@@ -236,11 +304,11 @@ class EvergreenBootstrap {
     // o atalho leva o painel para onde a pessoa está olhando. A reafirmação
     // também devolve o teclado ao painel: estar visível não é estar com o foco.
     if (await OverlayWindow.instance.isVisible()) {
-      await OverlayWindow.instance.reassert();
+      await OverlayWindow.instance.reassert(at: at);
       return;
     }
 
-    await OverlayWindow.instance.show();
+    await OverlayWindow.instance.show(at: at);
   }
 
   Future<void> _prepare(OverlayPanel panel) async {
@@ -259,6 +327,8 @@ class EvergreenBootstrap {
         await _container
             .read(echoRecorderViewModelProvider.notifier)
             .prepareForOpen();
+      case OverlayPanel.nest:
+        await _container.read(nestViewModelProvider.notifier).prepareForOpen();
     }
   }
 
@@ -274,6 +344,8 @@ class EvergreenBootstrap {
         toggleOverlay(OverlayPanel.awake);
       case MenuBarAction.openEcho:
         toggleOverlay(OverlayPanel.echo);
+      case MenuBarAction.openNest:
+        toggleOverlay(OverlayPanel.nest);
       case MenuBarAction.openHub:
         HubWindow.instance.open();
       case MenuBarAction.quit:
@@ -283,6 +355,8 @@ class EvergreenBootstrap {
 
   Future<void> _quit() async {
     _backupTimer?.cancel();
+    await _nestDrops?.cancel();
+    await _nestShakes?.cancel();
     // A trava seria solta pelo sistema de qualquer forma quando o processo
     // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
     await _container.read(awakeViewModelProvider.notifier).turnOff();
