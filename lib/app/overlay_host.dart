@@ -9,6 +9,7 @@ import '../features/awake/presentation/views/awake_overlay_view.dart';
 import '../features/echo/presentation/views/echo_overlay_view.dart';
 import '../features/focus/presentation/views/focus_overlay_view.dart';
 import '../features/leaf/presentation/views/leaf_overlay_view.dart';
+import '../features/nest/presentation/views/nest_overlay_view.dart';
 import '../features/pin/presentation/views/pin_overlay_view.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
 import 'providers.dart';
@@ -64,6 +65,7 @@ class _OverlayHostState extends ConsumerState<OverlayHost> {
       OverlayPanel.leaf => const LeafOverlayView(),
       OverlayPanel.awake => const AwakeOverlayView(),
       OverlayPanel.echo => const EchoOverlayView(),
+      OverlayPanel.nest => const NestOverlayView(),
     };
 
     return ValueListenableBuilder<bool>(

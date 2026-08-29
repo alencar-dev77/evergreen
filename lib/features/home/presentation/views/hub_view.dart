@@ -14,6 +14,7 @@ import '../../../echo/presentation/widgets/echo_reader.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../focus/presentation/widgets/focus_reader.dart';
 import '../../../leaf/presentation/views/leaf_settings_view.dart';
+import '../../../nest/presentation/views/nest_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
 import '../../../track/presentation/views/track_view.dart';
 import '../../../track/presentation/widgets/track_reader.dart';
@@ -297,6 +298,7 @@ class _HubViewState extends ConsumerState<HubView> {
     EvergreenModule.leaf => const LeafSettingsView(),
     EvergreenModule.awake => const AwakeSettingsView(),
     EvergreenModule.echo => const EchoSettingsView(),
+    EvergreenModule.nest => const NestSettingsView(),
     EvergreenModule.track => const TrackView(),
   };
 }

@@ -1,0 +1,184 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+import '../models/nest_transfer_mode.dart';
+
+/// Uma miniatura pronta, para o caminho que a pediu.
+///
+/// Chega mais de uma vez pelo mesmo caminho, e é de propósito: o QuickLook
+/// responde em degraus (o ícone do tipo, uma prévia grosseira, a boa), e cada
+/// resposta substitui a anterior no cartão. É o que faz um PDF de duzentas
+/// páginas parecer instantâneo sem mentir sobre o que já foi lido.
+@immutable
+class NestThumbnail {
+  const NestThumbnail({required this.path, required this.bytes});
+
+  final String path;
+  final Uint8List bytes;
+}
+
+/// O que o Nest não consegue fazer em Flutter puro.
+///
+/// Quatro coisas, e nenhuma tem equivalente em Dart: receber um arraste do
+/// Finder (é a `NSWindow` que se registra como destino), gerar a miniatura de
+/// um arquivo qualquer (`QLThumbnailGenerator`), abrir o seletor de pasta do
+/// sistema (`NSOpenPanel`) e mandar para o Lixo com direito a desfazer do
+/// Finder (`NSWorkspace.recycle`). A implementação está em
+/// `macos/Runner/NestChannel.swift`.
+///
+/// Diferente do `EchoChannel`, nada aqui lança: sem lado nativo — em teste,
+/// fora do macOS — cada método responde o vazio dele. O Nest sem o Swift é um
+/// painel que não recebe arquivo, e é assim que a suíte de testes o vê.
+class NestChannel {
+  NestChannel({MethodChannel? channel})
+    : _channel = channel ?? const MethodChannel(_channelName);
+
+  static const _channelName = 'nest';
+
+  final MethodChannel _channel;
+
+  final _dropped = StreamController<List<String>>.broadcast();
+  final _dragOver = StreamController<bool>.broadcast();
+  final _thumbnails = StreamController<NestThumbnail>.broadcast();
+  final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
+
+  /// Caminhos soltos sobre o painel ou sobre o recorte da tela.
+  Stream<List<String>> get onDropped => _dropped.stream;
+
+  /// O arraste entrou (`true`) ou saiu (`false`) da área que recebe.
+  ///
+  /// Só o painel usa: o recorte não tem pixel para acender. Serve para a borda
+  /// do painel dizer "pode soltar" antes de o botão do mouse subir — sem isso,
+  /// soltar num painel que não reagiu é um tiro no escuro.
+  Stream<bool> get onDragOver => _dragOver.stream;
+
+  Stream<NestThumbnail> get onThumbnail => _thumbnails.stream;
+
+  /// O arraste que saiu da prateleira terminou: com o que o destino fez, ou
+  /// `null` quando ele foi solto em lugar nenhum.
+  Stream<NestTransferMode?> get onDragOutEnded => _dragOutEnded.stream;
+
+  /// Liga a escuta dos avisos do lado nativo. Uma vez, na inicialização.
+  void listen() {
+    _channel.setMethodCallHandler((call) async {
+      final arguments = call.arguments as Map<Object?, Object?>?;
+
+      switch (call.method) {
+        case 'onDropped':
+          final paths = (arguments?['paths'] as List<Object?>? ?? const [])
+              .whereType<String>()
+              .toList();
+          if (paths.isNotEmpty && !_dropped.isClosed) _dropped.add(paths);
+
+        case 'onDragOver':
+          final isOver = arguments?['isOver'] as bool? ?? false;
+          if (!_dragOver.isClosed) _dragOver.add(isOver);
+
+        case 'onDragOutEnded':
+          if (_dragOutEnded.isClosed) return;
+          _dragOutEnded.add(switch (arguments?['operation']) {
+            'copy' => NestTransferMode.copy,
+            'move' => NestTransferMode.move,
+            _ => null,
+          });
+
+        case 'onThumbnail':
+          final path = arguments?['path'] as String?;
+          final bytes = arguments?['bytes'] as Uint8List?;
+          if (path != null && bytes != null && !_thumbnails.isClosed) {
+            _thumbnails.add(NestThumbnail(path: path, bytes: bytes));
+          }
+      }
+    });
+  }
+
+  /// Esta máquina tem recorte na tela.
+  ///
+  /// Falso também abaixo do macOS 12, onde a medida do recorte não existe. É o
+  /// que decide se a linha do notch aparece nas preferências — some, não fica
+  /// desabilitada.
+  Future<bool> hasNotch() async => await _invoke<bool>('hasNotch') ?? false;
+
+  /// Liga ou desliga a janela invisível sobre o recorte.
+  Future<void> setNotchEnabled({required bool enabled}) =>
+      _invoke<void>('setNotchEnabled', {'enabled': enabled});
+
+  /// Deixa a janela 0 aceitar arquivos.
+  ///
+  /// Ligado só enquanto o painel do Nest está à vista: a janela é
+  /// compartilhada pelos seis módulos, e soltar um arquivo em cima do Focus
+  /// não deve significar nada.
+  Future<void> setDropEnabled({required bool enabled}) =>
+      _invoke<void>('setDropEnabled', {'enabled': enabled});
+
+  /// Diz onde o painel está desenhado dentro da janela 0 — ou `null` quando ele
+  /// sai de cena.
+  ///
+  /// É o que faz a janela deixar o clique passar em toda a área **fora** do
+  /// painel. A janela 0 é bem maior que qualquer painel e o resto dela é
+  /// transparente mas ainda captura clique — o que nos outros painéis é o
+  /// "clicar fora fecha", e no Nest impedia de clicar na janela do Finder de
+  /// onde os arquivos viriam.
+  Future<void> setInteractiveRect(Rect? rect) => _invoke<void>(
+    'setInteractiveRect',
+    rect == null
+        ? null
+        : {
+            'x': rect.left,
+            'y': rect.top,
+            'width': rect.width,
+            'height': rect.height,
+          },
+  );
+
+  /// Começa a arrastar a prateleira para fora do Evergreen.
+  ///
+  /// Devolve `false` quando o lado nativo não conseguiu começar — sem o evento
+  /// de mouse que originou o gesto não há sessão de arraste. O resultado chega
+  /// depois, por [onDragOutEnded]: quem copia ou move é o destino, não nós.
+  Future<bool> beginDragOut(
+    List<String> paths, {
+    required bool move,
+  }) async =>
+      await _invoke<bool>('beginDrag', {'paths': paths, 'move': move}) ?? false;
+
+  /// Pede a miniatura de um arquivo. A resposta chega por [onThumbnail], em
+  /// degraus.
+  Future<void> requestThumbnail(String path, {double size = 96}) =>
+      _invoke<void>('thumbnail', {'path': path, 'size': size});
+
+  /// Abre o seletor de pasta do sistema. `null` quando a pessoa cancelou.
+  Future<String?> chooseFolder() => _invoke<String>('chooseFolder');
+
+  Future<void> revealInFinder(String path) =>
+      _invoke<void>('revealInFinder', {'path': path});
+
+  /// Manda para o Lixo — com o desfazer do Finder, e não `File.delete`, que
+  /// apaga de verdade e não volta.
+  Future<bool> moveToTrash(String path) async =>
+      await _invoke<bool>('moveToTrash', {'path': path}) ?? false;
+
+  Future<T?> _invoke<T>(String method, [Map<String, Object?>? arguments]) async {
+    try {
+      return await _channel.invokeMethod<T>(method, arguments);
+    } on PlatformException {
+      // O lado nativo recusou — pasta que sumiu entre o clique e a chamada,
+      // arquivo sem permissão. Quem chama já trata o vazio, e derrubar o painel
+      // por causa de um arquivo seria pior que não fazer nada.
+      return null;
+    } on MissingPluginException {
+      // Sem lado nativo: em teste, ou fora do macOS.
+      return null;
+    }
+  }
+
+  void dispose() {
+    _channel.setMethodCallHandler(null);
+    _dropped.close();
+    _dragOutEnded.close();
+    _dragOver.close();
+    _thumbnails.close();
+  }
+}

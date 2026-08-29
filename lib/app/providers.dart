@@ -23,6 +23,10 @@ import '../features/home/data/app_settings_repository.dart';
 import '../features/home/data/hub_intro_repository.dart';
 import '../features/home/data/onboarding_repository.dart';
 import '../features/leaf/data/leaf_repository.dart';
+import '../features/nest/data/nest_channel.dart';
+import '../features/nest/data/nest_file_service.dart';
+import '../features/nest/data/nest_settings_repository.dart';
+import '../features/nest/data/nest_transfer_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
 import '../features/pin/data/pin_settings_repository.dart';
@@ -126,6 +130,33 @@ final awakeSettingsRepositoryProvider = Provider<AwakeSettingsRepository>(
 
 final leafRepositoryProvider = Provider<LeafRepository>(
   (ref) => SqliteLeafRepository(ref.watch(appDatabaseProvider).db),
+);
+
+/// A conversa com o destino de arraste, o QuickLook e o seletor de pasta.
+///
+/// Provider (e não instância global) porque é o que o teste substitui para
+/// verificar o painel do Nest sem Finder, sem miniatura e sem recorte de tela.
+final nestChannelProvider = Provider<NestChannel>((ref) {
+  final channel = NestChannel();
+  ref.onDispose(channel.dispose);
+  return channel;
+});
+
+final nestSettingsRepositoryProvider = Provider<NestSettingsRepository>(
+  (ref) => NestSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+final nestTransferRepositoryProvider = Provider<NestTransferRepository>(
+  (ref) => SqliteNestTransferRepository(ref.watch(appDatabaseProvider).db),
+);
+
+/// Quem copia e move arquivo pelo Nest.
+///
+/// Provider (e não uma instância solta) porque o serviço carrega o relógio da
+/// aplicação: a hora de uma transferência é o que a agrupa no dia do Track, e
+/// verificar isso sem esperar a meia-noite chegar exige poder trocá-lo.
+final nestFileServiceProvider = Provider<NestFileService>(
+  (ref) => LocalNestFileService(clock: ref.watch(clockProvider)),
 );
 
 final echoRepositoryProvider = Provider<EchoRepository>(

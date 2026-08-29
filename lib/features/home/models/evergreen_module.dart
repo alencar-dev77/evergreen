@@ -52,6 +52,16 @@ enum EvergreenModule {
     icon: EgIconData.microphone,
     status: ModuleStatus.available,
   ),
+  nest(
+    name: 'Nest',
+    tagline: 'Prateleira de arquivos',
+    description:
+        'Junte arquivos de pastas diferentes numa prateleira e mande todos '
+        'para o mesmo lugar de uma vez. Solte no recorte da tela e ela abre '
+        'com o arquivo dentro.',
+    icon: EgIconData.tray,
+    status: ModuleStatus.available,
+  ),
   track(
     name: 'Track',
     tagline: 'O dia reconstruído',

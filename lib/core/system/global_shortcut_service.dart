@@ -74,6 +74,22 @@ class GlobalShortcutService {
   /// Representação do atalho do Echo como key-caps.
   static const echoShortcutKeys = <String>['⌘', '⇧', 'E'];
 
+  /// Atalho padrão do Nest: `⌘⇧S`.
+  ///
+  /// `S` de *shelf*, a palavra que dá nome ao gesto — e a tecla livre onde
+  /// importa: `⌘⇧F` e `⌘⇧D` já são do Focus e do Leaf, e `⌘⇧A` é "ir para
+  /// Aplicativos" no Finder, que é justamente o aplicativo de onde os arquivos
+  /// vêm.
+  static final nestShortcut = HotKey(
+    identifier: 'evergreen.nest.toggle',
+    key: PhysicalKeyboardKey.keyS,
+    modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
+    scope: HotKeyScope.system,
+  );
+
+  /// Representação do atalho do Nest como key-caps.
+  static const nestShortcutKeys = <String>['⌘', '⇧', 'S'];
+
   /// Atalho padrão das preferências: `⌘⇧,`.
   ///
   /// `⌘,` é a convenção de preferências do macOS, mas como atalho global ele
@@ -127,6 +143,13 @@ class GlobalShortcutService {
   Future<void> registerEchoToggle(Future<void> Function() onPressed) async {
     await hotKeyManager.register(
       echoShortcut,
+      keyDownHandler: (_) => onPressed(),
+    );
+  }
+
+  Future<void> registerNestToggle(Future<void> Function() onPressed) async {
+    await hotKeyManager.register(
+      nestShortcut,
       keyDownHandler: (_) => onPressed(),
     );
   }

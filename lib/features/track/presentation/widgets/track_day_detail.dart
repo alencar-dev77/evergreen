@@ -93,6 +93,11 @@ class TrackDayDetail extends StatelessWidget {
           '${TrackCounts.of(day.notesWritten, 'anotação escrita', 'anotações escritas')} no Leaf.',
           style: context.eg.text.captionSmall,
         ),
+      if (day.filesOrganized > 0)
+        Text(
+          '${TrackCounts.of(day.filesOrganized, 'arquivo organizado', 'arquivos organizados')} no Nest.',
+          style: context.eg.text.captionSmall,
+        ),
     ];
   }
 

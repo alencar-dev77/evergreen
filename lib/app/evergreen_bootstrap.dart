@@ -18,6 +18,7 @@ import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
 import '../features/leaf/presentation/viewmodels/leaf_view_model.dart';
+import '../features/nest/presentation/viewmodels/nest_view_model.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'providers.dart';
 
@@ -38,8 +39,16 @@ class EvergreenBootstrap {
   /// Relógio do backup automático. Ver [_scheduleBackups].
   Timer? _backupTimer;
 
+  /// Assinatura dos arquivos soltos no recorte da tela. Ver [_watchNestDrops].
+  StreamSubscription<List<String>>? _nestDrops;
+
   Future<void> start() async {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
+    // Antes de qualquer painel existir: um arquivo solto no recorte da tela
+    // chega com tudo fechado, e é ele quem manda o painel aparecer.
+    _container.read(nestChannelProvider).listen();
+    _container.read(nestViewModelProvider.notifier).startListening();
+    _watchNestDrops();
     unawaited(
       _container.read(echoRecorderViewModelProvider.notifier).initialize(),
     );
@@ -114,6 +123,7 @@ class EvergreenBootstrap {
     );
     await shortcuts.registerLeafToggle(() => toggleOverlay(OverlayPanel.leaf));
     await shortcuts.registerEchoToggle(() => toggleOverlay(OverlayPanel.echo));
+    await shortcuts.registerNestToggle(() => toggleOverlay(OverlayPanel.nest));
     await shortcuts.registerHubOpen(HubWindow.instance.open);
   }
 
@@ -158,6 +168,19 @@ class EvergreenBootstrap {
 
       unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
     }, fireImmediately: true);
+  }
+
+  /// Põe a prateleira na tela quando um arquivo é solto no recorte.
+  ///
+  /// O drop acontece fora de qualquer janela desenhada — a janela do recorte
+  /// não tem pixel nem engine —, então nada abriria o painel sozinho. É o
+  /// mesmo caminho do alerta de fim de sessão do Focus: um evento de fundo que
+  /// **mostra** o painel, nunca o esconde.
+  void _watchNestDrops() {
+    _nestDrops = _container
+        .read(nestChannelProvider)
+        .onDropped
+        .listen((_) => unawaited(showOverlay(OverlayPanel.nest)));
   }
 
   /// Mantém a barra de menus em dia com a gravação do Echo.
@@ -259,6 +282,8 @@ class EvergreenBootstrap {
         await _container
             .read(echoRecorderViewModelProvider.notifier)
             .prepareForOpen();
+      case OverlayPanel.nest:
+        await _container.read(nestViewModelProvider.notifier).prepareForOpen();
     }
   }
 
@@ -274,6 +299,8 @@ class EvergreenBootstrap {
         toggleOverlay(OverlayPanel.awake);
       case MenuBarAction.openEcho:
         toggleOverlay(OverlayPanel.echo);
+      case MenuBarAction.openNest:
+        toggleOverlay(OverlayPanel.nest);
       case MenuBarAction.openHub:
         HubWindow.instance.open();
       case MenuBarAction.quit:
@@ -283,6 +310,7 @@ class EvergreenBootstrap {
 
   Future<void> _quit() async {
     _backupTimer?.cancel();
+    await _nestDrops?.cancel();
     // A trava seria solta pelo sistema de qualquer forma quando o processo
     // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
     await _container.read(awakeViewModelProvider.notifier).turnOff();

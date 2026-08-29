@@ -170,6 +170,25 @@ class AppDatabase {
     'echo-summary-prompt': '''
     ALTER TABLE echo_meetings ADD COLUMN summary_prompt TEXT;
     ''',
+    // Quantos arquivos o Nest organizou, e quando.
+    //
+    // Como a do Awake, é a única linha que o módulo grava, e ela existe para o
+    // Track: sem tabela, o módulo não apareceria no dia reconstruído.
+    //
+    // **Nenhum caminho e nenhum nome de arquivo entram aqui**, pela mesma razão
+    // que a consulta do Track pede só `copied_at` e `type` ao Pin — nome de
+    // arquivo é conteúdo, e o que está no banco vai para o backup e para o
+    // modelo que escreve o parágrafo do dia.
+    'nest-transfers': '''
+    CREATE TABLE IF NOT EXISTS nest_transfers (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      moved_at   INTEGER NOT NULL,
+      file_count INTEGER NOT NULL,
+      mode       TEXT    NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_nest_transfers_recent
+      ON nest_transfers (moved_at DESC);
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

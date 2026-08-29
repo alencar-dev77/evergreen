@@ -135,6 +135,14 @@ class TrackSummarizer {
       );
     }
 
+    if (day.filesOrganized > 0) {
+      lines.add(
+        'Arquivos organizados pelo Nest: '
+        '${TrackCounts.of(day.filesOrganized, 'arquivo', 'arquivos')}. '
+        'Só a contagem: nome e pasta não são compartilhados.',
+      );
+    }
+
     return lines.join('\n');
   }
 }

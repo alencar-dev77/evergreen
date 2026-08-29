@@ -2,12 +2,14 @@
 
 Evergreen é uma suíte pessoal de produtividade para macOS, feita como agente de
 barra de menus (`LSUIElement`) — sem janela ao iniciar, sem ícone no Dock. Tudo
-roda localmente, nada é enviado para a internet. São seis módulos: Pin
+roda localmente, nada é enviado para a internet. São sete módulos: Pin
 (gerenciador de área de transferência, `⌘⇧C`), Focus (cronômetro de foco com
 registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
 `⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`), Echo (grava,
-transcreve e resume reuniões, `⌘⇧E`) e Track (reconstrói o dia a partir do que
-os outros gravaram — só tela do Hub, sem atalho global e sem painel).
+transcreve e resume reuniões, `⌘⇧E`), Nest (prateleira que junta arquivos de
+várias pastas e manda todos para uma só, `⌘⇧S` — e pelo recorte da tela) e
+Track (reconstrói o dia a partir do que os outros gravaram — só tela do Hub,
+sem atalho global e sem painel).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 
@@ -43,6 +45,24 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
   responde `unsupported_os` abaixo disso, e o resto do app segue no 10.15.
+- **`QLThumbnailGenerator` + `NSOpenPanel` + destino de arraste** (nativo,
+  canal `nest`) — o Nest. Quem recebe o arraste do Finder é o **delegate da
+  janela**, nunca a janela nem uma view invisível: `NSWindow` não implementa
+  `NSDraggingDestination`, e o AppKit acha uma view pelo mesmo `hitTest` do
+  mouse — as duas alternativas falham em silêncio, com o arquivo caindo e nada
+  acontecendo. A miniatura de um arquivo qualquer é o mesmo mecanismo que
+  desenha as prévias do Finder, e arrastar a prateleira **para fora** é uma
+  `NSDraggingSession` começada pela view do Flutter — nenhum dos três tem
+  equivalente em Flutter puro. A saída tem dois caminhos que convivem: as pastas
+  favoritas (`⌘1..⌘9`, com desfazer, porque quem copia somos nós) e o arraste
+  para qualquer lugar (sem desfazer, porque quem copia é o destino). Soltar de
+  volta em cima do painel é desistir: o `NestDrop` recusa o arraste cuja origem
+  é a própria prateleira — sem essa recusa o arquivo atravessaria o painel e
+  cairia na janela que estava atrás dele. Junto vem
+  a **segunda janela sempre no topo do projeto**, a do recorte da tela
+  (`NestNotchWindow`) — que não desenha um pixel e não tem engine, e por isso a
+  regra continua sendo "só a janela 0 desenha". Ver
+  [docs/Ideis projeto/nest-janela-do-recorte.md](docs/Ideis%20projeto/nest-janela-do-recorte.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
   que o rodapé da sidebar do Hub mostra (`lib/core/app_info.dart`).
@@ -319,6 +339,14 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   arquivo precisa de quatro entradas (`PBXBuildFile`, `PBXFileReference`, filho
   do grupo `Runner` e a fase `Sources`). Sem as quatro, ele compila no editor e
   some no build.
+- **Módulo que mexe em arquivo põe a conversa com o disco atrás de uma
+  interface** (`NestFileService`), não de uma classe concreta. Não é cerimônia:
+  teste de widget roda no relógio falso do binding, e nele a resposta de uma
+  leitura de disco **nunca chega** — o teste do painel trava esperando o tamanho
+  do primeiro arquivo, sem erro e sem mensagem. A tela é verificada contra uma
+  imitação em memória; o disco de verdade é assunto do teste da implementação,
+  que roda fora do binding. A mesma armadilha alcança o golden de conferência, e
+  lá a saída é `tester.runAsync`.
 - Preferir sempre a solução em Flutter puro a código nativo (Swift/AppKit);
   quando uma alternativa nativa for descartada, documentar em `docs/`.
 

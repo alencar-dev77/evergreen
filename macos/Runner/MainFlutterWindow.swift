@@ -42,13 +42,13 @@ class MainFlutterWindow: NSPanel {
     // não basta.
     flutterViewController.backgroundColor = .clear
 
-    Self.registerChannels(for: flutterViewController)
+    Self.registerChannels(for: flutterViewController, isOverlay: true)
 
     // Cada janela criada pelo desktop_multi_window roda um engine próprio, que
     // nasce sem plugin nenhum. Sem este callback o Hub não teria acesso a
     // SharedPreferences, ao banco ou a qualquer canal nativo.
     FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
-      Self.registerChannels(for: controller)
+      Self.registerChannels(for: controller, isOverlay: false)
       Self.applyHubGeometry(to: controller.view.window)
     }
 
@@ -61,6 +61,28 @@ class MainFlutterWindow: NSPanel {
 
     Self.makeNonActivating(self)
     OverlayWindowChannel.adopt(self)
+    // Registra a janela para receber arquivos e põe o delegate de arraste do
+    // Nest na frente do delegate do `window_manager`. Ver `NestDrop`.
+    NestChannel.adopt(self)
+    Self.watchScreens()
+  }
+
+  /// Mantém a janela do recorte na tela certa.
+  ///
+  /// Fechar a tampa, ligar um monitor externo ou trocar a tela principal muda
+  /// qual `NSScreen` tem recorte — e às vezes tira o recorte de cena por
+  /// completo. Sem este aviso, a janela ficaria ancorada numa geometria que não
+  /// existe mais, recebendo arquivos num canto qualquer da tela.
+  private static func watchScreens() {
+    NestNotchWindow.reposition()
+
+    NotificationCenter.default.addObserver(
+      forName: NSApplication.didChangeScreenParametersNotification,
+      object: nil,
+      queue: .main
+    ) { _ in
+      NestNotchWindow.reposition()
+    }
   }
 
   /// Faz da janela 0 um painel que não tira ninguém da frente.
@@ -88,7 +110,10 @@ class MainFlutterWindow: NSPanel {
     panel.collectionBehavior.insert([.canJoinAllSpaces, .fullScreenAuxiliary])
   }
 
-  private static func registerChannels(for controller: FlutterViewController) {
+  private static func registerChannels(
+    for controller: FlutterViewController,
+    isOverlay: Bool
+  ) {
     RegisterGeneratedPlugins(registry: controller)
     LaunchAtLoginChannel.register(with: controller.engine.binaryMessenger)
     PreviousAppFocusChannel.register(with: controller.engine.binaryMessenger)
@@ -97,6 +122,9 @@ class MainFlutterWindow: NSPanel {
     PasteboardWatcherChannel.register(with: controller.engine.binaryMessenger)
     SleepAssertionChannel.register(with: controller.engine.binaryMessenger)
     EchoChannel.register(with: controller.engine.binaryMessenger)
+    // O `isOverlay` decide quem **recebe** os avisos de arraste: os dois
+    // engines podem chamar o canal, mas quem guarda a prateleira é a janela 0.
+    NestChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
   }
 
   /// Dá ao Hub um tamanho de janela de preferências.

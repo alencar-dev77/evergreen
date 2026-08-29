@@ -1,0 +1,570 @@
+import Cocoa
+import FlutterMacOS
+import QuickLookThumbnailing
+
+/// O que o Nest não consegue fazer em Flutter puro.
+///
+/// Quatro coisas, e nenhuma tem equivalente em Dart:
+///
+/// - **Receber um arraste do Finder.** Quem se registra como destino é uma
+///   `NSView` do AppKit; o Flutter não expõe a sessão de arraste do sistema.
+/// - **Gerar a miniatura de um arquivo qualquer.** `QLThumbnailGenerator` é o
+///   mesmo mecanismo que desenha as prévias do Finder, e cobre de graça PDF,
+///   vídeo, Keynote, código com realce e tudo o mais que o sistema saiba abrir.
+/// - **Abrir o seletor de pasta.** `NSOpenPanel`.
+/// - **Mandar para o Lixo com direito a desfazer.** `NSWorkspace.recycle` —
+///   `File.delete` do Dart apaga de verdade, e não volta.
+///
+/// A janela 0 é compartilhada pelos seis painéis, então o destino de arraste só
+/// aceita quando o painel do Nest está à vista: [setDropEnabled] é ligado e
+/// desligado pela própria tela. Soltar um arquivo em cima do Focus não deve
+/// significar nada.
+class NestChannel: NSObject {
+  static let channelName = "nest"
+
+  /// O canal do engine da janela 0 — o único que recebe os avisos de arraste.
+  ///
+  /// Os outros engines (hoje o Hub) registram o canal para poder *chamar*
+  /// métodos — escolher pasta, perguntar pelo recorte —, mas nunca são
+  /// notificados: quem guarda a prateleira é a janela 0, e um Hub aberto no meio
+  /// de um arraste não pode virar o dono do evento.
+  ///
+  /// **Forte, e essa é a linha inteira do bug mais caro deste módulo.** Um
+  /// `FlutterMethodChannel` não é retido por ninguém: o `binaryMessenger` guarda
+  /// o *bloco* que atende as chamadas vindas do Dart, não o objeto. Com uma
+  /// referência fraca aqui, o canal era desalocado assim que [register]
+  /// terminava — e aí tudo o que vem do Dart continuava funcionando (o bloco
+  /// está vivo), enquanto tudo o que vai **para** o Dart caía no vazio: o
+  /// arquivo era aceito pelo AppKit, `invokeMethod` era chamado num `nil`, e a
+  /// prateleira nunca via nada chegar. Sem erro, sem aviso, com o arraste
+  /// respondendo `.copy` normalmente.
+  ///
+  /// O `PasteboardWatcherChannel` tem o mesmo `weak` e escapa por acidente: o
+  /// bloco dele menciona `channel`, então a closure o retém.
+  private static var overlayChannel: FlutterMethodChannel?
+
+  /// A janela 0 aceita arquivos agora.
+  private(set) static var isDropEnabled = false
+
+  /// A janela 0, para ligar e desligar a passagem de clique. Ver
+  /// [setInteractiveRect].
+  private static weak var overlayWindow: NSWindow?
+
+  /// O retângulo do painel dentro da janela 0, em coordenadas da janela.
+  ///
+  /// Enquanto ele existe, a janela deixa passar todo clique que cair **fora**
+  /// dele. Ver [followCursor].
+  private static var interactiveRect: NSRect?
+
+  /// O relógio que segue o cursor enquanto o painel do Nest está na tela.
+  private static var cursorTimer: Timer?
+
+  /// O último clique ou arrasto recebido pela janela 0.
+  ///
+  /// `beginDraggingSession` exige o `NSEvent` que originou o gesto — ele é quem
+  /// diz de onde o arraste sai. O Flutter não o entrega ao Dart, então a janela
+  /// guarda o último por conta própria.
+  private static var lastMouseEvent: NSEvent?
+  private static var mouseMonitor: Any?
+
+  /// A origem do arraste em curso. Retida porque `beginDraggingSession` não
+  /// retém a fonte.
+  private static var dragSource: NestDragSource?
+
+  /// Há um arraste **saindo** da prateleira agora.
+  private static var isDraggingOut = false
+
+  static func register(with messenger: FlutterBinaryMessenger, isOverlay: Bool) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+    if isOverlay { overlayChannel = channel }
+
+    channel.setMethodCallHandler { call, result in
+      let arguments = call.arguments as? [String: Any]
+
+      switch call.method {
+      case "hasNotch":
+        result(NestNotchWindow.screenWithNotch() != nil)
+
+      case "setNotchEnabled":
+        NestNotchWindow.setEnabled(arguments?["enabled"] as? Bool ?? false)
+        result(nil)
+
+      case "setDropEnabled":
+        isDropEnabled = arguments?["enabled"] as? Bool ?? false
+        if isDropEnabled { installDropDelegate() } else { setInteractiveRect(nil) }
+        result(nil)
+
+      case "setInteractiveRect":
+        setInteractiveRect(rect(from: arguments))
+        result(nil)
+
+      case "beginDrag":
+        beginDrag(
+          paths: arguments?["paths"] as? [String] ?? [],
+          move: arguments?["move"] as? Bool ?? false,
+          result: result
+        )
+
+      case "thumbnail":
+        guard let path = arguments?["path"] as? String else {
+          result(FlutterError(code: "bad_arguments", message: "path é obrigatório", details: nil))
+          return
+        }
+        requestThumbnail(path: path, size: arguments?["size"] as? Double ?? 96)
+        result(nil)
+
+      case "chooseFolder":
+        result(chooseFolder())
+
+      case "revealInFinder":
+        if let path = arguments?["path"] as? String {
+          NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+        }
+        result(nil)
+
+      case "moveToTrash":
+        moveToTrash(path: arguments?["path"] as? String, result: result)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// O delegate de arraste da janela 0, retido aqui porque `window.delegate` é
+  /// uma referência fraca.
+  private static var overlayDropDelegate: NestWindowDropDelegate?
+
+  static func adopt(_ window: NSWindow) {
+    overlayWindow = window
+    window.registerForDraggedTypes([.fileURL])
+    installDropDelegate()
+
+    mouseMonitor = NSEvent.addLocalMonitorForEvents(
+      matching: [.leftMouseDown, .leftMouseDragged]
+    ) { event in
+      if event.window === overlayWindow { lastMouseEvent = event }
+      return event
+    }
+  }
+
+  // MARK: - Arrastar para fora
+
+  /// Começa a arrastar a prateleira inteira para fora do Evergreen.
+  ///
+  /// Quem faz a cópia ou a movimentação é o **destino** — o Finder, o campo de
+  /// anexo do Mail —, não nós: o que sai daqui é uma lista de `file URL` e a
+  /// operação declarada. Por isso este caminho não tem desfazer: o Evergreen não
+  /// fica sabendo para onde os arquivos foram.
+  ///
+  /// A operação é a que o painel está mostrando (a preferência, invertida pelo
+  /// `⌥`), e não a do sistema: dentro do módulo, "copiar ou mover" tem uma
+  /// resposta só, e ela está escrita na tela em cima da lista.
+  private static func beginDrag(
+    paths: [String],
+    move: Bool,
+    result: @escaping FlutterResult
+  ) {
+    guard !paths.isEmpty,
+          let window = overlayWindow,
+          let view = window.contentView,
+          let event = lastMouseEvent ?? NSApp.currentEvent
+    else {
+      result(false)
+      return
+    }
+
+    let origin = view.convert(event.locationInWindow, from: nil)
+
+    let items = paths.enumerated().map { index, path -> NSDraggingItem in
+      let item = NSDraggingItem(pasteboardWriter: URL(fileURLWithPath: path) as NSURL)
+      let step = CGFloat(index) * 4
+
+      // Um monte de ícones ligeiramente deslocados: é como o Finder mostra
+      // vários arquivos saindo juntos, e diz sem texto quantos são.
+      item.setDraggingFrame(
+        NSRect(x: origin.x - 16 + step, y: origin.y - 16 - step, width: 32, height: 32),
+        contents: NSWorkspace.shared.icon(forFile: path)
+      )
+
+      return item
+    }
+
+    let source = NestDragSource(move: move)
+    dragSource = source
+    isDraggingOut = true
+
+    // A janela **não** é tirada do caminho: fora do painel o relógio do cursor
+    // já a faz sumir para o mouse, e é isso que deixa o arquivo chegar ao
+    // Finder. Sobre o painel ela continua interceptando — e recusa o próprio
+    // arraste (ver `NestDrop`), que é o que faz soltar em cima da prateleira
+    // significar "desisti" em vez de largar o arquivo na janela que estava
+    // atrás dela.
+    view.beginDraggingSession(with: items, event: event, source: source)
+    result(true)
+  }
+
+  /// O arraste terminou — no Finder, na lixeira ou em lugar nenhum.
+  static func dragOutEnded(_ operation: NSDragOperation) {
+    isDraggingOut = false
+    dragSource = nil
+
+    // Com o painel ainda na tela é o relógio do cursor que retoma o comando.
+    // Sem ele — o painel fechou no meio do arraste —, a janela ficaria
+    // atravessável para sempre, e nenhum outro painel receberia clique.
+    if interactiveRect == nil { overlayWindow?.ignoresMouseEvents = false }
+
+    let name: String
+    if operation.contains(.move) {
+      name = "move"
+    } else if operation.contains(.copy) {
+      name = "copy"
+    } else {
+      name = "none"
+    }
+
+    DispatchQueue.main.async {
+      overlayChannel?.invokeMethod("onDragOutEnded", arguments: ["operation": name])
+    }
+  }
+
+  /// Põe o delegate de arraste na frente do que estiver lá.
+  ///
+  /// Chamado de novo a cada abertura do painel do Nest, e não só na montagem:
+  /// se o `window_manager` reescrever o delegate da janela em algum momento, o
+  /// arraste voltaria a não funcionar em silêncio — e este é o tipo de falha que
+  /// só aparece com um arquivo na mão.
+  private static func installDropDelegate() {
+    guard let window = overlayWindow else { return }
+
+    if let installed = window.delegate as? NestWindowDropDelegate {
+      overlayDropDelegate = installed
+      return
+    }
+
+    let proxy = NestWindowDropDelegate(
+      alwaysAccepts: false,
+      next: window.delegate as? NSObject
+    )
+
+    overlayDropDelegate = proxy
+    window.delegate = proxy
+  }
+
+  /// Diz onde o painel está desenhado dentro da janela 0 — ou `nil` quando o
+  /// painel do Nest sai de cena.
+  ///
+  /// Existe por causa de um problema que só o Nest tem. A janela 0 é bem maior
+  /// que qualquer painel (ela cabe o maior deles mais a sombra), e o resto dela
+  /// é transparente **mas ainda captura clique** — é o que faz "clicar fora
+  /// fecha" funcionar nos outros painéis. No Nest isso é fatal: a prateleira
+  /// existe para ir buscar arquivos em outro aplicativo, e com ela aberta não se
+  /// conseguia nem clicar numa janela do Finder atrás.
+  ///
+  /// Então, enquanto o painel do Nest está na tela, a janela passa a deixar o
+  /// clique atravessar em toda a área fora do painel.
+  private static func setInteractiveRect(_ rect: NSRect?) {
+    interactiveRect = rect
+
+    guard rect != nil else {
+      cursorTimer?.invalidate()
+      cursorTimer = nil
+      overlayWindow?.ignoresMouseEvents = false
+      return
+    }
+
+    followCursor()
+  }
+
+  /// Liga e desliga a passagem de clique conforme o cursor entra e sai do
+  /// painel.
+  ///
+  /// Um relógio, e não `NSEvent.addGlobalMonitorForEvents`: durante uma sessão
+  /// de arraste do sistema — que é exatamente quando isto precisa funcionar — o
+  /// monitor global não recebe os movimentos, e a janela ficaria atravessável
+  /// justamente na hora de soltar o arquivo nela. `NSEvent.mouseLocation` é uma
+  /// consulta, não um evento: responde certo durante o arraste, e não custa
+  /// permissão nenhuma.
+  private static func followCursor() {
+    guard cursorTimer == nil else { return }
+
+    cursorTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { _ in
+      guard let window = overlayWindow, let rect = interactiveRect else { return }
+
+      let panel = window.convertToScreen(rect)
+      window.ignoresMouseEvents = !panel.contains(NSEvent.mouseLocation)
+    }
+  }
+
+  /// Converte o retângulo que o Flutter mede — origem no canto superior
+  /// esquerdo — para o do AppKit, com a origem embaixo.
+  private static func rect(from arguments: [String: Any]?) -> NSRect? {
+    guard let arguments = arguments,
+          let x = arguments["x"] as? Double,
+          let y = arguments["y"] as? Double,
+          let width = arguments["width"] as? Double,
+          let height = arguments["height"] as? Double,
+          let contentHeight = overlayWindow?.contentView?.bounds.height
+    else { return nil }
+
+    return NSRect(x: x, y: contentHeight - y - height, width: width, height: height)
+  }
+
+  // MARK: - Avisos para o Dart
+
+  static func report(paths: [String]) {
+    guard !paths.isEmpty else { return }
+
+    DispatchQueue.main.async {
+      guard let channel = overlayChannel else {
+        // O caminho que custou três voltas de depuração: sem canal, o arquivo
+        // é aceito pelo AppKit e o aviso morre aqui, sem erro nenhum. Se isto
+        // acontecer de novo, que apareça no Console.
+        NSLog("[Nest] arquivo solto sem canal para avisar o Dart.")
+        return
+      }
+
+      channel.invokeMethod("onDropped", arguments: ["paths": paths])
+    }
+  }
+
+  static func report(isOver: Bool) {
+    DispatchQueue.main.async {
+      overlayChannel?.invokeMethod("onDragOver", arguments: ["isOver": isOver])
+    }
+  }
+
+  // MARK: - Miniaturas
+
+  /// Pede a prévia ao QuickLook e devolve **cada degrau** que ele produzir.
+  ///
+  /// `generateRepresentations` (plural), e não `generateBestRepresentation`: o
+  /// plural chama o bloco assim que tem o ícone do tipo, de novo com uma prévia
+  /// grosseira e por último com a boa. É o que faz um PDF de duzentas páginas
+  /// aparecer na hora em vez de deixar um buraco na lista por dois segundos.
+  private static func requestThumbnail(path: String, size: Double) {
+    let scale = NSScreen.main?.backingScaleFactor ?? 2
+    let request = QLThumbnailGenerator.Request(
+      fileAt: URL(fileURLWithPath: path),
+      size: CGSize(width: size, height: size),
+      scale: scale,
+      representationTypes: .all
+    )
+
+    QLThumbnailGenerator.shared.generateRepresentations(for: request) { representation, _, _ in
+      guard let representation = representation,
+            let data = png(from: representation.cgImage)
+      else { return }
+
+      DispatchQueue.main.async {
+        overlayChannel?.invokeMethod(
+          "onThumbnail",
+          arguments: ["path": path, "bytes": FlutterStandardTypedData(bytes: data)]
+        )
+      }
+    }
+  }
+
+  private static func png(from image: CGImage) -> Data? {
+    NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+  }
+
+  // MARK: - Pasta e Lixo
+
+  /// Abre o seletor de pasta do sistema.
+  ///
+  /// O `activate` antes é obrigatório: o Evergreen é um agente de barra de
+  /// menus, e um painel modal de um aplicativo que não está na frente nasce
+  /// atrás da janela em que a pessoa estava.
+  private static func chooseFolder() -> String? {
+    NSApp.activate(ignoringOtherApps: true)
+
+    let panel = NSOpenPanel()
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.allowsMultipleSelection = false
+    panel.canCreateDirectories = true
+    panel.prompt = "Escolher"
+    panel.message = "Escolha uma pasta de destino para a prateleira."
+
+    guard panel.runModal() == .OK else { return nil }
+
+    return panel.url?.path
+  }
+
+  private static func moveToTrash(path: String?, result: @escaping FlutterResult) {
+    guard let path = path else {
+      result(false)
+      return
+    }
+
+    NSWorkspace.shared.recycle([URL(fileURLWithPath: path)]) { _, error in
+      DispatchQueue.main.async { result(error == nil) }
+    }
+  }
+}
+
+/// O arraste, do lado do AppKit.
+///
+/// Achar quem recebe um arquivo solto custou duas tentativas erradas, e as duas
+/// falhavam **em silêncio** — o arquivo caía, nada acontecia, nenhum erro:
+///
+/// 1. Uma `NSView` transparente por cima do Flutter, com `hitTest` devolvendo
+///    `nil` para não roubar os cliques do painel. O AppKit procura o destino de
+///    um arraste pelo mesmo `hitTest` do mouse: view invisível ao clique é
+///    invisível ao arraste. E devolver a view engoliria os cliques do painel —
+///    não há posição na hierarquia que resolva os dois.
+/// 2. A própria janela, com os métodos do `NSDraggingDestination` escritos nela.
+///    `NSWindow` não implementa esse protocolo: o `NSWindow.h` declara só o
+///    `registerForDraggedTypes:`, e quem recebe as mensagens é o **delegate**
+///    da janela.
+///
+/// Então é o delegate. A janela do recorte não tem outro e usa a view direto
+/// (ali nada mais precisa do mouse); a janela 0 já tem o do `window_manager` —
+/// que é quem avisa o Flutter sobre foco e fechamento —, e por isso o
+/// [NestWindowDropDelegate] se põe na frente dele e repassa todo o resto.
+enum NestDrop {
+  /// A janela do recorte aceita sempre; a janela 0 só com o painel do Nest à
+  /// vista, porque ela é compartilhada pelos sete módulos.
+  static func entered(_ sender: NSDraggingInfo, alwaysAccepts: Bool) -> NSDragOperation {
+    guard accepts(sender, alwaysAccepts), !paths(in: sender).isEmpty else { return [] }
+
+    NestChannel.report(isOver: true)
+    return .copy
+  }
+
+  static func exited() {
+    NestChannel.report(isOver: false)
+  }
+
+  static func perform(_ sender: NSDraggingInfo, alwaysAccepts: Bool) -> Bool {
+    NestChannel.report(isOver: false)
+
+    let paths = self.paths(in: sender)
+    guard accepts(sender, alwaysAccepts), !paths.isEmpty else { return false }
+
+    NestChannel.report(paths: paths)
+    return true
+  }
+
+  private static func accepts(_ sender: NSDraggingInfo, _ alwaysAccepts: Bool) -> Bool {
+    // Um arraste que saiu da própria prateleira não volta para ela: soltar em
+    // cima do painel é o gesto de desistir, e os arquivos ficam onde estão.
+    // Recusar aqui é também o que impede o arquivo de atravessar o painel e
+    // cair na janela que estava atrás dele.
+    if sender.draggingSource is NestDragSource { return false }
+
+    return alwaysAccepts || NestChannel.isDropEnabled
+  }
+
+  private static func paths(in sender: NSDraggingInfo) -> [String] {
+    let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+    let urls = sender.draggingPasteboard.readObjects(
+      forClasses: [NSURL.self],
+      options: options
+    ) as? [URL]
+
+    return urls?.map(\.path) ?? []
+  }
+}
+
+/// O delegate que recebe o arraste sem tirar o lugar de quem já estava ali.
+///
+/// A janela 0 tem um delegate do `window_manager`, e é ele que faz o Flutter
+/// saber que a janela ganhou ou perdeu o foco — sem isso o painel não fecha, não
+/// anima a entrada e não recupera o teclado. Este objeto entra na frente dele e
+/// devolve tudo o que não for arraste, pelo encaminhamento do ObjC.
+class NestWindowDropDelegate: NSObject, NSWindowDelegate, NSDraggingDestination {
+  /// A janela do recorte aceita sempre; a janela 0 só com o painel do Nest à
+  /// vista.
+  private let alwaysAccepts: Bool
+
+  /// O delegate anterior. Fraco: quem o retém é quem o criou.
+  weak var next: NSObject?
+
+  init(alwaysAccepts: Bool, next: NSObject?) {
+    self.alwaysAccepts = alwaysAccepts
+    self.next = next
+  }
+
+  func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    NestDrop.entered(sender, alwaysAccepts: alwaysAccepts)
+  }
+
+  func draggingExited(_ sender: NSDraggingInfo?) {
+    NestDrop.exited()
+  }
+
+  func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    NestDrop.perform(sender, alwaysAccepts: alwaysAccepts)
+  }
+
+  // O resto do protocolo de janela continua sendo do delegate anterior. As duas
+  // metades são necessárias: `responds(to:)` para o AppKit perguntar antes de
+  // enviar, e `forwardingTarget` para o envio em si.
+  override func responds(to selector: Selector!) -> Bool {
+    super.responds(to: selector) || (next?.responds(to: selector) ?? false)
+  }
+
+  override func forwardingTarget(for selector: Selector!) -> Any? {
+    next?.responds(to: selector) == true ? next : nil
+  }
+}
+
+/// A origem de um arraste que sai da prateleira.
+///
+/// Declara uma operação só — a que o painel está mostrando —, e não
+/// `[.copy, .move]`: com as duas, quem decide passa a ser a modificadora do
+/// sistema, e o rótulo em cima da lista ("COPIAR PARA") deixaria de valer para
+/// metade dos caminhos do módulo.
+class NestDragSource: NSObject, NSDraggingSource {
+  private let move: Bool
+
+  init(move: Bool) {
+    self.move = move
+  }
+
+  func draggingSession(
+    _ session: NSDraggingSession,
+    sourceOperationMaskFor context: NSDraggingContext
+  ) -> NSDragOperation {
+    move ? .move : .copy
+  }
+
+  func draggingSession(
+    _ session: NSDraggingSession,
+    endedAt screenPoint: NSPoint,
+    operation: NSDragOperation
+  ) {
+    NestChannel.dragOutEnded(operation)
+  }
+}
+
+/// A superfície de arraste da janela do recorte.
+///
+/// Uma view basta ali porque a janela não tem mais nada: nenhum clique a
+/// disputar, nenhum delegate a preservar. Sem `hitTest` sobrescrito — foi
+/// justamente ele que fez a primeira versão não receber arquivo nenhum.
+class NestDropView: NSView {
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    registerForDraggedTypes([.fileURL])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) não é usado")
+  }
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    NestDrop.entered(sender, alwaysAccepts: true)
+  }
+
+  override func draggingExited(_ sender: NSDraggingInfo?) {
+    NestDrop.exited()
+  }
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    NestDrop.perform(sender, alwaysAccepts: true)
+  }
+}

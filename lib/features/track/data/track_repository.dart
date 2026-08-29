@@ -8,7 +8,7 @@ import '../models/track_day.dart';
 /// Contrato de leitura do Track.
 ///
 /// Só leitura, de propósito: o Track não tem tabela, não escreve linha nenhuma
-/// e não faz migração. Ele é uma consulta sobre o que os outros quatro módulos
+/// e não faz migração. Ele é uma consulta sobre o que os outros módulos
 /// já gravaram — e é isso que faz cada módulo novo alimentá-lo de graça.
 abstract interface class TrackRepository {
   /// Os dias com registro desde [since], do mais recente para o mais antigo —
@@ -49,7 +49,7 @@ class SqliteTrackRepository implements TrackRepository {
       return days.putIfAbsent(DayBounds.startOfDay(moment), _DayBucket.new);
     }
 
-    // Cinco varreduras curtas, uma por tabela, em vez de um `JOIN` entre
+    // Seis varreduras curtas, uma por tabela, em vez de um `JOIN` entre
     // coisas que não se relacionam: uma sessão de foco não tem nada a ver com
     // um item copiado além de terem acontecido no mesmo dia, e é o Dart que
     // agrupa por dia — converter epoch em data local dentro do SQLite obrigaria
@@ -133,19 +133,30 @@ class SqliteTrackRepository implements TrackRepository {
       bucketOf(row['created_at'] as int).notesWritten++;
     }
 
+    // Quantos arquivos, e nada sobre eles. A tabela do Nest não guarda caminho
+    // nem nome de propósito — ver `SqliteNestTransferRepository`.
+    for (final row in _db.select(
+      'SELECT moved_at, file_count FROM nest_transfers WHERE moved_at >= ?;',
+      [from],
+    )) {
+      bucketOf(row['moved_at'] as int).filesOrganized +=
+          row['file_count'] as int;
+    }
+
     final dates = days.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return [for (final date in dates) days[date]!.freeze(date)];
   }
 }
 
-/// O dia sendo montado, enquanto as quatro varreduras acontecem.
+/// O dia sendo montado, enquanto as varreduras acontecem.
 class _DayBucket {
   final focus = <TrackEntry>[];
   final meetings = <TrackEntry>[];
   final awake = <TrackEntry>[];
   final copied = <ClipboardItemType, int>{};
   int notesWritten = 0;
+  int filesOrganized = 0;
 
   TrackDay freeze(DateTime date) => TrackDay(
     date: date,
@@ -154,5 +165,6 @@ class _DayBucket {
     awake: List.unmodifiable(awake),
     copied: Map.unmodifiable(copied),
     notesWritten: notesWritten,
+    filesOrganized: filesOrganized,
   );
 }

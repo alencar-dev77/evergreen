@@ -73,12 +73,22 @@ void main() {
     );
   }
 
-  test('junta as quatro fontes no dia em que aconteceram', () {
+  void insertTransfer(DateTime movedAt, int fileCount) {
+    db.execute(
+      'INSERT INTO nest_transfers (moved_at, file_count, mode) '
+      'VALUES (?, ?, ?);',
+      [movedAt.millisecondsSinceEpoch, fileCount, 'copy'],
+    );
+  }
+
+  test('junta as fontes no dia em que aconteceram', () {
     insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
     insertFocus(at(0, 14, 30), const Duration(minutes: 40));
     insertMeeting(at(0, 10, 0), const Duration(minutes: 45), 'Weekly');
     insertCopy(at(0, 11, 0), 'https://exemplo.com', ClipboardItemType.link);
     insertNote(at(0, 16, 0), 1);
+    insertTransfer(at(0, 17, 0), 4);
+    insertTransfer(at(0, 18, 0), 2);
 
     final days = repository.loadDays(since: at(6, 0, 0));
     expect(days, hasLength(1));
@@ -90,6 +100,8 @@ void main() {
     expect(today.meetingTotal, const Duration(minutes: 45));
     expect(today.copiedTotal, 1);
     expect(today.notesWritten, 1);
+    // Duas transferências somadas — o Track conta arquivos, não envios.
+    expect(today.filesOrganized, 6);
     // Tempo registrado é foco mais reunião — a medida do Track.
     expect(today.registered, const Duration(minutes: 110));
   });
