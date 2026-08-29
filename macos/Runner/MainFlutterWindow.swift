@@ -64,25 +64,6 @@ class MainFlutterWindow: NSPanel {
     // Registra a janela para receber arquivos e põe o delegate de arraste do
     // Nest na frente do delegate do `window_manager`. Ver `NestDrop`.
     NestChannel.adopt(self)
-    Self.watchScreens()
-  }
-
-  /// Mantém a janela do recorte na tela certa.
-  ///
-  /// Fechar a tampa, ligar um monitor externo ou trocar a tela principal muda
-  /// qual `NSScreen` tem recorte — e às vezes tira o recorte de cena por
-  /// completo. Sem este aviso, a janela ficaria ancorada numa geometria que não
-  /// existe mais, recebendo arquivos num canto qualquer da tela.
-  private static func watchScreens() {
-    NestNotchWindow.reposition()
-
-    NotificationCenter.default.addObserver(
-      forName: NSApplication.didChangeScreenParametersNotification,
-      object: nil,
-      queue: .main
-    ) { _ in
-      NestNotchWindow.reposition()
-    }
   }
 
   /// Faz da janela 0 um painel que não tira ninguém da frente.

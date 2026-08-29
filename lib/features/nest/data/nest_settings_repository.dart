@@ -21,13 +21,11 @@ class NestSettingsRepository {
   final SharedPreferences _prefs;
 
   static const _defaultModeKey = 'nest.default_mode';
-  static const _useNotchKey = 'nest.use_notch';
   static const _useShakeKey = 'nest.use_shake';
   static const _destinationsKey = 'nest.destinations';
 
   NestSettings load() => NestSettings(
     defaultMode: NestTransferMode.fromName(_prefs.getString(_defaultModeKey)),
-    useNotch: _prefs.getBool(_useNotchKey) ?? true,
     useShake: _prefs.getBool(_useShakeKey) ?? true,
     destinations: _readDestinations(),
   );
@@ -40,7 +38,6 @@ class NestSettingsRepository {
   Future<void> save(NestSettings settings) async {
     await Future.wait([
       _prefs.setString(_defaultModeKey, settings.defaultMode.name),
-      _prefs.setBool(_useNotchKey, settings.useNotch),
       _prefs.setBool(_useShakeKey, settings.useShake),
       _prefs.setStringList(_destinationsKey, [
         for (final destination in settings.destinations)

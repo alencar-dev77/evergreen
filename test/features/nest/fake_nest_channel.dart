@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:evergreen/features/nest/data/nest_channel.dart';
 import 'package:evergreen/features/nest/models/nest_transfer_mode.dart';
 
-/// O canal do Nest sem lado nativo: sem Finder, sem QuickLook e sem recorte.
+/// O canal do Nest sem lado nativo: sem Finder e sem QuickLook.
 ///
 /// Os fluxos são controláveis para que um teste possa soltar arquivos no painel
 /// — o gesto central do módulo — sem uma sessão de arraste do sistema.
@@ -16,9 +16,6 @@ class FakeNestChannel implements NestChannel {
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
   final _shakes = StreamController<void>.broadcast();
 
-  /// O que a máquina imaginária deste teste responde.
-  bool notch = false;
-
   /// A pasta que o seletor devolve; `null` é "cancelou".
   String? folderToChoose;
 
@@ -26,7 +23,6 @@ class FakeNestChannel implements NestChannel {
 
   /// Onde o painel disse que está desenhado. `null` quando ele saiu de cena.
   Rect? interactiveRect;
-  bool isNotchEnabled = true;
   bool isShakeEnabled = true;
 
   final revealed = <String>[];
@@ -69,14 +65,6 @@ class FakeNestChannel implements NestChannel {
 
   @override
   void listen() {}
-
-  @override
-  Future<bool> hasNotch() async => notch;
-
-  @override
-  Future<void> setNotchEnabled({required bool enabled}) async {
-    isNotchEnabled = enabled;
-  }
 
   @override
   Future<void> setShakeEnabled({required bool enabled}) async {

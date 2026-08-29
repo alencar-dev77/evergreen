@@ -25,7 +25,7 @@ class NestChannel: NSObject {
   /// O canal do engine da janela 0 — o único que recebe os avisos de arraste.
   ///
   /// Os outros engines (hoje o Hub) registram o canal para poder *chamar*
-  /// métodos — escolher pasta, perguntar pelo recorte —, mas nunca são
+  /// métodos — escolher pasta, ligar o chacoalhar —, mas nunca são
   /// notificados: quem guarda a prateleira é a janela 0, e um Hub aberto no meio
   /// de um arraste não pode virar o dono do evento.
   ///
@@ -82,15 +82,8 @@ class NestChannel: NSObject {
       let arguments = call.arguments as? [String: Any]
 
       switch call.method {
-      case "hasNotch":
-        result(NestNotchWindow.screenWithNotch() != nil)
-
-      case "setNotchEnabled":
-        NestNotchWindow.setEnabled(arguments?["enabled"] as? Bool ?? false)
-        result(nil)
-
       case "setShakeEnabled":
-        NestDragWatch.setShakeEnabled(arguments?["enabled"] as? Bool ?? false)
+        NestShakeMonitor.setEnabled(arguments?["enabled"] as? Bool ?? false)
         result(nil)
 
       case "setDropEnabled":
@@ -246,10 +239,7 @@ class NestChannel: NSObject {
       return
     }
 
-    let proxy = NestWindowDropDelegate(
-      alwaysAccepts: false,
-      next: window.delegate as? NSObject
-    )
+    let proxy = NestWindowDropDelegate(next: window.delegate as? NSObject)
 
     overlayDropDelegate = proxy
     window.delegate = proxy
@@ -439,19 +429,14 @@ class NestChannel: NSObject {
 ///    `registerForDraggedTypes:`, e quem recebe as mensagens é o **delegate**
 ///    da janela.
 ///
-/// Então é o delegate, nas duas janelas. A do recorte não tem outro, e passa o
-/// seu direto; a janela 0 já tem o do `window_manager` — que é quem avisa o
-/// Flutter sobre foco e fechamento —, e por isso o [NestWindowDropDelegate] se
-/// põe na frente dele e repassa todo o resto.
-///
-/// A janela do recorte chegou a tentar a view, por ali não haver delegate a
-/// preservar, e nunca recebeu um arquivo. Duas tentativas erradas viraram três:
-/// o caminho do delegate é o único que este projeto viu funcionar.
+/// Então é o delegate. A janela 0 já tem o do `window_manager` — que é quem
+/// avisa o Flutter sobre foco e fechamento —, e por isso o
+/// [NestWindowDropDelegate] se põe na frente dele e repassa todo o resto.
 enum NestDrop {
-  /// A janela do recorte aceita sempre; a janela 0 só com o painel do Nest à
-  /// vista, porque ela é compartilhada pelos sete módulos.
-  static func entered(_ sender: NSDraggingInfo, alwaysAccepts: Bool) -> NSDragOperation {
-    guard accepts(sender, alwaysAccepts), !paths(in: sender).isEmpty else { return [] }
+  /// A janela 0 só aceita com o painel do Nest à vista, porque ela é
+  /// compartilhada pelos sete módulos.
+  static func entered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    guard accepts(sender), !paths(in: sender).isEmpty else { return [] }
 
     NestChannel.report(isOver: true)
     return .copy
@@ -461,24 +446,24 @@ enum NestDrop {
     NestChannel.report(isOver: false)
   }
 
-  static func perform(_ sender: NSDraggingInfo, alwaysAccepts: Bool) -> Bool {
+  static func perform(_ sender: NSDraggingInfo) -> Bool {
     NestChannel.report(isOver: false)
 
     let paths = self.paths(in: sender)
-    guard accepts(sender, alwaysAccepts), !paths.isEmpty else { return false }
+    guard accepts(sender), !paths.isEmpty else { return false }
 
     NestChannel.report(paths: paths)
     return true
   }
 
-  private static func accepts(_ sender: NSDraggingInfo, _ alwaysAccepts: Bool) -> Bool {
+  private static func accepts(_ sender: NSDraggingInfo) -> Bool {
     // Um arraste que saiu da própria prateleira não volta para ela: soltar em
     // cima do painel é o gesto de desistir, e os arquivos ficam onde estão.
     // Recusar aqui é também o que impede o arquivo de atravessar o painel e
     // cair na janela que estava atrás dele.
     if sender.draggingSource is NestDragSource { return false }
 
-    return alwaysAccepts || NestChannel.isDropEnabled
+    return NestChannel.isDropEnabled
   }
 
   private static func paths(in sender: NSDraggingInfo) -> [String] {
@@ -499,46 +484,23 @@ enum NestDrop {
 /// anima a entrada e não recupera o teclado. Este objeto entra na frente dele e
 /// devolve tudo o que não for arraste, pelo encaminhamento do ObjC.
 class NestWindowDropDelegate: NSObject, NSWindowDelegate, NSDraggingDestination {
-  /// A janela do recorte aceita sempre; a janela 0 só com o painel do Nest à
-  /// vista.
-  private let alwaysAccepts: Bool
-
   /// O delegate anterior. Fraco: quem o retém é quem o criou.
   weak var next: NSObject?
 
-  /// Quem acende o realce de "pode soltar", quando há algo a acender.
-  ///
-  /// A janela 0 não usa: quem pinta a borda dela é o Flutter, avisado por
-  /// `NestChannel.report(isOver:)`. A do recorte usa, porque ali não há engine
-  /// para avisar — quem desenha é a `NestNotchView`.
-  private let onHighlight: ((Bool) -> Void)?
-
-  init(
-    alwaysAccepts: Bool,
-    next: NSObject?,
-    onHighlight: ((Bool) -> Void)? = nil
-  ) {
-    self.alwaysAccepts = alwaysAccepts
+  init(next: NSObject?) {
     self.next = next
-    self.onHighlight = onHighlight
   }
 
   func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-    let operation = NestDrop.entered(sender, alwaysAccepts: alwaysAccepts)
-    onHighlight?(!operation.isEmpty)
-
-    return operation
+    NestDrop.entered(sender)
   }
 
   func draggingExited(_ sender: NSDraggingInfo?) {
-    onHighlight?(false)
     NestDrop.exited()
   }
 
   func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-    onHighlight?(false)
-
-    return NestDrop.perform(sender, alwaysAccepts: alwaysAccepts)
+    NestDrop.perform(sender)
   }
 
   // O resto do protocolo de janela continua sendo do delegate anterior. As duas

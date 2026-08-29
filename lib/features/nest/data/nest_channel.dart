@@ -22,7 +22,7 @@ class NestThumbnail {
 /// O que o Nest não consegue fazer em Flutter puro.
 ///
 /// Quatro coisas, e nenhuma tem equivalente em Dart: receber um arraste do
-/// Finder (é a `NSWindow` que se registra como destino), gerar a miniatura de
+/// Finder (é o delegate da `NSWindow` que recebe), gerar a miniatura de
 /// um arquivo qualquer (`QLThumbnailGenerator`), abrir o seletor de pasta do
 /// sistema (`NSOpenPanel`) e mandar para o Lixo com direito a desfazer do
 /// Finder (`NSWorkspace.recycle`). A implementação está em
@@ -45,14 +45,13 @@ class NestChannel {
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
   final _shakes = StreamController<void>.broadcast();
 
-  /// Caminhos soltos sobre o painel ou sobre o recorte da tela.
+  /// Caminhos soltos sobre o painel.
   Stream<List<String>> get onDropped => _dropped.stream;
 
   /// O arraste entrou (`true`) ou saiu (`false`) da área que recebe.
   ///
-  /// Só o painel usa: o recorte não tem pixel para acender. Serve para a borda
-  /// do painel dizer "pode soltar" antes de o botão do mouse subir — sem isso,
-  /// soltar num painel que não reagiu é um tiro no escuro.
+  /// Serve para a borda do painel dizer "pode soltar" antes de o botão do mouse
+  /// subir — sem isso, soltar num painel que não reagiu é um tiro no escuro.
   Stream<bool> get onDragOver => _dragOver.stream;
 
   Stream<NestThumbnail> get onThumbnail => _thumbnails.stream;
@@ -104,23 +103,12 @@ class NestChannel {
     });
   }
 
-  /// Esta máquina tem recorte na tela.
-  ///
-  /// Falso também abaixo do macOS 12, onde a medida do recorte não existe. É o
-  /// que decide se a linha do notch aparece nas preferências — some, não fica
-  /// desabilitada.
-  Future<bool> hasNotch() async => await _invoke<bool>('hasNotch') ?? false;
-
   /// Liga ou desliga a detecção do chacoalhar.
   ///
   /// Desligada, o monitor de mouse sai do sistema — não fica um relógio parado
   /// esperando uma preferência que ninguém quer.
   Future<void> setShakeEnabled({required bool enabled}) =>
       _invoke<void>('setShakeEnabled', {'enabled': enabled});
-
-  /// Liga ou desliga a janela invisível sobre o recorte.
-  Future<void> setNotchEnabled({required bool enabled}) =>
-      _invoke<void>('setNotchEnabled', {'enabled': enabled});
 
   /// Deixa a janela 0 aceitar arquivos.
   ///

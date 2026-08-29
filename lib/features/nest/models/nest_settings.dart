@@ -5,7 +5,6 @@ import 'nest_transfer_mode.dart';
 class NestSettings {
   const NestSettings({
     this.defaultMode = NestTransferMode.copy,
-    this.useNotch = true,
     this.useShake = true,
     this.destinations = const [],
   });
@@ -14,19 +13,10 @@ class NestSettings {
   /// modificadora está pressionada.
   final NestTransferMode defaultMode;
 
-  /// Deixar o recorte da tela receber arquivos.
-  ///
-  /// Ligado por padrão, e sem efeito nenhum em Mac que não tem recorte — a
-  /// janela invisível simplesmente não nasce, e a linha nem aparece na tela de
-  /// preferências. Ver `NestNotchWindow`.
-  final bool useNotch;
-
   /// Deixar o chacoalhar chamar a prateleira no meio de um arraste.
   ///
-  /// Ligado por padrão, e sem hardware nenhum por trás: diferente do recorte, o
-  /// gesto existe em qualquer Mac, então a linha nunca some das preferências.
-  /// Só vale com arquivo na mão — chacoalhar o mouse à toa não abre nada. Ver
-  /// `NestShakeMonitor`.
+  /// Ligado por padrão. Só vale com arquivo na mão — chacoalhar o mouse à toa
+  /// não abre nada. Ver `NestShakeMonitor`.
   final bool useShake;
 
   /// As pastas favoritas, na ordem em que a lista as mostra — que é a ordem dos
@@ -44,12 +34,10 @@ class NestSettings {
 
   NestSettings copyWith({
     NestTransferMode? defaultMode,
-    bool? useNotch,
     bool? useShake,
     List<NestDestination>? destinations,
   }) => NestSettings(
     defaultMode: defaultMode ?? this.defaultMode,
-    useNotch: useNotch ?? this.useNotch,
     useShake: useShake ?? this.useShake,
     destinations: destinations ?? this.destinations,
   );

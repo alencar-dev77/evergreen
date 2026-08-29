@@ -1,78 +1,66 @@
-# A janela do recorte — a segunda janela sempre no topo
+# O Nest — as decisões da prateleira de arquivos
 
-> Preferências do aplicativo → Nest → "Receber arquivos pelo recorte da tela".
+> Preferências do aplicativo → Nest.
 
-O Evergreen tem uma regra que sustenta a arquitetura de janelas desde a v0.1:
-**só a janela 0 pode ser transparente, sem chrome e sempre no topo**. Ela existe
-porque cada janela flutuante a mais é um engine Flutter a mais vivo o tempo
-inteiro, e porque cinco painéis dividindo uma janela é o que faz o atalho global
-abrir instantaneamente. Está registrada em
-[focus-janela-compartilhada.md](focus-janela-compartilhada.md).
+Este documento guarda o que foi decidido e o que foi descartado no módulo que
+junta arquivos de várias pastas e manda todos para uma só. A parte mais cara
+dele é sobre uma porta de entrada que **existiu e saiu**: o recorte da tela.
 
-O Nest abre uma exceção a ela. Vale a pena explicar por que, e por que a exceção
-é menor do que parece.
-
-## O problema que só o recorte resolve
+## O recorte da tela: tentado, e removido
 
 A prateleira precisa ser invocada com o **botão do mouse já pressionado**, no
 meio de um arraste. É o gesto inteiro do módulo: a pessoa pega um arquivo no
-Finder e, a caminho de lugar nenhum, decide juntá-lo a outros.
+Finder e, a caminho de lugar nenhum, decide juntá-lo a outros. Um atalho de
+teclado nesse instante é desconfortável, e um alvo visível permanente na tela é
+ruído numa suíte cujo primeiro princípio é não aparecer.
 
-As alternativas:
+O recorte parecia a resposta: um alvo que já está lá, no caminho de quem arrasta
+para cima, e que **não custa pixel** — o espaço está ocupado pelo hardware.
 
-- **Chacoalhar o mouse**, como o Dropover. Foi descartado aqui por uma razão
-  que estava errada — "exige um monitor global de `.leftMouseDragged`, outra
-  permissão a pedir". Não exige nem uma coisa nem outra, e hoje o gesto existe:
-  ver "Chacoalhar acabou dando", no fim deste documento.
-- **Um atalho de teclado durante o arraste.** Funciona (`RegisterEventHotKey`
-  entrega a tecla no meio de uma sessão de arraste), mas apertar `⌘⇧S` com o
-  polegar segurando o botão do trackpad é desconfortável o bastante para que
-  ninguém faça duas vezes.
-- **Um alvo permanente na tela.** Uma janelinha visível, sempre ali, é o que os
-  apps de prateleira do macOS acabam fazendo — e é ruído permanente numa suíte
-  cujo primeiro princípio é não aparecer.
+Custou uma exceção à regra que sustenta a arquitetura de janelas desde a v0.1
+(**só a janela 0 pode ser transparente, sem chrome e sempre no topo**, ver
+[focus-janela-compartilhada.md](focus-janela-compartilhada.md)) e **nunca
+funcionou uma única vez**. Três rodadas de conserto, três hipóteses plausíveis,
+e o arquivo continuou voando de volta para a origem:
 
-O recorte é a quarta opção, e ele já é um alvo permanente que **não custa
-pixel**: o espaço está ocupado pelo hardware, está no caminho de quem arrasta
-para cima, e não há nada embaixo dele para receber cliques.
+1. **O caminho do arraste.** A janela usava uma `NSView` registrada como
+   destino; trocamos pelo delegate da janela, que é o caminho provado no painel.
+2. **A janela não pintava um pixel.** Uma janela não-opaca cuja superfície nunca
+   foi desenhada pode ser tratada como buraco pelo servidor de janelas — um
+   `fill` a 1% de alfa descartava a hipótese.
+3. **O alvo era invisível e minúsculo** (uns 200x32 pt), então errar e acertar
+   eram indistinguíveis. Passou a se anunciar durante o arraste: a janela crescia
+   28 pt para baixo — porque **o recorte é um furo físico no painel e não tem
+   pixel para acender** — e desenhava uma faixa.
 
-## O que a exceção realmente é
+Nem a faixa apareceu. Isso descarta a entrega do evento como causa e aponta para
+a janela em si: nível, geometria, ou alguma coisa que o macOS 26 faz com aquela
+faixa da tela e que não está documentada. Depurar mais fundo exigiria tempo
+desproporcional ao que a porta entrega, **porque ela ficou redundante**: o
+chacoalhar faz a mesma coisa, em qualquer Mac, sem janela extra e sem exceção
+nenhuma à regra da casa.
 
-A `NestNotchWindow` é uma `NSPanel` sem borda, no nível acima da barra de menus,
-com `collectionBehavior` de atravessar Spaces. Até aqui, uma segunda janela
-sempre no topo.
+Então o recorte saiu inteiro — janela, preferência, canal e detecção de
+hardware. A regra da v0.1 voltou a ser absoluta: **só a janela 0**.
 
-Mas ela **não tem engine Flutter**. A regra que a v0.1 escreveu era sobre
-superfície viva: engine, quadros desenhados, blur recomposto. Disso, a janela do
-recorte não tem nada — ela pinta duas formas com `NSBezierPath` e mais nada.
+### O que vale guardar, se um dia isto voltar
 
-Por isso a regra continua valendo com uma palavra a mais: **só a janela 0
-desenha Flutter.**
+- **Não existe API de recorte.** De macOS 12 em diante o que existe é
+  `screen.safeAreaInsets.top > 0` para saber se há um, e
+  `auxiliaryTopLeftArea`/`auxiliaryTopRightArea` para achar onde ele começa e
+  termina — o que sobra entre as duas é o recorte. Nada de tabela de modelos de
+  Mac.
+- **As duas propriedades auxiliares são opcionais**, e tratar nulo como zero faz
+  a largura virar a tela inteira: um alvo de arraste invisível cobrindo a barra
+  de menus, com os cliques dela bloqueados junto. Qualquer volta precisa da rede
+  contra isso.
+- **Uma janela sempre no topo não é o custo que a regra da casa teme.** O que a
+  regra protege é engine e superfície viva; uma `NSWindow` sem engine é barata.
+  O que derrubou esta não foi o custo — foi não funcionar.
 
-Ela chegou a não desenhar coisa nenhuma, e isso durou até o recorte ser testado
-de verdade. Ver "O alvo precisava se anunciar", mais abaixo.
+## Quem recebe o arraste: duas tentativas erradas antes da certa
 
-## Não existe API de recorte
-
-O que existe, de macOS 12 em diante:
-
-| O que se quer | O que se pergunta |
-|---|---|
-| Tem recorte? | `screen.safeAreaInsets.top > 0` |
-| Onde ele começa | `screen.auxiliaryTopLeftArea?.width` |
-| Onde ele termina | `screen.frame.width - esquerda - direita` |
-
-Nada de tabela de modelos de Mac: a medida vem do sistema, e num Mac sem recorte
-ela é zero. Abaixo do macOS 12 as três propriedades não existem, e o resultado é
-o mesmo — a janela não nasce, e a linha **some** da tela de preferências em vez
-de ficar apagada. Um controle desabilitado diz "isto existe, mas não para você";
-aqui a resposta certa é a tela não mencionar uma escolha que aquela máquina não
-tem. É a mesma decisão da bandeira `themes`, com a diferença de que esta é
-resolvida em tempo de execução, por máquina, e não na hora de compilar.
-
-## Quem recebe o arraste: três tentativas erradas antes da certa
-
-As erradas falhavam do mesmo jeito — o arquivo caía, nada acontecia,
+As duas erradas falhavam do mesmo jeito — o arquivo caía, nada acontecia,
 nenhum erro em lugar nenhum:
 
 **1. Uma `NSView` transparente por cima do Flutter**, registrada para
@@ -87,24 +75,17 @@ nela. `NSWindow` não implementa esse protocolo: o `NSWindow.h` do SDK declara s
 o `registerForDraggedTypes:`, e quem recebe as mensagens é o **delegate** da
 janela. Compila, registra e não chega nada.
 
-**3. Uma `NSView` registrada na janela do recorte.** Esta parecia diferente das
-outras duas: sem `hitTest` sobrescrito, sem cliques a disputar, uma janela que
-só tem essa view dentro. Foi escrita por analogia com a tentativa 1, corrigindo
-o que se sabia estar errado nela — e nunca recebeu um arquivo. Ficou meses no
-repositório parecendo pronta, porque a única forma de descobrir era arrastar um
-arquivo até o recorte, e um alvo invisível de 200x32 pt não convida ninguém a
-testar.
-
-**A certa é o delegate, nas duas janelas.** A do recorte não tem outro, então
-passa o seu direto. A janela 0 já tem o delegate do `window_manager`, que é quem
-avisa o Flutter sobre foco e fechamento; o `NestWindowDropDelegate` se põe na
-frente dele e devolve todo o resto pelo encaminhamento do ObjC
+**A certa é o delegate.** A janela 0 já tem o delegate do `window_manager`, que
+é quem avisa o Flutter sobre foco e fechamento; o `NestWindowDropDelegate` se
+põe na frente dele e devolve todo o resto pelo encaminhamento do ObjC
 (`responds(to:)` **e** `forwardingTarget(for:)` — o AppKit pergunta antes de
 enviar, então as duas metades são necessárias).
 
-A lição não é sobre AppKit: **o caminho que funciona é o que já foi visto
-funcionando.** Havia um caminho provado a três metros de distância, e o outro
-foi escrito por raciocínio.
+A janela do recorte chegou a repetir a tentativa 1 por analogia, corrigindo o
+que se sabia estar errado nela, e também não recebeu nada. A lição não é sobre
+AppKit: **o caminho que funciona é o que já foi visto funcionando** — havia um
+caminho provado a três metros de distância, e o outro foi escrito por
+raciocínio.
 
 O delegate é reinstalado a cada abertura do painel, não só na montagem: se o
 `window_manager` reescrever o delegate da janela algum dia, o arraste voltaria a
@@ -181,7 +162,7 @@ Um `FlutterMethodChannel` não é retido por ninguém. O `binaryMessenger` guard
 *bloco* que atende as chamadas vindas do Dart, não o objeto. Com um `weak var`,
 o canal era desalocado assim que o `register` terminava — e o efeito é
 perfeitamente assimétrico: tudo o que vem **do** Dart continuava funcionando
-(escolher pasta, perguntar pelo recorte, ligar o destino de arraste), enquanto
+(escolher pasta, ligar o chacoalhar, ligar o destino de arraste), enquanto
 tudo o que ia **para** o Dart caía no vazio. O arquivo era aceito pelo AppKit, o
 `invokeMethod` era chamado num `nil`, e a prateleira nunca via nada chegar.
 
@@ -219,72 +200,6 @@ permissão nenhuma.
 A consequência de produto: **o painel do Nest não fecha ao perder o foco, nunca**
 — nem vazio, que é justamente o estado de quem vai buscar o primeiro arquivo.
 Fecha pelo `esc`, pelo atalho global e pelo menu da barra.
-
-## Dois detalhes que custaram para acertar
-
-**`ignoresMouseEvents` do recorte fica `false`.** Ligá-lo mataria o drop junto
-com o clique. É seguro deixá-lo desligado porque o retângulo do recorte não tem
-nada clicável embaixo — o macOS não põe controle nenhum ali.
-
-**A janela se reposiciona em `didChangeScreenParametersNotification`.** Fechar a
-tampa, ligar um monitor externo ou trocar a tela principal muda qual `NSScreen`
-tem recorte, e às vezes tira o recorte de cena. Sem esse aviso, a janela ficaria
-ancorada numa geometria que não existe mais, recebendo arquivos num canto
-qualquer da tela.
-
-**O painel abre *depois* do drop, não durante.** Seria mais bonito abrir a
-prateleira no `draggingEntered` e deixar o arquivo cair dentro dela. É frágil:
-uma janela que aparece no meio de uma sessão de arraste nem sempre entra no hit
-test do AppKit, e o gesto falharia de vez em quando — que é pior que nunca
-funcionar. O recorte conclui o drop sozinho; o painel é a consequência.
-
-## O alvo precisava se anunciar
-
-O caminho errado do arraste era metade do problema. A outra metade é que **o
-recorte não tem pixels**: é um furo físico no painel, e a janela ali não pintava
-nada de propósito. Duas consequências, e as duas doem:
-
-- **Ninguém consegue mirar no que não vê.** O alvo tem uns 200x32 pt, é
-  invisível, e a única forma de saber se acertou é o arquivo não voltar. Errar
-  e acertar são indistinguíveis até o fim.
-- **Uma janela não-opaca cuja superfície nunca foi desenhada** tem chance de ser
-  tratada como buraco pelo servidor de janelas. Nunca foi provado que era esse o
-  caso aqui, mas custa um `fill` a 1% de alfa descartar a hipótese, e o preço de
-  mantê-la em aberto era continuar depurando às cegas.
-
-Então o alvo passou a se anunciar, e a forma disso é ditada pela física: **como
-o recorte não tem pixels, a faixa aparece logo abaixo dele**, na barra de menus.
-Isso invadiria a área de conteúdo, onde a janela bloquearia cliques — e é por
-isso que ela é **transitória**: enquanto há um arquivo sendo arrastado, a janela
-cresce 28 pt para baixo e desenha a faixa; solto o botão, encolhe de volta ao
-retângulo do recorte.
-
-O instante em que ela é grande é exatamente o instante em que não existe clique
-a bloquear: armada quer dizer "o botão esquerdo está pressionado com arquivo na
-mão".
-
-Quem responde "tem arquivo na mão?" é o `NestDragWatch`, o mesmo vigia do
-chacoalhar — e é essa a razão de ele ter deixado de se chamar
-`NestShakeMonitor`. Dois relógios lendo o mesmo mouse para responder à mesma
-pergunta seria o mesmo erro de dois desenhos para a mesma marca.
-
-Sem cor de marca na faixa, e isso é decisão: o recorte é hardware, não
-interface. Branco com alfa faz parecer o próprio recorte crescendo; o verde do
-Evergreen faria parecer um elemento do aplicativo pousado em cima da tela.
-
-**E o alvo visível é também o diagnóstico.** Se um dia isto voltar a falhar: a
-faixa não aparece, o problema é a janela (detecção da tela ou geometria); a
-faixa aparece e o arquivo não entra, o problema é a entrega do evento, e o
-próximo botão a girar é o nível da janela.
-
-### A geometria ganhou rede
-
-`auxiliaryTopLeftArea` e `auxiliaryTopRightArea` são opcionais, e o código
-antigo tratava nulo como zero. O resultado silencioso disso é a largura virar a
-**tela inteira**: um alvo de arraste invisível cobrindo a barra de menus, com os
-cliques dela bloqueados junto. Agora largura implausível — não positiva, ou mais
-de 40% da tela — cai para uma faixa centrada de 200 pt, e a janela que não nasce
-diz no Console por quê.
 
 ## Chacoalhar acabou dando
 
@@ -328,16 +243,16 @@ arquivo chega em cima dela e basta soltar. Como o painel é centralizado *dentro
 da janela 0, centrar a janela no cursor centra o painel nele; o resto é prender
 a janela dentro da borda da tela (`OverlayWindow.positionForCursor`).
 
-**E o risco assumido é justamente o que o recorte evitava**: a janela aparece no
-meio de uma sessão de arraste. O que salva é que o AppKit refaz a busca pelo
-destino a cada movimento do mouse, e quem acabou de chacoalhar está movendo o
-mouse. Vale a pena registrar que isto continua sendo o ponto frágil do gesto —
-se um dia ele falhar de vez em quando, é aqui que se olha primeiro.
+**E o risco assumido é o que o recorte evitava**: a janela aparece no meio de
+uma sessão de arraste, em vez de já estar lá. O que salva é que o AppKit refaz a
+busca pelo destino a cada movimento do mouse, e quem acabou de chacoalhar está
+movendo o mouse. Este é o ponto frágil do gesto — se um dia ele falhar de vez em
+quando, é aqui que se olha primeiro.
 
 ## O que ficou de fora
 
-A versão bonita disto é a do NotchNook: o recorte **cresce** e vira a
-prateleira, com os cantos arredondados continuando o desenho do hardware. Isso
-exige um terceiro engine Flutter residente e a geometria animada de fora, e aí
-sim seria uma segunda superfície viva — a exceção que esta decisão evitou. Se um
-dia valer a pena, é uma conversa nova, não uma extensão desta.
+A versão bonita da porta que saiu é a do NotchNook: o recorte **cresce** e vira
+a prateleira, com os cantos arredondados continuando o desenho do hardware. Isso
+exige um engine Flutter residente a mais e a geometria animada de fora — uma
+segunda superfície viva, que é exatamente o que a regra da casa proíbe. Se um
+dia valer a pena, é uma conversa nova.

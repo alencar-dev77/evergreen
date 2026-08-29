@@ -1,11 +1,9 @@
 import Cocoa
 
-/// Quem sabe que há um arquivo sendo arrastado agora.
+/// Chacoalhar o arquivo no meio do arraste para chamar a prateleira.
 ///
-/// Duas coisas dependem dessa resposta, e é por isso que ela mora num lugar só:
-/// o **chacoalhar**, que chama a prateleira no meio do arraste, e a **faixa do
-/// recorte**, que só aparece quando há o que soltar nela. Fossem dois
-/// vigilantes, seriam dois relógios lendo o mesmo mouse.
+/// É o gesto que quem vem do Dropover tenta primeiro, e ele foi descartado na
+/// primeira versão do Nest por uma razão que estava errada.
 ///
 /// **Consulta, não evento.** Durante uma sessão de arraste do sistema o AppKit
 /// não entrega os movimentos do mouse a monitor nenhum — foi por isso que o
@@ -23,11 +21,9 @@ import Cocoa
 /// aplicativo (Finder, Mail, navegador), e o único arraste que nasce dentro do
 /// Evergreen é o da própria prateleira — que já está na tela, e onde chacoalhar
 /// não deve fazer nada.
-enum NestDragWatch {
-  /// As duas preferências que dependem disto. O vigia é instalado se **qualquer
-  /// uma** estiver ligada, e sai do sistema quando as duas caem.
-  private static var wantsShake = false
-  private static var wantsNotch = false
+enum NestShakeMonitor {
+  /// A preferência de quem usa. Ver `NestSettings.useShake`.
+  private static var isEnabled = false
 
   private static var downMonitor: Any?
   private static var sampler: Timer?
@@ -44,14 +40,14 @@ enum NestDragWatch {
   /// É metade do filtro que separa "arrastando arquivo" de "chacoalhando uma
   /// janela pela barra de título". A outra metade é o tipo do conteúdo: o tipo
   /// sozinho sobra de um arraste anterior, e a mudança sozinha não diz que é
-  /// arquivo. Ver [checkForFiles].
+  /// arquivo. Ver [hasFilesInHand].
   private static var dragCountAtDown = 0
 
   /// A resposta de "tem arquivo na mão?", já dada neste aperto de botão.
   ///
-  /// Guardada porque ela não muda no meio de um arraste, e perguntar ao servidor
-  /// de área de transferência sessenta vezes por segundo seria conversa fiada
-  /// com o sistema.
+  /// Guardada porque ela não muda no meio de um arraste, e a pergunta só é feita
+  /// quando o chacoalhar já foi reconhecido — o caminho caro não roda a cada
+  /// quadro.
   private static var hasFiles = false
 
   private static var lastPoint: NSPoint?
@@ -84,18 +80,11 @@ enum NestDragWatch {
 
   // MARK: - Ligar e desligar
 
-  static func setShakeEnabled(_ enabled: Bool) {
-    wantsShake = enabled
-    refresh()
-  }
+  static func setEnabled(_ enabled: Bool) {
+    guard enabled != isEnabled else { return }
+    isEnabled = enabled
 
-  static func setNotchEnabled(_ enabled: Bool) {
-    wantsNotch = enabled
-    refresh()
-  }
-
-  private static func refresh() {
-    if wantsShake || wantsNotch {
+    if enabled {
       install()
     } else {
       uninstall()
@@ -135,11 +124,7 @@ enum NestDragWatch {
     leg = .zero
     reversals = []
     hasFired = false
-
-    if hasFiles {
-      hasFiles = false
-      NestNotchWindow.setArmed(false)
-    }
+    hasFiles = false
   }
 
   private static func sample() {
@@ -151,9 +136,7 @@ enum NestDragWatch {
       return
     }
 
-    checkForFiles()
-
-    guard wantsShake, !hasFired else { return }
+    guard !hasFired else { return }
 
     let point = NSEvent.mouseLocation
 
@@ -191,20 +174,18 @@ enum NestDragWatch {
   /// o tipo sozinho diria "sim" para quem está chacoalhando o mouse à toa cinco
   /// minutos depois de mover um arquivo.
   ///
-  /// A comparação de `changeCount` é a barata, e vem primeiro de propósito: ela
-  /// é a que roda a cada quadro enquanto o arraste não começou.
-  private static func checkForFiles() {
-    guard !hasFiles else { return }
+  /// A comparação de `changeCount` é a barata, e vem primeiro de propósito.
+  private static func hasFilesInHand() -> Bool {
+    if hasFiles { return true }
 
-    guard dragPasteboard.changeCount != dragCountAtDown else { return }
+    guard dragPasteboard.changeCount != dragCountAtDown else { return false }
 
-    guard dragPasteboard.canReadObject(
+    hasFiles = dragPasteboard.canReadObject(
       forClasses: [NSURL.self],
       options: [.urlReadingFileURLsOnly: true]
-    ) else { return }
+    )
 
-    hasFiles = true
-    NestNotchWindow.setArmed(true)
+    return hasFiles
   }
 
   private static func registerReversal() {
@@ -213,7 +194,7 @@ enum NestDragWatch {
     reversals.append(now)
     reversals.removeAll { now - $0 > timeWindow }
 
-    guard reversals.count >= neededReversals, hasFiles else { return }
+    guard reversals.count >= neededReversals, hasFilesInHand() else { return }
 
     hasFired = true
     NestChannel.reportShake()

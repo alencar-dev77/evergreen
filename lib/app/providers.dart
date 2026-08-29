@@ -135,7 +135,7 @@ final leafRepositoryProvider = Provider<LeafRepository>(
 /// A conversa com o destino de arraste, o QuickLook e o seletor de pasta.
 ///
 /// Provider (e não instância global) porque é o que o teste substitui para
-/// verificar o painel do Nest sem Finder, sem miniatura e sem recorte de tela.
+/// verificar o painel do Nest sem Finder e sem miniatura.
 final nestChannelProvider = Provider<NestChannel>((ref) {
   final channel = NestChannel();
   ref.onDispose(channel.dispose);

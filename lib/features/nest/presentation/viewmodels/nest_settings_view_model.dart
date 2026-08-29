@@ -12,15 +12,6 @@ final nestSettingsViewModelProvider =
       NestSettingsViewModel.new,
     );
 
-/// Esta máquina tem recorte na tela — e, portanto, se a linha do notch existe.
-///
-/// Pergunta em vez de bandeira de build porque a resposta é da máquina, não da
-/// versão: o mesmo binário roda num MacBook com recorte e num Mac mini ligado a
-/// um monitor. Falso também abaixo do macOS 12, onde a medida não existe.
-final nestHasNotchProvider = FutureProvider<bool>(
-  (ref) => ref.watch(nestChannelProvider).hasNotch(),
-);
-
 /// Preferências do Nest, com escrita imediata.
 ///
 /// Igual às dos outros módulos: mexer no controle já persiste, sem botão de
@@ -42,22 +33,13 @@ class NestSettingsViewModel extends Notifier<NestSettings> {
     await _repository.save(state);
   }
 
-  Future<void> setUseNotch({required bool enabled}) async {
-    state = state.copyWith(useNotch: enabled);
-    await _repository.save(state);
-
-    // O lado nativo é avisado na hora: a janela invisível sobre o recorte
-    // existe fora de qualquer engine, e esperar o próximo lançamento para
-    // desligá-la deixaria o interruptor mentindo até lá.
-    await _channel.setNotchEnabled(enabled: enabled);
-  }
-
   Future<void> setUseShake({required bool enabled}) async {
     state = state.copyWith(useShake: enabled);
     await _repository.save(state);
 
-    // Pelo mesmo motivo do recorte: quem observa o mouse vive fora de qualquer
-    // engine, e desligado é o monitor que sai do sistema.
+    // O lado nativo é avisado na hora: quem observa o mouse vive fora de
+    // qualquer engine, e esperar o próximo lançamento para desligá-lo deixaria
+    // o interruptor mentindo até lá.
     await _channel.setShakeEnabled(enabled: enabled);
   }
 

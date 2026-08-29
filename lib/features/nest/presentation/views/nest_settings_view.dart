@@ -19,7 +19,7 @@ import '../widgets/nest_destination_list.dart';
 /// Tela do Nest dentro do Hub.
 ///
 /// A ordem é a das telas de preferência do aplicativo: o que ele faz (o modo e
-/// o recorte da tela), as pastas para onde ele manda, e o atalho global por
+/// o chacoalhar), as pastas para onde ele manda, e o atalho global por
 /// último. Não há lista de "o que aconteceu" no topo porque o histórico do
 /// módulo é do Track — o que a prateleira carregou hoje é a contagem do dia
 /// reconstruído, não uma lista de arquivos que o Evergreen não guarda.
@@ -31,27 +31,11 @@ class NestSettingsView extends ConsumerWidget {
     final settings = ref.watch(nestSettingsViewModelProvider);
     final viewModel = ref.read(nestSettingsViewModelProvider.notifier);
 
-    // Enquanto a pergunta não voltou, a linha não aparece: um controle que
-    // nasce e some depois de meio segundo é pior que um que nunca esteve lá.
-    final hasNotch = ref.watch(nestHasNotchProvider).value ?? false;
-
     return EgSettingsPage(
       children: [
         EgSettingsSection(
           title: 'Geral',
           children: [
-            if (hasNotch)
-              EgSettingsRow.toggle(
-                label: 'Receber arquivos pelo recorte da tela',
-                description:
-                    'Arraste qualquer arquivo até o recorte no topo e solte. A '
-                    'prateleira abre com ele dentro, sem atalho nenhum.',
-                value: settings.useNotch,
-                onChanged: (value) =>
-                    unawaited(viewModel.setUseNotch(enabled: value)),
-              ),
-            // Sem `if` nenhum, diferente do recorte: o gesto não depende de
-            // hardware, então a linha existe em qualquer Mac.
             EgSettingsRow.toggle(
               label: 'Chacoalhar para chamar a prateleira',
               description:

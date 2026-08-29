@@ -41,7 +41,7 @@ class EvergreenBootstrap {
   /// Relógio do backup automático. Ver [_scheduleBackups].
   Timer? _backupTimer;
 
-  /// Assinatura dos arquivos soltos no recorte da tela. Ver [_watchNestDrops].
+  /// Assinatura dos arquivos soltos no painel. Ver [_watchNestDrops].
   StreamSubscription<List<String>>? _nestDrops;
 
   /// Assinatura do chacoalhar. Ver [_watchNestShake].
@@ -49,8 +49,8 @@ class EvergreenBootstrap {
 
   Future<void> start() async {
     _container.read(pinOverlayViewModelProvider.notifier).startWatching();
-    // Antes de qualquer painel existir: um arquivo solto no recorte da tela
-    // chega com tudo fechado, e é ele quem manda o painel aparecer.
+    // Antes de qualquer painel existir: o chacoalhar chega com tudo fechado, e
+    // é ele quem manda o painel aparecer.
     _container.read(nestChannelProvider).listen();
     _container.read(nestViewModelProvider.notifier).startListening();
     _watchNestDrops();
@@ -177,12 +177,10 @@ class EvergreenBootstrap {
     }, fireImmediately: true);
   }
 
-  /// Põe a prateleira na tela quando um arquivo é solto no recorte.
+  /// Põe a prateleira na tela quando arquivos chegam com ela fechada.
   ///
-  /// O drop acontece fora de qualquer janela desenhada — a janela do recorte
-  /// não tem pixel nem engine —, então nada abriria o painel sozinho. É o
-  /// mesmo caminho do alerta de fim de sessão do Focus: um evento de fundo que
-  /// **mostra** o painel, nunca o esconde.
+  /// É o mesmo caminho do alerta de fim de sessão do Focus: um evento de fundo
+  /// que **mostra** o painel, nunca o esconde.
   void _watchNestDrops() {
     _nestDrops = _container
         .read(nestChannelProvider)
@@ -217,19 +215,17 @@ class EvergreenBootstrap {
 
   /// Manda as preferências do Nest para o lado nativo na abertura.
   ///
-  /// O recorte e o chacoalhar vivem fora de qualquer engine e nascem no padrão
-  /// deles a cada lançamento — sem isto, desligar um dos dois valia só até o
-  /// aplicativo ser fechado, e ele voltava ligado na abertura seguinte com o
-  /// interruptor mostrando "desligado".
+  /// O chacoalhar vive fora de qualquer engine e nasce desligado a cada
+  /// lançamento — sem isto, o interruptor mostraria "ligado" com o gesto morto.
   Future<void> _applyNestSettings() async {
     final repository = _container.read(nestSettingsRepositoryProvider);
     await repository.reload();
 
     final settings = repository.load();
-    final channel = _container.read(nestChannelProvider);
 
-    await channel.setNotchEnabled(enabled: settings.useNotch);
-    await channel.setShakeEnabled(enabled: settings.useShake);
+    await _container
+        .read(nestChannelProvider)
+        .setShakeEnabled(enabled: settings.useShake);
   }
 
   /// Mantém a barra de menus em dia com a gravação do Echo.

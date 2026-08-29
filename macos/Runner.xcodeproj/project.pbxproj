@@ -29,8 +29,7 @@
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		A1E0C40012B4E0A100EC4001 /* EchoChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */; };
 		A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4004 /* NestChannel.swift */; };
-		A1E0C40012B4E0A100EC4005 /* NestNotchWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4006 /* NestNotchWindow.swift */; };
-		A1E0C40012B4E0A100EC4007 /* NestDragWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4008 /* NestDragWatch.swift */; };
+		A1E0C40012B4E0A100EC4007 /* NestShakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4008 /* NestShakeMonitor.swift */; };
 		BE7A0B11AB72F5E7532FAFAE /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE97AC87C95DF958712FA9D8 /* Pods_RunnerTests.framework */; };
 		E33DEA551E037B4C3D1F9365 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E3B1DF51CBDAEC39CF68EAA3 /* Pods_Runner.framework */; };
 /* End PBXBuildFile section */
@@ -89,8 +88,7 @@
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4004 /* NestChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestChannel.swift; sourceTree = "<group>"; };
-		A1E0C40012B4E0A100EC4006 /* NestNotchWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestNotchWindow.swift; sourceTree = "<group>"; };
-		A1E0C40012B4E0A100EC4008 /* NestDragWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestDragWatch.swift; sourceTree = "<group>"; };
+		A1E0C40012B4E0A100EC4008 /* NestShakeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestShakeMonitor.swift; sourceTree = "<group>"; };
 		AE97AC87C95DF958712FA9D8 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CD4715949845BC4421C3550C /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		D16FCDE1254F070DC69BF101 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
@@ -187,8 +185,7 @@
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */,
 				A1E0C40012B4E0A100EC4004 /* NestChannel.swift */,
-				A1E0C40012B4E0A100EC4006 /* NestNotchWindow.swift */,
-				A1E0C40012B4E0A100EC4008 /* NestDragWatch.swift */,
+				A1E0C40012B4E0A100EC4008 /* NestShakeMonitor.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -451,8 +448,7 @@
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				A1E0C40012B4E0A100EC4001 /* EchoChannel.swift in Sources */,
 				A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */,
-				A1E0C40012B4E0A100EC4005 /* NestNotchWindow.swift in Sources */,
-				A1E0C40012B4E0A100EC4007 /* NestDragWatch.swift in Sources */,
+				A1E0C40012B4E0A100EC4007 /* NestShakeMonitor.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);

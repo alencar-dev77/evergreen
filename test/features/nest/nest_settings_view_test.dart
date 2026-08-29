@@ -63,31 +63,7 @@ void main() {
     );
   }
 
-  testWidgets('num Mac sem recorte, a linha do notch não aparece', (
-    tester,
-  ) async {
-    await pumpSettings(tester);
-
-    expect(
-      find.text('Receber arquivos pelo recorte da tela'),
-      findsNothing,
-    );
-  });
-
-  testWidgets('com recorte, ela aparece e liga o lado nativo', (tester) async {
-    channel.notch = true;
-    await pumpSettings(tester);
-
-    expect(find.text('Receber arquivos pelo recorte da tela'), findsOneWidget);
-
-    // O primeiro, porque o chacoalhar tem outro logo abaixo.
-    await tester.tap(find.byType(EgToggle).first);
-    await tester.pumpAndSettle();
-
-    expect(channel.isNotchEnabled, isFalse);
-  });
-
-  testWidgets('a linha do chacoalhar aparece em qualquer Mac', (tester) async {
+  testWidgets('a linha do chacoalhar aparece', (tester) async {
     await pumpSettings(tester);
 
     expect(find.text('Chacoalhar para chamar a prateleira'), findsOneWidget);

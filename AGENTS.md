@@ -7,8 +7,8 @@ roda localmente, nada é enviado para a internet. São sete módulos: Pin
 registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
 `⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`), Echo (grava,
 transcreve e resume reuniões, `⌘⇧E`), Nest (prateleira que junta arquivos de
-várias pastas e manda todos para uma só, `⌘⇧S`, pelo recorte da tela e
-chacoalhando o arquivo no meio do arraste) e
+várias pastas e manda todos para uma só, `⌘⇧S`, ou chacoalhando o arquivo no
+meio do arraste) e
 Track (reconstrói o dia a partir do que os outros gravaram — só tela do Hub,
 sem atalho global e sem painel).
 
@@ -59,27 +59,21 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   para qualquer lugar (sem desfazer, porque quem copia é o destino). Soltar de
   volta em cima do painel é desistir: o `NestDrop` recusa o arraste cuja origem
   é a própria prateleira — sem essa recusa o arquivo atravessaria o painel e
-  cairia na janela que estava atrás dele. Junto vem
-  a **segunda janela sempre no topo do projeto**, a do recorte da tela
-  (`NestNotchWindow`) — que não tem engine, e por isso a regra continua sendo
-  "só a janela 0 desenha **Flutter**". Ela pinta duas formas em AppKit, e só
-  enquanto há arquivo sendo arrastado: o recorte é um furo físico no painel, sem
-  pixel para acender, então a faixa de "solte aqui" aparece **abaixo** dele e a
-  janela cresce para caber — o que invadiria a área de conteúdo se não fosse
-  desfeito no instante em que o botão sobe. Quem recebe o arraste é o delegate
-  nas duas janelas: a view foi tentada aqui também, e também não recebeu nada. A terceira porta é **chacoalhar
-  o arquivo** (`NestShakeMonitor`), e a regra dela é *perguntar, nunca escutar*:
-  durante uma sessão de arraste o AppKit não entrega movimento de mouse a
-  monitor nenhum, então quem responde é `NSEvent.mouseLocation` e
+  cairia na janela que estava atrás dele. A outra porta de entrada é
+  **chacoalhar o arquivo** (`NestShakeMonitor`), e a regra dela é *perguntar,
+  nunca escutar*: durante uma sessão de arraste o AppKit não entrega movimento
+  de mouse a monitor nenhum, então quem responde é `NSEvent.mouseLocation` e
   `NSEvent.pressedMouseButtons`, que são propriedades e não custam permissão —
   o mesmo motivo do relógio do `followCursor`. O único evento apanhado é o botão
-  descendo, que acontece antes do arraste. O vigia é um só (`NestDragWatch`) e
-  serve aos dois que precisam da mesma resposta — o chacoalhar e a faixa do
-  recorte. Só dispara com arquivo na mão
+  descendo, que acontece antes do arraste. Só dispara com arquivo na mão
   (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta em
   que o painel vai até o cursor em vez do contrário
-  (`OverlayWindow.positionForCursor`). Ver
-  [docs/Ideis projeto/nest-janela-do-recorte.md](docs/Ideis%20projeto/nest-janela-do-recorte.md).
+  (`OverlayWindow.positionForCursor`). **Houve uma terceira porta, o recorte da
+  tela, e ela saiu**: uma segunda janela sempre no topo que nunca recebeu um
+  arquivo, em três rodadas de conserto — e que ficou redundante quando o
+  chacoalhar passou a fazer o mesmo em qualquer Mac. A regra da casa voltou a
+  ser absoluta: **só a janela 0**. Ver
+  [docs/Ideis projeto/nest-prateleira-de-arquivos.md](docs/Ideis%20projeto/nest-prateleira-de-arquivos.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
   que o rodapé da sidebar do Hub mostra (`lib/core/app_info.dart`).

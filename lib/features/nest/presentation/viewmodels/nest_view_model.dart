@@ -20,7 +20,7 @@ final nestViewModelProvider = NotifierProvider<NestViewModel, NestState>(
 /// A prateleira do Nest.
 ///
 /// Vive no engine da janela flutuante, e aqui isso é obrigatório e não
-/// preferência: um arquivo solto no recorte da tela chega pelo canal nativo com
+/// preferência: um arquivo pode chegar pelo canal nativo com
 /// o painel fechado, e a prateleira precisa continuar cheia depois de o painel
 /// se esconder. Fechar não esvazia — encerrar o aplicativo esvazia, porque o
 /// conteúdo é referência a arquivo, não arquivo.
@@ -68,7 +68,7 @@ class NestViewModel extends Notifier<NestState> {
 
   /// Liga a escuta do lado nativo. Uma vez, no `EvergreenBootstrap`.
   ///
-  /// Aqui, e não na tela: um arquivo solto no recorte chega com o painel
+  /// Aqui, e não na tela: um arquivo pode chegar com o painel
   /// fechado — é o caminho principal do módulo, e um ouvinte que só existisse
   /// enquanto a tela está montada perderia justamente ele.
   void startListening() {
