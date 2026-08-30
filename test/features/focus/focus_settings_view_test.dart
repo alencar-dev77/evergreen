@@ -163,7 +163,7 @@ void main() {
   ) async {
     await pumpSettings(tester);
 
-    await tester.tap(find.text('Limpar'));
+    await tester.tap(find.text('Apagar tudo'));
     await tester.pumpAndSettle();
 
     expect(find.byType(EgConfirmDialog), findsOneWidget);
@@ -174,9 +174,9 @@ void main() {
 
     expect(repository.loadRecent(), hasLength(2));
 
-    await tester.tap(find.text('Limpar'));
+    await tester.tap(find.text('Apagar tudo'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Limpar').last);
+    await tester.tap(find.text('Apagar').last);
     await tester.pumpAndSettle();
 
     expect(repository.loadRecent(), isEmpty);

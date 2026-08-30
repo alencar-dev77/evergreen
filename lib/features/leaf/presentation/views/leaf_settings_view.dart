@@ -55,7 +55,8 @@ class _LeafSettingsViewState extends ConsumerState<LeafSettingsView> {
       banner: _strip(notes),
       children: [
         EgSettingsCard(
-          title: 'Limpeza',
+          title: 'Sem volta',
+          tone: EgCardTone.destructive,
           children: [
             EgSettingsRow(
               label: 'Esvaziar a parede',

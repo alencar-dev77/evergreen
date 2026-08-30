@@ -179,7 +179,8 @@ void main() {
     );
 
     // O rótulo "Apagar" existe no botão da região e no do aviso; o do aviso é
-    // o último a entrar na árvore.
+    // o último a entrar na árvore. O cartão que leva a semana inteira diz
+    // "Apagar tudo", justamente para não se confundir com este.
     await tester.tap(find.text('Apagar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apagar').last);
@@ -198,9 +199,9 @@ void main() {
     await pumpHub(tester);
     await openSession(tester);
 
-    await tester.tap(find.text('Limpar'));
+    await tester.tap(find.text('Apagar tudo'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Limpar').last);
+    await tester.tap(find.text('Apagar').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(HubDetailRegion), findsNothing);

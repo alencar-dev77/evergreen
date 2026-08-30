@@ -76,6 +76,9 @@ class EgSettingsRow extends StatelessWidget {
   /// couber.
   static const _stackBelow = 200.0;
 
+  /// O mínimo que o rótulo guarda para si, por mais largo que seja o controle.
+  static const _labelFloor = 116.0;
+
   @override
   Widget build(BuildContext context) {
     final eg = context.eg;
@@ -103,12 +106,13 @@ class EgSettingsRow extends StatelessWidget {
                         ? eg.shapes.rowHeight
                         : eg.shapes.rowHeightWithFootnote,
                   ),
+                  // O recuo lateral é do cartão; aqui fica só o vertical, que
+                  // é o que impede o texto de encostar no divisor.
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: eg.shapes.rowPaddingH,
+                    padding: const EdgeInsets.symmetric(
                       vertical: AppSpacing.xxs,
                     ),
-                    child: _inline(context),
+                    child: _inline(context, constraints.maxWidth),
                   ),
                 ),
         );
@@ -116,16 +120,29 @@ class EgSettingsRow extends StatelessWidget {
     );
   }
 
-  Widget _inline(BuildContext context) {
+  /// Quem pega a largura primeiro é o **controle**, não o rótulo.
+  ///
+  /// Com o rótulo em `Expanded` os dois dividiam a linha meio a meio, e um
+  /// seletor de cinco durações recebia 140 px onde precisava de 280 — então
+  /// ele quebrava em três fileiras, e cinco opções em três linhas deixam de
+  /// parecer um seletor. Agora o controle se mede pelo conteúdo e o rótulo
+  /// fica com o que sobra; um seletor só quebra quando nem assim couber.
+  ///
+  /// O teto existe para o rótulo não sumir: por mais largo que seja o
+  /// controle, [_labelFloor] pixels continuam sendo do nome do ajuste.
+  Widget _inline(BuildContext context, double available) {
+    final ceiling = (available - _labelFloor - AppSpacing.md).clamp(
+      0.0,
+      available,
+    );
+
     return Row(
       children: [
-        Expanded(child: _label(context)),
+        Flexible(child: _label(context)),
         const SizedBox(width: AppSpacing.md),
-        // `Flexible`, e não o controle solto: sem uma restrição de largura, um
-        // controle que sabe quebrar (o `Wrap` do segmented) nunca quebra —
-        // ele se mede pelo conteúdo e estoura a linha.
-        Flexible(
-          child: Align(alignment: Alignment.centerRight, child: trailing),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: ceiling),
+          child: trailing,
         ),
       ],
     );

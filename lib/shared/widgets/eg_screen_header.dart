@@ -244,9 +244,17 @@ class _ShortcutButton extends StatelessWidget {
       height: _height,
       padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH),
       semanticLabel: 'Atalho ${keys.join(' ')}. Clique para alterar.',
-      child: Text(
-        keys.join(),
-        style: eg.text.keycap.copyWith(color: eg.colors.textSecondary),
+      // A `Row` de tamanho mínimo é o que centraliza na vertical sem esticar
+      // na horizontal: o `alignment` do container faria as duas coisas, e a
+      // segunda é justamente a que não se quer.
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            keys.join(),
+            style: eg.text.keycap.copyWith(color: eg.colors.textSecondary),
+          ),
+        ],
       ),
     );
   }

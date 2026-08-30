@@ -48,7 +48,7 @@ void main() {
   ) async {
     await pumpSettings(tester);
 
-    await tester.tap(find.text('Limpar'));
+    await tester.tap(find.text('Apagar'));
     await tester.pumpAndSettle();
 
     expect(find.byType(EgConfirmDialog), findsOneWidget);
@@ -67,12 +67,12 @@ void main() {
   ) async {
     await pumpSettings(tester);
 
-    await tester.tap(find.text('Limpar'));
+    await tester.tap(find.text('Apagar'));
     await tester.pumpAndSettle();
 
     // O rótulo "Limpar" existe no botão da linha e no diálogo; o do diálogo é o
     // último a entrar na árvore.
-    await tester.tap(find.text('Limpar').last);
+    await tester.tap(find.text('Apagar').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(EgConfirmDialog), findsNothing);

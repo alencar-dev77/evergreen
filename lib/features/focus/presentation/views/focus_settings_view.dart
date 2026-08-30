@@ -3,7 +3,6 @@ import '../../../home/presentation/widgets/global_shortcut_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
@@ -74,22 +73,30 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
                     .open(EvergreenModule.focus);
               },
             ),
-            // Destacada da lista por um respiro, e sem divisor: encostada nela
-            // como estava, a linha de limpar parecia mais uma sessão — a última
-            // da semana, com um botão vermelho do lado.
-            if (!history.isEmpty) ...[
-              const SizedBox(height: AppSpacing.xxl),
+          ],
+        ),
+        // Cartão próprio, com o tom do que ele faz. Encostada na lista, a
+        // linha de apagar parecia mais uma sessão — a última da semana, com um
+        // botão vermelho do lado.
+        if (!history.isEmpty)
+          EgSettingsCard(
+            title: 'Sem volta',
+            tone: EgCardTone.destructive,
+            children: [
               EgSettingsRow(
-                label: 'Limpar histórico',
+                label: 'Apagar o histórico',
                 description: 'Remove as sessões desta semana.',
+                // "Apagar tudo", e não "Apagar": a região de leitura ao lado
+                // tem um "Apagar" que leva **uma** sessão, e dois botões com o
+                // mesmo rótulo na mesma tela fazendo coisas de tamanhos
+                // diferentes é como se apaga a semana sem querer.
                 trailing: EgButton.destructive(
-                  label: 'Limpar',
+                  label: 'Apagar tudo',
                   onPressed: () => _clearHistory(context),
                 ),
               ),
             ],
-          ],
-        ),
+          ),
         // Os interruptores no topo do tópico, e o tópico logo depois do
         // histórico: são eles que dizem o que uma sessão vai pedir, e as
         // durações só fazem sentido depois de se saber isso.
@@ -146,21 +153,25 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
           children: [
             EgSettingsRow(
               label: 'Tempo de foco',
-              description: 'Duração de uma sessão.',
+              // A unidade fica no rótulo, e não repetida em cada opção: cinco
+              // "min" seguidos custam metade da largura do seletor e não
+              // acrescentam nada — a segunda opção já disse qual é a unidade.
+              // Era o que fazia as durações quebrarem em três fileiras.
+              description: 'Duração de uma sessão, em minutos.',
               trailing: EgSegmentedControl<int>(
                 value: settings.focusMinutes,
                 options: FocusSettings.focusMinutesOptions,
-                labelOf: (option) => '$option min',
+                labelOf: (option) => '$option',
                 onChanged: viewModel.setFocusMinutes,
               ),
             ),
             EgSettingsRow(
               label: 'Tempo da pausa',
-              description: 'O descanso oferecido ao fim da sessão.',
+              description: 'O descanso ao fim da sessão, em minutos.',
               trailing: EgSegmentedControl<int>(
                 value: settings.breakMinutes,
                 options: FocusSettings.breakMinutesOptions,
-                labelOf: (option) => '$option min',
+                labelOf: (option) => '$option',
                 onChanged: viewModel.setBreakMinutes,
               ),
             ),
@@ -175,11 +186,11 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
   Future<void> _clearHistory(BuildContext context) async {
     final confirmed = await EgConfirmDialog.show(
       context,
-      title: 'Limpar histórico?',
+      title: 'Apagar histórico?',
       message:
           'Todas as sessões da semana serão removidas. Não dá para '
           'desfazer.',
-      confirmLabel: 'Limpar',
+      confirmLabel: 'Apagar',
     );
     if (!confirmed) return;
 

@@ -23,7 +23,7 @@ um commit próprio.
 | 3 | Componentes compartilhados (novos + reescritos) | feito — falta `EgEmptyState` e `EgKeyHintBar`, que vão com os painéis |
 | 4 | Painéis flutuantes: vidro, hairline, barra de teclas | feito |
 | 5 | Hub: sidebar + cabeçalho de tela + grade de duas colunas | feito |
-| 6 | Telas: Pin (abas), Leaf, Awake | Leaf feito; falta Pin e Awake |
+| 6 | Telas: Pin, Leaf, Awake | Leaf e Pin feitos; falta a aba `Tipos` e o Awake |
 | 7 | Telas: Focus, Echo, Nest | a fazer |
 | 8 | Telas: Track, Aplicativo | a fazer |
 | 9 | Goldens novos + skill de design atualizada | a fazer |
@@ -65,7 +65,10 @@ calados:
 - **Awake** — "Gatilhos" (§4.6: ligar ao espelhar a tela, ligar durante gravação
   do Echo) é comportamento novo, com detecção de espelhamento no lado nativo.
 - **Pin** — a aba `Tipos` (§4.2) supõe ligar e desligar tipos na captura; hoje o
-  classificador grava todos.
+  classificador grava todos. É o próximo passo pedido, e toca
+  `PinSettings` (um conjunto de tipos), o repositório de preferências e o
+  serviço de captura. O gerador de CPF/CNPJ **já entrou**, como cartão dentro
+  das preferências (e não como aba própria).
 - **Nest** — cor por destino e reordenação por arraste (§4.7) são dados novos na
   tabela de destinos.
 

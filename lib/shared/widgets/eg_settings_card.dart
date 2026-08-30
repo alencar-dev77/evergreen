@@ -4,6 +4,41 @@ import '../../core/design/app_metrics.dart';
 import '../../core/design/eg_tokens.dart';
 import '../../core/design/tokens/eg_squircle.dart';
 import 'eg_section_label.dart';
+import 'eg_settings_row.dart';
+
+/// O que um cartão faz com o que já existe.
+///
+/// O tom não é decoração: ele é o aviso que chega **antes** de a pessoa ler o
+/// rótulo. Um cartão de ajuste e um cartão que apaga coisas não podem ser a
+/// mesma superfície com um botão vermelho no canto — quem varre a tela vê a
+/// superfície primeiro, e é ali que o alerta tem de estar.
+enum EgCardTone {
+  /// Ajustes: a superfície de sempre.
+  neutral,
+
+  /// Ações sem volta. Fundo e borda em vermelho de baixa opacidade — nunca a
+  /// cor cheia, que gritaria mais alto que a ação principal de qualquer tela.
+  destructive;
+
+  Color surfaceOf(EgTokens eg) => switch (this) {
+    EgCardTone.neutral => eg.colors.surface,
+    EgCardTone.destructive => eg.colors.error.withValues(alpha: 0.06),
+  };
+
+  BorderSide edgeOf(EgTokens eg) => switch (this) {
+    EgCardTone.neutral => eg.edge,
+    EgCardTone.destructive => BorderSide(
+      color: eg.colors.error.withValues(alpha: 0.22),
+      width: eg.shapes.hairline,
+    ),
+  };
+
+  /// A cor do rótulo da seção, para a etiqueta acompanhar o cartão.
+  Color? labelOf(EgTokens eg) => switch (this) {
+    EgCardTone.neutral => null,
+    EgCardTone.destructive => eg.colors.error.withValues(alpha: 0.85),
+  };
+}
 
 /// A grade de cartões de uma tela de preferências.
 ///
@@ -112,7 +147,11 @@ class EgSettingsCard extends StatelessWidget {
     this.title,
     required this.children,
     this.trailing,
+    this.tone = EgCardTone.neutral,
   });
+
+  /// O que este cartão faz com o que já existe — ver [EgCardTone].
+  final EgCardTone tone;
 
   /// A etiqueta do assunto, em caixa alta e mono. `null` num cartão que não
   /// precisa se anunciar — o único do Leaf, por exemplo.
@@ -134,7 +173,10 @@ class EgSettingsCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (title != null) ...[_header(), const SizedBox(height: AppSpacing.sm)],
+        if (title != null) ...[
+          _header(eg),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         // O recorte é o que faz o divisor morrer na borda do cartão em vez de
         // atravessá-la, e o que impede a primeira linha de vazar pelo canto
         // arredondado quando ela tem fundo próprio.
@@ -142,19 +184,25 @@ class EgSettingsCard extends StatelessWidget {
           clipper: ShapeBorderClipper(shape: eg.shapes.cardShape),
           child: DecoratedBox(
             decoration: ShapeDecoration(
-              color: eg.colors.surface,
-              shape: EgSquircle.shape(eg.shapes.radiusCard, side: eg.edge),
+              color: tone.surfaceOf(eg),
+              shape: EgSquircle.shape(
+                eg.shapes.radiusCard,
+                side: tone.edgeOf(eg),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < children.length; i++) ...[
+                  // O divisor atravessa o cartão de ponta a ponta, por baixo
+                  // do respiro: recuado nas duas pontas ele viraria um traço
+                  // solto no meio, e não a linha que separa dois assuntos.
                   if (i > 0)
                     Container(
                       height: eg.shapes.hairline,
-                      color: eg.colors.edge,
+                      color: tone.edgeOf(eg).color,
                     ),
-                  children[i],
+                  _padded(eg, children[i]),
                 ],
               ],
             ),
@@ -164,12 +212,34 @@ class EgSettingsCard extends StatelessWidget {
     );
   }
 
-  Widget _header() {
-    if (trailing == null) return EgSectionLabel(title!);
+  /// O respiro é do cartão, e não de cada coisa que entra nele.
+  ///
+  /// Era o que faltava: a linha de configuração trazia o próprio recuo, mas
+  /// tudo o que não é linha — a faixa de dias do Focus, a lista de destinos do
+  /// Nest, o bloco de permissões do Echo — chegava encostado na borda, porque
+  /// ninguém tinha dito a essas peças que agora elas moram dentro de um
+  /// cartão.
+  ///
+  /// A linha continua respondendo pela própria altura (é o piso de 38/46 que
+  /// dá o ritmo), então ela recebe só o recuo lateral. O resto recebe os dois.
+  Widget _padded(EgTokens eg, Widget child) => Padding(
+    padding: child is EgSettingsRow
+        ? EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH)
+        : EdgeInsets.symmetric(
+            horizontal: eg.shapes.rowPaddingH,
+            vertical: eg.shapes.rowPaddingV + AppSpacing.xxs,
+          ),
+    child: child,
+  );
+
+  Widget _header(EgTokens eg) {
+    final label = EgSectionLabel(title!, color: tone.labelOf(eg));
+
+    if (trailing == null) return label;
 
     return Row(
       children: [
-        Expanded(child: EgSectionLabel(title!)),
+        Expanded(child: label),
         trailing!,
       ],
     );
