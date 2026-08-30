@@ -40,7 +40,10 @@ void main() {
     expect(trackColor(tester), eg.colors.accent);
 
     await pump(tester, value: false, onChanged: (_) {});
-    expect(trackColor(tester), eg.colors.line);
+    // Apagado, o trilho é `hover`, e não a cor de divisor: dentro de um cartão
+    // de seção um trilho na cor da linha some no próprio cartão, e um
+    // interruptor que não se vê apagado não conta que existe.
+    expect(trackColor(tester), eg.colors.hover);
   });
 
   testWidgets('o mouse por cima clareia o trilho nas duas colunas', (
@@ -96,7 +99,7 @@ void main() {
     await tester.tap(find.byType(EgToggle));
     await tester.pumpAndSettle();
 
-    expect(trackColor(tester), eg.colors.line);
+    expect(trackColor(tester), eg.colors.hover);
     expect(tester.widget<Opacity>(find.byType(Opacity).first).opacity, 0.4);
   });
 }
