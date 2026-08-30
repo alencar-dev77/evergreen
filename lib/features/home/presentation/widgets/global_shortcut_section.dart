@@ -9,7 +9,7 @@ import '../../../../core/system/global_shortcut_slot.dart';
 import '../../../../core/system/shortcut_binding.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_shortcut_recorder.dart';
 import '../viewmodels/module_settings_view_model.dart';
 
@@ -114,7 +114,7 @@ class _GlobalShortcutSectionState extends ConsumerState<GlobalShortcutSection> {
     final binding = settings.bindingFor(widget.slot);
     final isCustom = settings.isCustom(widget.slot);
 
-    return EgSettingsSection(
+    return EgSettingsCard(
       title: 'Atalho global',
       children: [
         EgSettingsRow(
@@ -122,7 +122,6 @@ class _GlobalShortcutSectionState extends ConsumerState<GlobalShortcutSection> {
           description: _isRecording
               ? 'Aperte a combinação. Esc cancela.'
               : 'Funciona com qualquer aplicativo em foco.',
-          showDivider: isCustom,
           trailing: EgShortcutRecorder(
             binding: binding,
             isRecording: _isRecording,
@@ -148,7 +147,6 @@ class _GlobalShortcutSectionState extends ConsumerState<GlobalShortcutSection> {
           EgSettingsRow(
             label: 'Restaurar padrão',
             description: 'Volta para ${widget.slot.fallback.compact}.',
-            showDivider: false,
             trailing: EgButton.secondary(
               label: 'Restaurar',
               onPressed: () => _model.restoreDefault(widget.slot),

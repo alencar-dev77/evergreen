@@ -6,7 +6,7 @@ import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../home/models/evergreen_module.dart';
 import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../models/track_range.dart';
@@ -52,7 +52,7 @@ class _TrackViewState extends ConsumerState<TrackView> {
         // "Balanço", e não "Resumo": resumo já é o nome do parágrafo que o
         // modelo escreve dentro do dia, e a mesma palavra para duas coisas
         // diferentes na mesma tela confunde.
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Balanço',
           trailing: EgSegmentedControl<TrackRange>(
             value: state.range,
@@ -81,7 +81,7 @@ class _TrackViewState extends ConsumerState<TrackView> {
           ],
         ),
         if (!state.isEmpty)
-          EgSettingsSection(
+          EgSettingsCard(
             title: 'Dias',
             children: [
               TrackDayList(

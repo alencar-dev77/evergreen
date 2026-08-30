@@ -12,7 +12,7 @@ import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/app_settings_view_model.dart';
 import '../widgets/global_shortcut_section.dart';
@@ -81,11 +81,11 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
     return EgSettingsPage(
       children: [
         if (!hasName)
-          EgSettingsSection(
+          EgSettingsCard(
             title: 'Como você se chama',
             children: [_nameField(autofocus: true)],
           ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Geral',
           children: [
             if (hasName) _nameField(autofocus: false),
@@ -100,7 +100,6 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
               description: 'Fica só na barra de menus, sem abrir janelas.',
               value: settings.startMinimized,
               onChanged: viewModel.setStartMinimized,
-              showDivider: false,
             ),
           ],
         ),
@@ -110,7 +109,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
         ),
         const _RestoreSection(),
         const GlobalShortcutSection(slot: GlobalShortcutSlot.hub),
-        const EgSettingsSection(title: 'Sobre', children: [_AboutLine()]),
+        const EgSettingsCard(title: 'Sobre', children: [_AboutLine()]),
       ],
     );
   }
@@ -126,7 +125,6 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           ? 'O resumo da reunião e o parágrafo do dia passam a chamar você '
                 'pelo nome. Fica nesta máquina, e dá para deixar em branco.'
           : 'Como o resumo e a transcrição chamam você.',
-      showDivider: !autofocus,
       field: EgTextField(
         controller: _name,
         focusNode: _nameFocus,
@@ -157,7 +155,7 @@ class _BackupSection extends ConsumerWidget {
     // costura não dá para verificar "há 8 dias" sem esperar oito dias.
     final now = ref.watch(clockProvider)();
 
-    return EgSettingsSection(
+    return EgSettingsCard(
       title: 'Backup',
       children: [
         EgSettingsRow.toggle(
@@ -184,7 +182,6 @@ class _BackupSection extends ConsumerWidget {
           // O caminho na tela porque a pergunta "onde isso foi parar" não pode
           // depender de abrir o Finder para descobrir.
           description: state.directoryLabel,
-          showDivider: false,
           trailing: EgButton.secondary(
             label: 'Mostrar no Finder',
             onPressed: () => unawaited(viewModel.reveal()),
@@ -204,7 +201,7 @@ class _RestoreSection extends ConsumerWidget {
     final state = ref.watch(backupViewModelProvider);
     final viewModel = ref.read(backupViewModelProvider.notifier);
 
-    return EgSettingsSection(
+    return EgSettingsCard(
       title: 'Restaurar',
       children: [
         if (state.isEmpty)
@@ -229,7 +226,6 @@ class _RestoreSection extends ConsumerWidget {
             description:
                 'Troca tudo pelo conteúdo do backup. O estado de agora vira '
                 'a cópia "antes de restaurar".',
-            showDivider: false,
             trailing: EgButton.secondary(
               label: 'Restaurar',
               // Sem nada escolhido não há o que restaurar: o botão fica

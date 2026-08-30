@@ -8,7 +8,7 @@ import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../home/models/evergreen_module.dart';
 import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../models/focus_settings.dart';
@@ -53,13 +53,13 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
         // "Tempo focado", e não "Resumo": resumo já é o nome do texto que se
         // escreve ao fim de uma sessão, e a mesma palavra para duas coisas
         // diferentes na mesma tela confunde.
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Tempo focado',
           children: [
             FocusSummary(stats: history.stats, sessions: history.sessions),
           ],
         ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Histórico',
           children: [
             FocusHistoryList(
@@ -82,7 +82,6 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
               EgSettingsRow(
                 label: 'Limpar histórico',
                 description: 'Remove as sessões desta semana.',
-                showDivider: false,
                 trailing: EgButton.destructive(
                   label: 'Limpar',
                   onPressed: () => _clearHistory(context),
@@ -94,7 +93,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
         // Os interruptores no topo do tópico, e o tópico logo depois do
         // histórico: são eles que dizem o que uma sessão vai pedir, e as
         // durações só fazem sentido depois de se saber isso.
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Funcionalidades',
           children: [
             EgSettingsRow.toggle(
@@ -139,11 +138,10 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
                   'O painel aparece por cima de tudo quando o tempo acaba.',
               value: settings.alertOnScreen,
               onChanged: viewModel.setAlertOnScreen,
-              showDivider: false,
             ),
           ],
         ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Durações',
           children: [
             EgSettingsRow(
@@ -159,7 +157,6 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
             EgSettingsRow(
               label: 'Tempo da pausa',
               description: 'O descanso oferecido ao fim da sessão.',
-              showDivider: false,
               trailing: EgSegmentedControl<int>(
                 value: settings.breakMinutes,
                 options: FocusSettings.breakMinutesOptions,

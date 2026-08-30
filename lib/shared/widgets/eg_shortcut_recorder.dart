@@ -141,11 +141,18 @@ class _EgShortcutRecorderState extends State<EgShortcutRecorder> {
       // lê como "a pessoa foi embora" e cancela a gravação no mesmo quadro em
       // que ela começou.
       skipTraversal: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      // `Wrap`, e não `Row`: dentro de um cartão de coluna a combinação mais
+      // o botão passam da largura disponível, e uma linha de tamanho mínimo
+      // não tem para onde ceder — ela estoura. Quebrando, o botão desce para
+      // baixo da combinação e a linha cresce, que é o que se espera de um
+      // ajuste apertado.
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.md,
+        runSpacing: AppSpacing.sm,
         children: [
           widget.isRecording ? _listening(context) : _caps(),
-          const SizedBox(width: AppSpacing.md),
           EgButton.secondary(
             label: widget.isRecording ? 'Cancelar' : 'Alterar',
             onPressed: widget.isRecording ? widget.onCancel : widget.onStart,

@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../../models/echo_settings.dart';
 import '../../models/echo_capabilities.dart';
@@ -124,7 +124,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
 
     return EgSettingsPage(
       children: [
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Reuniões',
           children: [
             EchoLibrary(
@@ -156,7 +156,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               description:
                   'A mais antiga sai para a nova entrar. Reunião marcada '
                   'com "guardar" não conta.',
-              showDivider: false,
               trailing: EgSegmentedControl<int>(
                 value: settings.historyLimit,
                 options: EchoSettings.historyLimitOptions,
@@ -166,7 +165,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             ),
           ],
         ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Gravação',
           children: [
             // O interruptor primeiro: é a única pergunta do tópico que se
@@ -225,7 +224,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               description:
                   'Nomes, produtos, jargão — um por linha. É o que o '
                   'reconhecimento mais erra.',
-              showDivider: false,
               field: EgTextField(
                 controller: _vocabulary,
                 focusNode: _vocabularyFocus,
@@ -236,7 +234,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             ),
           ],
         ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Resumo',
           children: [
             EgSettingsRow.field(
@@ -245,7 +243,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   'Vale para todas as reuniões, ao apertar Resumir. Curta '
                   'funciona melhor: o modelo é local e ignora instrução '
                   'longa.',
-              showDivider: false,
               field: EgTextField(
                 controller: _instructions,
                 focusNode: _instructionsFocus,
@@ -272,7 +269,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
         // dois botões que se apertam no primeiro dia e nunca mais. Em cima,
         // eles empurravam para baixo tudo o que se ajusta no dia a dia, e a
         // tela abria pedindo permissão em vez de mostrar as reuniões.
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Permissões',
           children: [
             EchoPermissionRow(

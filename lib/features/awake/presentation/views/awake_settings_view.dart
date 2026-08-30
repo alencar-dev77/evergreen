@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../models/awake_duration.dart';
 import '../../models/awake_mode.dart';
 import '../viewmodels/awake_settings_view_model.dart';
@@ -25,7 +25,7 @@ class AwakeSettingsView extends ConsumerWidget {
 
     return EgSettingsPage(
       children: [
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Geral',
           children: [
             EgSettingsRow(
@@ -44,7 +44,6 @@ class AwakeSettingsView extends ConsumerWidget {
               label: 'Duração padrão',
               description:
                   'O que o painel propõe. Dá para trocar na hora de ligar.',
-              showDivider: false,
               trailing: EgSegmentedControl<AwakeDuration>(
                 value: settings.defaultDuration,
                 options: AwakeDuration.options,

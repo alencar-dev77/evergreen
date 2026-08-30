@@ -8,7 +8,7 @@ import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../models/pin_settings.dart';
 import '../viewmodels/accessibility_permission_view_model.dart';
 import '../viewmodels/pin_settings_view_model.dart';
@@ -45,7 +45,7 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
 
     return EgSettingsPage(
       children: [
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Geral',
           children: [
             EgSettingsRow.toggle(
@@ -55,14 +55,12 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
                   'Requer a permissão de Acessibilidade.',
               value: settings.autoPaste,
               onChanged: viewModel.setAutoPaste,
-              showDivider: needsPermission,
             ),
             if (needsPermission)
               EgSettingsRow(
                 label: 'Permissão de Acessibilidade',
                 description:
                     'Sem a permissão, o item é copiado mas não colado.',
-                showDivider: false,
                 trailing: EgButton.secondary(
                   label: 'Permitir',
                   onPressed: ref
@@ -72,7 +70,7 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
               ),
           ],
         ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Histórico',
           children: [
             EgSettingsRow(
@@ -88,7 +86,6 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
             EgSettingsRow(
               label: 'Limpar histórico',
               description: 'Remove todos os itens não fixados.',
-              showDivider: false,
               trailing: EgButton.destructive(
                 label: 'Limpar',
                 onPressed: () => _clearHistory(context, ref),

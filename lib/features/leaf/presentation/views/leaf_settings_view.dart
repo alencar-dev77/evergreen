@@ -8,7 +8,7 @@ import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../models/leaf_note.dart';
 
 /// Tela do Leaf dentro do Hub.
@@ -25,7 +25,7 @@ class LeafSettingsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return EgSettingsPage(
       children: [
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Dentro do painel',
           children: [
             const EgSettingsRow(
@@ -53,19 +53,17 @@ class LeafSettingsView extends ConsumerWidget {
               description:
                   'As seguintes sobem uma vaga e a parede encolhe: nunca '
                   'fica buraco no meio.',
-              showDivider: false,
               trailing: EgShortcutDisplay(keys: ['⌘', '⌫']),
             ),
           ],
         ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Parede',
           children: [
             EgSettingsRow(
               label: 'Esvaziar a parede',
               description:
                   'Remove as ${LeafNote.maxNotes} anotações de uma vez.',
-              showDivider: false,
               trailing: EgButton.destructive(
                 label: 'Esvaziar',
                 onPressed: () => _clear(context, ref),

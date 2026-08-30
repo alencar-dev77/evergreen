@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/module_settings_view_model.dart';
 
@@ -33,14 +33,13 @@ class ModuleSwitchSection extends ConsumerWidget {
     final settings = ref.watch(moduleSettingsViewModelProvider);
     final isEnabled = settings.isEnabled(module);
 
-    return EgSettingsSection(
+    return EgSettingsCard(
       title: 'Módulo',
       children: [
         EgSettingsRow.toggle(
           label: 'Usar o ${module.name}',
           description: _description,
           value: isEnabled,
-          showDivider: false,
           onChanged: (value) => ref
               .read(moduleSettingsViewModelProvider.notifier)
               .setEnabled(module, enabled: value),

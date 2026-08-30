@@ -10,7 +10,7 @@ import '../../../../core/design/eg_tokens.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../models/nest_settings.dart';
 import '../../models/nest_transfer_mode.dart';
 import '../viewmodels/nest_settings_view_model.dart';
@@ -33,7 +33,7 @@ class NestSettingsView extends ConsumerWidget {
 
     return EgSettingsPage(
       children: [
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Geral',
           children: [
             EgSettingsRow.toggle(
@@ -50,7 +50,6 @@ class NestSettingsView extends ConsumerWidget {
               description:
                   'Copiar deixa o original onde está; mover leva junto. '
                   'Segurar ⌥ ao enviar faz o contrário.',
-              showDivider: false,
               trailing: EgSegmentedControl<NestTransferMode>(
                 value: settings.defaultMode,
                 options: NestTransferMode.options,
@@ -60,7 +59,7 @@ class NestSettingsView extends ConsumerWidget {
             ),
           ],
         ),
-        EgSettingsSection(
+        EgSettingsCard(
           title: 'Pastas de destino',
           children: [
             if (settings.destinations.isEmpty)
