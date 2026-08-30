@@ -27,7 +27,7 @@ enum OverlayPanel {
   /// no Hub.
   echo,
 
-  /// Prateleira de arquivos (`⌘⇧S`). O único painel que recebe arraste do
+  /// Prateleira de arquivos (`⌘⇧R`). O único painel que recebe arraste do
   /// Finder, e o único que não fecha ao perder o foco enquanto tem algo dentro.
   nest,
 }

@@ -61,9 +61,9 @@ class GlobalShortcutService {
 
   /// Atalho padrão do Echo: `⌘⇧E`.
   ///
-  /// `E` de Echo, e livre onde importa: `⌘⇧T` e `⌘⇧R` seriam mnemônicos de
-  /// transcrever e gravar, mas como atalho global roubariam "reabrir aba" e
-  /// "recarregar" de todo navegador — e reunião acontece dentro do navegador.
+  /// `E` de Echo, e livre onde importa: `⌘⇧T` seria mnemônico de transcrever,
+  /// mas como atalho global roubaria "reabrir aba" de todo navegador — e
+  /// reunião acontece dentro do navegador.
   static final echoShortcut = HotKey(
     identifier: 'evergreen.echo.toggle',
     key: PhysicalKeyboardKey.keyE,
@@ -74,21 +74,22 @@ class GlobalShortcutService {
   /// Representação do atalho do Echo como key-caps.
   static const echoShortcutKeys = <String>['⌘', '⇧', 'E'];
 
-  /// Atalho padrão do Nest: `⌘⇧S`.
+  /// Atalho padrão do Nest: `⌘⇧R`.
   ///
-  /// `S` de *shelf*, a palavra que dá nome ao gesto — e a tecla livre onde
-  /// importa: `⌘⇧F` e `⌘⇧D` já são do Focus e do Leaf, e `⌘⇧A` é "ir para
-  /// Aplicativos" no Finder, que é justamente o aplicativo de onde os arquivos
-  /// vêm.
+  /// Era `⌘⇧S`, de *shelf*, e a letra saiu de circulação: `⌘⇧S` é o "Salvar
+  /// como" que qualquer app pode ter, e como atalho global ele sequestra o de
+  /// todos. `R` fecha a fila do prefixo da casa — `C`, `D`, `E`, `F`, `X` e
+  /// `R` — ao preço conhecido de passar na frente do "recarregar ignorando o
+  /// cache" do navegador.
   static final nestShortcut = HotKey(
     identifier: 'evergreen.nest.toggle',
-    key: PhysicalKeyboardKey.keyS,
+    key: PhysicalKeyboardKey.keyR,
     modifiers: [HotKeyModifier.meta, HotKeyModifier.shift],
     scope: HotKeyScope.system,
   );
 
   /// Representação do atalho do Nest como key-caps.
-  static const nestShortcutKeys = <String>['⌘', '⇧', 'S'];
+  static const nestShortcutKeys = <String>['⌘', '⇧', 'R'];
 
   /// Atalho padrão das preferências: `⌘⇧,`.
   ///

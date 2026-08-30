@@ -7,7 +7,7 @@ roda localmente, nada é enviado para a internet. São sete módulos: Pin
 registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
 `⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`), Echo (grava,
 transcreve e resume reuniões, `⌘⇧E`), Nest (prateleira que junta arquivos de
-várias pastas e manda todos para uma só, `⌘⇧S`, ou chacoalhando o arquivo no
+várias pastas e manda todos para uma só, `⌘⇧R`, ou chacoalhando o arquivo no
 meio do arraste) e
 Track (reconstrói o dia a partir do que os outros gravaram — só tela do Hub,
 sem atalho global e sem painel).
