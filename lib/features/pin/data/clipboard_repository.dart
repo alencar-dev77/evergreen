@@ -11,6 +11,13 @@ abstract interface class ClipboardRepository {
   /// Todos os itens: fixados primeiro, depois os mais recentes.
   List<ClipboardItem> loadAll({int limit});
 
+  /// Quantos itens de cada tipo o histórico guarda hoje.
+  ///
+  /// Uma consulta agregada, e não `loadAll().length` por tipo: a tela de
+  /// preferências quer o número, não os quinhentos itens — e ler o conteúdo
+  /// para contar seria trazer senha para a memória do Hub sem precisar.
+  Map<ClipboardItemType, int> countByType();
+
   /// Registra um conteúdo capturado.
   ///
   /// Se o conteúdo já existir, apenas atualiza o `copiedAt` (o item sobe para o
@@ -63,6 +70,22 @@ class SqliteClipboardRepository implements ClipboardRepository {
     );
 
     return rows.map(_fromRow).toList(growable: false);
+  }
+
+  @override
+  Map<ClipboardItemType, int> countByType() {
+    final rows = _db.select(
+      'SELECT type, COUNT(*) AS total FROM clipboard_items GROUP BY type;',
+    );
+
+    return {
+      for (final type in ClipboardItemType.values)
+        type: rows
+                .where((row) => row['type'] == type.name)
+                .map((row) => row['total'] as int)
+                .firstOrNull ??
+            0,
+    };
   }
 
   @override

@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../pin/fake_clipboard_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_focus_session_repository.dart';
@@ -75,6 +77,10 @@ void main() {
         overrides: [
           focusSessionRepositoryProvider.overrideWithValue(repository),
           sharedPreferencesProvider.overrideWithValue(preferences),
+          // O Hub abre no Pin, e a tela dele conta os itens por tipo.
+          clipboardRepositoryProvider.overrideWithValue(
+            FakeClipboardRepository(),
+          ),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),

@@ -329,8 +329,17 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   }
 
   void _onClipboardChanged(String content) {
-    _repository.upsert(ClipboardItem.capture(content));
-    _repository.trimHistory(_settings.load().historyLimit);
+    final captured = ClipboardItem.capture(content);
+    final settings = _settings.load();
+
+    // O tipo desligado é **deixado passar**, e não guardado e escondido: o que
+    // não está no banco não vaza por backup, por restauração nem por um bug de
+    // filtro. É a diferença entre "não mostrar" e "não registrar", e num
+    // gerenciador de área de transferência ela é a única que importa.
+    if (!settings.captures(captured.type)) return;
+
+    _repository.upsert(captured);
+    _repository.trimHistory(settings.historyLimit);
 
     _allItems = _repository.loadAll();
     _emitResults();

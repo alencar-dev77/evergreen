@@ -16,6 +16,9 @@ import '../../../../core/design/eg_tokens.dart';
 import '../../models/pin_settings.dart';
 import '../../models/tax_id.dart';
 import '../viewmodels/pin_generator_view_model.dart';
+import '../viewmodels/pin_type_counts_view_model.dart';
+import '../../../../shared/widgets/eg_toggle_pill.dart';
+import '../../models/clipboard_item_type.dart';
 import '../viewmodels/accessibility_permission_view_model.dart';
 import '../viewmodels/pin_settings_view_model.dart';
 
@@ -37,6 +40,11 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
   void initState() {
     super.initState();
     ref.read(accessibilityPermissionProvider.notifier).refresh();
+    // A captura acontece no engine da janela flutuante; a contagem daqui só
+    // fica em dia se este engine perguntar ao banco ao abrir a tela.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(pinTypeCountsProvider.notifier).refresh();
+    });
   }
 
   @override
@@ -91,6 +99,7 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
             ),
           ],
         ),
+        const _TypesCard(),
         const _GeneratorCard(),
         // Cartão próprio, e com o tom do que ele faz: apagar não é mais um
         // ajuste do histórico, é o fim dele. Como última linha de um cartão de
@@ -199,6 +208,42 @@ class _GeneratorCard extends ConsumerWidget {
                 ),
               ],
             ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Quais tipos o Pin guarda, com quantos de cada um já existem.
+///
+/// **Desligar deixa passar, não esconde.** O que não entra no banco não sai
+/// por backup, por restauração nem por um bug de filtro — e num gerenciador de
+/// área de transferência essa é a única distinção que importa. O que já foi
+/// guardado continua onde está: apagar o passado é outra ação, e ela tem o
+/// cartão dela.
+class _TypesCard extends ConsumerWidget {
+  const _TypesCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(pinSettingsViewModelProvider);
+    final viewModel = ref.read(pinSettingsViewModelProvider.notifier);
+    final counts = ref.watch(pinTypeCountsProvider);
+
+    return EgSettingsCard(
+      title: 'Tipos que entram',
+      children: [
+        EgTogglePillGrid(
+          children: [
+            for (final type in ClipboardItemType.values)
+              EgTogglePill(
+                label: type.filterLabel,
+                isOn: settings.captures(type),
+                count: counts[type],
+                onChanged: (value) =>
+                    viewModel.setTypeCaptured(type, captured: value),
+              ),
           ],
         ),
       ],

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../data/pin_settings_repository.dart';
+import '../../models/clipboard_item_type.dart';
 import '../../models/pin_settings.dart';
 import 'accessibility_permission_view_model.dart';
 
@@ -36,6 +37,26 @@ class PinSettingsViewModel extends Notifier<PinSettings> {
 
   Future<void> setHistoryLimit(int value) =>
       _update(state.copyWith(historyLimit: value));
+
+  /// Liga ou desliga a captura de um tipo.
+  ///
+  /// Desligar não apaga o que já entrou: os itens daquele tipo continuam no
+  /// histórico e continuam buscáveis. O que muda é o que passa a **não** ser
+  /// registrado daqui para a frente — apagar o passado é outra ação, e ela tem
+  /// o cartão dela.
+  Future<void> setTypeCaptured(
+    ClipboardItemType type, {
+    required bool captured,
+  }) {
+    final ignored = {...state.ignoredTypes};
+    if (captured) {
+      ignored.remove(type);
+    } else {
+      ignored.add(type);
+    }
+
+    return _update(state.copyWith(ignoredTypes: ignored));
+  }
 
   Future<void> _update(PinSettings settings) async {
     state = settings;

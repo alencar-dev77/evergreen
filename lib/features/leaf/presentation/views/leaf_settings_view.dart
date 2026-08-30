@@ -6,6 +6,7 @@ import '../../../../core/system/global_shortcut_slot.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
+import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_pill.dart';
 import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
@@ -54,6 +55,22 @@ class _LeafSettingsViewState extends ConsumerState<LeafSettingsView> {
     return EgSettingsPage(
       banner: _strip(notes),
       children: [
+        // A referência de teclas volta, mas como referência: quatro linhas de
+        // uma coluna, não quatro linhas de configuração com descrição de duas
+        // linhas cada. Ela não some porque é a única documentação do painel
+        // que existe fora do painel — e quem abre a tela do Leaf no Hub muitas
+        // vezes veio justamente conferir uma tecla.
+        EgSettingsCard(
+          title: 'Dentro do painel',
+          children: [
+            for (final hint in _panelKeys)
+              EgSettingsRow(
+                label: hint.$1,
+                description: hint.$2,
+                trailing: EgShortcutDisplay(keys: hint.$3),
+              ),
+          ],
+        ),
         EgSettingsCard(
           title: 'Sem volta',
           tone: EgCardTone.destructive,
@@ -100,6 +117,18 @@ class _LeafSettingsViewState extends ConsumerState<LeafSettingsView> {
       shortcut: const ['⌘', '⇧', 'D'],
     );
   }
+
+  /// O que cada tecla faz dentro da parede.
+  ///
+  /// Uma linha por tecla, e a explicação em uma frase: aqui ela é legenda, não
+  /// manual. O detalhe de cada comportamento está no painel, no momento em que
+  /// ele acontece.
+  static const _panelKeys = <(String, String, List<String>)>[
+    ('Nova anotação', 'Na primeira vaga livre.', ['⌘', '+']),
+    ('Quebrar linha', 'O Enter sozinho guarda.', ['⇧', '⏎']),
+    ('Copiar', 'O número do cartão é a tecla.', ['⌘', '1–9']),
+    ('Apagar a selecionada', 'As seguintes sobem uma vaga.', ['⌘', '⌫']),
+  ];
 
   Future<void> _clear(BuildContext context) async {
     final confirmed = await EgConfirmDialog.show(
