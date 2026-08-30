@@ -87,19 +87,34 @@ class EgScreenHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: eg.text.display,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          // Altura fixa, e é o que faz toda tela do Hub começar na mesma
+          // linha: a pílula do Track é mais baixa que o interruptor dos outros
+          // seis, e sem um piso comum o conteúdo do Track subiria um pixel em
+          // relação ao de todos os vizinhos.
+          SizedBox(
+            height: _controlsHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: eg.text.display,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              ..._trailingControls(context),
-            ],
+                // Encolhe antes de estourar: numa janela estreita a pílula do
+                // Track e o título disputam a mesma linha, e quem cede é o
+                // acessório, não o nome da tela.
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _trailingControls(context),
+                  ),
+                ),
+              ],
+            ),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -134,11 +149,16 @@ class EgScreenHeader extends StatelessWidget {
     );
   }
 
+  /// A ordem de quem cede: primeiro o rótulo do interruptor, depois a pílula.
+  /// A tecla nunca encolhe — ela já é o menor elemento da linha, e truncada
+  /// deixaria de ser uma tecla.
   List<Widget> _trailingControls(BuildContext context) {
     return [
-      ?badge,
+      if (badge != null) Flexible(child: badge!),
       if (isEnabled != null)
-        EgMasterSwitch(value: isEnabled!, onChanged: onEnabledChanged),
+        Flexible(
+          child: EgMasterSwitch(value: isEnabled!, onChanged: onEnabledChanged),
+        ),
       if (shortcut != null) ...[
         const SizedBox(width: AppSpacing.sm),
         _ShortcutButton(keys: shortcut!, onTap: onShortcutTap),
@@ -147,6 +167,9 @@ class EgScreenHeader extends StatelessWidget {
   }
 
   static const _tabHeight = 28.0;
+
+  /// A altura do interruptor mestre — o mais alto dos controles do topo.
+  static const _controlsHeight = 32.0;
 }
 
 /// O interruptor mestre de um módulo, como pílula.
@@ -183,10 +206,14 @@ class EgMasterSwitch extends StatelessWidget {
           children: [
             EgToggle(value: value, onChanged: onChanged),
             const SizedBox(width: AppSpacing.sm),
-            Text(
-              value ? 'Ativo' : 'Desligado',
-              style: eg.text.footnote.copyWith(
-                color: value ? eg.colors.accentLight : eg.colors.textSecondary,
+            Flexible(
+              child: Text(
+                value ? 'Ativo' : 'Desligado',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: eg.text.footnote.copyWith(
+                  color: value ? eg.colors.accentLight : eg.colors.textSecondary,
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.xxs),

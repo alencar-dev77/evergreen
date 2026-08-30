@@ -84,9 +84,13 @@ class EgPill extends StatelessWidget {
             EgStatusDot(color: color),
             const SizedBox(width: AppSpacing.xs),
           ],
-          Text(
-            label,
-            style: eg.text.footnote.copyWith(color: tone.labelOf(eg)),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: eg.text.footnote.copyWith(color: tone.labelOf(eg)),
+            ),
           ),
         ],
       ),

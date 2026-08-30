@@ -20,9 +20,9 @@ um commit próprio.
 | 0 | Branch + documentos + progresso | feito |
 | 1 | Tokens: paleta, tipo, formas, elevação, degradês, motion, squircle | feito |
 | 2 | Matriz de estados (`EgSurfaceStyle`) + famílias novas | feito |
-| 3 | Componentes compartilhados (novos + reescritos) | a fazer |
+| 3 | Componentes compartilhados (novos + reescritos) | feito — falta `EgEmptyState` e `EgKeyHintBar`, que vão com os painéis |
 | 4 | Painéis flutuantes: vidro, hairline, barra de teclas | a fazer |
-| 5 | Hub: sidebar + cabeçalho de tela + grade de duas colunas | a fazer |
+| 5 | Hub: sidebar + cabeçalho de tela + grade de duas colunas | feito |
 | 6 | Telas: Pin (abas), Leaf, Awake | a fazer |
 | 7 | Telas: Focus, Echo, Nest | a fazer |
 | 8 | Telas: Track, Aplicativo | a fazer |

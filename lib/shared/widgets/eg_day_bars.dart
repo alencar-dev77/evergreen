@@ -54,17 +54,21 @@ class EgDayBars extends StatelessWidget {
   Widget build(BuildContext context) {
     final longest = values.fold(Duration.zero, _longer);
 
+    // A faixa ocupa a largura que recebe, e cada dia divide o que sobra. Com
+    // largura fixa por dia ela estourava dentro de um cartão de coluna — e uma
+    // semana que não cabe na tela não é uma semana, é uma faixa cortada.
     return Row(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         for (var day = 0; day < labels.length; day++) ...[
           if (day > 0) const SizedBox(width: barGap),
-          _Bar(
-            label: labels[day],
-            total: values[day],
-            longest: longest,
-            isHighlighted: day == highlight,
+          Expanded(
+            child: _Bar(
+              label: labels[day],
+              total: values[day],
+              longest: longest,
+              isHighlighted: day == highlight,
+            ),
           ),
         ],
       ],
@@ -107,12 +111,21 @@ class _Bar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          style: context.eg.text.footnote.copyWith(
-            color: isHighlighted
-                ? context.eg.colors.textSecondary
-                : context.eg.colors.textTertiary,
+        // Largura inteira do dia, e não a do texto: numa coluna estreita a
+        // sigla é mais larga que a barra, e um rótulo que se mede sozinho
+        // empurra a semana para fora do cartão.
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.eg.text.footnote.copyWith(
+              color: isHighlighted
+                  ? context.eg.colors.textSecondary
+                  : context.eg.colors.textTertiary,
+            ),
           ),
         ),
       ],

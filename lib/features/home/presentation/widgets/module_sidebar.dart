@@ -3,17 +3,47 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/app_info.dart';
 import '../../../../core/design/app_metrics.dart';
+import '../../../../core/design/eg_tokens.dart';
+import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../../shared/widgets/eg_brand_mark.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_nav_tile.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/evergreen_module.dart';
+import '../../models/module_settings.dart';
 import '../viewmodels/module_settings_view_model.dart';
-import '../../../../core/design/eg_tokens.dart';
 
-/// Barra lateral do Hub: o aplicativo no topo e os módulos abaixo.
+/// Um grupo da barra lateral.
 ///
-/// Módulo desligado **continua na lista**, apagado e com "desligado" no lugar
-/// da tagline. É por aqui que se religa: sumir da lista deixaria o interruptor
-/// dentro da tela que sumiu, e a única saída seria mexer no plist.
+/// Sete linhas iguais não são uma lista, são um monte. Os grupos dizem por que
+/// os módulos convivem: três guardam o que passa pela sua mão, três medem o
+/// tempo, um escuta. Quem procura "onde ficam as anotações" varre três nomes,
+/// não sete.
+enum _SidebarGroup {
+  capture('Captura', [
+    EvergreenModule.pin,
+    EvergreenModule.leaf,
+    EvergreenModule.nest,
+  ]),
+  time('Tempo', [
+    EvergreenModule.focus,
+    EvergreenModule.awake,
+    EvergreenModule.track,
+  ]),
+  voice('Voz', [EvergreenModule.echo]);
+
+  const _SidebarGroup(this.label, this.modules);
+
+  final String label;
+  final List<EvergreenModule> modules;
+}
+
+/// Barra lateral do Hub: a marca no topo, os módulos agrupados, o aplicativo
+/// no pé.
+///
+/// Módulo desligado **continua na lista**, apagado e com a bolinha apagada. É
+/// por aqui que se religa: sumir da lista deixaria o interruptor dentro da tela
+/// que sumiu, e a única saída seria mexer no plist.
 class ModuleSidebar extends ConsumerWidget {
   const ModuleSidebar({
     super.key,
@@ -27,107 +57,156 @@ class ModuleSidebar extends ConsumerWidget {
   /// Recebe `null` quando a escolha é a tela do aplicativo.
   final ValueChanged<EvergreenModule?> onSelect;
 
-  static const width = 260.0;
+  /// 232, e não os 260 de antes: sem a tagline, a linha não precisa daquela
+  /// largura, e os 28 pt vão para a área de conteúdo — onde a grade de duas
+  /// colunas os usa.
+  static const width = 232.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final eg = context.eg;
     final settings = ref.watch(moduleSettingsViewModelProvider);
 
     return DecoratedBox(
-      // Superfície levemente translúcida (`context.eg.colors.sidebarTint`): o brilho verde
-      // do fundo atravessa de leve no topo, unificando a sidebar com a área de
-      // conteúdo sem custo de blur.
+      // Chapada, e não vidro: a barra lateral fica na tela o tempo todo, e um
+      // `BackdropFilter` permanente recompõe tudo atrás dela a cada quadro. O
+      // véu de branco a 2,6% paga o mesmo papel a custo zero.
       decoration: BoxDecoration(
-        color: context.eg.colors.sidebarTint,
-        border: Border(right: context.eg.hairline),
+        color: eg.colors.sidebarTint,
+        border: Border(right: eg.hairline),
       ),
       child: SizedBox(
         width: width,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Os módulos abrem a lista, colados no topo: são eles que a pessoa
-            // vem procurar, e qualquer coisa acima empurra o último módulo para
-            // o meio da janela. Sem label de grupo por cima deles pelo mesmo
-            // motivo — um cabeçalho para o único grupo da lista só ocupa a linha
-            // que o terceiro módulo queria.
+            _brand(context),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.lg,
-                  AppSpacing.lg,
-                  AppSpacing.xxs,
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.sm,
                 ),
                 children: [
-                  for (final module in EvergreenModule.values)
-                    // Esmaecido em dois casos, e o subtítulo diz qual: o módulo
-                    // ainda não lançado (com a versão prevista) e o que a
-                    // pessoa desligou.
-                    EgNavTile(
-                      icon: module.icon,
-                      title: module.name,
-                      subtitle: _subtitleFor(module, settings.isEnabled(module)),
-                      isSelected: module == selected,
-                      isMuted:
-                          !module.isAvailable || !settings.isEnabled(module),
-                      margin: const EdgeInsets.only(bottom: AppSpacing.xxs),
-                      onTap: () => onSelect(module),
+                  for (final group in _SidebarGroup.values) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xl,
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                      ),
+                      child: EgSectionLabel(group.label),
                     ),
+                    for (final module in group.modules)
+                      _tile(context, ref, module, settings),
+                  ],
                 ],
               ),
             ),
-            // A marca é a própria entrada do aplicativo: ela já leva o nome e o
-            // ícone do Evergreen, e um segundo item escrito "Evergreen" seria o
-            // mesmo rótulo duas vezes na mesma lista. No rodapé, e não no topo,
-            // porque preferência do aplicativo é onde se vai de vez em quando —
-            // o macOS põe esse tipo de entrada embaixo (Ajustes do Sistema,
-            // Mail, Notas) justamente por isso.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.xxl,
-                AppSpacing.lg,
-                AppSpacing.xs,
-              ),
-              child: EgNavTile(
-                icon: EgIconData.evergreen,
-                title: 'Evergreen',
-                subtitle: 'Preferências do aplicativo',
-                titleStyle: context.eg.text.bodyStrong,
-                // A marca não muda de cor com a lista: o verde dela é
-                // identidade, não estado.
-                iconColor: context.eg.colors.accent,
-                iconBackground: context.eg.colors.surface,
-                iconSize: AppIconSizes.lg,
-                borderedIcon: true,
-                isSelected: selected == null,
-                onTap: () => onSelect(null),
-              ),
-            ),
-            _version(context),
+            _footer(context, settings),
           ],
         ),
       ),
     );
   }
 
-  static String _subtitleFor(EvergreenModule module, bool isEnabled) {
-    if (!module.isAvailable) return 'Previsto para ${module.plannedFor}';
-    if (!isEnabled) return 'Desligado';
+  /// A linha da marca. Não é um item: não se clica nela, não se seleciona.
+  ///
+  /// Ela é a etiqueta da janela — e é sob ela que moram os controles do macOS,
+  /// que é o motivo de o topo ficar livre de qualquer coisa clicável.
+  Widget _brand(BuildContext context) {
+    final eg = context.eg;
 
-    return module.tagline;
-  }
-
-  Widget _version(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xxl,
-        AppSpacing.xs,
-        AppSpacing.xxl,
+        AppSpacing.giant,
+        AppSpacing.xl,
+        AppSpacing.xxs,
+      ),
+      child: Row(
+        children: [
+          const EgBrandMark(size: AppIconSizes.xl),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(child: Text('Evergreen', style: eg.text.bodyStrong)),
+          Text(
+            AppInfo.versionLabel,
+            style: eg.text.monoSmall.copyWith(color: eg.colors.textQuaternary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(
+    BuildContext context,
+    WidgetRef ref,
+    EvergreenModule module,
+    ModuleSettings settings,
+  ) {
+    final eg = context.eg;
+    final isEnabled = settings.isEnabled(module);
+    final slot = module.shortcutSlot;
+
+    return EgNavTile(
+      icon: module.icon,
+      title: module.name,
+      shortcut: slot == null
+          ? null
+          : settings.bindingFor(slot).compact,
+      // O módulo sem atalho não tem uma tecla para mostrar, e deixar a coluna
+      // vazia faria parecer que ela sumiu. Ele diz o que é.
+      statusColor: slot == null
+          ? null
+          : (isEnabled ? eg.colors.accent : eg.colors.textQuaternary),
+      isSelected: module == selected,
+      isMuted: !module.isAvailable || !isEnabled,
+      margin: const EdgeInsets.only(bottom: AppSpacing.xxxs),
+      onTap: () => onSelect(module),
+    );
+  }
+
+  /// O pé: a tela do aplicativo e a promessa da casa.
+  ///
+  /// Embaixo, e não no topo, porque preferência do aplicativo é onde se vai de
+  /// vez em quando — o macOS põe esse tipo de entrada no pé (Ajustes do
+  /// Sistema, Mail, Notas) justamente por isso.
+  Widget _footer(BuildContext context, ModuleSettings settings) {
+    final eg = context.eg;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
         AppSpacing.xl,
       ),
-      child: Text(AppInfo.versionLabel, style: context.eg.text.caption),
+      decoration: BoxDecoration(border: Border(top: eg.hairline)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          EgNavTile(
+            icon: EgIconData.evergreen,
+            title: 'Aplicativo',
+            shortcut: settings.bindingFor(GlobalShortcutSlot.hub).compact,
+            isSelected: selected == null,
+            onTap: () => onSelect(null),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Text(
+              'tudo local · nada sai daqui',
+              style: eg.text.monoSmall.copyWith(
+                color: eg.colors.textQuaternary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

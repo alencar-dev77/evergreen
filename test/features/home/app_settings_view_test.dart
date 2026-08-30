@@ -84,7 +84,7 @@ void main() {
     expect(find.byType(PinSettingsView), findsOneWidget);
     expect(find.text('Iniciar com o macOS'), findsNothing);
 
-    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.tap(find.text('Aplicativo'));
     await tester.pumpAndSettle();
 
     expect(find.byType(AppSettingsView), findsOneWidget);
@@ -98,7 +98,7 @@ void main() {
   testWidgets('voltar para um módulo troca o painel', (tester) async {
     await pumpHub(tester);
 
-    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.tap(find.text('Aplicativo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(EvergreenModule.pin.name));
     await tester.pumpAndSettle();
@@ -112,7 +112,7 @@ void main() {
   group('o nome', () {
     Future<void> openSettings(WidgetTester tester) async {
       await pumpHub(tester);
-      await tester.tap(find.text('Preferências do aplicativo'));
+      await tester.tap(find.text('Aplicativo'));
       await tester.pumpAndSettle();
     }
 
@@ -180,7 +180,7 @@ void main() {
   group('backup', () {
     Future<void> openSettings(WidgetTester tester) async {
       await pumpHub(tester);
-      await tester.tap(find.text('Preferências do aplicativo'));
+      await tester.tap(find.text('Aplicativo'));
       await tester.pumpAndSettle();
     }
 

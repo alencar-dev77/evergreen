@@ -30,6 +30,9 @@ import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import '../widgets/module_switch.dart';
+import '../../../../core/app_info.dart';
+import '../../../../shared/widgets/eg_pill.dart';
+import '../../../../shared/widgets/eg_screen_header.dart';
 import 'app_settings_view.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -248,40 +251,72 @@ class _HubViewState extends ConsumerState<HubView> {
     _ => const SizedBox.shrink(),
   };
 
+  /// O cabeçalho fica **fora** do scroll, e o conteúdo rola por baixo dele.
+  ///
+  /// É o que faz o nome do módulo e o interruptor mestre continuarem à vista
+  /// numa tela longa: sem isso, rolar até o fim das preferências do Echo tira
+  /// da tela a única coisa que diz de qual módulo elas são.
   Widget _detail() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.huge,
-        AppSpacing.huge,
-        AppSpacing.huge,
-        AppSpacing.giant,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _header(),
-          const SizedBox(height: AppSpacing.xxxl),
-          _content(),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _header(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.huge - AppSpacing.xxs,
+              AppSpacing.xxl,
+              AppSpacing.huge - AppSpacing.xxs,
+              AppSpacing.giant,
+            ),
+            child: _content(),
+          ),
+        ),
+      ],
     );
   }
 
-  /// Cabeçalho de painel, não hero: título no maior estilo do app (17px) com a
-  /// tagline logo abaixo, colada nele — os dois são um bloco só.
+  /// O cabeçalho da tela: o nome do módulo no maior tipo do app, o interruptor
+  /// mestre como pílula e a tecla que abre o painel.
+  ///
+  /// O interruptor **saiu da lista de seções**. Ele é igual nos sete módulos e
+  /// não é um ajuste como os outros — é a chave que decide se os outros valem
+  /// alguma coisa; como primeira seção, ele empurrava o assunto de cada tela
+  /// para baixo da dobra.
   Widget _header() {
     final module = _selected;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(module?.name ?? 'Evergreen', style: context.eg.text.display),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          module?.tagline ?? 'Preferências do aplicativo',
-          style: context.eg.text.caption,
+    if (module == null) {
+      return EgScreenHeader(
+        title: 'Aplicativo',
+        subtitle: Text(
+          'Evergreen ${AppInfo.versionLabel} · '
+          '${EvergreenModule.values.length} módulos',
         ),
-      ],
+      );
+    }
+
+    final settings = ref.watch(moduleSettingsViewModelProvider);
+    final slot = module.shortcutSlot;
+    final hasSwitch = module != EvergreenModule.track;
+
+    return EgScreenHeader(
+      title: module.name,
+      subtitle: Text(module.description),
+      isEnabled: hasSwitch ? settings.isEnabled(module) : null,
+      onEnabledChanged: (value) => ref
+          .read(moduleSettingsViewModelProvider.notifier)
+          .setEnabled(module, enabled: value),
+      // O Track não liga nem desliga: ele se apaga quando os módulos que o
+      // alimentam se apagam. No lugar do interruptor, o que ele tem a dizer.
+      badge: hasSwitch
+          ? null
+          : const EgPill(
+              label: 'nada é gravado aqui',
+              tone: EgPillTone.tide,
+              showDot: false,
+            ),
+      shortcut: slot == null ? null : settings.bindingFor(slot).caps,
     );
   }
 
@@ -294,19 +329,11 @@ class _HubViewState extends ConsumerState<HubView> {
         .watch(moduleSettingsViewModelProvider)
         .isEnabled(module);
 
-    // O interruptor mestre é montado aqui, e não dentro de cada tela: ele é
-    // igual nos sete módulos, e o dia em que entrar um oitavo ele já vem com
-    // interruptor sem ninguém lembrar. O vão é o mesmo que a `EgSettingsPage`
-    // dá entre tópicos — a tela abaixo começa como se ele fosse o primeiro
-    // tópico dela, porque é o que ele é.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ModuleSwitchSection(module: module),
-        const SizedBox(height: AppSpacing.giant),
-        ModuleGate(enabled: isEnabled, child: _settingsFor(module)),
-      ],
-    );
+
+    // O interruptor mestre não está mais aqui: ele vive no cabeçalho, fora do
+    // scroll. O que fica é o portão, que apaga a tela do módulo desligado sem
+    // que ela precise saber disso.
+    return ModuleGate(enabled: isEnabled, child: _settingsFor(module));
   }
 
   Widget _settingsFor(EvergreenModule module) => switch (module) {

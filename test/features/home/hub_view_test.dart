@@ -7,6 +7,7 @@ import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/viewmodels/hub_detail_view_model.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/module_switch.dart';
+import 'package:evergreen/shared/widgets/eg_screen_header.dart';
 import 'package:evergreen/shared/widgets/eg_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -204,7 +205,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.tap(find.text('Aplicativo'));
     await tester.pumpAndSettle();
   });
 
@@ -254,7 +255,7 @@ void main() {
     Future<void> flip(WidgetTester tester) async {
       await tester.tap(
         find.descendant(
-          of: find.byType(ModuleSwitchSection),
+          of: find.byType(EgMasterSwitch),
           matching: find.byType(EgToggle),
         ),
       );
@@ -269,8 +270,17 @@ void main() {
       for (final module in EvergreenModule.values.where((m) => m.isAvailable)) {
         await open(tester, module);
 
+        // O Track é o único sem interruptor: ele não liga nem desliga, se
+        // apaga quando os módulos que o alimentam se apagam. No lugar da
+        // chave, ele diz o que é.
+        if (module == EvergreenModule.track) {
+          expect(find.byType(EgMasterSwitch), findsNothing);
+          expect(find.text('nada é gravado aqui'), findsOneWidget);
+          continue;
+        }
+
         expect(
-          find.text('Usar o ${module.name}'),
+          find.byType(EgMasterSwitch),
           findsOneWidget,
           reason: 'o ${module.name} abriu sem interruptor',
         );

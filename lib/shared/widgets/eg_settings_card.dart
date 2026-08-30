@@ -5,7 +5,20 @@ import '../../core/design/eg_tokens.dart';
 import '../../core/design/tokens/eg_squircle.dart';
 import 'eg_section_label.dart';
 
-/// A pilha de cartões de uma tela de preferências.
+/// A grade de cartões de uma tela de preferências.
+///
+/// **Duas colunas quando a janela deixa**, e é o que tira a tela da rolagem
+/// obrigatória: em uma coluna, cinco assuntos empilhados põem o quinto abaixo
+/// da dobra em qualquer janela de trabalho, e a pessoa passa a rolar para
+/// procurar em vez de olhar.
+///
+/// A distribuição alterna — par à esquerda, ímpar à direita —, o que mantém a
+/// ordem de leitura da esquerda para a direita e é previsível para quem
+/// escreve a tela. Uma distribuição que equilibrasse alturas faria a mesma
+/// tela trocar de arranjo quando um cartão ganhasse uma linha.
+///
+/// **Cartão é atômico**: nenhum se parte entre colunas. Meia lista de destinos
+/// no pé de uma coluna e a outra metade no topo da vizinha não é uma lista.
 ///
 /// O vão **entre** cartões é do conjunto, não de cada cartão: um cartão que
 /// guardasse respiro embaixo de si empurraria um vão que ninguém pediu contra
@@ -15,18 +28,46 @@ class EgSettingsPage extends StatelessWidget {
 
   final List<Widget> children;
 
+  /// Largura de conteúdo a partir da qual cabem duas colunas.
+  ///
+  /// É a área de conteúdo da janela mínima (720) menos a barra lateral (232),
+  /// com folga: abaixo disso cada coluna ficaria mais estreita que o cartão
+  /// mais apertado e o rótulo brigaria com o controle dentro dele.
+  static const _twoColumnsAbove = 600.0;
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) const SizedBox(height: AppSpacing.xxl),
-          children[i],
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < _twoColumnsAbove
+          ? _column(children)
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _column(_evens)),
+                const SizedBox(width: AppSpacing.xl + AppSpacing.xxs),
+                Expanded(child: _column(_odds)),
+              ],
+            ),
     );
   }
+
+  List<Widget> get _evens => [
+    for (var i = 0; i < children.length; i += 2) children[i],
+  ];
+
+  List<Widget> get _odds => [
+    for (var i = 1; i < children.length; i += 2) children[i],
+  ];
+
+  static Widget _column(List<Widget> cards) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var i = 0; i < cards.length; i++) ...[
+        if (i > 0) const SizedBox(height: AppSpacing.xxl),
+        cards[i],
+      ],
+    ],
+  );
 }
 
 /// Um assunto de uma tela de preferências: o rótulo fora, as linhas dentro.

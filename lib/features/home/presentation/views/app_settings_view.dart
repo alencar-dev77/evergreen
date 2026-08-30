@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
-import '../../../../core/app_info.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/storage/backup_service.dart';
 import '../../../../core/system/global_shortcut_slot.dart';
@@ -278,10 +277,14 @@ class _AboutLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xxs),
+      // A versão saiu daqui: ela subiu para o cabeçalho da tela, e dizer o
+      // mesmo número duas vezes na mesma janela não confirma nada — só ocupa
+      // a linha em que caberia a promessa da casa.
       child: Text(
-        'Evergreen ${AppInfo.versionLabel}\n'
-        'Todos os dados ficam nesta máquina. Nada é enviado para a internet.',
-        style: context.eg.text.caption,
+        'nada sai deste Mac · sem conta · sem sync',
+        style: context.eg.text.monoSmall.copyWith(
+          color: context.eg.colors.textQuaternary,
+        ),
       ),
     );
   }

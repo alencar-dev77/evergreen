@@ -505,7 +505,7 @@ void main() {
       now: backupToday,
     );
 
-    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.tap(find.text('Aplicativo'));
     await tester.pumpAndSettle();
 
     await expectLater(

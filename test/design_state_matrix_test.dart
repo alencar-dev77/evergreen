@@ -2,6 +2,7 @@
 library;
 
 import 'package:evergreen/core/design/eg_tokens.dart';
+import 'package:evergreen/core/design/themes/evergreen_tokens.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/shared/widgets/eg_button.dart';
@@ -284,7 +285,8 @@ class _Components extends StatelessWidget {
                 EgNavTile(
                   icon: EgIconData.evergreen,
                   title: 'Pin',
-                  subtitle: 'Histórico da área de transferência',
+                  shortcut: '⌘⇧C',
+                  statusColor: EvergreenTokens.palette.accent,
                   isSelected: true,
                   onTap: () {},
                 ),
@@ -292,7 +294,8 @@ class _Components extends StatelessWidget {
                 EgNavTile(
                   icon: EgIconData.timer,
                   title: 'Focus',
-                  subtitle: 'Cronômetro de foco',
+                  shortcut: '⌘⇧F',
+                  statusColor: EvergreenTokens.palette.textQuaternary,
                   isSelected: false,
                   onTap: () {},
                 ),
