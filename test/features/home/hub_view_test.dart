@@ -1,6 +1,7 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
+import 'package:evergreen/features/leaf/data/leaf_repository.dart';
 import 'package:evergreen/features/track/data/track_repository.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
@@ -73,6 +74,8 @@ void main() {
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
           // O Track lê o mesmo banco — ele não tem tabela própria.
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
+          // A tela do Leaf lê a parede para dizer quantas vagas estão em uso.
+          leafRepositoryProvider.overrideWithValue(SqliteLeafRepository(db)),
           // A tela do aplicativo lê a pasta de backups ao
           // montar.
           backupServiceProvider.overrideWithValue(

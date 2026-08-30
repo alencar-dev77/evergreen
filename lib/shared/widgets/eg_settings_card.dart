@@ -24,7 +24,15 @@ import 'eg_section_label.dart';
 /// guardasse respiro embaixo de si empurraria um vão que ninguém pediu contra
 /// o rodapé do scroll, e mudar a separação exigiria mexer em todas as telas.
 class EgSettingsPage extends StatelessWidget {
-  const EgSettingsPage({super.key, required this.children});
+  const EgSettingsPage({super.key, required this.children, this.banner});
+
+  /// O que atravessa as duas colunas, acima da grade.
+  ///
+  /// É a faixa de estado: ela responde por *a tela inteira*, e não por um dos
+  /// assuntos dela. Dentro da grade, ela vira um cartão como os outros e passa
+  /// a dizer respeito só à coluna em que caiu — além de truncar, porque o que
+  /// ela tem a contar não cabe em meia largura.
+  final Widget? banner;
 
   final List<Widget> children;
 
@@ -37,17 +45,27 @@ class EgSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => constraints.maxWidth < _twoColumnsAbove
-          ? _column(children)
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _column(_evens)),
-                const SizedBox(width: AppSpacing.xl + AppSpacing.xxs),
-                Expanded(child: _column(_odds)),
-              ],
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (banner != null) ...[
+          banner!,
+          const SizedBox(height: AppSpacing.xxl),
+        ],
+        LayoutBuilder(
+          builder: (context, constraints) =>
+              constraints.maxWidth < _twoColumnsAbove
+              ? _column(children)
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _column(_evens)),
+                    const SizedBox(width: AppSpacing.xl + AppSpacing.xxs),
+                    Expanded(child: _column(_odds)),
+                  ],
+                ),
+        ),
+      ],
     );
   }
 

@@ -21,9 +21,9 @@ um commit próprio.
 | 1 | Tokens: paleta, tipo, formas, elevação, degradês, motion, squircle | feito |
 | 2 | Matriz de estados (`EgSurfaceStyle`) + famílias novas | feito |
 | 3 | Componentes compartilhados (novos + reescritos) | feito — falta `EgEmptyState` e `EgKeyHintBar`, que vão com os painéis |
-| 4 | Painéis flutuantes: vidro, hairline, barra de teclas | a fazer |
+| 4 | Painéis flutuantes: vidro, hairline, barra de teclas | feito |
 | 5 | Hub: sidebar + cabeçalho de tela + grade de duas colunas | feito |
-| 6 | Telas: Pin (abas), Leaf, Awake | a fazer |
+| 6 | Telas: Pin (abas), Leaf, Awake | Leaf feito; falta Pin e Awake |
 | 7 | Telas: Focus, Echo, Nest | a fazer |
 | 8 | Telas: Track, Aplicativo | a fazer |
 | 9 | Goldens novos + skill de design atualizada | a fazer |
@@ -53,6 +53,27 @@ um commit próprio.
 
 **Estado da suíte ao fim da fase 2:** `flutter analyze` sem issues, 633 testes
 passando, 10 pulados. Os goldens ainda são os antigos — a fase 9 os regera.
+
+## O que falta, e o que é feature nova (não redesenho)
+
+A especificação descreve alguns ajustes que **ainda não existem no código**.
+Redesenhar não é inventá-los, então eles ficam anotados aqui em vez de nascerem
+calados:
+
+- **Leaf** — "Copiar e fechar" e "Tamanho do texto do cartão" (§4.5) são
+  preferências novas: pedem modelo, repositório e ViewModel.
+- **Awake** — "Gatilhos" (§4.6: ligar ao espelhar a tela, ligar durante gravação
+  do Echo) é comportamento novo, com detecção de espelhamento no lado nativo.
+- **Pin** — a aba `Tipos` (§4.2) supõe ligar e desligar tipos na captura; hoje o
+  classificador grava todos.
+- **Nest** — cor por destino e reordenação por arraste (§4.7) são dados novos na
+  tabela de destinos.
+
+**A faixa de estado de Focus, Awake, Echo e Nest depende de uma ponte entre
+engines.** O que está rodando vive no engine da janela 0, e o Hub é outro
+engine: hoje ele não tem como saber que há uma sessão em curso. O Leaf funciona
+porque a parede está no disco e o Hub relê (como o Track já fazia). Os outros
+quatro precisam de um canal, no mesmo arranjo do `EchoSummaryStatus`.
 
 ## Decisões tomadas na execução
 
