@@ -36,6 +36,7 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘⇧F` | global | abre o painel do Focus |
 | `⌘⇧D` | global | abre o painel do Leaf |
 | `⌘⇧X` | global | abre o painel do Awake (sem mnemônico: `⌘⇧A` é "Aplicativos" no Finder e `⌘⇧D` foi para o Leaf — não colidir vale mais que lembrar o nome) |
+| `⌘⇧R` | global | abre o painel do Nest — a prateleira também vem ao cursor ao chacoalhar o arquivo no meio do arraste (era `⌘⇧S`, que sequestrava o "Salvar como" de todo app) |
 | `⌘+` | Leaf | abre um cartão em branco na primeira vaga livre |
 | `Enter` | Leaf | edita o cartão selecionado — ou anota, quando a vaga selecionada é a livre |
 | `←` `→` `↑` `↓` | Leaf | move a seleção pela grade, parando nas bordas |
@@ -50,7 +51,7 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Esc` | Awake | fecha o painel; a trava continua como está |
 | `⌘⇧,` | global | abre as preferências (Hub) — o único atalho que continua valendo com tudo desligado |
 | `Esc` | Hub | sai do campo de texto que estiver em edição; sem campo, fecha a região de leitura; sem região, esconde a janela |
-| `⌘⇧E` | global | abre o painel do Echo (`E` de Echo: `⌘⇧T` e `⌘⇧R` roubariam "reabrir aba" e "recarregar" de todo navegador, e reunião acontece dentro do navegador) |
+| `⌘⇧E` | global | abre o painel do Echo (`E` de Echo: `⌘⇧T` roubaria "reabrir aba" de todo navegador, e reunião acontece dentro do navegador) |
 | `Enter` | Echo | a ação daquele estado: gravar, parar e transcrever, abrir no Hub |
 | `⌘.` | Echo | descarta a gravação em curso e joga o áudio fora |
 | `Esc` | Echo | fecha o painel; a gravação **continua** |
@@ -79,7 +80,7 @@ Quatro convenções que valem para qualquer painel novo:
 - **Atalho global nunca toma uma tecla que os outros apps usam.** `⌘,` é a
   convenção de preferências do sistema e por isso *não* pode ser global — ele
   viraria as preferências do Evergreen em cima das de todo mundo. O prefixo
-  `⌘⇧` é o espaço da casa: `⌘⇧C`, `⌘⇧F`, `⌘⇧D`, `⌘⇧X`, `⌘⇧,`.
+  `⌘⇧` é o espaço da casa: `⌘⇧C`, `⌘⇧F`, `⌘⇧D`, `⌘⇧X`, `⌘⇧E`, `⌘⇧R`, `⌘⇧,`.
 - **`Enter` é sempre o botão primário da tela**, e o rodapé anuncia isso com o
   verbo daquele estado ("iniciar", "pausa"). Se uma tela não tem proposta, ela
   não tem primário nem dica de Enter.

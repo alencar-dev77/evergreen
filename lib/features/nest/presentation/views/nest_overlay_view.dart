@@ -24,7 +24,7 @@ import '../viewmodels/nest_view_model.dart';
 import '../widgets/nest_item_card.dart';
 import 'nest_overlay_intents.dart';
 
-/// Painel flutuante do Nest — a prateleira que o `⌘⇧S` abre.
+/// Painel flutuante do Nest — a prateleira que o `⌘⇧R` abre.
 ///
 /// Divide a janela com os outros cinco painéis (ver `OverlayWindow`). Duas
 /// coisas o separam deles:
