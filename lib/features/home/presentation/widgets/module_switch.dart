@@ -70,8 +70,15 @@ class ModuleSwitchSection extends ConsumerWidget {
       EvergreenModule.track => 'Desligado, o Track para de reconstruir o dia',
     };
 
-    return '$specific, ele sai do menu da barra de status e o atalho global '
-        'deixa de valer. Nada é apagado: religar devolve tudo como estava.';
+    // O Track não tem painel, então não tem item de menu nem atalho global:
+    // prometer que os dois somem seria descrever um módulo que não é este.
+    final doors = module.shortcutSlot == null
+        ? ''
+        : ', ele sai do menu da barra de status e o atalho global deixa de '
+              'valer';
+
+    return '$specific$doors. Nada é apagado: religar devolve tudo como '
+        'estava.';
   }
 }
 

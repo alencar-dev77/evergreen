@@ -2,6 +2,7 @@ import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/system/global_shortcut_slot.dart';
 import 'package:evergreen/features/home/data/module_settings_repository.dart';
+import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/widgets/global_shortcut_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -208,5 +209,29 @@ void main() {
 
     expect(notifier.suspensions, [true, false]);
     expect(notifier.reapplied, 1);
+  });
+
+  testWidgets('sair da tela no meio da gravação devolve os atalhos', (
+    tester,
+  ) async {
+    await pump(tester);
+    await startRecording(tester);
+    expect(notifier.suspensions, [true]);
+
+    // Trocar de módulo no Hub, ou fechar a janela: a seção sai da árvore com a
+    // gravação em curso. Sem o `dispose` devolvendo, o Evergreen ficaria sem
+    // atalho nenhum até ser reiniciado.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    expect(notifier.suspensions, [true, false]);
+  });
+
+  testWidgets('a tecla do Track não é oferecida: ele não tem painel', (
+    tester,
+  ) async {
+    // Não é um teste desta tela, e sim da regra que a decide: o Track é o único
+    // módulo sem slot, e é por isso que a seção não aparece na tela dele.
+    expect(EvergreenModule.track.shortcutSlot, isNull);
   });
 }

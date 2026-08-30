@@ -256,9 +256,31 @@ class EvergreenBootstrap {
   }
 
   /// Tira e devolve os atalhos do sistema enquanto o Hub grava um novo.
-  Future<void> _setShortcutsSuspended({required bool suspended}) => suspended
-      ? GlobalShortcutService.instance.suspend()
-      : GlobalShortcutService.instance.resume();
+  ///
+  /// Com uma rede embaixo: quem suspendeu foi o Hub, e o Hub é uma sub-janela
+  /// que pode ser fechada no meio da gravação — fechada, o engine dela morre e
+  /// o "devolve" nunca chega. Sem o relógio, o Evergreen ficaria sem atalho
+  /// nenhum até ser reiniciado, e a pessoa não teria como adivinhar por quê.
+  ///
+  /// Um minuto é folgado para o que se está esperando (apertar uma combinação)
+  /// e curto para o estrago.
+  Future<void> _setShortcutsSuspended({required bool suspended}) async {
+    _suspensionGuard?.cancel();
+    _suspensionGuard = null;
+
+    if (!suspended) {
+      await GlobalShortcutService.instance.resume();
+      return;
+    }
+
+    await GlobalShortcutService.instance.suspend();
+    _suspensionGuard = Timer(const Duration(minutes: 1), () {
+      unawaited(GlobalShortcutService.instance.resume());
+    });
+  }
+
+  /// Ver [_setShortcutsSuspended].
+  Timer? _suspensionGuard;
 
   Future<void> _setUpMenuBar() async {
     await MenuBarService.instance.initialize(onAction: _handleMenuAction);
@@ -496,6 +518,7 @@ class EvergreenBootstrap {
 
   Future<void> _quit() async {
     _backupTimer?.cancel();
+    _suspensionGuard?.cancel();
     await _nestDrops?.cancel();
     await _nestShakes?.cancel();
     // A trava seria solta pelo sistema de qualquer forma quando o processo

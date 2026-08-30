@@ -51,6 +51,9 @@ class ChannelModuleSettingsNotifier implements ModuleSettingsNotifier {
       // pior caso é o ajuste valer só no próximo lançamento.
     } on MissingPluginException {
       // Idem, sem lado nativo.
+    } on PlatformException {
+      // Qualquer outra falha do canal cai aqui pelo mesmo motivo. O ajuste já
+      // está no disco quando esta chamada acontece; o que se perde é a pressa.
     }
   }
 }
