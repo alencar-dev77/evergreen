@@ -82,26 +82,45 @@ Regra prática: **quando em dúvida, prefira a densidade mais alta que ainda man
 
 ## Border-radius
 
-Radius no Evergreen é sutil e consistente, nunca "arredondado como app de mobile de IA genérica". Use uma escala pequena:
+**O canto do Evergreen é contínuo, não um arco de círculo.** O macOS arredonda
+com curvatura que entra e sai gradualmente, e é isso que faz um canto do sistema
+parecer macio enquanto um `BorderRadius.circular` do mesmo raio parece uma
+esquina lixada. Era o sintoma número um do desenho anterior — raios de 6 a 12 em
+arco circular contra um sistema que arredonda contínuo e maior.
 
-- **4–6px** — componentes pequenos e densos: botões compactos, badges, inputs pequenos, itens de lista com fundo (linha selecionada).
-- **8px** — componentes de tamanho médio: botões padrão, campos de busca, cards de configuração quando genuinamente necessários.
-- **10–12px** — superfícies flutuantes maiores: popups, dropdowns, modais.
-- **Nunca** use radius muito alto (16px+) em componentes retangulares de conteúdo — isso empurra a estética para "app de mobile consumer" em vez de "ferramenta desktop profissional". A exceção genuína é elementos circulares de propósito (avatar, indicador de ponto/dot), que naturalmente usam radius total (círculo), mas isso não é uma decisão de "radius alto", é geometria de círculo.
-- Mantenha o radius consistente entre elementos aninhados: se um popup tem radius de 10px e contém um botão internamente encostado na borda, o radius do botão deve respeitar a curvatura do container pai (radius menor ou concêntrico), nunca dois raios visualmente conflitantes.
+Quem resolve é o `EgSquircle`:
 
-### Escala implementada (`AppRadii`) — valores oficiais do produto
+- `EgSquircle.shape(r)` devolve um `ContinuousRectangleBorder` acima de **14**,
+  e o arredondado normal abaixo — ali os dois dão a mesma imagem, e o arco é
+  mais barato (um `ShapeDecoration` custa um `Path` por quadro).
+- Superfície interativa desenha com **`ShapeDecoration`**, não `BoxDecoration`.
+  `EgSurface` já faz isso para todo mundo.
+
+### Escala implementada (`EgShapes`) — valores oficiais do produto
 
 | Token | Valor | Aplicação |
 |---|---|---|
-| `panel` | 12 | superfície flutuante: painel do overlay, `EgConfirmDialog`, dropdown da menu bar |
-| `card` | 8 | card interno, superfície de conteúdo dentro de um painel |
-| `button` | 8 | botão, campo de busca, card de preview |
-| `listItem` | 6 | linha de lista, item de sidebar, botão de ícone |
-| `badge` | 6 | badge de ícone, container do segmented control, tooltip |
-| `badgeSmall` | 4 | key-cap, segmento interno do segmented control |
+| `radiusWindow` | 26 | a janela do Hub |
+| `radiusPanel` | 20 | painel flutuante, `EgConfirmDialog`, dropdown |
+| `radiusStage` | 18 | bloco-instrumento: o anel do Focus, a pilha do Nest, a bancada do gerador |
+| `radiusCard` | 14 | cartão de seção |
+| `radiusRow` | 11 | linha de lista, item de barra lateral, faixa de estado |
+| `radiusControl` | 10 | botão, campo |
+| `radiusSegment` | 7 | segmento dentro do trilho, keycap |
+| `radiusChip` | 999 | pílula: interruptor mestre, filtro, aba, tecla do cabeçalho |
 
-12px é o teto do app: nenhuma superfície do Evergreen passa disso. Aninhamento é concêntrico — o segmento interno usa `badgeSmall` (4) exatamente porque o container usa `badge` (6) com 2px de padding.
+A escala subiu inteira — o teto era 12 e passou a 26. **Isso não é "arredondado
+de app mobile"**: é o raio que o macOS usa nas próprias janelas, e o que o
+distingue de estética consumer é a curvatura contínua, não o número.
+
+Aninhamento continua concêntrico: o segmento interno usa `radiusSegment` (7)
+porque o trilho usa `radiusControl` (10) com 2px de padding.
+
+**Forma é família.** Dois controles vizinhos que fazem parte do mesmo par —
+o interruptor mestre e a tecla do módulo, no cabeçalho — usam o **mesmo** raio.
+Cápsula ao lado de retângulo se lê como duas coisas soltas mesmo quando as duas
+estão perfeitamente centradas no mesmo eixo; foi exatamente esse o "desalinho"
+que se percebeu no cabeçalho antes de alguém medir.
 
 ## Alvos de clique e área de interação
 

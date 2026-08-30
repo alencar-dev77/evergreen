@@ -24,7 +24,12 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgIconBadge` | `eg_panel.dart` | quadrado arredondado que abriga um ícone | — |
 | `EgConfirmDialog` | `eg_confirm_dialog.dart` | confirmação de ação irreversível (360px, ações à direita, Esc = cancelar) | — |
 | `EgSettingsPage` | `eg_settings_section.dart` | a pilha de tópicos de uma tela de preferência; dá o vão entre eles | — |
-| `EgSettingsSection` | `eg_settings_section.dart` | agrupa linhas de configuração sob um label em caps | — |
+| `EgSettingsCard` | `eg_settings_card.dart` | o cartão de um assunto: rótulo fora, linhas dentro, divisores por conta dele | `tone: destructive` tinge fundo e borda de vermelho |
+| `EgScreenHeader` | `eg_screen_header.dart` | o topo de uma tela do Hub: título em `display`, pílula do interruptor mestre, tecla e abas | — |
+| `EgStatusStrip` | `eg_status_strip.dart` | a faixa que diz o que está acontecendo, **sem controle nenhum** | clicar abre o painel |
+| `EgStatCard` / `EgStatRow` | `eg_stat_card.dart` | número grande com etiqueta em cima e comparação embaixo | — |
+| `EgPill` / `EgFilterPills` / `EgTogglePill` | `eg_pill.dart`, `eg_toggle_pill.dart` | estado, filtro de lista e interruptor com nome | — |
+| `EgShortcutGrid` | `eg_shortcut_grid.dart` | todas as teclas do app numa grade de duas colunas | — |
 | `EgSettingsRow` | `eg_settings_row.dart` | linha de configuração: rótulo + descrição + controle | `showDivider` on/off · `.toggle` · `.field` |
 | `EgBrandMark` | `eg_brand_mark.dart` | a marca do Evergreen — o canivete, com a lâmina em qualquer ponto entre recolhida e travada | `openness` 0→1 |
 | `EgNavTile` | `eg_nav_tile.dart` | item de navegação: badge de ícone + título + linha de apoio | default · hover · pressed · focus · selected |
@@ -52,7 +57,10 @@ Estas decisões foram tomadas no v0.1 e valem como padrão do produto. Um módul
 
 - **Hub = sidebar de módulos + painel de detalhe.** A sidebar lista todos os módulos (inclusive os não lançados, esmaecidos, com a versão prevista no lugar da tagline); o detalhe abre com um cabeçalho compacto (nome + tagline) e as configurações abaixo. Os módulos ficam **colados no topo** da sidebar, sem cabeçalho de grupo acima deles: são eles que a pessoa vem procurar, e cada linha acima empurra o último módulo para o meio da janela.
 - **Toda tela do Hub começa no topo, cheia ou vazia.** A área de detalhe rola, e um `SingleChildScrollView` encolhe até a altura do conteúdo quando ele cabe na janela — o `Row` do Hub precisa esticar (`CrossAxisAlignment.stretch`), senão a tela de um módulo curto abre com o texto no meio da janela enquanto as compridas abrem no topo. Duas telas do mesmo aplicativo não podem começar em alturas diferentes.
-- **Preferências são `EgSettingsPage` + `EgSettingsSection` + `EgSettingsRow`.** Seção com label em caps, linhas com rótulo à esquerda e controle à direita, divisor sutil entre linhas e nenhum na última. A pilha de tópicos é a `EgSettingsPage`: é ela que dá o vão **entre** tópicos, e o vão é maior que qualquer espaço de dentro de um tópico — é essa diferença, e não uma linha divisória a mais, que diz onde um assunto acaba. (Divisor no limite do tópico ficaria idêntico ao divisor entre linhas, ou seja, não separaria nada.) Módulo novo herda densidade, alinhamento e ritmo de graça.
+- **Preferências são `EgSettingsPage` + `EgSettingsCard` + `EgSettingsRow`.** O rótulo do assunto fica **fora** do cartão (dentro ele seria mais uma linha); as linhas ficam dentro, e **os divisores são do cartão**, não das linhas — uma linha que decide sozinha se tem divisor embaixo obriga cada tela a saber qual é a última. O respiro também é do cartão: tudo o que não é `EgSettingsRow` recebe recuo lateral e vertical dele.
+- **A `EgSettingsPage` é uma grade de duas colunas** acima de 600 pt de conteúdo, alternando par à esquerda e ímpar à direita. Cartão é atômico: nenhum se parte entre colunas. **Um cartão sozinho nunca vai para a grade** — ficaria com metade da largura e a outra metade da tela vazia. O `banner` atravessa as duas colunas: é onde vai a faixa de estado, que responde pela tela inteira.
+- **A linha de configuração tem 38 pt (46 com explicação), e é piso, não trava.** Quem pega a largura primeiro é o **controle**, não o rótulo: com o rótulo em `Expanded` os dois dividiam a linha meio a meio, e um seletor de cinco opções recebia 140 px onde precisava de 280. O rótulo guarda um piso de 116 px.
+- **Abas onde há mais de um assunto** (Pin, Focus, Echo, Nest), montadas pelo `EgScreenHeader`. Módulo de um assunto só não tem aba: uma aba sozinha é a promessa de que existe outra.
 - **A ordem dos tópicos de uma tela de preferência é fixa**, e vale para módulo existente ou novo:
   0. **O módulo, ligado ou desligado** — o interruptor mestre, montado pelo Hub e não pela tela (`ModuleSwitchSection` em `_content`), de modo que um módulo novo já nasce com ele. É o único tópico acima da lista, porque não é uma preferência do módulo: é a pergunta que decide se as preferências do módulo importam. Desligado, tudo abaixo dele fica apagado e sem resposta (`ModuleGate`). Ver `ux.md`.
   1. **O que aconteceu** — a lista do módulo (reuniões do Echo, sessões do Focus). Quem abre o módulo quer primeiro saber o que ele registrou, não mexer em ajuste.
@@ -110,7 +118,11 @@ Precedência, do mais forte para o mais fraco — vale para **todo** componente 
 
 Duas consequências que não se negociam: `hover` e `focus` compartilham a superfície (quem os distingue é o anel, que só o teclado acende), e `selected` **nunca** é a mesma cor que `hover` (seleção é accent em baixa opacidade; hover é neutro).
 
-**A assinatura da seleção é fundo accent a 14% + aresta accent de 3px na lateral esquerda** (`EgSurfaceStyle.selectedEdge`), e vale para as superfícies que ocupam a largura de um bloco: linha de lista do Pin, item de sidebar, histórico do Focus, reunião do Echo, cartão do Leaf. A pílula do segmented control fica de fora — em 60px de largura a aresta viraria metade do componente. A aresta é desenhada como `foregroundDecoration` porque `BoxDecoration` só aceita raio de canto com borda uniforme, e ela precisa acompanhar o arredondamento da peça.
+**A assinatura da seleção é a superfície `raised` mais uma linha de luz de 1px no topo** (`EgSurfaceStyle.innerHairline`), mais o texto em `bodyStrong` — **selecionado é elevação e peso, nunca cor.** Vale para as superfícies que ocupam a largura de um bloco: linha de lista do Pin, item de sidebar, histórico do Focus, reunião do Echo, cartão do Leaf. A pílula do segmented control fica de fora: em 60px de largura a linha viraria a metade de cima do componente, e ali quem marca a escolha é a superfície mais o peso do rótulo.
+
+A linha é desenhada como `foregroundDecoration` porque uma borda com um lado diferente dos outros não aceita raio de canto, e ela precisa acompanhar o arredondamento da peça. `hairlineAlways: true` acende sem depender de seleção — é o caso da faixa de estado, que **nasce** elevada.
+
+Era accent a 14% mais uma aresta verde de 3px à esquerda. Trocar a cor pela luz é o que devolveu significado ao verde: ele voltou a dizer só "ligado" e "ação primária".
 
 Colunas disponíveis: `row` (linha de lista, item de sidebar), `ghost` (botão de ícone — sem superfície em repouso, então é o conteúdo que reage), `card` (superfície própria em repouso), `segment` (pílula do segmented control), `primary`, `secondary` e `destructive` (botões).
 

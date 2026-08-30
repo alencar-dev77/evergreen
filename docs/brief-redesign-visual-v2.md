@@ -1,6 +1,16 @@
 # Prompt de redesign visual — Evergreen (macOS) · v2
 
-> **Como usar:** cole este documento inteiro numa sessão de design. Ele contém
+> **DOCUMENTO HISTÓRICO.** Este é o retrato do Evergreen **antes** do redesign
+> "Estufa" — cinco temas de token que não existem mais, dois temas escuros,
+> `screenTitle`/`captionSmall`, a aresta de seleção de 3 px. Ele não descreve o
+> app de hoje e não deve ser usado como referência: para isso, a skill de design
+> (`.claude/skills/evergreen-design/`) e o `redesign-estufa.md`.
+>
+> Fica no repositório por um motivo só: é o "antes" de cada decisão do
+> `redesign-estufa.md`, e sem ele os porquês daquele documento perdem o
+> contraponto.
+>
+> **Como era usado:** cole este documento inteiro numa sessão de design. Ele contém
 > (1) o produto, (2) a stack e o que ela permite de verdade, (3) o **estado
 > atual exportado** — dimensões reais, tokens, componentes, regras — e (4) o
 > pedido. Tudo nas seções 1–3 é **o que existe hoje**, não é a proposta.

@@ -23,62 +23,19 @@ Sugestão de organização (ajuste os hex reais durante implementação, o que i
 - `text/secondary` — labels, metadados, texto de apoio.
 - `text/tertiary` — placeholders, texto desabilitado, timestamps discretos.
 
-### Decisão do produto: dark-only, e duas peles escuras
+### Decisão do produto: dark-only, e uma pele só
 
 O Evergreen é **dark-only** — light mode segue sendo dívida assumida, não
-esquecida. O que mudou (v0.11+) é que o escuro passou a ter duas linguagens, e a
-pessoa escolhe entre elas em Ajustes → Evergreen → Aparência:
+esquecida.
 
-- **Evergreen** — a paleta da casa. Superfícies opacas, verde `#22C55E`, linha de
-  1px, seleção em accent a 14% **mais** a aresta de 3px à esquerda, densidade
-  confortável (linha de controle de 36px).
-- **Apple** — o escuro do macOS. Vibrancy no painel flutuante, verde do sistema
-  `#30D158` com degradê, hairline de **meio pixel**, seleção sólida em accent
-  como no `NSTableView` (sem aresta — os dois juntos seriam dizer a mesma coisa
-  duas vezes), densidade do System Settings (linha de 26px), e cinzas de texto no
-  `#EBEBF5` com opacidade, que sobre fundo escuro puxa levemente para o azul e é
-  o que faz o texto secundário do macOS não parecer sujo.
+**Houve um segundo tema, o `apple`, e ele saiu (v0.16).** A escolha de aparência
+estava desligada por bandeira desde que nasceu, e com todo campo de token
+`required` o segundo arquivo dobrava o custo de cada papel novo. Manter uma pele
+que não se veste é dívida, não é opção. Se um dia voltar, volta como um segundo
+`EgPalette` completo — não como `if`s espalhados.
 
-**Isso não é um convite para uma terceira paleta**, nem para light mode entrar
-pela porta dos fundos. A regra que sustenta as duas continua sendo a mesma: uma
-cor de destaque por tema, neutros em 90% da superfície, cor só quando significa
-alguma coisa.
-
-O que a existência de dois temas cobra de quem desenha telas: **nenhum valor
-visual escrito à mão**. Cor, tipo, raio, sombra e espessura de linha vêm do tema
-pelo contexto (`context.eg.…`), e um papel novo nasce nos dois ao mesmo tempo —
-o compilador cobra o segundo. Um `if` por tema dentro de um widget é um token
-faltando. Ver `THEMING.md` na raiz do repositório.
-
-### Light mode e dark mode como cidadãos de primeira classe
-
-Quando os dois modos existirem, valem as regras abaixo. O Evergreen roda o dia inteiro na tela de alguém — ele **precisa** funcionar perfeitamente nos dois modos, sem que um pareça "o modo de verdade" e o outro "o modo que faltou polir". Regras práticas:
-
-- Não inverta cores mecanicamente (preto vira branco, branco vira preto). Redesenhe cada papel de superfície com a mesma lógica de profundidade, mas calibrada para a percepção em cada modo — no dark mode, superfícies "elevadas" ficam **mais claras** que a base (o oposto do que a intuição de sombra em light mode sugeriria), porque é assim que o olho humano lê elevação sob luz escura.
-- Cor de destaque (accent) deve ter uma variante calibrada para cada modo — a mesma cor pura costuma parecer "gritante" ou "suja" dependendo do fundo; ajuste luminosidade e saturação por modo, mantendo o matiz (hue) reconhecível como o mesmo.
-- Teste todo estado de erro/aviso/sucesso nos dois modos — é comum vermelho/amarelo funcionarem bem em light mode e ficarem ilegíveis ou berrantes em dark mode.
-
-### Cor de destaque (accent)
-
-Escolha **uma única cor de destaque primária** para todo o app (o "accent color" no sentido do macOS — pense em como o macOS deixa o usuário escolher uma accent color do sistema e tudo se adapta a ela). Use-a para:
-
-- Botão/ação primária.
-- Item ativo/selecionado em listas, sidebar e abas.
-- Foco de campo de texto (borda ou anel de foco).
-- Links e referências clicáveis dentro de texto.
-
-Não crie uma segunda cor de destaque "para variar". Se precisar de mais expressividade, varie a **opacidade e o peso** da mesma cor de destaque antes de introduzir uma cor nova.
-
-### Cores semânticas (estado, não decoração)
-
-Reserve cores específicas — e só as use nesse contexto — para:
-
-- **Sucesso** — verde, discreto, usado em confirmações pontuais e indicadores de status "ok".
-- **Aviso** — âmbar/amarelo escuro, usado para atenção que não é bloqueante.
-- **Erro/destrutivo** — vermelho, usado em validação de formulário, ações destrutivas (deletar, remover) e badges de erro.
-- **Informação neutra** — normalmente reaproveita o accent em opacidade baixa, não precisa de uma cor própria.
-
-Nunca use essas cores fora do seu significado (por exemplo, nunca use verde só porque "combina" em um botão que não representa sucesso/confirmação).
+A pele é a **"Estufa"**: superfícies opacas no Hub, vidro no painel flutuante,
+canto contínuo, e o verde com dois papéis só.
 
 ## Contraste
 
@@ -111,32 +68,65 @@ Os papéis abstratos acima já têm nome e valor no produto. Use o token, nunca 
 
 | Papel | Token | Valor | Onde aparece |
 |---|---|---|---|
-| Fundo de janela | `background` | `#0B0B0B` | janela, overlay, barra de dicas |
-| Superfície de painel | `surface` | `#141414` | `EgPanel`, sidebar (a 72% de alpha) |
-| Campo / card interno | `card` | `#1A1A1A` | inputs, key-caps, badges, botão secundário |
-| Hover neutro | `hover` | `#232323` | mouse sobre linha, botão, item de sidebar |
-| Pressed | `pressed` | `#2E2E2E` | um degrau acima do hover, enquanto o clique está apertado |
-| Borda sutil | `border` | `#262626` | divisores de 1px, contorno de painel |
-| Accent | `greenPrimary` | `#22C55E` | ação primária, ícone de fixado, cursor |
-| Accent hover | `greenLight` | `#4ADE80` | hover do primário, texto de item selecionado |
-| Accent pressed | `greenDeep` | `#16A34A` | pressed do botão primário |
-| **Seleção** | `selection` | accent a 14% | linha de lista selecionada, item de sidebar aberto, opção do segmented control |
-| **Anel de foco** | `focusRing` | accent a 60% | 2px ao redor do componente focado por teclado |
-| Texto primário | `textPrimary` | `#F5F5F5` | conteúdo, títulos |
-| Texto secundário | `textSecondary` | `#9CA3AF` | metadados, labels, ícones em repouso |
-| **Texto terciário** | `textTertiary` | `#6B7280` | placeholder de busca, timestamp de linha, badge de atalho em repouso |
-| Erro / destrutivo | `error` | `#EF4444` | texto do botão "Excluir"/"Limpar" |
-| Aviso | `warning` | `#F59E0B` | reservado |
-| Véu de modal | `scrim` | preto a 60% | fundo do `EgConfirmDialog` |
-| Transparente | `transparent` | — | estado de repouso de superfícies que só aparecem no hover |
+| Fundo de janela | `canvas` → `canvasDeep` | `#14181A` → `#0B0D0E` | o degradê da janela; a luz entra por cima |
+| Cartão de seção | `surface` | `#191E20` | `EgSettingsCard`, superfície que carrega conteúdo |
+| Topo de bloco | `surfaceTop` | `#1D2325` | hover de linha, topo do bloco-instrumento |
+| **Elevado** | `raised` | `#212729` | **linha selecionada**, faixa de estado, hover de pílula |
+| Controle | `control` | `#272E31` | botão secundário, campo, keycap |
+| Hover de controle | `hover` | `#2E3639` | |
+| Pressionado | `pressed` | `#1D2325` | **mais escuro que o repouso** — afunda, não acende |
+| Divisor | `line` | `#363F42` | o que separa duas linhas dentro do mesmo cartão |
+| Aresta | `edge` | branco a 7% | borda de cartão — luz com alfa, não cinza opaco |
+| Luz | `edgeLight` | branco a 14% | hairline interna no topo de painel e de pílula |
+| Véu da barra lateral | `sidebarTint` | branco a 2,6% | chapado, por custo — ver abaixo |
+| Vidro | `glassPanel` | `#161B1D` a 66% | painel flutuante, sob blur 40 + saturação 165% |
+| Linha no vidro | `glassRow` | branco a 10% | seleção **dentro** do painel flutuante |
+| Controle no vidro | `glassControl` | branco a 9% | |
+| **Accent** | `accent` | `#22C55E` | **ligado, ou ação primária. Mais nada.** |
+| Accent claro | `accentLight` | `#6EE7A0` | rótulo e glifo sobre fundo escuro — nunca fundo |
+| Dado: tempo em curso | `ember` | `#E8B24A` | reunião, "processando", a barra do dia |
+| Dado: arquivo/sistema | `tide` | `#5B9CF6` | informação neutra que ainda precisa de cor |
+| Anel de foco | `focusRing` | branco a 34% | **branco, não verde** |
+| Texto | `textPrimary` … `textQuaternary` | `#EDF2F0` … `#4C5457` | quatro degraus |
+| Erro | `error` | `#EF4444` | superfície a 6%, borda a 22% no cartão destrutivo |
+
+### As três regras que sustentam a paleta
+
+**1. O verde tem dois papéis, e só dois: ligado e ação primária.** Seleção,
+foco, rótulo selecionado e aresta deixaram de ser verdes de propósito. Quando
+tudo se destaca, nada se destaca — e o accent gasto em seis lugares não dizia
+mais "isto está ligado" em lugar nenhum.
+
+**2. Selecionado é elevação e peso, nunca cor.** Era accent a 14% mais uma
+aresta verde de 3px à esquerda; agora é a superfície `raised` com uma linha de
+luz de 1px no topo (`rowInnerHairline`), mais o texto em `bodyStrong`. O Flutter
+não tem sombra interna, então a elevação se desenha com luz.
+
+**3. Os degraus de neutro têm de se ver.** A paleta anterior amontoava cinco
+papéis entre `#0B` e `#2E` — o olho não separava fundo de cartão. Agora vizinhos
+guardam pelo menos cinco pontos de luminância entre si, e a borda saltou de
+`#262626` para branco a 7%, que se enxerga sobre `#191E20` num painel P3 a 50%
+de brilho.
+
+### Onde o vidro liga, e onde não
+
+**Liga** na janela flutuante e no dropdown: eles vivem segundos.
+**Não liga** na barra lateral do Hub nem nos cartões de conteúdo: um
+`BackdropFilter` permanente recompõe tudo atrás dele a cada quadro. A barra usa
+`sidebarTint` chapado e paga o mesmo papel visual a custo zero.
+
+Sobre o vidro, a escala de neutros não vale: o que passa por trás muda a leitura
+de qualquer cinza opaco, e uma linha selecionada pintada de `raised` some quando
+o painel abre sobre uma janela clara. Ali a seleção é **branco com alfa**
+(`glassRow`), que é a única coisa que se comporta igual sobre qualquer fundo.
 
 Notas de aplicação:
 
-- **`selection` e `hover` nunca são a mesma cor.** Seleção é "onde o teclado está" (accent); hover é "onde o mouse passou" (neutro). Quando os dois coincidem na mesma linha, a seleção vence.
+- **Selecionado e hover nunca são a mesma cor.** Selecionado é um degrau acima do hover; se empatam, passar o mouse numa linha vizinha a faz parecer a escolhida. Prendido por teste em `eg_surface_style_test.dart`.
 - **`focusRing` é sombra, não borda** (`AppShadows.focusRing`): assim o componente não muda de tamanho ao receber foco. Isso exige fundo opaco sob o anel — um componente transparente em repouso (botão de ícone, item de sidebar) adota a superfície de hover ao ganhar foco.
-- **`sidebar`** é o `surface` a 72%: translúcido para o brilho verde do fundo atravessar e unificar sidebar e conteúdo, sem custo de blur. **`textSelection`** é o accent a 25% — mais forte que a `selection` de linha porque ali o realce precisa sobreviver ao texto desenhado por cima.
+- **`textSelection`** é o accent a 25%: ali o realce precisa sobreviver ao texto desenhado por cima.
 - **A resolução desses estados é uma só, e mora em `EgSurfaceStyle`** (`lib/shared/widgets/eg_surface.dart`). A tabela de precedência está em `components.md`; nenhum widget deve reimplementá-la.
-- **Exceção registrada — `EgToggle`:** o switch usa trilho **verde chapado** quando ligado, contrariando a regra de "accent sempre em baixa opacidade". É convenção nativa de macOS: o usuário lê ligado/desligado por essa cor antes de ler qualquer outra pista, e um trilho a 14% ficaria ambíguo. É a única exceção do design system; qualquer outra precisa da mesma justificativa de convenção do sistema, não de estética. A matriz dele tem duas colunas (ligado e desligado) e quem carrega os estados é o **trilho** — `greenPrimary`→`greenLight`→`greenDeep` ligado, `border`→`hover`→`pressed` desligado. A bolinha só diz de que lado está: fazê-la clarear no hover foi tentado e descartado por redundância de affordance.
+- **Exceção registrada — `EgToggle`:** o switch usa trilho **verde chapado** quando ligado, contrariando a regra de "accent sempre em baixa opacidade". É convenção nativa de macOS: o usuário lê ligado/desligado por essa cor antes de ler qualquer outra pista, e um trilho de baixa opacidade ficaria ambíguo. É a única exceção do design system; qualquer outra precisa da mesma justificativa de convenção do sistema, não de estética. A matriz dele tem duas colunas (ligado e desligado) e quem carrega os estados é o **trilho** — `accent`→`accentHover`→`accentPressed` ligado, `hover`→`line`→`pressed` desligado. A bolinha só diz de que lado está: fazê-la clarear no hover foi tentado e descartado por redundância de affordance.
 
 ## Estados de cor (checklist rápido)
 

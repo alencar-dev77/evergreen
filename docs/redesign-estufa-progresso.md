@@ -23,10 +23,10 @@ um commit próprio.
 | 3 | Componentes compartilhados (novos + reescritos) | feito — falta `EgEmptyState` e `EgKeyHintBar`, que vão com os painéis |
 | 4 | Painéis flutuantes: vidro, hairline, barra de teclas | feito |
 | 5 | Hub: sidebar + cabeçalho de tela + grade de duas colunas | feito |
-| 6 | Telas: Pin, Leaf, Awake | Leaf e Pin feitos; falta a aba `Tipos` e o Awake |
-| 7 | Telas: Focus, Echo, Nest | a fazer — é o que falta do Hub |
+| 6 | Telas: Pin, Leaf, Awake | feito |
+| 7 | Telas: Focus, Echo, Nest | feito no Hub; falta o conteúdo dos painéis flutuantes |
 | 8 | Telas: Track, Aplicativo | feito |
-| 9 | Goldens novos + skill de design atualizada | a fazer |
+| 9 | Goldens novos + skill de design atualizada | feito |
 
 ## O que a fase 1 e a 2 deixaram pronto
 
