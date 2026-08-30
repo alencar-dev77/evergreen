@@ -41,18 +41,33 @@ class EgHintBar extends StatelessWidget {
   const EgHintBar({super.key, required this.hints, this.trailing});
 
   final List<EgHint> hints;
+
+  /// O par que fica encostado à direita — sempre o `esc`.
   final EgHint? trailing;
+
+  /// A altura da barra.
+  static const _height = 34.0;
 
   @override
   Widget build(BuildContext context) {
+    // No máximo quatro pares: se precisa de um quinto, a função não é
+    // essencial o bastante para estar no rodapé — e a barra é a legenda do
+    // painel, não o índice dele.
+    assert(
+      hints.length <= 4,
+      'A barra de teclas comporta quatro pares; veio com ${hints.length}.',
+    );
+
+    // Preto a 18%, e não a superfície do canvas: a barra mora sobre o vidro,
+    // e um cinza opaco ali vira uma tarja que não pertence ao painel. O preto
+    // translúcido escurece o que já está atrás, que é o que uma faixa de
+    // rodapé faz num material de verdade.
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.sm,
-      ),
+      height: _height,
+      padding: EdgeInsets.symmetric(horizontal: context.eg.shapes.rowPaddingH),
       decoration: BoxDecoration(
-        color: context.eg.colors.canvas,
-        border: Border(top: context.eg.hairline),
+        color: const Color(0x2E000000),
+        border: Border(top: BorderSide(color: context.eg.colors.edge)),
       ),
       child: Row(
         children: [
@@ -87,7 +102,7 @@ class _HintLabel extends StatelessWidget {
       // diferença entre 14 e 10 é a diferença entre a última dica caber e sair
       // cortada no meio da palavra. Densidade antes de respiro, que é a regra
       // da casa para linha de legenda.
-      padding: EdgeInsets.only(right: isLast ? 0 : AppSpacing.md),
+      padding: EdgeInsets.only(right: isLast ? 0 : AppSpacing.lg),
       child: hint.onTap == null ? _content(context) : _clickable(context),
     );
   }
@@ -112,7 +127,7 @@ class _HintLabel extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        EgShortcutDisplay(keys: hint.keys),
+        EgShortcutDisplay(keys: hint.keys, onGlass: true),
         if (hint.label != null) ...[
           const SizedBox(width: AppSpacing.xs),
           Text(
