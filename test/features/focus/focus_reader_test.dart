@@ -89,6 +89,11 @@ void main() {
 
     await tester.tap(find.text(EvergreenModule.focus.name));
     await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes", que é a aba padrão de todo módulo. A lista
+    // mora na outra.
+    await tester.tap(find.text('Histórico'));
+    await tester.pumpAndSettle();
   }
 
   Future<void> openSession(WidgetTester tester) async {

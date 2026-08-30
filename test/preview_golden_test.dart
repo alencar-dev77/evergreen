@@ -493,6 +493,10 @@ void main() {
     await tester.tap(find.text(EvergreenModule.focus.name));
     await tester.pumpAndSettle();
 
+    // A tela abre em "Ajustes"; o histórico mora na outra aba.
+    await tester.tap(find.text('Histórico'));
+    await tester.pumpAndSettle();
+
     // Na linha do histórico o título e o anúncio do que há dentro vivem num
     // parágrafo só, como o apelido do Pin — daí a busca por trecho.
     await tester.tap(find.textContaining('Refatorar o módulo de auth'));
@@ -527,6 +531,10 @@ void main() {
     await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.focus.name));
+    await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes"; o histórico mora na outra aba.
+    await tester.tap(find.text('Histórico'));
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -587,6 +595,10 @@ void main() {
     await pump(tester, const HubView(), _hubWindowWithRegion);
 
     await tester.tap(find.text(EvergreenModule.echo.name));
+    await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes"; a lista mora na outra aba.
+    await tester.tap(find.text('Reuniões'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.textContaining('Alinhamento de escopo'));

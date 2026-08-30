@@ -89,6 +89,11 @@ void main() {
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes", que é a aba padrão de todo módulo. A lista
+    // mora na outra.
+    await tester.tap(find.text('Reuniões'));
+    await tester.pumpAndSettle();
   }
 
   Future<void> openMeeting(WidgetTester tester) async {

@@ -356,23 +356,30 @@ class _HubViewState extends ConsumerState<HubView> {
   /// Uma aba sozinha é a promessa de que existe outra: ela ocupa a linha, pede
   /// um clique que não leva a lugar nenhum e ensina que ali há mais do que há.
   ///
-  /// **"Ajustes" é sempre a última.** É a única aba que todos os módulos com
-  /// aba têm, e por isso é a única que pode ser um lugar fixo: se ela muda de
-  /// posição entre um módulo e o vizinho, o olho tem de reencontrá-la a cada
-  /// troca de tela — e ela é justamente a que se procura, em vez de se cair
-  /// dentro.
+  /// **"Ajustes" é sempre a primeira, e é onde a tela abre.**
   ///
-  /// A primeira é o que a pessoa veio ver, e é onde a tela abre. No Focus e no
-  /// Echo isso é o que já aconteceu, não o que se pode ajustar: quem abre o
-  /// Echo quer a reunião de ontem muito mais vezes do que quer trocar o idioma
-  /// da transcrição.
+  /// Ela é a única aba que todo módulo tem, e por isso é a única que pode ter
+  /// lugar fixo: mudando de posição entre um módulo e o vizinho, o olho teria
+  /// de reencontrá-la a cada troca de tela. E é a que se procura — as outras
+  /// são conteúdo, em que se cai.
+  ///
+  /// **Módulo que só tem ajustes mostra a aba mesmo assim.** Sem ela, o Awake
+  /// e o Leaf tinham ajustes que não estavam "na aba de ajustes", e o
+  /// cabeçalho mudava de altura de um módulo para o outro. A consistência do
+  /// topo entre as sete telas vale mais que a regra de não mostrar uma aba
+  /// sozinha.
+  ///
+  /// O custo, dito para não se perder: quem abre o Echo cai nos ajustes, não
+  /// na reunião de ontem. Trocar de ideia é reordenar esta lista.
   static List<String> _tabsFor(EvergreenModule module) => switch (module) {
-    EvergreenModule.pin => const ['Tipos', 'Gerador', 'Ajustes'],
-    EvergreenModule.focus => const ['Histórico', 'Ajustes'],
-    EvergreenModule.echo => const ['Reuniões', 'Ajustes'],
-    EvergreenModule.nest => const ['Destinos', 'Ajustes'],
-    // Leaf e Awake têm um assunto só; o Track não tem ajuste nenhum.
-    _ => const [],
+    EvergreenModule.pin => const ['Ajustes', 'Tipos', 'Gerador'],
+    EvergreenModule.focus => const ['Ajustes', 'Histórico'],
+    EvergreenModule.echo => const ['Ajustes', 'Reuniões'],
+    EvergreenModule.nest => const ['Ajustes', 'Destinos'],
+    EvergreenModule.leaf => const ['Ajustes'],
+    EvergreenModule.awake => const ['Ajustes'],
+    // O Track não tem ajuste nenhum: ele é leitura do que os outros gravaram.
+    EvergreenModule.track => const [],
   };
 
   /// A aba aberta do módulo — a primeira, enquanto ninguém tiver escolhido.
