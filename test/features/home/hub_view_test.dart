@@ -142,8 +142,12 @@ void main() {
         final lookups = watchWindowLookups();
         await pumpHub(tester);
 
-        // O Echo é a única tela do Hub com campo de texto.
+        // O Echo é a única tela do Hub com campo de texto — e ele mora na aba
+        // de ajustes, que não é a que abre: quem abre o Echo vem ver as
+        // reuniões.
         await tester.tap(find.text('Echo').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Ajustes'));
         await tester.pumpAndSettle();
         final field = find.byType(TextField).first;
         await tester.dragUntilVisible(

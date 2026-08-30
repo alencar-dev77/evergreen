@@ -59,6 +59,15 @@ import 'golden_fonts.dart';
 /// Rode com `flutter test --update-goldens --tags preview` para regerar as
 /// imagens em `test/goldens/`. Não fazem parte da suíte padrão: são um apoio de
 /// revisão, não uma trava de regressão.
+/// A janela do Hub, em pixels físicos: 980×680 lógicos a 2x.
+///
+/// Fixa, como a janela de verdade — o golden do Hub deixou de ser uma medida
+/// escolhida no teste e passou a ser a janela que a pessoa abre.
+const _hubWindow = Size(1960, 1360);
+
+/// A mesma janela com a região de leitura aberta: 980 + 480.
+const _hubWindowWithRegion = Size(2920, 1360);
+
 void main() {
   setUpAll(loadGoldenFonts);
 
@@ -424,7 +433,7 @@ void main() {
   });
 
   testWidgets('Hub — configurações do Pin', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1200));
+    await pump(tester, const HubView(), _hubWindow);
 
     await expectLater(
       find.byType(HubView),
@@ -479,7 +488,7 @@ void main() {
   /// test` não há janela nativa para crescer — o tamanho já entra aqui somado.
   /// Era um diálogo modal por cima da tela até a v0.4.
   testWidgets('Hub — Focus, a sessão aberta', (tester) async {
-    await pump(tester, const HubView(), const Size(2720, 1400));
+    await pump(tester, const HubView(), _hubWindowWithRegion);
 
     await tester.tap(find.text(EvergreenModule.focus.name));
     await tester.pumpAndSettle();
@@ -515,7 +524,7 @@ void main() {
   });
 
   testWidgets('Hub — Focus', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1900));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.focus.name));
     await tester.pumpAndSettle();
@@ -557,7 +566,7 @@ void main() {
   });
 
   testWidgets('Hub — Leaf', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1900));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.leaf.name));
     await tester.pumpAndSettle();
@@ -575,7 +584,7 @@ void main() {
   /// estava na tela. Sob `flutter test` não há janela nativa para crescer, então
   /// o tamanho já entra aqui somado.
   Future<void> openReader(WidgetTester tester) async {
-    await pump(tester, const HubView(), const Size(2720, 1400));
+    await pump(tester, const HubView(), _hubWindowWithRegion);
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();
@@ -665,7 +674,7 @@ void main() {
       '{"path":"/Users/lucas/Clientes/Marina","alias":"Marina"}',
     ]);
 
-    await pump(tester, const HubView(), const Size(1800, 1400));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.nest.name));
     await tester.pumpAndSettle();
@@ -754,7 +763,7 @@ void main() {
   });
 
   testWidgets('Hub — Echo', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1400));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();
@@ -766,7 +775,7 @@ void main() {
   });
 
   testWidgets('Hub — Awake', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1200));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.awake.name));
     await tester.pumpAndSettle();

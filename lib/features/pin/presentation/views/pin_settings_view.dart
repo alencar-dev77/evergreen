@@ -24,7 +24,11 @@ import '../viewmodels/pin_settings_view_model.dart';
 
 /// Configurações do módulo Pin, exibidas dentro do Hub.
 class PinSettingsView extends ConsumerStatefulWidget {
-  const PinSettingsView({super.key});
+  const PinSettingsView({super.key, this.tab});
+
+  /// A aba aberta, decidida pelo cabeçalho da tela. `null` mostra tudo — é o
+  /// caminho de quem monta esta tela fora do Hub, como o teste faz.
+  final String? tab;
 
   @override
   ConsumerState<PinSettingsView> createState() => _PinSettingsViewState();
@@ -56,6 +60,17 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
     // Só quando há um problema real: com o auto-colar desligado a permissão não
     // faz falta nenhuma, e um aviso permanente vira ruído que ninguém mais lê.
     final needsPermission = settings.autoPaste && !hasPermission;
+
+    final tab = widget.tab;
+    final showAll = tab == null;
+
+    if (tab == 'Tipos') {
+      return const EgSettingsPage(children: [_TypesCard()]);
+    }
+
+    if (tab == 'Gerador') {
+      return const EgSettingsPage(children: [_GeneratorCard()]);
+    }
 
     return EgSettingsPage(
       children: [
@@ -99,8 +114,7 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
             ),
           ],
         ),
-        const _TypesCard(),
-        const _GeneratorCard(),
+        if (showAll) ...[const _TypesCard(), const _GeneratorCard()],
         // Cartão próprio, e com o tom do que ele faz: apagar não é mais um
         // ajuste do histórico, é o fim dele. Como última linha de um cartão de
         // preferências, a ação sem volta ficava com a mesma cara da linha que

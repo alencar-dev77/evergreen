@@ -122,8 +122,17 @@ class MainFlutterWindow: NSPanel {
   private static func applyHubGeometry(to window: NSWindow?) {
     guard let window = window else { return }
 
-    window.minSize = NSSize(width: HubWindowChannel.baseMinWidth, height: 480)
-    window.setContentSize(NSSize(width: 880, height: 620))
+    // **A janela do Hub não é redimensionável.** O conteúdo dela é uma grade de
+    // duas colunas de cartões, e cada largura intermediária entre uma e duas
+    // colunas é um arranjo que ninguém desenhou — a pessoa arrastava a borda e
+    // encontrava a tela num estado que não foi decidido. Com a medida fixa, o
+    // que se vê é sempre o que foi desenhado.
+    //
+    // Isto **não** impede a janela de crescer para a região de leitura: tirar
+    // `.resizable` tira o arraste da borda e o botão de zoom, e não o
+    // `setFrame` do lado nativo.
+    window.styleMask.remove(.resizable)
+    window.setContentSize(HubWindowChannel.contentSize)
     HubWindowChannel.adopt(window)
   }
 
@@ -354,8 +363,15 @@ enum HubWindowChannel {
   /// que o Dart imagina que a janela tem.
   private static var detailWidth: CGFloat = 0
 
-  /// Largura mínima da janela sem a região aberta.
-  static let baseMinWidth: CGFloat = 720
+  /// O tamanho da janela, que é fixo.
+  ///
+  /// Calibrado para a grade de duas colunas caber sem aperto: 232 de barra
+  /// lateral mais duas colunas de cartão com o respiro entre elas.
+  static let contentSize = NSSize(width: 980, height: 680)
+
+  /// Largura da janela sem a região aberta. Com a janela fixa, é a própria
+  /// largura — o nome de "mínima" ficou do tempo em que ela era arrastável.
+  static let baseMinWidth: CGFloat = contentSize.width
 
   /// O que a abertura da região ficou devendo à janela: quanto ela não
   /// conseguiu crescer (a tela era mais estreita que a soma) e quanto precisou

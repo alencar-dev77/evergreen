@@ -59,6 +59,17 @@ class _HubViewState extends ConsumerState<HubView> {
   /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
   EvergreenModule? _selected = EvergreenModule.pin;
 
+  /// A aba aberta de cada módulo, guardada por módulo.
+  ///
+  /// Por módulo, e não uma só para o Hub: quem estava no histórico do Focus,
+  /// foi ver um ajuste do Pin e voltou, quer o histórico de novo. Uma aba
+  /// única faria cada ida ao vizinho apagar onde a pessoa estava.
+  ///
+  /// No estado da tela, e não numa preferência: onde se estava é memória da
+  /// sessão, não uma escolha a guardar no disco — reabrir o Hub amanhã na aba
+  /// "Gerador" seria o app lembrando de algo que ninguém pediu para lembrar.
+  final Map<EvergreenModule, String> _tabs = {};
+
   /// O que acontece quando a abertura animada termina.
   ///
   /// Além de carimbar a build, ela decide onde o Hub cai: no Pin, como sempre,
@@ -317,6 +328,9 @@ class _HubViewState extends ConsumerState<HubView> {
               showDot: false,
             ),
       shortcut: slot == null ? null : settings.bindingFor(slot).caps,
+      tabs: _tabsFor(module),
+      selectedTab: _tabOf(module),
+      onTabSelected: (tab) => setState(() => _tabs[module] = tab),
     );
   }
 
@@ -336,13 +350,45 @@ class _HubViewState extends ConsumerState<HubView> {
     return ModuleGate(enabled: isEnabled, child: _settingsFor(module));
   }
 
-  Widget _settingsFor(EvergreenModule module) => switch (module) {
-    EvergreenModule.pin => const PinSettingsView(),
-    EvergreenModule.focus => const FocusSettingsView(),
-    EvergreenModule.leaf => const LeafSettingsView(),
-    EvergreenModule.awake => const AwakeSettingsView(),
-    EvergreenModule.echo => const EchoSettingsView(),
-    EvergreenModule.nest => const NestSettingsView(),
-    EvergreenModule.track => const TrackView(),
+  /// As abas de cada módulo, e a ordem delas.
+  ///
+  /// **Vazio quer dizer "sem abas", e é o caso de quem tem um assunto só.**
+  /// Uma aba sozinha é a promessa de que existe outra: ela ocupa a linha, pede
+  /// um clique que não leva a lugar nenhum e ensina que ali há mais do que há.
+  ///
+  /// A primeira é sempre o que a pessoa veio ver. No Focus e no Echo isso é o
+  /// que já aconteceu, não o que se pode ajustar — quem abre o Echo quer a
+  /// reunião de ontem muito mais vezes do que quer trocar o idioma da
+  /// transcrição.
+  static List<String> _tabsFor(EvergreenModule module) => switch (module) {
+    EvergreenModule.pin => const ['Ajustes', 'Tipos', 'Gerador'],
+    EvergreenModule.focus => const ['Histórico', 'Ajustes'],
+    EvergreenModule.echo => const ['Reuniões', 'Ajustes'],
+    EvergreenModule.nest => const ['Destinos', 'Ajustes'],
+    // Leaf e Awake têm um assunto só; o Track não tem ajuste nenhum.
+    _ => const [],
   };
+
+  /// A aba aberta do módulo — a primeira, enquanto ninguém tiver escolhido.
+  String? _tabOf(EvergreenModule module) {
+    final tabs = _tabsFor(module);
+    if (tabs.isEmpty) return null;
+
+    final chosen = _tabs[module];
+    return chosen != null && tabs.contains(chosen) ? chosen : tabs.first;
+  }
+
+  Widget _settingsFor(EvergreenModule module) {
+    final tab = _tabOf(module);
+
+    return switch (module) {
+      EvergreenModule.pin => PinSettingsView(tab: tab),
+      EvergreenModule.focus => FocusSettingsView(tab: tab),
+      EvergreenModule.leaf => const LeafSettingsView(),
+      EvergreenModule.awake => const AwakeSettingsView(),
+      EvergreenModule.echo => EchoSettingsView(tab: tab),
+      EvergreenModule.nest => NestSettingsView(tab: tab),
+      EvergreenModule.track => const TrackView(),
+    };
+  }
 }

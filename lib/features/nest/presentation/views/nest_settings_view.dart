@@ -24,82 +24,95 @@ import '../widgets/nest_destination_list.dart';
 /// módulo é do Track — o que a prateleira carregou hoje é a contagem do dia
 /// reconstruído, não uma lista de arquivos que o Evergreen não guarda.
 class NestSettingsView extends ConsumerWidget {
-  const NestSettingsView({super.key});
+  const NestSettingsView({super.key, this.tab});
+
+  /// A aba aberta. `null` mostra tudo — o caminho de quem monta esta tela fora
+  /// do Hub.
+  final String? tab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(nestSettingsViewModelProvider);
     final viewModel = ref.read(nestSettingsViewModelProvider.notifier);
 
+    // Para onde os arquivos vão, e como a prateleira se comporta. Os destinos
+    // vêm primeiro: são eles que a pessoa vem cadastrar, e o resto são regras
+    // que se ajustam uma vez.
+    final showDestinations = tab == null || tab == 'Destinos';
+    final showSettings = tab == null || tab == 'Ajustes';
+
     return EgSettingsPage(
       children: [
-        EgSettingsCard(
-          title: 'Geral',
-          children: [
-            EgSettingsRow.toggle(
-              label: 'Chacoalhar para chamar a prateleira',
-              description:
-                  'Sacuda o mouse no meio de um arraste e a prateleira vem '
-                  'até o cursor.',
-              value: settings.useShake,
-              onChanged: (value) =>
-                  unawaited(viewModel.setUseShake(enabled: value)),
-            ),
-            EgSettingsRow(
-              label: 'Ao enviar para uma pasta',
-              description:
-                  'Copiar deixa o original onde está; mover leva junto. '
-                  'Segurar ⌥ ao enviar faz o contrário.',
-              trailing: EgSegmentedControl<NestTransferMode>(
-                value: settings.defaultMode,
-                options: NestTransferMode.options,
-                labelOf: (option) => option.label,
-                onChanged: (mode) => unawaited(viewModel.setDefaultMode(mode)),
+        if (showSettings)
+          EgSettingsCard(
+            title: 'Geral',
+            children: [
+              EgSettingsRow.toggle(
+                label: 'Chacoalhar para chamar a prateleira',
+                description:
+                    'Sacuda o mouse no meio de um arraste e a prateleira vem '
+                    'até o cursor.',
+                value: settings.useShake,
+                onChanged: (value) =>
+                    unawaited(viewModel.setUseShake(enabled: value)),
               ),
-            ),
-          ],
-        ),
-        EgSettingsCard(
-          title: 'Pastas de destino',
-          children: [
-            if (settings.destinations.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: Text(
-                  'Sem pasta aqui, a prateleira guarda arquivos e não tem '
-                  'para onde mandá-los. As cadastradas viram ⌘1, ⌘2, ⌘3.',
-                  style: context.eg.text.caption,
+              EgSettingsRow(
+                label: 'Ao enviar para uma pasta',
+                description:
+                    'Copiar deixa o original onde está; mover leva junto. '
+                    'Segurar ⌥ ao enviar faz o contrário.',
+                trailing: EgSegmentedControl<NestTransferMode>(
+                  value: settings.defaultMode,
+                  options: NestTransferMode.options,
+                  labelOf: (option) => option.label,
+                  onChanged: (mode) =>
+                      unawaited(viewModel.setDefaultMode(mode)),
                 ),
-              )
-            else
-              NestDestinationList(
-                destinations: settings.destinations,
-                onRename: (index, alias) =>
-                    unawaited(viewModel.renameDestination(index, alias)),
-                onRemove: (index) =>
-                    unawaited(viewModel.removeDestination(index)),
-              ),
-            const SizedBox(height: AppSpacing.lg),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: EgButton.secondary(
-                label: 'Adicionar pasta…',
-                onPressed: settings.isFull
-                    ? null
-                    : () => unawaited(viewModel.addDestination()),
-              ),
-            ),
-            if (settings.isFull) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Máximo de ${NestSettings.maxDestinations} — o que o '
-                'teclado alcança sem procurar.',
-                style: context.eg.text.caption,
               ),
             ],
-          ],
-        ),
-        GlobalShortcutSection(slot: GlobalShortcutSlot.nest),
+          ),
+        if (showDestinations)
+          EgSettingsCard(
+            title: 'Pastas de destino',
+            children: [
+              if (settings.destinations.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Text(
+                    'Sem pasta aqui, a prateleira guarda arquivos e não tem '
+                    'para onde mandá-los. As cadastradas viram ⌘1, ⌘2, ⌘3.',
+                    style: context.eg.text.caption,
+                  ),
+                )
+              else
+                NestDestinationList(
+                  destinations: settings.destinations,
+                  onRename: (index, alias) =>
+                      unawaited(viewModel.renameDestination(index, alias)),
+                  onRemove: (index) =>
+                      unawaited(viewModel.removeDestination(index)),
+                ),
+              const SizedBox(height: AppSpacing.lg),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: EgButton.secondary(
+                  label: 'Adicionar pasta…',
+                  onPressed: settings.isFull
+                      ? null
+                      : () => unawaited(viewModel.addDestination()),
+                ),
+              ),
+              if (settings.isFull) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Máximo de ${NestSettings.maxDestinations} — o que o '
+                  'teclado alcança sem procurar.',
+                  style: context.eg.text.caption,
+                ),
+              ],
+            ],
+          ),
+        if (showSettings) GlobalShortcutSection(slot: GlobalShortcutSlot.nest),
       ],
     );
   }
