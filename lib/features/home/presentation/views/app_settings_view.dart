@@ -13,7 +13,11 @@ import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
+import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_shortcut_grid.dart';
+import '../../models/evergreen_module.dart';
 import '../viewmodels/app_settings_view_model.dart';
+import '../viewmodels/module_settings_view_model.dart';
 import '../widgets/global_shortcut_section.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../widgets/backup_list.dart';
@@ -85,7 +89,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
             children: [_nameField(autofocus: true)],
           ),
         EgSettingsCard(
-          title: 'Geral',
+          title: 'Sistema',
           children: [
             if (hasName) _nameField(autofocus: false),
             EgSettingsRow.toggle(
@@ -102,6 +106,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
             ),
           ],
         ),
+        const _ShortcutMapCard(),
         _BackupSection(
           isAutomatic: settings.automaticBackup,
           onAutomaticChanged: viewModel.setAutomaticBackup,
@@ -286,6 +291,47 @@ class _AboutLine extends StatelessWidget {
           color: context.eg.colors.textQuaternary,
         ),
       ),
+    );
+  }
+}
+
+/// Todas as teclas do app num lugar só.
+///
+/// A barra lateral já mostra a de cada módulo, mas uma por linha, espalhada
+/// pela altura da janela — para responder "qual era mesmo o do Nest?" é
+/// preciso varrer sete linhas em três grupos. Aqui elas se leem de uma vez.
+///
+/// Módulo desligado continua na grade, apagado: some daqui seria esconder que
+/// a tecla dele **segue reservada**, e a pessoa tentaria usá-la noutro módulo
+/// só para ouvir que o atalho já é de alguém.
+class _ShortcutMapCard extends ConsumerWidget {
+  const _ShortcutMapCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(moduleSettingsViewModelProvider);
+
+    return EgSettingsCard(
+      title: 'Todos os atalhos num lugar',
+      children: [
+        EgShortcutGrid(
+          entries: [
+            for (final module in EvergreenModule.values)
+              if (module.shortcutSlot case final slot?)
+                EgShortcutEntry(
+                  icon: module.icon,
+                  label: module.name,
+                  keys: settings.bindingFor(slot).caps,
+                  isMuted: !settings.isEnabled(module),
+                ),
+            EgShortcutEntry(
+              icon: EgIconData.evergreen,
+              label: 'Aplicativo',
+              keys: settings.bindingFor(GlobalShortcutSlot.hub).caps,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

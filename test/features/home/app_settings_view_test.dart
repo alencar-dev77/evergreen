@@ -98,9 +98,11 @@ void main() {
   testWidgets('voltar para um módulo troca o painel', (tester) async {
     await pumpHub(tester);
 
-    await tester.tap(find.text('Aplicativo'));
+    await tester.tap(find.text('Aplicativo').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(EvergreenModule.pin.name));
+    // `.first` é o item da barra lateral: a tela do aplicativo lista todas as
+    // teclas do app, e o nome de cada módulo aparece lá também.
+    await tester.tap(find.text(EvergreenModule.pin.name).first);
     await tester.pumpAndSettle();
 
     expect(find.byType(AppSettingsView), findsNothing);

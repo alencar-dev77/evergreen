@@ -24,8 +24,8 @@ um commit próprio.
 | 4 | Painéis flutuantes: vidro, hairline, barra de teclas | feito |
 | 5 | Hub: sidebar + cabeçalho de tela + grade de duas colunas | feito |
 | 6 | Telas: Pin, Leaf, Awake | Leaf e Pin feitos; falta a aba `Tipos` e o Awake |
-| 7 | Telas: Focus, Echo, Nest | a fazer |
-| 8 | Telas: Track, Aplicativo | a fazer |
+| 7 | Telas: Focus, Echo, Nest | a fazer — é o que falta do Hub |
+| 8 | Telas: Track, Aplicativo | feito |
 | 9 | Goldens novos + skill de design atualizada | a fazer |
 
 ## O que a fase 1 e a 2 deixaram pronto

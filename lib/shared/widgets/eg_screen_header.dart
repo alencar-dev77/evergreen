@@ -192,7 +192,7 @@ class EgMasterSwitch extends StatelessWidget {
       toggled: value,
       child: Container(
         height: _height,
-        padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.13),
           borderRadius: eg.shapes.chipAll,
@@ -237,12 +237,16 @@ class _ShortcutButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final eg = context.eg;
 
+    // Cápsula, como a pílula do interruptor ao lado: eles são um par — o que
+    // liga e a tecla que abre —, e duas formas diferentes na mesma linha se
+    // leem como duas coisas soltas mesmo quando estão perfeitamente
+    // centralizadas. O desalinho que se percebia era este, e não geometria.
     return EgInteractiveSurface(
       onTap: onTap,
       style: eg.surfaces.secondary,
-      borderRadius: eg.shapes.controlAll,
+      borderRadius: eg.shapes.chipAll,
       height: _height,
-      padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH),
+      padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH + 2),
       semanticLabel: 'Atalho ${keys.join(' ')}. Clique para alterar.',
       // A `Row` de tamanho mínimo é o que centraliza na vertical sem esticar
       // na horizontal: o `alignment` do container faria as duas coisas, e a
@@ -252,7 +256,14 @@ class _ShortcutButton extends StatelessWidget {
         children: [
           Text(
             keys.join(),
-            style: eg.text.keycap.copyWith(color: eg.colors.textSecondary),
+            // A altura natural do tipo, e não a de 1.0 do token: com a caixa
+            // de linha rente ao corpo da letra, o desenho do ⌘ e do ⇧ — que
+            // ocupa o alto do em — assenta acima do centro óptico da caixa.
+            style: eg.text.keycap.copyWith(
+              color: eg.colors.textSecondary,
+              fontSize: 11.5,
+              height: 1.3,
+            ),
           ),
         ],
       ),
