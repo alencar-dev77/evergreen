@@ -76,75 +76,90 @@ class EgScreenHeader extends StatelessWidget {
     final eg = context.eg;
     final hasTabs = tabs != null && tabs!.isNotEmpty;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.huge - AppSpacing.xxs,
-        AppSpacing.xxxl + AppSpacing.xxs,
-        AppSpacing.huge - AppSpacing.xxs,
-        AppSpacing.xl + AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(border: Border(bottom: eg.hairline)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Altura fixa, e é o que faz toda tela do Hub começar na mesma
-          // linha: a pílula do Track é mais baixa que o interruptor dos outros
-          // seis, e sem um piso comum o conteúdo do Track subiria um pixel em
-          // relação ao de todos os vizinhos.
-          SizedBox(
-            height: _controlsHeight,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: eg.text.display,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                // Encolhe antes de estourar: numa janela estreita a pílula do
-                // Track e o título disputam a mesma linha, e quem cede é o
-                // acessório, não o nome da tela.
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: _trailingControls(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            DefaultTextStyle(
-              style: eg.text.body.copyWith(color: eg.colors.textSecondary),
-              child: subtitle!,
-            ),
-          ],
-          if (hasTabs || trailing != null) ...[
-            const SizedBox(height: AppSpacing.xl),
-            Row(
-              children: [
-                if (hasTabs)
+    return LayoutBuilder(
+      builder: (context, constraints) => Container(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.huge - AppSpacing.xxs,
+          AppSpacing.xxxl + AppSpacing.xxs,
+          AppSpacing.huge - AppSpacing.xxs,
+          AppSpacing.xl + AppSpacing.xxs,
+        ),
+        decoration: BoxDecoration(border: Border(bottom: eg.hairline)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Altura fixa, e é o que faz toda tela do Hub começar na mesma
+            // linha: a pílula do Track é mais baixa que o interruptor dos outros
+            // seis, e sem um piso comum o conteúdo do Track subiria um pixel em
+            // relação ao de todos os vizinhos.
+            SizedBox(
+              height: _controlsHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
                   Expanded(
-                    child: EgFilterPills<String>(
-                      values: tabs!,
-                      selected: selectedTab ?? tabs!.first,
-                      labelOf: (tab) => tab,
-                      countOf: tabCountOf,
-                      onSelected: onTabSelected ?? (_) {},
-                      height: _tabHeight,
+                    child: Text(
+                      title,
+                      style: eg.text.display,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                else
-                  const Spacer(),
-                ?trailing,
-              ],
+                  ),
+                  // **Sem `Flexible` aqui, e isso é o ponto.** Título em
+                  // `Expanded` mais controles em `Flexible` são dois filhos de
+                  // `flex: 1`: o `Row` divide o espaço meio a meio, o título
+                  // ocupa a metade dele inteira e os controles ficam encostados
+                  // no *começo* da outra metade — com o resto da largura vazio
+                  // à direita deles. Era essa a folga que se via, e ela não tem
+                  // nada a ver com altura nem com centro vertical.
+                  //
+                  // Como filho não-flexível, o `Row` recebe a largura que pede
+                  // **antes** de o `Expanded` receber o resto: os controles
+                  // encostam na borda direita e o título fica com tudo o que
+                  // sobra. O teto é o que impede um título longo de empurrá-los
+                  // para fora.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.5,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _trailingControls(context),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              DefaultTextStyle(
+                style: eg.text.body.copyWith(color: eg.colors.textSecondary),
+                child: subtitle!,
+              ),
+            ],
+            if (hasTabs || trailing != null) ...[
+              const SizedBox(height: AppSpacing.xl),
+              Row(
+                children: [
+                  if (hasTabs)
+                    Expanded(
+                      child: EgFilterPills<String>(
+                        values: tabs!,
+                        selected: selectedTab ?? tabs!.first,
+                        labelOf: (tab) => tab,
+                        countOf: tabCountOf,
+                        onSelected: onTabSelected ?? (_) {},
+                        height: _tabHeight,
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  ?trailing,
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -212,7 +227,9 @@ class EgMasterSwitch extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: eg.text.footnote.copyWith(
-                  color: value ? eg.colors.accentLight : eg.colors.textSecondary,
+                  color: value
+                      ? eg.colors.accentLight
+                      : eg.colors.textSecondary,
                 ),
               ),
             ),

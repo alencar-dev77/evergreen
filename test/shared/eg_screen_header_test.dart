@@ -11,6 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// julgado a olho numa captura de tela. Aqui ele é medido: se as duas caixas
 /// deixarem de dividir a mesma linha, ou se o conteúdo de uma sair do centro,
 /// o teste reprova antes de a captura chegar em alguém.
+/// O recuo lateral do cabeçalho (`AppSpacing.huge - AppSpacing.xxs`).
+const _horizontalPadding = 28.0;
+
 void main() {
   Future<void> pumpHeader(
     WidgetTester tester, {
@@ -63,6 +66,18 @@ void main() {
 
       // E o conteúdo de cada uma centrado na própria caixa.
       expect(cap.center.dy, pill.center.dy);
+
+      // **A tecla encosta na margem direita.** É o que faltava medir: o par
+      // estava com o topo, a base e o centro certos e mesmo assim parado no
+      // meio da tela, porque título em `Expanded` e controles em `Flexible`
+      // dividiam a linha meio a meio e os controles ficavam no começo da
+      // metade deles.
+      final header = tester.getRect(find.byType(EgScreenHeader));
+      expect(
+        header.right - capBox.right,
+        closeTo(_horizontalPadding, 0.5),
+        reason: 'os controles do topo não estão colados à direita',
+      );
     });
 
     testWidgets('o rótulo do interruptor divide o eixo com a tecla', (

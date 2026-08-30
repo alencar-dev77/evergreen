@@ -25,12 +25,14 @@ enum _SidebarGroup {
     EvergreenModule.leaf,
     EvergreenModule.nest,
   ]),
-  time('Tempo', [
-    EvergreenModule.focus,
-    EvergreenModule.awake,
-    EvergreenModule.track,
-  ]),
-  voice('Voz', [EvergreenModule.echo]);
+  time('Tempo', [EvergreenModule.focus, EvergreenModule.awake]),
+  voice('Voz', [EvergreenModule.echo]),
+
+  /// O Track não é um módulo como os outros: ele não captura nada, não tem
+  /// painel e não tem interruptor — ele **lê** o que os seis escreveram. No
+  /// meio de "Tempo" ele parecia mais um cronômetro; no pé, em grupo próprio,
+  /// fica claro que ele vem depois porque depende de todos.
+  report('Relatório', [EvergreenModule.track]);
 
   const _SidebarGroup(this.label, this.modules);
 

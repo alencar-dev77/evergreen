@@ -356,12 +356,18 @@ class _HubViewState extends ConsumerState<HubView> {
   /// Uma aba sozinha é a promessa de que existe outra: ela ocupa a linha, pede
   /// um clique que não leva a lugar nenhum e ensina que ali há mais do que há.
   ///
-  /// A primeira é sempre o que a pessoa veio ver. No Focus e no Echo isso é o
-  /// que já aconteceu, não o que se pode ajustar — quem abre o Echo quer a
-  /// reunião de ontem muito mais vezes do que quer trocar o idioma da
-  /// transcrição.
+  /// **"Ajustes" é sempre a última.** É a única aba que todos os módulos com
+  /// aba têm, e por isso é a única que pode ser um lugar fixo: se ela muda de
+  /// posição entre um módulo e o vizinho, o olho tem de reencontrá-la a cada
+  /// troca de tela — e ela é justamente a que se procura, em vez de se cair
+  /// dentro.
+  ///
+  /// A primeira é o que a pessoa veio ver, e é onde a tela abre. No Focus e no
+  /// Echo isso é o que já aconteceu, não o que se pode ajustar: quem abre o
+  /// Echo quer a reunião de ontem muito mais vezes do que quer trocar o idioma
+  /// da transcrição.
   static List<String> _tabsFor(EvergreenModule module) => switch (module) {
-    EvergreenModule.pin => const ['Ajustes', 'Tipos', 'Gerador'],
+    EvergreenModule.pin => const ['Tipos', 'Gerador', 'Ajustes'],
     EvergreenModule.focus => const ['Histórico', 'Ajustes'],
     EvergreenModule.echo => const ['Reuniões', 'Ajustes'],
     EvergreenModule.nest => const ['Destinos', 'Ajustes'],
