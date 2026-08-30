@@ -198,7 +198,7 @@ void main() {
 
       expect(find.byType(BackupList), findsNothing);
       expect(find.text('Nenhum backup ainda.'), findsOneWidget);
-      expect(find.textContaining('Nenhum backup na pasta'), findsOneWidget);
+      expect(find.textContaining('A pasta está vazia'), findsOneWidget);
     });
 
     testWidgets('fazer backup agora põe a linha na lista', (tester) async {

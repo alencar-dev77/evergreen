@@ -31,10 +31,8 @@ class AwakeSettingsView extends ConsumerWidget {
             EgSettingsRow(
               label: 'Manter acordado',
               description:
-                  'Tela: nada apaga enquanto a trava valer — a apresentação, o '
-                  'painel que se olha de longe. Sistema: a tela apaga quando '
-                  'quiser, e o Mac não suspende — a compilação, o download que '
-                  'precisa terminar.',
+                  'Tela: nada apaga enquanto a trava valer. Sistema: a tela '
+                  'apaga, mas o Mac não suspende.',
               trailing: EgSegmentedControl<AwakeMode>(
                 value: settings.mode,
                 options: AwakeMode.options,
@@ -45,8 +43,7 @@ class AwakeSettingsView extends ConsumerWidget {
             EgSettingsRow(
               label: 'Duração padrão',
               description:
-                  'Por quanto tempo o painel propõe manter a trava. Dá para '
-                  'trocar na hora de ligar.',
+                  'O que o painel propõe. Dá para trocar na hora de ligar.',
               showDivider: false,
               trailing: EgSegmentedControl<AwakeDuration>(
                 value: settings.defaultDuration,

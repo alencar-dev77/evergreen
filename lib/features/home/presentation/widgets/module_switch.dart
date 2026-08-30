@@ -58,27 +58,22 @@ class ModuleSwitchSection extends ConsumerWidget {
   /// apagado, e o atalho volta a ser de quem estava usando ele.
   String get _description {
     final specific = switch (module) {
-      EvergreenModule.pin =>
-        'Desligado, o Pin para de registrar o que você copia',
-      EvergreenModule.focus => 'Desligado, o Focus não inicia sessões novas',
-      EvergreenModule.leaf => 'Desligado, a parede de anotações não abre',
-      EvergreenModule.awake =>
-        'Desligado, a trava é solta e o Mac volta a dormir no horário de sempre',
-      EvergreenModule.echo => 'Desligado, o Echo não grava reuniões',
-      EvergreenModule.nest =>
-        'Desligado, a prateleira não recebe arquivos nem responde ao chacoalhar',
-      EvergreenModule.track => 'Desligado, o Track para de reconstruir o dia',
+      EvergreenModule.pin => 'para de registrar o que você copia',
+      EvergreenModule.focus => 'não inicia sessões novas',
+      EvergreenModule.leaf => 'a parede não abre',
+      EvergreenModule.awake => 'a trava é solta e o Mac volta a dormir',
+      EvergreenModule.echo => 'não grava reuniões',
+      EvergreenModule.nest => 'a prateleira não recebe arquivos',
+      EvergreenModule.track => 'para de reconstruir o dia',
     };
 
     // O Track não tem painel, então não tem item de menu nem atalho global:
     // prometer que os dois somem seria descrever um módulo que não é este.
     final doors = module.shortcutSlot == null
         ? ''
-        : ', ele sai do menu da barra de status e o atalho global deixa de '
-              'valer';
+        : ', sai do menu da barra e o atalho para de valer';
 
-    return '$specific$doors. Nada é apagado: religar devolve tudo como '
-        'estava.';
+    return 'Desligado, $specific$doors. Nada é apagado.';
   }
 }
 

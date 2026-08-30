@@ -57,13 +57,13 @@ class RecordingFiles {
     if (isMicSilent && !isSystemSilent) {
       return micError != null
           ? 'A sua voz não entrou: $micError'
-          : 'A sua voz não entrou nesta reunião — só o áudio do computador foi '
-                'gravado. Confira a entrada de som em Ajustes do Sistema > Som.';
+          : 'A sua voz não entrou: só o áudio do computador foi gravado. '
+                'Confira a entrada em Ajustes do Sistema > Som.';
     }
 
     if (isSystemSilent && !isMicSilent) {
-      return 'Só a sua voz entrou: o áudio do computador veio mudo. É o '
-          'esperado se ninguém mais falou.';
+      return 'Só a sua voz entrou: o computador veio mudo. É o esperado se '
+          'ninguém mais falou.';
     }
 
     return null;
@@ -82,20 +82,18 @@ class RecordingFiles {
     final systemQuiet = isSystemSilent;
 
     if (micQuiet && systemQuiet) {
-      return 'Nenhuma das duas faixas gravou som. Verifique a entrada de áudio '
-          'em Ajustes do Sistema > Som e tente de novo.';
+      return 'Nenhuma das faixas gravou som. Confira a entrada em Ajustes '
+          'do Sistema > Som.';
     }
 
     if (micQuiet) {
-      return 'O microfone não gravou nada nesta reunião — só o áudio do '
-          'computador entrou. Confira qual é a entrada de som em Ajustes do '
-          'Sistema > Som, e se o Evergreen tem o microfone liberado.';
+      return 'O microfone não gravou nada: entrou só o computador. Confira '
+          'a entrada em Ajustes do Sistema > Som e a permissão do microfone.';
     }
 
     if (systemQuiet) {
-      return 'O áudio do computador veio mudo — entrou só a sua voz. É o '
-          'esperado quando ninguém mais falou; se havia reunião tocando, '
-          'confira a saída de som em Ajustes do Sistema > Som.';
+      return 'O computador veio mudo: entrou só a sua voz. Se havia reunião '
+          'tocando, confira a saída em Ajustes do Sistema > Som.';
     }
 
     return null;

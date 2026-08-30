@@ -31,29 +31,28 @@ class LeafSettingsView extends ConsumerWidget {
             const EgSettingsRow(
               label: 'Nova anotação',
               description:
-                  'Abre um cartão em branco na primeira vaga livre. Com as '
-                  'nove ocupadas, é preciso jogar uma fora antes.',
+                  'Abre um cartão na primeira vaga livre. Com as nove '
+                  'ocupadas, jogue uma fora antes.',
               trailing: EgShortcutDisplay(keys: ['⌘', '+']),
             ),
             const EgSettingsRow(
               label: 'Quebrar linha',
               description:
-                  'Dentro do cartão, o Enter sozinho guarda a anotação — com '
-                  'Shift junto ele quebra a linha.',
+                  'No cartão, o Enter sozinho guarda a anotação.',
               trailing: EgShortcutDisplay(keys: ['⇧', '⏎']),
             ),
             const EgSettingsRow(
               label: 'Copiar uma anotação',
               description:
-                  'O número de cada cartão é a tecla que o copia — e copiar '
-                  'fecha a parede, como no Pin.',
+                  'O número do cartão é a tecla que o copia. Copiar fecha a '
+                  'parede, como no Pin.',
               trailing: EgShortcutDisplay(keys: ['⌘', '1–9']),
             ),
             const EgSettingsRow(
               label: 'Apagar a selecionada',
               description:
-                  'As anotações seguintes sobem uma vaga e a parede encolhe — '
-                  'nunca fica um buraco no meio dela.',
+                  'As seguintes sobem uma vaga e a parede encolhe: nunca '
+                  'fica buraco no meio.',
               showDivider: false,
               trailing: EgShortcutDisplay(keys: ['⌘', '⌫']),
             ),

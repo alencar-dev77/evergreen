@@ -67,8 +67,7 @@ class _TrackViewState extends ConsumerState<TrackView> {
                 title: 'Nada registrado ainda',
                 message:
                     'O Track lê o que os outros módulos gravam. Foque uma '
-                    'sessão, grave uma reunião ou copie alguma coisa — o dia '
-                    'aparece aqui sozinho.',
+                    'sessão ou grave uma reunião.',
               )
             else ...[
               TrackHeadline(totals: state.totals),

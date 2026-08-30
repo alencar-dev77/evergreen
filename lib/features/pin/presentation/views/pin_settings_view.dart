@@ -52,7 +52,7 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
               label: 'Colar automaticamente',
               description:
                   'Ao escolher um item, cola direto no app anterior (⌘V). '
-                  'Requer permissão de Acessibilidade do macOS.',
+                  'Requer a permissão de Acessibilidade.',
               value: settings.autoPaste,
               onChanged: viewModel.setAutoPaste,
               showDivider: needsPermission,
@@ -61,8 +61,7 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
               EgSettingsRow(
                 label: 'Permissão de Acessibilidade',
                 description:
-                    'O macOS não está concedendo a permissão. '
-                    'Sem ela o item é copiado, mas não colado.',
+                    'Sem a permissão, o item é copiado mas não colado.',
                 showDivider: false,
                 trailing: EgButton.secondary(
                   label: 'Permitir',

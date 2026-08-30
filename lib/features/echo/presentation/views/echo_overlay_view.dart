@@ -205,8 +205,8 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
         Text('Antes de gravar', style: context.eg.text.panelTitle),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'O Echo grava duas faixas separadas — é o que faz ele saber quem '
-          'falou sem depender de reconhecimento de voz.',
+          'O Echo grava duas faixas separadas: é assim que ele sabe quem '
+          'falou.',
           style: context.eg.text.captionSmall,
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -219,7 +219,7 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
         const SizedBox(height: AppSpacing.md),
         EchoPermissionRow(
           title: 'Gravação de Tela',
-          detail: 'Dá acesso ao áudio da reunião — a fala das outras pessoas.',
+          detail: 'Dá acesso à fala das outras pessoas.',
           status: capabilities.screenRecording,
           onPressed: _viewModel.requestScreenRecording,
         ),
@@ -229,9 +229,8 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
         if (capabilities.screenRecording == PermissionStatus.denied) ...[
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Depois de ligar a Gravação de Tela nos Ajustes, encerre e abra o '
-            'Evergreen de novo — o macOS só libera a captura para um app que '
-            'iniciou depois da permissão.',
+            'Depois de liberar nos Ajustes, encerre e abra o Evergreen: o '
+            'macOS só entrega a captura a quem iniciou depois.',
             style: context.eg.text.captionSmall,
           ),
         ],
@@ -336,12 +335,12 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
   }
 
   String? _statusDetail(EchoRecorderState state) => switch (state.phase) {
-    EchoPhase.idle => 'Sua voz e o áudio da reunião, em faixas separadas',
+    EchoPhase.idle => 'Sua voz e a reunião, em faixas separadas',
     EchoPhase.recording => 'Fechar o painel não para a gravação',
     EchoPhase.transcribing => 'Pode levar alguns minutos',
     EchoPhase.done =>
       (state.lastMeeting?.isEmpty ?? false)
-          ? 'A gravação saiu muda — confira o microfone e a saída de áudio'
+          ? 'A gravação saiu muda — confira o microfone e a saída'
           : 'O resumo fica no Hub',
     EchoPhase.failed => null,
   };

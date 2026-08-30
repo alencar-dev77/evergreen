@@ -100,8 +100,8 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
               EgSettingsRow(
                 label: 'Aparência',
                 description:
-                    'O Evergreen é a paleta da casa. O Apple segue o escuro do '
-                    'macOS — mais denso, com vidro e linhas de meio pixel.',
+                    'O Evergreen é a paleta da casa. O Apple segue o escuro '
+                    'do macOS: mais denso, com vidro.',
                 trailing: ThemePicker(
                   value: settings.theme,
                   onChanged: viewModel.setTheme,
@@ -141,10 +141,8 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
     return EgSettingsRow.field(
       label: 'Seu nome',
       description: autofocus
-          ? 'O resumo da reunião e o parágrafo do dia passam a falar de você '
-                'pelo nome, em vez de "a pessoa" — e a transcrição mostra ele '
-                'no lugar de "Você". Fica só nesta máquina, como todo o resto. '
-                'Dá para deixar em branco e preencher depois.'
+          ? 'O resumo da reunião e o parágrafo do dia passam a chamar você '
+                'pelo nome. Fica nesta máquina, e dá para deixar em branco.'
           : 'Como o resumo e a transcrição chamam você.',
       showDivider: !autofocus,
       field: EgTextField(
@@ -183,9 +181,8 @@ class _BackupSection extends ConsumerWidget {
         EgSettingsRow.toggle(
           label: 'Backup semanal automático',
           description:
-              'Uma cópia do banco por semana, guardada nesta máquina. '
-              'Ficam as ${BackupService.maxBackups} mais recentes; as antigas '
-              'saem sozinhas.',
+              'Uma cópia por semana, nesta máquina. Ficam as '
+              '${BackupService.maxBackups} mais recentes.',
           value: isAutomatic,
           onChanged: onAutomaticChanged,
         ),
@@ -232,8 +229,8 @@ class _RestoreSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.xxs),
             child: Text(
-              'Nenhum backup na pasta ainda. Um arquivo .db colocado lá também '
-              'aparece aqui — é assim que se traz o backup de outra máquina.',
+              'A pasta está vazia. Um arquivo .db posto nela também aparece '
+              'aqui: é assim que se traz o de outra máquina.',
               style: context.eg.text.captionSmall,
             ),
           )
@@ -248,9 +245,8 @@ class _RestoreSection extends ConsumerWidget {
           EgSettingsRow(
             label: 'Restaurar o backup escolhido',
             description:
-                'Troca tudo o que está no Evergreen pelo conteúdo do backup. '
-                'O estado de agora vira antes uma cópia "antes de restaurar" '
-                'na lista, então dá para voltar.',
+                'Troca tudo pelo conteúdo do backup. O estado de agora vira '
+                'a cópia "antes de restaurar".',
             showDivider: false,
             trailing: EgButton.secondary(
               label: 'Restaurar',
@@ -286,10 +282,9 @@ class _RestoreSection extends ConsumerWidget {
       context,
       title: 'Restaurar este backup?',
       message:
-          'O histórico do Pin, as sessões do Focus, as anotações do Leaf '
-          'e as reuniões do Echo passam a ser os do backup. O estado de agora '
-          'é guardado antes de qualquer coisa, e volta para a lista como '
-          '"antes de restaurar".',
+          'Histórico, sessões, anotações e reuniões passam a ser os do '
+          'backup. O estado de agora volta para a lista como "antes de '
+          'restaurar".',
       confirmLabel: 'Restaurar',
     );
     if (!confirmed) return;

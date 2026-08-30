@@ -55,7 +55,7 @@ class FocusHistoryList extends StatelessWidget {
       return const EgEmptyState(
         icon: EgIconData.timer,
         title: 'Nenhuma sessão esta semana',
-        message: 'As sessões concluídas aparecem aqui, com o que você anotou.',
+        message: 'As sessões concluídas aparecem aqui, com suas anotações.',
       );
     }
 

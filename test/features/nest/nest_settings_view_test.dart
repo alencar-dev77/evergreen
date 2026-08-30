@@ -102,7 +102,7 @@ void main() {
   ) async {
     await pumpSettings(tester);
 
-    expect(find.textContaining('Sem nenhuma pasta aqui'), findsOneWidget);
+    expect(find.textContaining('Sem pasta aqui'), findsOneWidget);
   });
 
   testWidgets('adicionar guarda o que o seletor do sistema devolveu', (
@@ -177,6 +177,6 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('pastas no máximo'), findsOneWidget);
+    expect(find.textContaining('Máximo de'), findsOneWidget);
   });
 }

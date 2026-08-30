@@ -100,7 +100,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
             EgSettingsRow.toggle(
               label: 'Utilizar apenas Pomodoro',
               description:
-                  'Só o cronômetro: nada de atividade nem resumo. O histórico '
+                  'Só o cronômetro: sem atividade nem resumo. O histórico '
                   'registra as sessões mesmo assim.',
               value: settings.pomodoroOnly,
               onChanged: viewModel.setPomodoroOnly,
@@ -136,8 +136,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
             EgSettingsRow.toggle(
               label: 'Avisar na tela',
               description:
-                  'O painel do Focus aparece por cima do que estiver aberto '
-                  'quando o tempo acaba.',
+                  'O painel aparece por cima de tudo quando o tempo acaba.',
               value: settings.alertOnScreen,
               onChanged: viewModel.setAlertOnScreen,
               showDivider: false,
@@ -159,7 +158,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
             ),
             EgSettingsRow(
               label: 'Tempo da pausa',
-              description: 'Duração do descanso oferecido ao fim da sessão.',
+              description: 'O descanso oferecido ao fim da sessão.',
               showDivider: false,
               trailing: EgSegmentedControl<int>(
                 value: settings.breakMinutes,
@@ -181,7 +180,8 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
       context,
       title: 'Limpar histórico?',
       message:
-          'Todas as sessões desta semana serão removidas. Não dá para desfazer.',
+          'Todas as sessões da semana serão removidas. Não dá para '
+          'desfazer.',
       confirmLabel: 'Limpar',
     );
     if (!confirmed) return;

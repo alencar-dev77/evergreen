@@ -104,9 +104,8 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
   Widget _body() {
     if (widget.meeting.isEmpty) {
       return Text(
-        'Nenhuma fala foi reconhecida. As causas comuns: o microfone estava '
-        'sem permissão, ninguém falou, ou o idioma da transcrição não era o '
-        'idioma da reunião.',
+        'Nenhuma fala reconhecida. Em geral é o microfone sem permissão ou '
+        'o idioma errado na transcrição.',
         style: context.eg.text.captionSmall,
       );
     }
@@ -150,8 +149,8 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     // Sem resumo ainda, o lugar dele explica o que ele é — melhor que um vazio
     // com um botão solto no rodapé.
     return Text(
-      'Esta reunião ainda não foi resumida. O resumo é feito na sua máquina, '
-      'a partir da transcrição, e leva alguns segundos.',
+      'Ainda sem resumo. Ele é feito nesta máquina, a partir da '
+      'transcrição, e leva alguns segundos.',
       style: context.eg.text.captionSmall,
     );
   }
