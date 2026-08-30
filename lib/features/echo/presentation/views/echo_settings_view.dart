@@ -159,12 +159,15 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                     style: context.eg.text.caption,
                   ),
                 ),
-              // O limite mora junto da lista que ele governa, e não num tópico
-              // "Histórico" só dele: uma seção inteira para uma pergunta é o que
-              // fazia esta tela ter seis títulos para responder cinco coisas.
-              // Descolado da lista e sem divisor, pela mesma razão do "limpar" do
-              // Focus: encostado, viraria a última reunião da lista.
-              const SizedBox(height: AppSpacing.xxl),
+            ],
+          ),
+        if (showSettings) ...[
+          // O limite da biblioteca é ajuste, e por isso mora com os ajustes:
+          // na aba das reuniões ele era a última linha de uma lista, com a
+          // mesma cara de mais uma reunião.
+          EgSettingsCard(
+            title: 'Biblioteca',
+            children: [
               EgSettingsRow(
                 label: 'Reuniões guardadas',
                 description:
@@ -179,7 +182,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               ),
             ],
           ),
-        if (showSettings) ...[
           EgSettingsCard(
             title: 'Gravação',
             children: [
@@ -293,7 +295,6 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 status: capabilities.microphone,
                 onPressed: recorder.requestMicrophone,
               ),
-              const SizedBox(height: AppSpacing.lg),
               EchoPermissionRow(
                 title: 'Gravação de Tela',
                 detail:

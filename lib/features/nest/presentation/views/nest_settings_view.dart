@@ -92,7 +92,6 @@ class NestSettingsView extends ConsumerWidget {
                   onRemove: (index) =>
                       unawaited(viewModel.removeDestination(index)),
                 ),
-              const SizedBox(height: AppSpacing.lg),
               Align(
                 alignment: Alignment.centerLeft,
                 child: EgButton.secondary(

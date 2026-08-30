@@ -89,7 +89,11 @@ class EgSettingsPage extends StatelessWidget {
         ],
         LayoutBuilder(
           builder: (context, constraints) =>
-              constraints.maxWidth < _twoColumnsAbove
+              // Um cartão só nunca vai para a grade: numa das colunas ele fica
+              // com metade da largura e a outra metade da tela fica vazia — e
+              // meia largura é justamente o que uma lista (as reuniões do Echo,
+              // os destinos do Nest) não tem como aproveitar.
+              children.length < 2 || constraints.maxWidth < _twoColumnsAbove
               ? _column(children)
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

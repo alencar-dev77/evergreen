@@ -14,6 +14,7 @@ import '../../core/design/eg_tokens.dart';
 /// indicador, e um anel por fora dela seria redundância de affordance.
 class EgTextField extends StatefulWidget {
   const EgTextField({
+    this.bare = false,
     super.key,
     required this.controller,
     this.focusNode,
@@ -40,6 +41,18 @@ class EgTextField extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
 
   final bool enabled;
+
+  /// Sem moldura até receber o cursor.
+  ///
+  /// É o campo que mora **dentro de uma lista**, onde o valor é lido muito
+  /// mais vezes do que é escrito — o apelido de um destino do Nest. Uma caixa
+  /// permanente ali diz "isto é um formulário" para uma lista que é, na maior
+  /// parte do tempo, só de leitura; e nove caixas empilhadas transformam a
+  /// lista num questionário.
+  ///
+  /// Focado, ele ganha a mesma moldura de sempre: quem está escrevendo precisa
+  /// ver onde termina o campo.
+  final bool bare;
 
   /// Altura mínima em linhas. O campo cresce a partir daí conforme se escreve.
   ///
@@ -103,17 +116,21 @@ class _EgTextFieldState extends State<EgTextField> {
     return AnimatedContainer(
       duration: AppDurations.instant,
       curve: AppDurations.curve,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: widget.bare
+          ? const EdgeInsets.symmetric(horizontal: AppSpacing.sm)
+          : const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
       decoration: BoxDecoration(
-        color: context.eg.colors.surface,
+        color: widget.bare && !_isFocused ? null : context.eg.colors.surfaceTop,
         borderRadius: context.eg.shapes.controlAll,
         border: Border.all(
           color: _isFocused
               ? context.eg.colors.accent
-              : context.eg.colors.line,
+              : (widget.bare
+                    ? const Color(0x00000000)
+                    : context.eg.colors.edge),
         ),
       ),
       child: Opacity(
