@@ -49,7 +49,7 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Enter` | Awake | liga a trava (e fecha o painel) ou desliga (e fica) |
 | `←` `→` | Awake | troca a duração, com o seletor focado |
 | `Esc` | Awake | fecha o painel; a trava continua como está |
-| `⌘⇧,` | global | abre as preferências (Hub) |
+| `⌘⇧,` | global | abre as preferências (Hub) — o único atalho que continua valendo com tudo desligado |
 | `Esc` | Hub | sai do campo de texto que estiver em edição; sem campo, fecha a região de leitura; sem região, esconde a janela |
 | `⌘⇧E` | global | abre o painel do Echo (`E` de Echo: `⌘⇧T` roubaria "reabrir aba" de todo navegador, e reunião acontece dentro do navegador) |
 | `Enter` | Echo | a ação daquele estado: gravar, parar e transcrever, abrir no Hub |
@@ -147,11 +147,42 @@ Dois detalhes de convenção que valem para atalhos futuros:
 - **O modificador nomeia a camada.** No overlay, `⌥` é sempre "os fixados": ele alcança os fixados no `⌥1..⌥5` e os reordena no `⌥↑`/`⌥↓`. Um atalho novo que atue sobre os fixados nasce em `⌥`; um que atue sobre a lista inteira, em `⌘`.
 - **Atalho que só vale numa parte da lista se anuncia só ali.** `⌥↑↓ mover` entra no rodapé quando a seleção está num fixado que tem com quem trocar de lugar, e sai quando ela desce para os recentes — a fronteira entre os grupos é exatamente onde a capacidade muda, e anunciá-lo o tempo todo prometeria algo que a maior parte da lista não cumpre. A largura sai da dica mais evidente do rodapé (`enter`, que já era exibido sem rótulo), não do `tab ver`.
 
-### Decisão do produto: atalho global não é reconfigurável na v0.1
+### Atalho global é reconfigurável, e o tópico é o mesmo nas sete telas
 
-A linha "Abrir Pin" nas preferências é **exibição-somente**: mostra `⌘⇧C` em key-caps e não aceita rebinding. Rebinding exige captura de tecla, validação de conflito com o sistema e persistência do novo atalho — trabalho que fica para uma versão futura.
+A seção "Atalho global" é um widget só (`GlobalShortcutSection`), usado pelos seis módulos com painel e pela tela do aplicativo. Ela mostra a combinação em vigor em key-caps e um botão **Alterar** que põe a tela à escuta; a combinação seguinte é gravada, ou recusada com o motivo escrito logo abaixo. Trocada, aparece uma segunda linha, **Restaurar padrão**, que some quando não há o que restaurar.
 
-Enquanto isso valer, a linha continua na tela em vez de ser omitida: ela ensina o atalho, que é a função mais importante dela. Não a transforme em algo que *pareça* editável (campo, botão "alterar") sem implementar a captura de verdade.
+O que a captura garante, e nenhum desses pontos é opcional:
+
+- **Os atalhos globais saem do sistema enquanto se grava.** O Hub é um aplicativo comum e um atalho global dispara com ele na frente: sem suspender, apertar `⌘⇧C` para gravar abriria o painel do Pin por cima da tela de preferências. Quem suspende é a janela 0, pelo canal — o registro é nativo e por engine, e o Hub não alcança o que ela registrou.
+- **O gravador come todas as teclas.** O Hub tem um mapa de atalhos acima dele; um Esc que passasse reto esconderia a janela em vez de cancelar a gravação. Esc cancela, Tab é a única que sai pelo caminho normal.
+- **Piso de duas modificadoras, uma delas `⌘` ou `⌃`.** Uma regra que faz o trabalho de uma lista de proibições enorme: `⌘C`, `⌘Q`, `⌘Space` e `⌘Tab` são todos de uma modificadora só, como todo comando de menu do macOS. `⇧` e `⌥` sozinhos não contam — `⇧K` é a letra maiúscula e `⌥K` é `˚`.
+- **Uma lista curta do que o macOS toma de todo mundo** (`⌘⇧3/4/5/6`, `⌃⌘Q`, `⌃⌘Space`…). Curta de propósito: o Evergreen não sabe o que está instalado, e uma lista que tentasse adivinhar os outros aplicativos seria uma lista errada.
+- **Conflito é conferido contra os sete slots, e a recusa diz o dono** ("⌘⇧E já é o atalho do Echo"). Quem está na tela do Leaf não tem como saber de quem é a tecla, e uma recusa muda mandaria procurar nas outras seis telas. A tecla de um módulo **desligado** continua reservada: liberá-la faria os dois disputarem a mesma combinação no dia em que ele voltasse.
+- **A recusa não fecha a gravação.** Quem apertou `⌘C` sem pensar acerta na tentativa seguinte, sem ter de apertar "Alterar" de novo.
+
+O atalho é guardado como tecla **física** (`usbHidUsage`), não lógica: o atalho é a posição no teclado, e continua sendo a mesma tecla depois de trocar o layout de entrada.
+
+### Módulo se liga e se desliga, e o interruptor mora numa tela só
+
+Todo módulo tem um interruptor mestre no **topo da tela dele**, acima até da lista do módulo — ele não é uma preferência do módulo, é a pergunta que decide se as preferências do módulo importam. É a única coisa que escapa da ordem fixa de tópicos.
+
+Desligado, quatro coisas acontecem juntas, e é a quarta que faz o interruptor não ser decoração:
+
+1. o item **sai do menu da barra de status**, e os de baixo sobem;
+2. o **atalho global não é registrado** — a tecla volta a ser de quem estava usando ela;
+3. o corpo da tela do módulo fica **apagado e sem resposta** (`ModuleGate`: opacidade, ponteiro, foco e semântica);
+4. o que o módulo tinha rodando **para** — o Pin deixa de registrar a área de transferência, o Awake solta a trava, a prateleira do Nest não recebe mais arquivo nem responde ao chacoalhar.
+
+O que estava em curso é encerrado **guardando**: a sessão do Focus vai para o histórico com o tempo que teve e a reunião do Echo é transcrita. Deixar rodando seria pior — a tela do módulo está apagada, e não haveria de onde parar uma gravação que continuasse.
+
+Duas regras que sustentam o resto:
+
+- **O módulo desligado continua na barra lateral**, apagado e com "Desligado" no lugar da tagline. Sumir da lista deixaria o interruptor de religar dentro da tela que sumiu, e a única saída seria mexer no plist.
+- **O atalho do Hub nunca sai do sistema.** Ele é a porta para religar qualquer coisa, e um atalho de preferências que dependesse de uma preferência seria uma armadilha.
+
+E o interruptor **não** vai para o menu da barra de status: o menu é o lugar de *usar* o Evergreen, e um interruptor de configuração no meio da lista de módulos é mais uma coisa para errar na pressa.
+
+Nada é apagado por desligar. Religar devolve o histórico como ele ficou — é isso que faz a decisão ser barata, e é por isso que ela não pede confirmação.
 
 ## Navegação por teclado dentro de listas e menus
 

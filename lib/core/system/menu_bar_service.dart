@@ -2,31 +2,45 @@ import 'dart:io';
 
 import 'package:tray_manager/tray_manager.dart';
 
-/// Ações que o menu da barra de status pode disparar.
-enum MenuBarAction {
-  openPin('open_pin', 'Pin', '⌘⇧C'),
-  openFocus('open_focus', 'Focus', '⌘⇧F'),
-  openLeaf('open_leaf', 'Leaf', '⌘⇧D'),
-  openAwake('open_awake', 'Awake', '⌘⇧X'),
-  openEcho('open_echo', 'Echo', '⌘⇧E'),
-  openNest('open_nest', 'Nest', '⌘⇧R'),
-  openHub('open_hub', 'Preferências', '⌘⇧,'),
-  quit('quit', 'Encerrar Evergreen');
+import 'global_shortcut_slot.dart';
+import 'shortcut_binding.dart';
 
-  const MenuBarAction(this.key, this.label, [this.shortcut]);
+/// Ações que o menu da barra de status pode disparar.
+///
+/// A ordem dos valores é a ordem do menu: a lista dos módulos, as
+/// preferências, e encerrar. Um módulo desligado sai da lista e os de baixo
+/// sobem — o menu mostra o que a pessoa usa, não o catálogo.
+enum MenuBarAction {
+  openPin('open_pin', 'Pin', GlobalShortcutSlot.pin),
+  openFocus('open_focus', 'Focus', GlobalShortcutSlot.focus),
+  openLeaf('open_leaf', 'Leaf', GlobalShortcutSlot.leaf),
+  openAwake('open_awake', 'Awake', GlobalShortcutSlot.awake),
+  openEcho('open_echo', 'Echo', GlobalShortcutSlot.echo),
+  openNest('open_nest', 'Nest', GlobalShortcutSlot.nest),
+  openHub('open_hub', 'Preferências', GlobalShortcutSlot.hub),
+  quit('quit', 'Encerrar Evergreen', null);
+
+  const MenuBarAction(this.key, this.label, this.slot);
 
   final String key;
   final String label;
 
-  /// Atalho global que chega ao mesmo lugar, quando existe.
-  final String? shortcut;
+  /// O atalho global que chega ao mesmo lugar, quando existe.
+  ///
+  /// Guarda o **slot**, não a combinação: a combinação é preferência e muda
+  /// enquanto o app roda. Era um texto constante aqui dentro até a v0.14, e
+  /// essa era a terceira cópia da mesma tecla — foi o que fez o Nest, que
+  /// nunca chegou a aparecer neste menu, ficar meses com `⌘⇧S` escrito num
+  /// lugar e outra tecla registrada no sistema.
+  final GlobalShortcutSlot? slot;
 
-  /// Como o item se apresenta no menu.
+  /// Como o item se apresenta no menu, dada a combinação em vigor.
   ///
   /// O atalho vai no próprio texto porque o `tray_manager` não expõe
   /// `keyEquivalent` — sem isso, o único lugar permanente do app na tela não
-  /// ensinaria nenhum dos três atalhos.
-  String get menuLabel => shortcut == null ? label : '$label   $shortcut';
+  /// ensinaria atalho nenhum.
+  String labelWith(ShortcutBinding? binding) =>
+      binding == null ? label : '$label   ${binding.compact}';
 
   static MenuBarAction? fromKey(String? key) {
     for (final action in values) {
@@ -58,6 +72,21 @@ class MenuBarService with TrayListener {
   /// Há quanto tempo o Echo está gravando, quando está.
   String? _echoLabel;
 
+  /// Os itens de módulo que o menu mostra, na ordem. Ver [setLayout].
+  ///
+  /// Começa com todos: o menu existe desde o primeiro quadro, e as preferências
+  /// só são lidas alguns passos depois na inicialização. Um menu que nascesse
+  /// vazio esperando o disco piscaria a cada abertura do app.
+  List<MenuBarAction> _modules = MenuBarAction.values
+      .where((action) => action != MenuBarAction.openHub)
+      .where((action) => action != MenuBarAction.quit)
+      .toList();
+
+  /// As combinações em vigor, para escrever ao lado de cada item.
+  Map<GlobalShortcutSlot, ShortcutBinding> _bindings = {
+    for (final slot in GlobalShortcutSlot.values) slot: slot.fallback,
+  };
+
   /// Ponto que anuncia a trava do Awake ligada.
   ///
   /// Um caractere, e não um número: a contagem do Focus já ocupa o título, e
@@ -74,6 +103,22 @@ class MenuBarService with TrayListener {
 
     await trayManager.setIcon(_iconPath, isTemplate: true);
     await trayManager.setToolTip('Evergreen');
+    await trayManager.setContextMenu(_buildMenu());
+  }
+
+  /// Diz quais módulos aparecem no menu e com que tecla.
+  ///
+  /// Chamado na inicialização e a cada mudança nas preferências. Reconstruir o
+  /// menu inteiro é o único jeito de o `tray_manager` mudar rótulo ou lista de
+  /// itens — o mesmo caminho que a trava do Awake já usava para atualizar o
+  /// tempo restante.
+  Future<void> setLayout({
+    required List<MenuBarAction> modules,
+    required Map<GlobalShortcutSlot, ShortcutBinding> bindings,
+  }) async {
+    _modules = modules;
+    _bindings = bindings;
+
     await trayManager.setContextMenu(_buildMenu());
   }
 
@@ -133,49 +178,40 @@ class MenuBarService with TrayListener {
   }
 
   /// "Awake   ⌘⇧X" desligado; "Awake · 38 min   ⌘⇧X" ligado.
-  String get _awakeMenuLabel {
+  String _awakeMenuLabel(ShortcutBinding? binding) {
     const action = MenuBarAction.openAwake;
     final detail = _awakeDetail;
-    if (detail == null) return action.menuLabel;
+    if (detail == null) return action.labelWith(binding);
 
-    return '${action.label} · $detail   ${action.shortcut}';
+    final shortcut = binding == null ? '' : '   ${binding.compact}';
+    return '${action.label} · $detail$shortcut';
   }
 
   Menu _buildMenu() => Menu(
     items: [
       MenuItem(label: 'Evergreen', disabled: true),
-      MenuItem(
-        key: MenuBarAction.openPin.key,
-        label: MenuBarAction.openPin.menuLabel,
-      ),
-      MenuItem(
-        key: MenuBarAction.openFocus.key,
-        label: MenuBarAction.openFocus.menuLabel,
-      ),
-      MenuItem(
-        key: MenuBarAction.openLeaf.key,
-        label: MenuBarAction.openLeaf.menuLabel,
-      ),
-      // Ligado, o item vira "Awake · 38 min   ⌘⇧X": é onde quem viu o ponto no
-      // ícone vai procurar quanto falta. Sem marca de seleção, apesar de ser um
-      // estado ligado/desligado — clicar aqui abre o painel, como nos outros
-      // módulos, e um item marcado prometeria que o clique desliga a trava.
-      MenuItem(key: MenuBarAction.openAwake.key, label: _awakeMenuLabel),
-      MenuItem(
-        key: MenuBarAction.openEcho.key,
-        label: MenuBarAction.openEcho.menuLabel,
-      ),
-      MenuItem(
-        key: MenuBarAction.openHub.key,
-        label: MenuBarAction.openHub.menuLabel,
-      ),
+      for (final action in _modules) _itemFor(action),
+      _itemFor(MenuBarAction.openHub),
       MenuItem.separator(),
-      MenuItem(
-        key: MenuBarAction.quit.key,
-        label: MenuBarAction.quit.menuLabel,
-      ),
+      _itemFor(MenuBarAction.quit),
     ],
   );
+
+  MenuItem _itemFor(MenuBarAction action) {
+    final binding = action.slot == null ? null : _bindings[action.slot];
+
+    return MenuItem(
+      key: action.key,
+      // Ligado, o item do Awake vira "Awake · 38 min   ⌘⇧X": é onde quem viu o
+      // ponto no ícone vai procurar quanto falta. Sem marca de seleção, apesar
+      // de ser um estado ligado/desligado — clicar aqui abre o painel, como nos
+      // outros módulos, e um item marcado prometeria que o clique desliga a
+      // trava.
+      label: action == MenuBarAction.openAwake
+          ? _awakeMenuLabel(binding)
+          : action.labelWith(binding),
+    );
+  }
 
   @override
   void onTrayIconMouseDown() {

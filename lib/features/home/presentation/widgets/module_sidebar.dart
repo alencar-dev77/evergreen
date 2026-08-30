@@ -1,14 +1,20 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/app_info.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_nav_tile.dart';
 import '../../models/evergreen_module.dart';
+import '../viewmodels/module_settings_view_model.dart';
 import '../../../../core/design/eg_tokens.dart';
 
 /// Barra lateral do Hub: o aplicativo no topo e os módulos abaixo.
-class ModuleSidebar extends StatelessWidget {
+///
+/// Módulo desligado **continua na lista**, apagado e com "desligado" no lugar
+/// da tagline. É por aqui que se religa: sumir da lista deixaria o interruptor
+/// dentro da tela que sumiu, e a única saída seria mexer no plist.
+class ModuleSidebar extends ConsumerWidget {
   const ModuleSidebar({
     super.key,
     required this.selected,
@@ -24,7 +30,9 @@ class ModuleSidebar extends StatelessWidget {
   static const width = 260.0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(moduleSettingsViewModelProvider);
+
     return DecoratedBox(
       // Superfície levemente translúcida (`context.eg.colors.sidebar`): o brilho verde
       // do fundo atravessa de leve no topo, unificando a sidebar com a área de
@@ -53,16 +61,16 @@ class ModuleSidebar extends StatelessWidget {
                 ),
                 children: [
                   for (final module in EvergreenModule.values)
-                    // Módulo ainda não lançado aparece esmaecido, com a versão
-                    // prevista no lugar da tagline.
+                    // Esmaecido em dois casos, e o subtítulo diz qual: o módulo
+                    // ainda não lançado (com a versão prevista) e o que a
+                    // pessoa desligou.
                     EgNavTile(
                       icon: module.icon,
                       title: module.name,
-                      subtitle: module.isAvailable
-                          ? module.tagline
-                          : 'Previsto para ${module.plannedFor}',
+                      subtitle: _subtitleFor(module, settings.isEnabled(module)),
                       isSelected: module == selected,
-                      isMuted: !module.isAvailable,
+                      isMuted:
+                          !module.isAvailable || !settings.isEnabled(module),
                       margin: const EdgeInsets.only(bottom: AppSpacing.xxs),
                       onTap: () => onSelect(module),
                     ),
@@ -102,6 +110,13 @@ class ModuleSidebar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _subtitleFor(EvergreenModule module, bool isEnabled) {
+    if (!module.isAvailable) return 'Previsto para ${module.plannedFor}';
+    if (!isEnabled) return 'Desligado';
+
+    return module.tagline;
   }
 
   Widget _version(BuildContext context) {

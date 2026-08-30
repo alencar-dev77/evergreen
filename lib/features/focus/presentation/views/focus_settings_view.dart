@@ -1,11 +1,11 @@
+import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../home/presentation/widgets/global_shortcut_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
-import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
@@ -170,19 +170,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
             ),
           ],
         ),
-        EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir Focus',
-              description: 'Funciona com qualquer aplicativo em foco.',
-              showDivider: false,
-              trailing: const EgShortcutDisplay(
-                keys: GlobalShortcutService.focusShortcutKeys,
-              ),
-            ),
-          ],
-        ),
+        GlobalShortcutSection(slot: GlobalShortcutSlot.focus),
       ],
     );
   }

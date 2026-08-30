@@ -42,11 +42,18 @@ Pin. O cabeçalho do script explica a ordem em que ele escolhe o certificado.
 | **Leaf** | Parede de até nove anotações curtas, todas à vista de uma vez | `⌘⇧D` |
 | **Awake** | Impede o Mac de dormir pelo prazo escolhido — a tela, ou só o sistema | `⌘⇧X` |
 | **Echo** | Grava a reunião, separa as vozes, transcreve e resume — tudo local | `⌘⇧E` |
+| **Nest** | Junta arquivos de várias pastas numa prateleira e manda todos para a mesma | `⌘⇧R` |
 | **Track** | Responde "o que eu fiz hoje" a partir do que os outros gravaram | — (só no Hub) |
 | **Hub** | Painel principal: lista os módulos e concentra as configurações | `⌘⇧,` |
 
 O Hub também abre pelo menu da barra → **Configurações**. Sair do app é pelo
 mesmo menu → **Encerrar Evergreen**.
+
+Os atalhos acima são o **padrão**, não uma imposição: a tela de cada módulo tem
+"Alterar", que grava a combinação que você apertar, e "Restaurar padrão", que
+desfaz. E cada módulo tem um interruptor no topo da tela dele — desligado, ele
+sai do menu da barra, o atalho para de valer e o que ele fazia em segundo plano
+para. Nada é apagado: religar devolve tudo como estava.
 
 O **Echo exige macOS 26** (é de lá que vêm `SpeechAnalyzer` e o modelo de resumo
 local). Abaixo disso o módulo se recusa a gravar e o resto do app segue normal.
@@ -160,7 +167,7 @@ O Evergreen tem duas janelas, cada uma em um engine Flutter próprio:
 
 | Janela | O que é | Como abre |
 |---|---|---|
-| **Painel flutuante** | Painel estilo Spotlight, compartilhado por Pin, Focus, Leaf, Awake e Echo — um painel de cada vez | `⌘⇧C` `⌘⇧F` `⌘⇧D` `⌘⇧X` `⌘⇧E` |
+| **Painel flutuante** | Painel estilo Spotlight, compartilhado por Pin, Focus, Leaf, Awake, Echo e Nest — um painel de cada vez | `⌘⇧C` `⌘⇧F` `⌘⇧D` `⌘⇧X` `⌘⇧E` `⌘⇧R` |
 | **Hub** | Painel principal: módulos, configurações e as telas de leitura | `⌘⇧,` ou o menu da barra |
 
 O painel flutuante nunca é destruído, só escondido — por isso abre

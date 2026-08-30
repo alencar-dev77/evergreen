@@ -1,8 +1,9 @@
+import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../home/presentation/widgets/global_shortcut_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
-import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_key_cap.dart';
@@ -73,19 +74,7 @@ class LeafSettingsView extends ConsumerWidget {
             ),
           ],
         ),
-        EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir Leaf',
-              description: 'Funciona com qualquer aplicativo em foco.',
-              showDivider: false,
-              trailing: const EgShortcutDisplay(
-                keys: GlobalShortcutService.leafShortcutKeys,
-              ),
-            ),
-          ],
-        ),
+        GlobalShortcutSection(slot: GlobalShortcutSlot.leaf),
       ],
     );
   }

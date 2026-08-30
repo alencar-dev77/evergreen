@@ -1,3 +1,5 @@
+import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../home/presentation/widgets/global_shortcut_section.dart';
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
@@ -5,9 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/eg_tokens.dart';
-import '../../../../core/system/global_shortcut_service.dart';
 import '../../../../shared/widgets/eg_button.dart';
-import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
@@ -103,19 +103,7 @@ class NestSettingsView extends ConsumerWidget {
             ],
           ],
         ),
-        EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir Nest',
-              description: 'Funciona com qualquer aplicativo em foco.',
-              showDivider: false,
-              trailing: const EgShortcutDisplay(
-                keys: GlobalShortcutService.nestShortcutKeys,
-              ),
-            ),
-          ],
-        ),
+        GlobalShortcutSection(slot: GlobalShortcutSlot.nest),
       ],
     );
   }

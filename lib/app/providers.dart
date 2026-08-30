@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
 import '../core/storage/app_database.dart';
+import '../core/system/module_settings_host.dart';
 import '../core/storage/backup_service.dart';
 import '../core/window/overlay_panel.dart';
 import '../core/window/window_kind.dart';
@@ -21,6 +22,7 @@ import '../features/focus/data/focus_settings_repository.dart';
 import '../core/app_info.dart';
 import '../features/home/data/app_settings_repository.dart';
 import '../features/home/data/hub_intro_repository.dart';
+import '../features/home/data/module_settings_repository.dart';
 import '../features/home/data/onboarding_repository.dart';
 import '../features/leaf/data/leaf_repository.dart';
 import '../features/nest/data/nest_channel.dart';
@@ -74,6 +76,24 @@ final backupServiceProvider = Provider<BackupService>((ref) {
 
 final appSettingsRepositoryProvider = Provider<AppSettingsRepository>(
   (ref) => AppSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+/// Quem avisa a janela 0 de que as preferências de módulo mudaram.
+///
+/// Provider, e não uma chamada estática, para o teste de widget poder pôr uma
+/// imitação em memória no lugar: no relógio falso do binding a resposta do
+/// canal nunca chega, e a tela que grava um atalho ficaria esperando para
+/// sempre. Ver [ModuleSettingsNotifier].
+final moduleSettingsNotifierProvider = Provider<ModuleSettingsNotifier>(
+  (ref) => const ChannelModuleSettingsNotifier(),
+);
+
+/// Quais módulos estão ligados e que tecla abre cada um.
+///
+/// Lido nos dois engines: o Hub escreve, a janela 0 aplica. Ver
+/// `ModuleSettingsHost`.
+final moduleSettingsRepositoryProvider = Provider<ModuleSettingsRepository>(
+  (ref) => ModuleSettingsRepository(ref.watch(sharedPreferencesProvider)),
 );
 
 final hubIntroRepositoryProvider = Provider<HubIntroRepository>(

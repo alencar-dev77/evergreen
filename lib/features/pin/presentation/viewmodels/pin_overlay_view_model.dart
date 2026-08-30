@@ -67,6 +67,20 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     load();
   }
 
+  /// Desliga a captura da área de transferência.
+  ///
+  /// O caminho do módulo desligado, e a metade do interruptor que mais importa:
+  /// o Pin registra **tudo** o que passa pela área de transferência, senha
+  /// inclusive. Desligá-lo tem de parar a escrita, não só esconder a porta.
+  ///
+  /// O histórico que já existe fica onde está — religar devolve a lista como
+  /// ela ficou.
+  Future<void> stopWatching() async {
+    await _watchSubscription?.cancel();
+    _watchSubscription = null;
+    await _watcher.stop();
+  }
+
   /// Recarrega o histórico do banco.
   void load() {
     _allItems = _repository.loadAll();

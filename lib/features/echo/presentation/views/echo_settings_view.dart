@@ -1,11 +1,11 @@
+import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../home/presentation/widgets/global_shortcut_section.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
-import '../../../../core/system/global_shortcut_service.dart';
-import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
@@ -270,19 +270,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               ),
           ],
         ),
-        const EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir Echo',
-              description: 'Funciona com qualquer aplicativo em foco.',
-              showDivider: false,
-              trailing: EgShortcutDisplay(
-                keys: GlobalShortcutService.echoShortcutKeys,
-              ),
-            ),
-          ],
-        ),
+        const GlobalShortcutSection(slot: GlobalShortcutSlot.echo),
         // No fim da tela, e não no começo: a liberação é coisa de uma vez só —
         // dois botões que se apertam no primeiro dia e nunca mais. Em cima,
         // eles empurravam para baixo tudo o que se ajusta no dia a dia, e a
