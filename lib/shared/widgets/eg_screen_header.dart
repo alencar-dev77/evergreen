@@ -243,7 +243,6 @@ class _ShortcutButton extends StatelessWidget {
       borderRadius: eg.shapes.controlAll,
       height: _height,
       padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH),
-      alignment: Alignment.center,
       semanticLabel: 'Atalho ${keys.join(' ')}. Clique para alterar.',
       child: Text(
         keys.join(),

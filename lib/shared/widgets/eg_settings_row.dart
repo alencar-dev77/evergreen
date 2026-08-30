@@ -158,17 +158,21 @@ class EgSettingsRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Duas linhas antes de truncar: a altura da linha é um piso, não uma
+        // trava, e um rótulo cortado no meio da palavra é pior que uma linha
+        // de 46 pt virando 60. Quem tem de encolher é a microcópia, e isso se
+        // resolve escrevendo, não recortando.
         Text(
           label,
           style: eg.text.body,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         if (description != null)
           Text(
             description!,
             style: eg.text.footnote.copyWith(color: eg.colors.textTertiary),
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
       ],

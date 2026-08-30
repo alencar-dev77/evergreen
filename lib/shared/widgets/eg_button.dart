@@ -159,7 +159,10 @@ class EgButton extends StatelessWidget {
       padding: EdgeInsets.symmetric(
         horizontal: compact ? AppSpacing.md : AppSpacing.lg,
       ),
-      alignment: Alignment.center,
+      // Sem `alignment`: um `Container` alinhado ocupa toda a largura que
+      // recebe, e era isso que esticava um botão de 78 pt pela linha inteira
+      // do cartão. Quem centraliza é a `Row` do conteúdo, que tem tamanho
+      // mínimo.
       builder: (context, state) => Opacity(
         opacity: isDisabled ? style.disabledOpacity : 1,
         child: _content(context, style),

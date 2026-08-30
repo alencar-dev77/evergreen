@@ -154,11 +154,9 @@ class ModuleSidebar extends ConsumerWidget {
     return EgNavTile(
       icon: module.icon,
       title: module.name,
-      shortcut: slot == null
-          ? null
-          : settings.bindingFor(slot).compact,
-      // O módulo sem atalho não tem uma tecla para mostrar, e deixar a coluna
-      // vazia faria parecer que ela sumiu. Ele diz o que é.
+      // O módulo sem atalho não tem tecla para mostrar, e deixar a coluna
+      // vazia faria parecer que ela sumiu no meio da lista. Ele diz o que é.
+      shortcut: slot == null ? 'só leitura' : settings.bindingFor(slot).compact,
       statusColor: slot == null
           ? null
           : (isEnabled ? eg.colors.accent : eg.colors.textQuaternary),

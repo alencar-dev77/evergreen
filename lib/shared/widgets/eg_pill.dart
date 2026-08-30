@@ -170,7 +170,6 @@ class EgFilterPills<T> extends StatelessWidget {
             borderRadius: eg.shapes.chipAll,
             height: height,
             padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH),
-            alignment: Alignment.center,
             semanticLabel: labelOf(value),
             builder: (context, state) => _label(context, value, state, style),
           ),
