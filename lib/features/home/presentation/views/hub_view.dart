@@ -22,12 +22,14 @@ import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
 import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/hub_intro_view_model.dart';
+import '../viewmodels/module_settings_view_model.dart';
 import '../viewmodels/onboarding_view_model.dart';
 import '../widgets/hub_detail_region.dart';
 import '../widgets/hub_intro.dart';
 import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
+import '../widgets/module_switch.dart';
 import 'app_settings_view.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -286,10 +288,25 @@ class _HubViewState extends ConsumerState<HubView> {
   Widget _content() {
     final module = _selected;
     if (module == null) return const AppSettingsView();
+    if (!module.isAvailable) return ModulePlaceholder(module: module);
 
-    return module.isAvailable
-        ? _settingsFor(module)
-        : ModulePlaceholder(module: module);
+    final isEnabled = ref
+        .watch(moduleSettingsViewModelProvider)
+        .isEnabled(module);
+
+    // O interruptor mestre é montado aqui, e não dentro de cada tela: ele é
+    // igual nos sete módulos, e o dia em que entrar um oitavo ele já vem com
+    // interruptor sem ninguém lembrar. O vão é o mesmo que a `EgSettingsPage`
+    // dá entre tópicos — a tela abaixo começa como se ele fosse o primeiro
+    // tópico dela, porque é o que ele é.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ModuleSwitchSection(module: module),
+        const SizedBox(height: AppSpacing.giant),
+        ModuleGate(enabled: isEnabled, child: _settingsFor(module)),
+      ],
+    );
   }
 
   Widget _settingsFor(EvergreenModule module) => switch (module) {

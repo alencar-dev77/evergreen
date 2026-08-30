@@ -6,6 +6,8 @@ import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/viewmodels/hub_detail_view_model.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
+import 'package:evergreen/features/home/presentation/widgets/module_switch.dart';
+import 'package:evergreen/shared/widgets/eg_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,7 @@ import '../focus/fake_focus_session_repository.dart';
 import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
 import 'backup_fixture.dart';
+import 'fake_module_settings_notifier.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -57,6 +60,12 @@ void main() {
             FakeFocusSessionRepository(),
           ),
           sharedPreferencesProvider.overrideWithValue(preferences),
+          // A janela 0, que é quem aplica o interruptor de módulo, não existe
+          // dentro de um teste — e a resposta do canal dela nunca chegaria no
+          // relógio falso do binding.
+          moduleSettingsNotifierProvider.overrideWithValue(
+            FakeModuleSettingsNotifier(),
+          ),
           // O Echo lê as reuniões do banco e pergunta ao sistema o que a
           // máquina permite — nem um nem outro existem dentro de um teste.
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
@@ -226,5 +235,76 @@ void main() {
         reason: 'o cabeçalho de ${module.name} não começa na mesma altura',
       );
     }
+  });
+
+  group('ligar e desligar um módulo', () {
+    /// Abre a tela de um módulo pela barra lateral.
+    Future<void> open(WidgetTester tester, EvergreenModule module) async {
+      await tester.tap(find.text(module.name).first);
+      await tester.pumpAndSettle();
+    }
+
+    /// A tranca que o [ModuleGate] fecha por cima da tela do módulo.
+    Finder closedGate() => find.descendant(
+      of: find.byType(ModuleGate),
+      matching: find.byType(ExcludeFocus),
+    );
+
+    /// Vira o interruptor mestre da tela aberta — o do topo, não os do módulo.
+    Future<void> flip(WidgetTester tester) async {
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ModuleSwitchSection),
+          matching: find.byType(EgToggle),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('todo módulo disponível abre com o interruptor no topo', (
+      tester,
+    ) async {
+      await pumpHub(tester);
+
+      for (final module in EvergreenModule.values.where((m) => m.isAvailable)) {
+        await open(tester, module);
+
+        expect(
+          find.text('Usar o ${module.name}'),
+          findsOneWidget,
+          reason: 'o ${module.name} abriu sem interruptor',
+        );
+      }
+    });
+
+    testWidgets('desligado, o módulo continua na lista e some do resto', (
+      tester,
+    ) async {
+      await pumpHub(tester);
+      await open(tester, EvergreenModule.leaf);
+
+      await flip(tester);
+
+      // Continua na barra lateral — é por ela que se religa. Some da lista é o
+      // beco sem saída que este arranjo existe para evitar.
+      expect(find.text('Leaf'), findsWidgets);
+      expect(find.text('Desligado'), findsOneWidget);
+
+      // E o corpo da tela fica apagado e fora de alcance: o `ExcludeFocus` é o
+      // que o `ModuleGate` põe por fora de tudo, e nada mais no app usa um.
+      expect(closedGate(), findsOneWidget);
+    });
+
+    testWidgets('religar devolve a tela inteira', (tester) async {
+      await pumpHub(tester);
+      await open(tester, EvergreenModule.leaf);
+
+      await flip(tester);
+      expect(find.text('Desligado'), findsOneWidget);
+
+      await flip(tester);
+      expect(find.text('Desligado'), findsNothing);
+      expect(closedGate(), findsNothing);
+    });
   });
 }

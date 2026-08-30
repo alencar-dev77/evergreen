@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 
 import '../core/system/global_shortcut_service.dart';
+import '../core/system/global_shortcut_slot.dart';
 import '../core/system/menu_bar_service.dart';
+import '../core/system/module_settings_host.dart';
 import '../core/system/startup_service.dart';
 import '../core/window/hub_window.dart';
 import '../core/window/overlay_panel.dart';
@@ -18,6 +20,8 @@ import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
+import '../features/home/models/evergreen_module.dart';
+import '../features/home/models/module_settings.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
 import '../features/leaf/presentation/viewmodels/leaf_view_model.dart';
 import '../features/nest/presentation/viewmodels/nest_view_model.dart';
@@ -47,15 +51,20 @@ class EvergreenBootstrap {
   /// Assinatura do chacoalhar. Ver [_watchNestShake].
   StreamSubscription<void>? _nestShakes;
 
+  /// As preferências de módulo em vigor.
+  ///
+  /// Guardadas aqui porque três caminhos precisam consultá-las fora da hora em
+  /// que são aplicadas: o arquivo que cai no painel, o atalho que sobreviveu a
+  /// um instante de corrida, e o item do menu clicado.
+  ModuleSettings _modules = const ModuleSettings();
+
   Future<void> start() async {
-    _container.read(pinOverlayViewModelProvider.notifier).startWatching();
     // Antes de qualquer painel existir: o chacoalhar chega com tudo fechado, e
     // é ele quem manda o painel aparecer.
     _container.read(nestChannelProvider).listen();
     _container.read(nestViewModelProvider.notifier).startListening();
     _watchNestDrops();
     _watchNestShake();
-    unawaited(_applyNestSettings());
     unawaited(
       _container.read(echoRecorderViewModelProvider.notifier).initialize(),
     );
@@ -71,8 +80,17 @@ class EvergreenBootstrap {
         .recoverInterruptedSession();
 
     await _syncLaunchAtLogin();
-    await _registerShortcuts();
     await _setUpMenuBar();
+    // Depois do menu existir e antes de qualquer relógio começar: é isto que
+    // liga a captura do Pin, registra os atalhos e decide quem aparece na barra
+    // de status. Também é o que o Hub chama de volta, pelo canal, toda vez que
+    // alguém mexe num interruptor ou grava um atalho.
+    await ModuleSettingsHost.register(
+      onReapply: _applyModuleSettings,
+      onSuspendChanged: _setShortcutsSuspended,
+    );
+    await GlobalShortcutService.instance.initialize();
+    await _applyModuleSettings();
     // Depois da barra de menus existir: a primeira emissão já escreve o rótulo
     // nela, inclusive para limpá-lo.
     _watchFocusSession();
@@ -118,21 +136,129 @@ class EvergreenBootstrap {
     }
   }
 
-  Future<void> _registerShortcuts() async {
-    final shortcuts = GlobalShortcutService.instance;
-    await shortcuts.initialize();
-    await shortcuts.registerPinToggle(() => toggleOverlay(OverlayPanel.pin));
-    await shortcuts.registerFocusToggle(
-      () => toggleOverlay(OverlayPanel.focus),
+  /// Põe o mundo de acordo com o que está gravado no disco.
+  ///
+  /// Chamado na abertura e a cada mudança feita no Hub — que é outro engine,
+  /// e por isso a releitura do disco é a primeira coisa que acontece aqui.
+  ///
+  /// Três consequências, e as três precisam acontecer juntas para o
+  /// interruptor não mentir: os atalhos globais, o menu da barra de status e os
+  /// serviços que rodam em segundo plano. Um módulo desligado que continuasse
+  /// gravando a área de transferência seria a pior das três metades.
+  Future<void> _applyModuleSettings() async {
+    final repository = _container.read(moduleSettingsRepositoryProvider);
+    await repository.reload();
+
+    final settings = _modules = repository.load();
+
+    await GlobalShortcutService.instance.apply(
+      settings.activeBindings,
+      handlers: _shortcutHandlers,
     );
-    await shortcuts.registerAwakeToggle(
-      () => toggleOverlay(OverlayPanel.awake),
+
+    await MenuBarService.instance.setLayout(
+      modules: [
+        for (final module in EvergreenModule.values)
+          if (module.menuBarAction != null && settings.isEnabled(module))
+            module.menuBarAction!,
+      ],
+      bindings: settings.allBindings,
     );
-    await shortcuts.registerLeafToggle(() => toggleOverlay(OverlayPanel.leaf));
-    await shortcuts.registerEchoToggle(() => toggleOverlay(OverlayPanel.echo));
-    await shortcuts.registerNestToggle(() => toggleOverlay(OverlayPanel.nest));
-    await shortcuts.registerHubOpen(HubWindow.instance.open);
+
+    await _applyRuntime(settings);
   }
+
+  /// O que cada atalho faz. Registrado uma vez e guardado pelo serviço: um
+  /// [GlobalShortcutService.resume] depois de uma gravação precisa registrar
+  /// tudo de novo, e a essa altura ninguém está por perto para dizer o que cada
+  /// tecla faz.
+  Map<GlobalShortcutSlot, Future<void> Function()> get _shortcutHandlers => {
+    GlobalShortcutSlot.pin: () => toggleOverlay(OverlayPanel.pin),
+    GlobalShortcutSlot.focus: () => toggleOverlay(OverlayPanel.focus),
+    GlobalShortcutSlot.leaf: () => toggleOverlay(OverlayPanel.leaf),
+    GlobalShortcutSlot.awake: () => toggleOverlay(OverlayPanel.awake),
+    GlobalShortcutSlot.echo: () => toggleOverlay(OverlayPanel.echo),
+    GlobalShortcutSlot.nest: () => toggleOverlay(OverlayPanel.nest),
+    GlobalShortcutSlot.hub: HubWindow.instance.open,
+  };
+
+  /// Liga e desliga o que roda em segundo plano.
+  ///
+  /// Só age nas **mudanças**: religar o Pin a cada aplicação recarregaria o
+  /// histórico e reclassificaria o banco inteiro por nada.
+  ///
+  /// Desligar um módulo encerra o que ele tinha em curso, e encerra
+  /// **guardando** — a sessão do Focus vai para o histórico com o tempo que
+  /// teve, a reunião do Echo é transcrita, a trava do Awake é solta e vira uma
+  /// linha do dia. Deixar rodando seria pior que qualquer uma dessas: a tela do
+  /// módulo desligado fica apagada, e não haveria de onde parar uma gravação
+  /// que continuasse.
+  Future<void> _applyRuntime(ModuleSettings settings) async {
+    for (final module in EvergreenModule.values) {
+      final enabled = settings.isEnabled(module);
+      if (_running[module] == enabled) continue;
+
+      _running[module] = enabled;
+      await (enabled ? _startModule(module) : _stopModule(module));
+    }
+
+    // O painel de um módulo que acabou de ser desligado não pode ficar na tela:
+    // ele é a única superfície do módulo que não está apagada.
+    final panel = _container.read(overlayPanelProvider);
+    if (!settings.isEnabled(EvergreenModule.of(panel)) &&
+        await OverlayWindow.instance.isVisible()) {
+      await OverlayWindow.instance.hide();
+    }
+  }
+
+  /// O que está ligado agora, para [_applyRuntime] só mexer no que mudou.
+  final _running = <EvergreenModule, bool>{};
+
+  Future<void> _startModule(EvergreenModule module) async {
+    switch (module) {
+      case EvergreenModule.pin:
+        _container.read(pinOverlayViewModelProvider.notifier).startWatching();
+      case EvergreenModule.nest:
+        await _applyNestSettings();
+      case EvergreenModule.focus:
+      case EvergreenModule.leaf:
+      case EvergreenModule.awake:
+      case EvergreenModule.echo:
+      case EvergreenModule.track:
+        // Não têm nada rodando fora do painel: o atalho e o item do menu, que
+        // `_applyModuleSettings` já cuidou, são a porta inteira deles.
+        break;
+    }
+  }
+
+  Future<void> _stopModule(EvergreenModule module) async {
+    switch (module) {
+      case EvergreenModule.pin:
+        await _container
+            .read(pinOverlayViewModelProvider.notifier)
+            .stopWatching();
+      case EvergreenModule.nest:
+        await _container.read(nestChannelProvider).setShakeEnabled(
+          enabled: false,
+        );
+      case EvergreenModule.focus:
+        _container.read(focusTimerViewModelProvider.notifier).stop();
+      case EvergreenModule.awake:
+        await _container.read(awakeViewModelProvider.notifier).turnOff();
+      case EvergreenModule.echo:
+        await _container
+            .read(echoRecorderViewModelProvider.notifier)
+            .stopAndTranscribe();
+      case EvergreenModule.leaf:
+      case EvergreenModule.track:
+        break;
+    }
+  }
+
+  /// Tira e devolve os atalhos do sistema enquanto o Hub grava um novo.
+  Future<void> _setShortcutsSuspended({required bool suspended}) => suspended
+      ? GlobalShortcutService.instance.suspend()
+      : GlobalShortcutService.instance.resume();
 
   Future<void> _setUpMenuBar() async {
     await MenuBarService.instance.initialize(onAction: _handleMenuAction);
@@ -187,6 +313,17 @@ class EvergreenBootstrap {
         .onDropped
         .listen((_) => unawaited(showOverlay(OverlayPanel.nest)));
   }
+
+  /// O módulo dono deste painel está ligado?
+  ///
+  /// Toda porta passa por aqui: o atalho global, o item do menu, o arquivo que
+  /// cai no painel e o chacoalhar. Os atalhos de um módulo desligado nem
+  /// chegam a estar registrados e o item do menu nem está desenhado — esta é a
+  /// terceira tranca, para o instante entre o interruptor virar e o sistema
+  /// tomar conhecimento, e para o arraste do Finder, que é do lado nativo e não
+  /// tem como perguntar.
+  bool _isEnabled(OverlayPanel panel) =>
+      _modules.isEnabled(EvergreenModule.of(panel));
 
   /// Põe a prateleira debaixo do cursor quando alguém chacoalha um arquivo.
   ///
@@ -269,6 +406,8 @@ class EvergreenBootstrap {
   /// execuções lerem a visibilidade antes de qualquer uma mudá-la, e uma
   /// desfaria a outra.
   Future<void> toggleOverlay(OverlayPanel panel) {
+    if (!_isEnabled(panel)) return Future<void>.value();
+
     return _pending = _pending
         .then((_) => _toggleOverlay(panel))
         .catchError((Object _) {});
@@ -277,6 +416,8 @@ class EvergreenBootstrap {
   /// Traz um painel para a frente sem nunca fechá-lo — o caminho do aviso de
   /// fim de sessão, onde esconder a janela seria o oposto do pedido.
   Future<void> showOverlay(OverlayPanel panel, {Offset? at}) {
+    if (!_isEnabled(panel)) return Future<void>.value();
+
     return _pending = _pending
         .then((_) => _showOverlay(panel, at: at))
         .catchError((Object _) {});

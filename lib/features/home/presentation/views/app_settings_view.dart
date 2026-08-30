@@ -7,16 +7,16 @@ import '../../../../app/providers.dart';
 import '../../../../core/app_info.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/storage/backup_service.dart';
-import '../../../../core/system/global_shortcut_service.dart';
+import '../../../../core/system/global_shortcut_slot.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
-import '../../../../shared/widgets/eg_key_cap.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/app_settings_view_model.dart';
 import '../../../../shared/feature_flags.dart';
+import '../widgets/global_shortcut_section.dart';
 import '../widgets/theme_picker.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../widgets/backup_list.dart';
@@ -127,19 +127,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           onAutomaticChanged: viewModel.setAutomaticBackup,
         ),
         const _RestoreSection(),
-        EgSettingsSection(
-          title: 'Atalho global',
-          children: [
-            EgSettingsRow(
-              label: 'Abrir preferências',
-              description: 'Traz esta janela para a frente de qualquer lugar.',
-              showDivider: false,
-              trailing: const EgShortcutDisplay(
-                keys: GlobalShortcutService.hubShortcutKeys,
-              ),
-            ),
-          ],
-        ),
+        const GlobalShortcutSection(slot: GlobalShortcutSlot.hub),
         const EgSettingsSection(title: 'Sobre', children: [_AboutLine()]),
       ],
     );

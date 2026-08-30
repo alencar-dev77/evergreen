@@ -84,6 +84,43 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   fica em ViewModels (`Notifier`).
 - Estrutura por feature em `lib/features/<modulo>/{data,models,presentation}`;
   `presentation` se divide em `viewmodels/`, `views/`, `widgets/`.
+- **Todo módulo se liga e se desliga, e o atalho global de cada um é
+  regravável.** As duas preferências moram no mesmo lugar
+  (`ModuleSettingsRepository`, chaves `module.<id>.enabled` e
+  `shortcut.<slot>`) e só o que **difere do padrão** é gravado: módulo ligado
+  não tem chave e atalho intocado também não — é o que faz um módulo novo
+  nascer ligado, e o que faz uma versão que troque a tecla de fábrica alcançar
+  quem nunca gravou nada sem atropelar quem gravou. A chave usa
+  `EvergreenModule.id`, nunca o `name`, que **neste enum é o nome de
+  exibição**. Desligar tem quatro efeitos, e os quatro juntos: some do menu da
+  barra, o atalho não é registrado, a tela do módulo fica apagada (`ModuleGate`,
+  montado pelo Hub em `_content` — a tela do módulo não sabe disso) e o que
+  rodava para (o Pin deixa de capturar a área de transferência, o Awake solta a
+  trava, o Nest desliga o chacoalhar). O que estava em curso é encerrado
+  **guardando** — sessão do Focus para o histórico, reunião do Echo transcrita.
+  Nada é apagado, e o módulo desligado **continua na barra lateral**: sumir
+  deixaria o interruptor de religar dentro da tela que sumiu. O atalho do Hub
+  nunca é desregistrado, porque é a porta para religar o resto. Ver `ux.md` na
+  skill de design.
+- **Combinação de atalho tem uma fonte de verdade só**: o
+  `GlobalShortcutSlot`, que guarda o padrão, e a preferência por cima dele.
+  Havia três — o `HotKey`, a lista de key-caps da tela e um texto solto no item
+  do menu da barra —, e foi por isso que o Nest ficou meses com `⌘⇧S` escrito
+  num lugar e outra tecla registrada no sistema. Quem valida é
+  `ShortcutRules`, que é puro: piso de duas modificadoras com `⌘` ou `⌃`, a
+  lista curta do que o macOS toma de todo mundo, e conflito conferido contra os
+  sete slots — inclusive os de módulos desligados, cuja tecla continua
+  reservada. Gravar **suspende os atalhos do sistema** enquanto a tela escuta,
+  senão apertar `⌘⇧C` para gravar abre o painel do Pin por cima das
+  preferências.
+- **Preferência decidida no Hub e aplicada na janela 0 atravessa o
+  `ModuleSettingsHost`** — canal unidirecional, registrado uma vez só na janela
+  0, mesmo arranjo (e mesmas razões) do `EchoSummaryHost`. Escrever no disco não
+  avisa ninguém: sem a ponte, desligar o Echo só valeria no lançamento
+  seguinte. Quem chama é o `ModuleSettingsNotifier`, que é **interface** e vem
+  por provider — no relógio falso do teste de widget a resposta do canal nunca
+  chega, e a tela que grava um atalho travaria esperando para sempre (a mesma
+  armadilha do `NestFileService`).
 - **Bandeira de build mora em `lib/shared/feature_flags.dart`**, e é `const`:
   quem mexe é quem builda, não quem usa. Bandeira serve para **desligar algo
   pronto**, nunca para esconder algo pela metade — o código atrás dela continua
@@ -234,9 +271,13 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Ao adicionar pacote com código nativo macOS, verificar se ele precisa
   aparecer também no callback de sub-janela em
   `macos/Runner/MainFlutterWindow.swift` (senão quebra em janelas secundárias).
-- Novo módulo: registrar em `EvergreenModule`, criar
-  `lib/features/<modulo>/` na estrutura padrão, ligar tela de configurações em
-  `_settingsFor` (`hub_view.dart`).
+- Novo módulo: registrar em `EvergreenModule` — com `shortcutSlot` e `panel`,
+  se tiver painel —, criar `lib/features/<modulo>/` na estrutura padrão e ligar
+  a tela de configurações em `_settingsFor` (`hub_view.dart`). O interruptor
+  mestre e o item do menu da barra vêm de graça; a seção "Atalho global" é
+  `GlobalShortcutSection(slot: ...)`, nunca escrita à mão. Um módulo que apareça
+  em `_startModule`/`_stopModule` do bootstrap precisa dizer o que para quando
+  ele é desligado.
 - **Módulo que só lê o que os outros gravaram** (hoje, o Track) não cria tabela,
   não escreve linha e não faz migração: ele é um repositório de leitura sobre as
   tabelas alheias. Consequência prática: cada módulo novo o alimenta de graça, e
