@@ -69,7 +69,7 @@ class NestSettingsView extends ConsumerWidget {
                 child: Text(
                   'Sem pasta aqui, a prateleira guarda arquivos e não tem '
                   'para onde mandá-los. As cadastradas viram ⌘1, ⌘2, ⌘3.',
-                  style: context.eg.text.captionSmall,
+                  style: context.eg.text.caption,
                 ),
               )
             else
@@ -95,7 +95,7 @@ class NestSettingsView extends ConsumerWidget {
               Text(
                 'Máximo de ${NestSettings.maxDestinations} — o que o '
                 'teclado alcança sem procurar.',
-                style: context.eg.text.captionSmall,
+                style: context.eg.text.caption,
               ),
             ],
           ],

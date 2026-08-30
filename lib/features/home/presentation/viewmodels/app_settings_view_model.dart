@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../../../core/system/startup_service.dart';
-import '../../../../core/design/app_theme_id.dart';
 import '../../data/app_settings_repository.dart';
 import '../../models/app_settings.dart';
 
@@ -43,9 +42,6 @@ class AppSettingsViewModel extends Notifier<AppSettings> {
   /// um espaço à toa aparece.
   Future<void> setUserName(String value) =>
       _update(state.copyWith(userName: value.trim()));
-
-  Future<void> setTheme(AppThemeId value) =>
-      _update(state.copyWith(theme: value));
 
   Future<void> setStartMinimized(bool value) =>
       _update(state.copyWith(startMinimized: value));

@@ -53,7 +53,7 @@ class EgBrandMark extends StatelessWidget {
         painter: _BrandMarkPainter(
           openness: openness,
           blade: blade ?? context.eg.colors.accent,
-          handle: handle ?? context.eg.colors.accentShade,
+          handle: handle ?? context.eg.colors.accentDeep,
         ),
       ),
     );

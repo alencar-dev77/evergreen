@@ -61,7 +61,7 @@ class TrackCopiedBreakdown extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
-                    style: context.eg.text.captionSmall,
+                    style: context.eg.text.caption,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -72,7 +72,7 @@ class TrackCopiedBreakdown extends StatelessWidget {
                   child: Text(
                     '${entry.value}',
                     textAlign: TextAlign.right,
-                    style: context.eg.text.bodyCompactEmphasis,
+                    style: context.eg.text.bodyEmphasis,
                   ),
                 ),
               ],
@@ -81,7 +81,7 @@ class TrackCopiedBreakdown extends StatelessWidget {
         SizedBox(height: AppSpacing.xxs),
         Text(
           'Só o tipo e a contagem — o Track nunca lê o que foi copiado.',
-          style: context.eg.text.captionXS.copyWith(
+          style: context.eg.text.footnote.copyWith(
             color: context.eg.colors.textTertiary,
           ),
         ),
@@ -97,8 +97,8 @@ class TrackCopiedBreakdown extends StatelessWidget {
   Widget _track(BuildContext context, double ratio) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: context.eg.colors.border,
-        borderRadius: context.eg.shapes.smallAll,
+        color: context.eg.colors.line,
+        borderRadius: context.eg.shapes.segmentAll,
       ),
       child: SizedBox(
         height: _trackHeight,
@@ -110,7 +110,7 @@ class TrackCopiedBreakdown extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: context.eg.colors.textTertiary,
-                borderRadius: context.eg.shapes.smallAll,
+                borderRadius: context.eg.shapes.segmentAll,
               ),
             ),
           ),

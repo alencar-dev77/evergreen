@@ -51,7 +51,7 @@ class EgHintBar extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: context.eg.colors.background,
+        color: context.eg.colors.canvas,
         border: Border(top: context.eg.hairline),
       ),
       child: Row(
@@ -120,8 +120,8 @@ class _HintLabel extends StatelessWidget {
             maxLines: 1,
             softWrap: false,
             style: color == null
-                ? context.eg.text.captionXS
-                : context.eg.text.captionXS.copyWith(color: color),
+                ? context.eg.text.footnote
+                : context.eg.text.footnote.copyWith(color: color),
           ),
         ],
       ],

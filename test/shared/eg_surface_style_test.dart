@@ -1,5 +1,4 @@
 import 'package:evergreen/core/design/app_colors.dart';
-import 'package:evergreen/core/design/app_theme_id.dart';
 import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/shared/widgets/eg_hoverable.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +11,7 @@ void main() {
   // Os tokens do tema da casa, sem árvore de widgets: a ordem de precedência
   // não depende de pele nenhuma, e prendê-la num tema só mantém o teste sobre a
   // tabela em vez de sobre as cores.
-  final eg = EgTokens.of(AppThemeId.evergreen);
+  final eg = EgTokens.evergreen();
   final style = eg.surfaces.row;
 
   const rest = EgInteraction();
@@ -26,8 +25,11 @@ void main() {
     });
 
     test('hover e foco compartilham a superfície', () {
-      expect(style.backgroundFor(hovered), eg.colors.hover);
-      expect(style.backgroundFor(focused), eg.colors.hover);
+      // Contra o que a própria coluna declara, e não contra um token nomeado:
+      // o que se prende aqui é a ordem, não a cor. Quando a paleta muda, este
+      // teste continua dizendo a mesma coisa.
+      expect(style.backgroundFor(hovered), style.hover);
+      expect(style.backgroundFor(focused), style.hover);
     });
 
     test('pressed vence hover', () {
@@ -35,7 +37,7 @@ void main() {
         style.backgroundFor(
           const EgInteraction(isHovered: true, isPressed: true),
         ),
-        eg.colors.pressed,
+        style.pressed,
       );
     });
 
@@ -45,7 +47,7 @@ void main() {
           const EgInteraction(isHovered: true, isPressed: true),
           isSelected: true,
         ),
-        eg.colors.selection,
+        style.selected,
       );
     });
 
@@ -63,14 +65,22 @@ void main() {
 
   group('seleção e hover nunca são a mesma cor', () {
     test('em todas as colunas com estado selecionado', () {
-      final styles = [eg.surfaces.row, eg.surfaces.card, eg.surfaces.segment];
+      final styles = [
+        eg.surfaces.row,
+        eg.surfaces.sidebarItem,
+        eg.surfaces.glassRow,
+        eg.surfaces.card,
+        eg.surfaces.segment,
+      ];
 
       for (final style in styles) {
         expect(style.selected, isNotNull);
         expect(
           style.selected,
           isNot(style.hover),
-          reason: 'seleção é accent, hover é neutro (colors.md)',
+          reason:
+              'selecionado é um degrau acima do hover — se empatam, passar o '
+              'mouse numa linha vizinha a faz parecer a escolhida',
         );
       }
     });
@@ -78,10 +88,17 @@ void main() {
 
   group('conteúdo', () {
     test('o texto só reage à seleção quando a coluna prevê isso', () {
-      expect(style.foregroundFor(hovered), eg.colors.textPrimary);
+      // A linha em repouso fala baixo; selecionada, sobe para o primeiro
+      // plano. É metade da assinatura de seleção do "Estufa" — a outra metade
+      // é a superfície elevada, e nenhuma das duas é cor.
+      expect(style.foregroundFor(rest), eg.colors.textSecondary);
+      expect(style.foregroundFor(rest, isSelected: true), eg.colors.textPrimary);
+
+      // Uma coluna sem noção de seleção devolve o mesmo conteúdo de sempre.
+      final primary = eg.surfaces.primary;
       expect(
-        style.foregroundFor(rest, isSelected: true),
-        eg.colors.accentLight,
+        primary.foregroundFor(rest, isSelected: true),
+        primary.foregroundFor(rest),
       );
     });
 
@@ -105,35 +122,75 @@ void main() {
     });
   });
 
-  group('aresta de seleção', () {
-    test('só aparece no estado selecionado', () {
-      expect(style.edgeFor(rest), isNull);
-      expect(style.edgeFor(hovered), isNull);
-      expect(style.edgeFor(pressed), isNull);
-      expect(style.edgeFor(focused), isNull);
-      expect(style.edgeFor(rest, isSelected: true), eg.colors.accent);
+  group('linha de luz da seleção', () {
+    test('só acende no estado selecionado', () {
+      expect(style.hairlineFor(rest), isNull);
+      expect(style.hairlineFor(hovered), isNull);
+      expect(style.hairlineFor(pressed), isNull);
+      expect(style.hairlineFor(focused), isNull);
+      expect(
+        style.hairlineFor(rest, isSelected: true),
+        eg.elevations.rowInnerHairline,
+      );
     });
 
     test('vale para as colunas que ocupam a largura de um bloco', () {
-      expect(eg.surfaces.row.selectedEdge, isNotNull);
-      expect(eg.surfaces.card.selectedEdge, isNotNull);
+      expect(eg.surfaces.row.innerHairline, isNotNull);
+      expect(eg.surfaces.card.innerHairline, isNotNull);
+      expect(eg.surfaces.glassRow.innerHairline, isNotNull);
     });
 
-    test('a pílula do segmented control não tem aresta', () {
-      // Numa pílula de 60px a aresta viraria metade do componente — ali o que
-      // marca a escolha é a superfície.
-      expect(eg.surfaces.segment.selectedEdge, isNull);
+    test('a pílula do segmented control não tem linha de luz', () {
+      // Numa pílula de 60px a linha viraria a metade de cima do componente —
+      // ali o que marca a escolha é a superfície mais o peso do rótulo.
+      expect(eg.surfaces.segment.innerHairline, isNull);
     });
 
-    test('quem não tem seleção não tem aresta', () {
+    test('quem não tem seleção não tem linha de luz', () {
       for (final column in [
         eg.surfaces.ghost,
         eg.surfaces.primary,
+        eg.surfaces.neutralStrong,
         eg.surfaces.secondary,
         eg.surfaces.destructive,
       ]) {
-        expect(column.selectedEdge, isNull);
+        expect(column.innerHairline, isNull);
       }
+    });
+  });
+
+  group('o verde perdeu papéis', () {
+    test('selecionado não é accent em nenhuma família', () {
+      for (final column in [
+        eg.surfaces.row,
+        eg.surfaces.sidebarItem,
+        eg.surfaces.card,
+        eg.surfaces.segment,
+      ]) {
+        expect(column.selected, isNot(eg.colors.accent));
+      }
+    });
+
+    test('o anel de foco é branco, e não accent', () {
+      expect(eg.colors.focusRing.r, eg.colors.focusRing.g);
+      expect(eg.colors.focusRing.g, eg.colors.focusRing.b);
+    });
+
+    test('accent só é superfície de repouso na ação primária', () {
+      final comAccent = [
+        eg.surfaces.row,
+        eg.surfaces.sidebarItem,
+        eg.surfaces.glassRow,
+        eg.surfaces.ghost,
+        eg.surfaces.segment,
+        eg.surfaces.card,
+        eg.surfaces.neutralStrong,
+        eg.surfaces.secondary,
+        eg.surfaces.destructive,
+      ].where((column) => column.rest == eg.colors.accent);
+
+      expect(comAccent, isEmpty);
+      expect(eg.surfaces.primary.rest, eg.colors.accent);
     });
   });
 }

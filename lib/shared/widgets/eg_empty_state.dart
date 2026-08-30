@@ -31,8 +31,8 @@ class EgEmptyState extends StatelessWidget {
         children: [
           EgIconBadge(
             size: AppBadgeSizes.lg,
-            color: context.eg.colors.card,
-            borderRadius: context.eg.shapes.smallAll,
+            color: context.eg.colors.surface,
+            borderRadius: context.eg.shapes.segmentAll,
             bordered: true,
             child: EgIcon(icon, size: AppIconSizes.xl),
           ),
@@ -40,13 +40,13 @@ class EgEmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: context.eg.text.bodyCompactEmphasis,
+            style: context.eg.text.bodyEmphasis,
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: context.eg.text.captionSmall,
+            style: context.eg.text.caption,
           ),
         ],
       ),

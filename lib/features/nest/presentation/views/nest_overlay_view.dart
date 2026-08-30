@@ -280,7 +280,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
           padding: const EdgeInsets.only(left: AppSpacing.sm),
           child: Text(
             'Ou arraste daqui para qualquer pasta.',
-            style: context.eg.text.captionXS.copyWith(
+            style: context.eg.text.footnote.copyWith(
               color: context.eg.colors.textTertiary,
             ),
           ),
@@ -294,7 +294,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
       return Text(
         'Nenhuma pasta cadastrada. Abra as preferências com ⌘, e escolha '
         'para onde a prateleira manda.',
-        style: context.eg.text.captionSmall,
+        style: context.eg.text.caption,
       );
     }
 
@@ -401,7 +401,7 @@ class _DestinationRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: context.eg.text.bodyCompactEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),

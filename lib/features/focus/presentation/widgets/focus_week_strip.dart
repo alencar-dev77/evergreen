@@ -73,15 +73,15 @@ class FocusTotals extends StatelessWidget {
         children: [
           TextSpan(
             text: DurationFormat.compact(today),
-            style: context.eg.text.screenTitle,
+            style: context.eg.text.display,
           ),
-          TextSpan(text: '  hoje', style: context.eg.text.captionXS),
-          TextSpan(text: '   ·   ', style: context.eg.text.captionXS),
+          TextSpan(text: '  hoje', style: context.eg.text.footnote),
+          TextSpan(text: '   ·   ', style: context.eg.text.footnote),
           TextSpan(
             text: DurationFormat.compact(week),
             style: context.eg.text.bodyEmphasis,
           ),
-          TextSpan(text: '  na semana', style: context.eg.text.captionXS),
+          TextSpan(text: '  na semana', style: context.eg.text.footnote),
         ],
       ),
     );

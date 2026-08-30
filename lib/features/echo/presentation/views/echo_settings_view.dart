@@ -142,7 +142,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 padding: const EdgeInsets.only(top: AppSpacing.md),
                 child: Text(
                   library.errorMessage!,
-                  style: context.eg.text.captionSmall,
+                  style: context.eg.text.caption,
                 ),
               ),
             // O limite mora junto da lista que ele governa, e não num tópico
@@ -203,7 +203,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   'Este Mac não tem modelo para '
                   '${settings.language.label}. Assim, a gravação sairia em '
                   'palavras trocadas.',
-                  style: context.eg.text.captionSmall.copyWith(
+                  style: context.eg.text.caption.copyWith(
                     color: context.eg.colors.warning,
                   ),
                 ),
@@ -214,7 +214,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 child: Text(
                   'O macOS atende ${settings.language.label} com o modelo '
                   'de $substitutedLanguage.',
-                  style: context.eg.text.captionSmall,
+                  style: context.eg.text.caption,
                 ),
               ),
             // Último do tópico, encostado no campo de instrução do resumo, que
@@ -262,7 +262,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 padding: const EdgeInsets.only(top: AppSpacing.sm),
                 child: Text(
                   summaries.explanation!,
-                  style: context.eg.text.captionSmall,
+                  style: context.eg.text.caption,
                 ),
               ),
           ],
@@ -297,7 +297,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                   'Depois de liberar nos Ajustes, encerre e abra o '
                   'Evergreen: o macOS só entrega a captura a quem iniciou '
                   'depois.',
-                  style: context.eg.text.captionSmall,
+                  style: context.eg.text.caption,
                 ),
               ),
             if (capabilities.canRecord)
@@ -306,7 +306,7 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 child: Text(
                   'Tudo liberado. Com fone a separação fica melhor: no '
                   'alto-falante, o Echo tem de filtrar o eco.',
-                  style: context.eg.text.captionSmall,
+                  style: context.eg.text.caption,
                 ),
               ),
           ],

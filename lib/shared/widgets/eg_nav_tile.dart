@@ -46,7 +46,7 @@ class EgNavTile extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  /// Padrão: [context.eg.text.bodyCompactEmphasis]. A marca usa o degrau acima.
+  /// Padrão: [context.eg.text.bodyEmphasis]. A marca usa o degrau acima.
   final TextStyle? titleStyle;
 
   final double iconSize;
@@ -81,12 +81,12 @@ class EgNavTile extends StatelessWidget {
           children: [
             EgIconBadge(
               size: AppBadgeSizes.sm,
-              borderRadius: context.eg.shapes.smallAll,
+              borderRadius: context.eg.shapes.segmentAll,
               bordered: borderedIcon,
               color:
                   iconBackground ??
                   (isSelected
-                      ? context.eg.colors.card
+                      ? context.eg.colors.surface
                       : context.eg.colors.hover),
               child: EgIcon(
                 icon,
@@ -109,7 +109,7 @@ class EgNavTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     // O título só reage à seleção: hover e pressed são
                     // assunto da superfície, não do texto.
-                    style: (titleStyle ?? context.eg.text.bodyCompactEmphasis)
+                    style: (titleStyle ?? context.eg.text.bodyEmphasis)
                         .copyWith(
                           color: context.eg.surfaces.row.foregroundFor(
                             const EgInteraction(),
@@ -124,7 +124,7 @@ class EgNavTile extends StatelessWidget {
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.eg.text.captionXS,
+                    style: context.eg.text.footnote,
                   ),
                 ],
               ),

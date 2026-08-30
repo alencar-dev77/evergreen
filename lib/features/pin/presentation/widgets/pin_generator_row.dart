@@ -114,7 +114,7 @@ class PinGeneratorRow extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         softWrap: false,
-        style: context.eg.text.bodyCompactEmphasis,
+        style: context.eg.text.bodyEmphasis,
       );
     }
 
@@ -133,7 +133,7 @@ class PinGeneratorRow extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       softWrap: false,
-      style: context.eg.text.bodyCompactEmphasis,
+      style: context.eg.text.bodyEmphasis,
     );
   }
 }
@@ -163,7 +163,7 @@ class _RegenerateButton extends StatelessWidget {
           width: _size,
           height: _size,
           alignment: Alignment.center,
-          borderRadius: context.eg.shapes.smallAll,
+          borderRadius: context.eg.shapes.segmentAll,
           child: EgIcon(
             EgIconData.shuffle,
             size: AppIconSizes.xs,

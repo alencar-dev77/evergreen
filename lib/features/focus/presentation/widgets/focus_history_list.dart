@@ -142,7 +142,7 @@ class _SessionRow extends StatelessWidget {
             child: Text(
               DurationFormat.compact(session.duration),
               textAlign: TextAlign.right,
-              style: context.eg.text.bodyCompactEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
           ),
         ],
@@ -165,7 +165,7 @@ class _SessionRow extends StatelessWidget {
         children: [
           TextSpan(
             text: '   $contents',
-            style: context.eg.text.captionXS.copyWith(
+            style: context.eg.text.footnote.copyWith(
               color: context.eg.colors.textTertiary,
             ),
           ),
@@ -195,8 +195,8 @@ class _SessionRow extends StatelessWidget {
       session.hasActivity ? session.activity! : 'Sessão';
 
   TextStyle _titleStyle(BuildContext context) => session.hasActivity
-      ? context.eg.text.bodyCompactEmphasis
-      : context.eg.text.bodyCompactEmphasis.copyWith(
+      ? context.eg.text.bodyEmphasis
+      : context.eg.text.bodyEmphasis.copyWith(
           color: context.eg.colors.textSecondary,
         );
 

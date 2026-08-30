@@ -171,8 +171,8 @@ class _EgShortcutRecorderState extends State<EgShortcutRecorder> {
           vertical: 3,
         ),
         decoration: BoxDecoration(
-          color: context.eg.colors.card,
-          borderRadius: context.eg.shapes.smallAll,
+          color: context.eg.colors.surface,
+          borderRadius: context.eg.shapes.segmentAll,
           border: Border.all(color: context.eg.colors.accent),
         ),
         child: Text(

@@ -121,7 +121,7 @@ class LeafNoteCard extends StatelessWidget {
             // A idade do recado, não a do papel: uma anotação reescrita agora
             // dizia "há 3 semanas" — ver [LeafNote.changedAt].
             RelativeTime.format(note.changedAt, now: now),
-            style: context.eg.text.captionXS.copyWith(
+            style: context.eg.text.footnote.copyWith(
               color: context.eg.colors.textTertiary,
             ),
           ),
@@ -211,13 +211,12 @@ class _LeafCardSurface extends StatelessWidget {
       rest: AppColors.transparent,
       hover: eg.colors.hover,
       pressed: eg.colors.pressed,
-      selected: eg.colors.selection,
-      selectedGradient: eg.surfaces.card.selectedGradient,
+      selected: eg.colors.raised,
       foreground: eg.colors.textPrimary,
-      selectedForeground: eg.colors.selectionLabel,
-      border: eg.colors.border,
-      selectedBorder: eg.colors.accentDeep,
-      selectedEdge: eg.shapes.selectionEdge > 0 ? eg.colors.accent : null,
+      selectedForeground: eg.colors.textPrimary,
+      border: eg.colors.edge,
+      selectedBorder: eg.colors.edgeLight,
+      innerHairline: eg.elevations.rowInnerHairline,
     );
   }
 

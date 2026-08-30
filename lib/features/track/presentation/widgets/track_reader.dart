@@ -55,7 +55,7 @@ class TrackReader extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xxs),
           Text(
             day.isEmpty ? 'Nada registrado' : day.highlights.join(' · '),
-            style: context.eg.text.captionXS,
+            style: context.eg.text.footnote,
           ),
         ],
       ),

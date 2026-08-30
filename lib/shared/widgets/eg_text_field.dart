@@ -108,12 +108,12 @@ class _EgTextFieldState extends State<EgTextField> {
         vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: context.eg.colors.card,
+        color: context.eg.colors.surface,
         borderRadius: context.eg.shapes.controlAll,
         border: Border.all(
           color: _isFocused
               ? context.eg.colors.accent
-              : context.eg.colors.border,
+              : context.eg.colors.line,
         ),
       ),
       child: Opacity(

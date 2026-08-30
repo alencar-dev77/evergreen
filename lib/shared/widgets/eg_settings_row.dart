@@ -128,10 +128,10 @@ class EgSettingsRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: context.eg.text.bodyCompactEmphasis),
+        Text(label, style: context.eg.text.bodyEmphasis),
         if (description != null) ...[
           const SizedBox(height: AppSpacing.xxs),
-          Text(description!, style: context.eg.text.captionSmall),
+          Text(description!, style: context.eg.text.caption),
         ],
       ],
     );

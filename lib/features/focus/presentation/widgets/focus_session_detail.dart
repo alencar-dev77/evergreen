@@ -55,7 +55,7 @@ class FocusSessionDetail extends StatelessWidget {
     if (!session.hasNotes && !session.hasSummary) {
       return Text(
         'Nenhuma anotação nesta sessão.',
-        style: context.eg.text.captionSmall,
+        style: context.eg.text.caption,
       );
     }
 

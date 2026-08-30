@@ -15,9 +15,7 @@ import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_section.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/app_settings_view_model.dart';
-import '../../../../shared/feature_flags.dart';
 import '../widgets/global_shortcut_section.dart';
-import '../widgets/theme_picker.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../widgets/backup_list.dart';
 import '../../../../core/design/eg_tokens.dart';
@@ -91,22 +89,6 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           title: 'Geral',
           children: [
             if (hasName) _nameField(autofocus: false),
-            // A aparência abre o tópico depois do nome: é a única preferência
-            // que muda o app inteiro, e a única que se responde olhando em vez
-            // de lendo. Atrás de bandeira: desligada, a linha **some** em vez de
-            // ficar apagada — controle desabilitado diz "existe, mas não para
-            // você", e aqui não há escolha nenhuma a mencionar.
-            if (FeatureFlags.themes)
-              EgSettingsRow(
-                label: 'Aparência',
-                description:
-                    'O Evergreen é a paleta da casa. O Apple segue o escuro '
-                    'do macOS: mais denso, com vidro.',
-                trailing: ThemePicker(
-                  value: settings.theme,
-                  onChanged: viewModel.setTheme,
-                ),
-              ),
             EgSettingsRow.toggle(
               label: 'Iniciar com o macOS',
               description: 'O Evergreen sobe junto com o sistema.',
@@ -231,7 +213,7 @@ class _RestoreSection extends ConsumerWidget {
             child: Text(
               'A pasta está vazia. Um arquivo .db posto nela também aparece '
               'aqui: é assim que se traz o de outra máquina.',
-              style: context.eg.text.captionSmall,
+              style: context.eg.text.caption,
             ),
           )
         else ...[
@@ -262,7 +244,7 @@ class _RestoreSection extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           Text(
             state.message!,
-            style: context.eg.text.captionSmall.copyWith(
+            style: context.eg.text.caption.copyWith(
               color: context.eg.colors.textSecondary,
             ),
           ),
@@ -303,7 +285,7 @@ class _AboutLine extends StatelessWidget {
       child: Text(
         'Evergreen ${AppInfo.versionLabel}\n'
         'Todos os dados ficam nesta máquina. Nada é enviado para a internet.',
-        style: context.eg.text.captionSmall,
+        style: context.eg.text.caption,
       ),
     );
   }

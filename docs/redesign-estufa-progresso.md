@@ -18,8 +18,8 @@ um commit próprio.
 | # | Fase | Estado |
 |---|---|---|
 | 0 | Branch + documentos + progresso | feito |
-| 1 | Tokens: paleta, tipo, formas, elevação, degradês, motion, squircle | a fazer |
-| 2 | Matriz de estados (`EgSurfaceStyle`) + famílias novas | a fazer |
+| 1 | Tokens: paleta, tipo, formas, elevação, degradês, motion, squircle | feito |
+| 2 | Matriz de estados (`EgSurfaceStyle`) + famílias novas | feito |
 | 3 | Componentes compartilhados (novos + reescritos) | a fazer |
 | 4 | Painéis flutuantes: vidro, hairline, barra de teclas | a fazer |
 | 5 | Hub: sidebar + cabeçalho de tela + grade de duas colunas | a fazer |
@@ -27,6 +27,32 @@ um commit próprio.
 | 7 | Telas: Focus, Echo, Nest | a fazer |
 | 8 | Telas: Track, Aplicativo | a fazer |
 | 9 | Goldens novos + skill de design atualizada | a fazer |
+
+## O que a fase 1 e a 2 deixaram pronto
+
+- `EgPalette` com 35 papéis: neutros de `#0B` a `#36`, o vidro (`glassPanel`,
+  `glassRow`, `glassControl`), as duas cores de dado (`ember`, `tide`), a luz
+  (`edge`, `edgeLight`, `sidebarTint`) e o anel de foco branco. Saíram
+  `selection`, `selectionLabel`, `selectionEdge`, `accentGradient`,
+  `selectionGradient`, `sidebar` e as quatro cores de sistema.
+- `EgTypeScale` com `display` (30) e `title` (20) no topo, mais `footnote`,
+  `keycap` e `timerSmall`; `overline` passou a SF Mono.
+- `EgShapes` com o squircle: `EgSquircle.shape` devolve
+  `ContinuousRectangleBorder` acima de 14 e o arco de sempre abaixo. Toda
+  superfície interativa passou a `ShapeDecoration`.
+- `EgElevations` com `panelInnerHairline` e `rowInnerHairline` — a linha de luz
+  que substituiu a aresta verde de 3 px.
+- `EgMotion` com `stack` (160 ms) e curva `easeOutQuint`.
+- Matriz de estados com as dez famílias da §5, incluindo `sidebarItem`,
+  `glassRow`, `glassControl` e `neutralStrong`.
+- `EgButton` com altura fixa (32, ou 26 no `compact`), a variante
+  `neutralStrong` e a tecla impressa dentro (`keycap`).
+- O tema `apple` foi apagado, junto com `AppThemeId`, o `ThemePicker`, a chave
+  `app.theme` e a bandeira `themes`. A preferência guardada no disco continua
+  lá, intocada.
+
+**Estado da suíte ao fim da fase 2:** `flutter analyze` sem issues, 633 testes
+passando, 10 pulados. Os goldens ainda são os antigos — a fase 9 os regera.
 
 ## Decisões tomadas na execução
 

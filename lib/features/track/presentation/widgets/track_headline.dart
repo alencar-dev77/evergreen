@@ -28,14 +28,14 @@ class TrackHeadline extends StatelessWidget {
         children: [
           TextSpan(
             text: DurationFormat.compact(totals.focus),
-            style: context.eg.text.screenTitle,
+            style: context.eg.text.display,
           ),
           TextSpan(
             text: totals.focusSessions == 0
                 ? '  focadas'
                 : '  focadas em '
                       '${TrackCounts.of(totals.focusSessions, 'sessão', 'sessões')}',
-            style: context.eg.text.captionXS,
+            style: context.eg.text.footnote,
           ),
           if (totals.meetingCount > 0) ...[
             _separator,
@@ -47,7 +47,7 @@ class TrackHeadline extends StatelessWidget {
               text:
                   '  em '
                   '${TrackCounts.of(totals.meetingCount, 'reunião', 'reuniões')}',
-              style: context.eg.text.captionXS,
+              style: context.eg.text.footnote,
             ),
           ],
           if (totals.copied > 0) ...[
@@ -58,7 +58,7 @@ class TrackHeadline extends StatelessWidget {
             ),
             TextSpan(
               text: totals.copied == 1 ? '  item copiado' : '  itens copiados',
-              style: context.eg.text.captionXS,
+              style: context.eg.text.footnote,
             ),
           ],
           if (totals.notesWritten > 0) ...[
@@ -69,7 +69,7 @@ class TrackHeadline extends StatelessWidget {
             ),
             TextSpan(
               text: totals.notesWritten == 1 ? '  anotação' : '  anotações',
-              style: context.eg.text.captionXS,
+              style: context.eg.text.footnote,
             ),
           ],
         ],

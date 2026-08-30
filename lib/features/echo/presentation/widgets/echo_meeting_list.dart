@@ -119,7 +119,7 @@ class _MeetingRow extends StatelessWidget {
             child: Text(
               DurationFormat.compact(meeting.duration),
               textAlign: TextAlign.right,
-              style: context.eg.text.bodyCompactEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -159,7 +159,7 @@ class _MeetingRow extends StatelessWidget {
   /// que decide se vale abrir. Num parágrafo só, como na linha do Focus: o
   /// corte por ellipsis come o aviso primeiro, nunca o nome.
   Widget _label(BuildContext context) {
-    final style = context.eg.text.bodyCompactEmphasis.copyWith(
+    final style = context.eg.text.bodyEmphasis.copyWith(
       color: isSelected
           ? context.eg.colors.accentLight
           : context.eg.colors.textPrimary,
@@ -181,7 +181,7 @@ class _MeetingRow extends StatelessWidget {
         children: [
           TextSpan(
             text: '   resumida',
-            style: context.eg.text.captionXS.copyWith(
+            style: context.eg.text.footnote.copyWith(
               color: context.eg.colors.textTertiary,
             ),
           ),

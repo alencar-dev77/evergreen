@@ -119,7 +119,7 @@ class _HubViewState extends ConsumerState<HubView> {
     });
 
     return Scaffold(
-      backgroundColor: context.eg.colors.background,
+      backgroundColor: context.eg.colors.canvas,
       // A abertura fica por cima, e não no lugar do Hub: a tela de baixo monta
       // e resolve o que tem para resolver enquanto a marca está na frente, de
       // modo que a cena não some para revelar um Hub ainda em branco.
@@ -275,7 +275,7 @@ class _HubViewState extends ConsumerState<HubView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(module?.name ?? 'Evergreen', style: context.eg.text.screenTitle),
+        Text(module?.name ?? 'Evergreen', style: context.eg.text.display),
         const SizedBox(height: AppSpacing.xxs),
         Text(
           module?.tagline ?? 'Preferências do aplicativo',

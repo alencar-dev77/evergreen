@@ -171,11 +171,11 @@ class _HubIntroState extends State<HubIntro>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Evergreen', style: context.eg.text.screenTitle),
+                        Text('Evergreen', style: context.eg.text.display),
                         const SizedBox(height: AppSpacing.xxs),
                         Text(
                           AppInfo.versionLabel,
-                          style: context.eg.text.captionXS,
+                          style: context.eg.text.footnote,
                         ),
                       ],
                     ),

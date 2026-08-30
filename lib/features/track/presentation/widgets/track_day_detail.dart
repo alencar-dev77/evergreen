@@ -46,7 +46,7 @@ class TrackDayDetail extends StatelessWidget {
       return [
         Text(
           'Nada foi registrado neste dia.',
-          style: context.eg.text.captionSmall,
+          style: context.eg.text.caption,
         ),
       ];
     }
@@ -91,12 +91,12 @@ class TrackDayDetail extends StatelessWidget {
       if (day.notesWritten > 0)
         Text(
           '${TrackCounts.of(day.notesWritten, 'anotação escrita', 'anotações escritas')} no Leaf.',
-          style: context.eg.text.captionSmall,
+          style: context.eg.text.caption,
         ),
       if (day.filesOrganized > 0)
         Text(
           '${TrackCounts.of(day.filesOrganized, 'arquivo organizado', 'arquivos organizados')} no Nest.',
-          style: context.eg.text.captionSmall,
+          style: context.eg.text.caption,
         ),
     ];
   }
@@ -111,7 +111,7 @@ class TrackDayDetail extends StatelessWidget {
       return [
         Text(
           'Escrevendo o resumo do dia…',
-          style: context.eg.text.captionSmall.copyWith(
+          style: context.eg.text.caption.copyWith(
             color: context.eg.colors.textTertiary,
           ),
         ),
@@ -177,7 +177,7 @@ class _EntryRow extends StatelessWidget {
             child: Text(
               DurationFormat.compact(entry.duration),
               textAlign: TextAlign.right,
-              style: context.eg.text.captionSmall,
+              style: context.eg.text.caption,
             ),
           ),
         ],

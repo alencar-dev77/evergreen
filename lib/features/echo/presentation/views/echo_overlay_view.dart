@@ -180,7 +180,7 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
         ],
         if (state.errorMessage != null) ...[
           const SizedBox(height: AppSpacing.lg),
-          Text(state.errorMessage!, style: context.eg.text.captionSmall),
+          Text(state.errorMessage!, style: context.eg.text.caption),
         ],
         const SizedBox(height: AppSpacing.xxl),
         _primaryButton(state),
@@ -207,7 +207,7 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
         Text(
           'O Echo grava duas faixas separadas: é assim que ele sabe quem '
           'falou.',
-          style: context.eg.text.captionSmall,
+          style: context.eg.text.caption,
         ),
         const SizedBox(height: AppSpacing.xl),
         EchoPermissionRow(
@@ -231,7 +231,7 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
           Text(
             'Depois de liberar nos Ajustes, encerre e abra o Evergreen: o '
             'macOS só entrega a captura a quem iniciou depois.',
-            style: context.eg.text.captionSmall,
+            style: context.eg.text.caption,
           ),
         ],
       ],
@@ -242,12 +242,12 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: context.eg.colors.card,
+        color: context.eg.colors.surface,
         borderRadius: context.eg.shapes.cardAll,
       ),
       child: Text(
         state.liveText.join(' '),
-        style: context.eg.text.captionSmall,
+        style: context.eg.text.caption,
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
       ),

@@ -53,7 +53,7 @@ class EchoReader extends ConsumerWidget {
             '${DayLabel.of(meeting.startedAt)} · '
             '${DayLabel.time(meeting.startedAt)} · '
             '${DurationFormat.compact(meeting.duration)}',
-            style: context.eg.text.captionXS,
+            style: context.eg.text.footnote,
           ),
         ],
       ),

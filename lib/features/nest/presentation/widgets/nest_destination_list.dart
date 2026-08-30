@@ -137,7 +137,7 @@ class _DestinationRowState extends State<_DestinationRow> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
-                  style: context.eg.text.captionXS.copyWith(
+                  style: context.eg.text.footnote.copyWith(
                     color: context.eg.colors.textTertiary,
                   ),
                 ),

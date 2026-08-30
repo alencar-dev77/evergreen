@@ -96,7 +96,7 @@ class _BackupRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: context.eg.text.bodyCompactEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -110,7 +110,7 @@ class _BackupRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: context.eg.text.captionXS.copyWith(
+              style: context.eg.text.footnote.copyWith(
                 color: context.eg.colors.textTertiary,
               ),
             ),
@@ -121,7 +121,7 @@ class _BackupRow extends StatelessWidget {
             child: Text(
               ByteSize.compact(backup.sizeBytes),
               textAlign: TextAlign.right,
-              style: context.eg.text.captionSmall,
+              style: context.eg.text.caption,
             ),
           ),
         ],

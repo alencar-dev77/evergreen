@@ -9,13 +9,21 @@ import '../../core/design/eg_tokens.dart';
 
 /// Variantes de botão previstas no design system.
 enum EgButtonVariant {
-  /// Ação primária: fundo verde, texto escuro.
+  /// Ação primária: o accent chapado, texto escuro.
   primary,
 
-  /// Ação secundária: fundo card com borda sutil.
+  /// Ação de sistema: branca, texto escuro.
+  ///
+  /// Existe porque **verde quer dizer ligado ou ação primária**, e "Pausar" ou
+  /// "Parar e resumir" não é nem uma coisa nem outra — é a ação mais
+  /// importante da tela sem ser uma afirmação. O branco a põe no topo do
+  /// contraste sem pedir o accent emprestado.
+  neutralStrong,
+
+  /// Ação secundária: superfície de controle com a aresta de luz.
   secondary,
 
-  /// Ação destrutiva: texto e borda em vermelho.
+  /// Ação destrutiva: contorno vermelho sobre fundo transparente.
   destructive;
 
   /// A coluna desta variante na matriz de estado do tema em vigor.
@@ -25,6 +33,7 @@ enum EgButtonVariant {
   /// `build`, então o contexto está sempre à mão.
   EgSurfaceStyle styleOf(BuildContext context) => switch (this) {
     EgButtonVariant.primary => context.eg.surfaces.primary,
+    EgButtonVariant.neutralStrong => context.eg.surfaces.neutralStrong,
     EgButtonVariant.secondary => context.eg.surfaces.secondary,
     EgButtonVariant.destructive => context.eg.surfaces.destructive,
   };
@@ -32,11 +41,17 @@ enum EgButtonVariant {
 
 /// Botão padrão do Evergreen.
 ///
-/// As três variantes compartilham geometria (padding 16x8, radius 8) e só
-/// divergem na coluna da matriz de estado ([EgSurfaceStyle]), mantendo o padrão
-/// único pedido no design. Todas cobrem os cinco estados obrigatórios: repouso,
-/// hover, pressed, foco e disabled — mais [isLoading], que é o sexto e não se
-/// confunde com nenhum deles: o botão está trabalhando, não indisponível.
+/// As quatro variantes compartilham geometria e só divergem na coluna da matriz
+/// de estado ([EgSurfaceStyle]). Todas cobrem os cinco estados obrigatórios:
+/// repouso, hover, pressed, foco e disabled — mais [isLoading], que é o sexto e
+/// não se confunde com nenhum deles: o botão está trabalhando, não
+/// indisponível.
+///
+/// **A altura é fixa** (`controlHeight`, ou 26 no [compact]), e não a soma de
+/// um padding com o que estiver dentro. Era o que fazia o botão crescer um
+/// pixel ao trocar o rótulo pelo spinner — e um botão que muda de tamanho ao
+/// ser apertado empurra o que está ao lado justamente no instante em que a
+/// pessoa olha para ele.
 class EgButton extends StatelessWidget {
   const EgButton({
     super.key,
@@ -47,7 +62,21 @@ class EgButton extends StatelessWidget {
     this.expand = false,
     this.autofocus = false,
     this.isLoading = false,
+    this.keycap,
+    this.compact = false,
   });
+
+  const EgButton.neutralStrong({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.icon,
+    this.expand = false,
+    this.autofocus = false,
+    this.isLoading = false,
+    this.keycap,
+    this.compact = false,
+  }) : variant = EgButtonVariant.neutralStrong;
 
   const EgButton.secondary({
     super.key,
@@ -57,6 +86,8 @@ class EgButton extends StatelessWidget {
     this.expand = false,
     this.autofocus = false,
     this.isLoading = false,
+    this.keycap,
+    this.compact = false,
   }) : variant = EgButtonVariant.secondary;
 
   const EgButton.destructive({
@@ -67,6 +98,8 @@ class EgButton extends StatelessWidget {
     this.expand = false,
     this.autofocus = false,
     this.isLoading = false,
+    this.keycap,
+    this.compact = true,
   }) : variant = EgButtonVariant.destructive;
 
   final String label;
@@ -96,6 +129,20 @@ class EgButton extends StatelessWidget {
   /// aparecer. Ver `EchoMeetingDetail`, que era exatamente esse caso.
   final bool isLoading;
 
+  /// A tecla que dispara a mesma ação, impressa dentro do botão.
+  ///
+  /// A meia opacidade não é enfeite: ela é o que impede a tecla de disputar
+  /// com o rótulo. O botão diz o que faz; a tecla diz que existe um caminho
+  /// mais rápido, e quem não estiver procurando por ele não a lê.
+  final String? keycap;
+
+  /// A altura menor, de 26.
+  ///
+  /// É a do botão que mora **dentro** de um cartão — o "Apagar" do cartão
+  /// destrutivo. Um botão de 32 ali empurraria a linha do cartão para 48 e o
+  /// tornaria mais alto que a seção que o contém.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     // Só o desabilitado de verdade esmaece; carregando, o botão segue inteiro.
@@ -105,11 +152,14 @@ class EgButton extends StatelessWidget {
     final button = EgInteractiveSurface(
       onTap: isLoading ? null : onPressed,
       style: style,
-      borderRadius: context.eg.shapes.controlAll,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xl,
-        vertical: AppSpacing.sm,
+      borderRadius: compact
+          ? context.eg.shapes.segmentAll
+          : context.eg.shapes.controlAll,
+      height: compact ? _compactHeight : context.eg.shapes.controlHeight,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? AppSpacing.md : AppSpacing.lg,
       ),
+      alignment: Alignment.center,
       builder: (context, state) => Opacity(
         opacity: isDisabled ? style.disabledOpacity : 1,
         child: _content(context, style),
@@ -155,8 +205,21 @@ class EgButton extends StatelessWidget {
           style: context.eg.text.button.copyWith(color: style.foreground),
         ),
       ),
+      if (keycap != null) ...[
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          keycap!,
+          maxLines: 1,
+          style: context.eg.text.keycap.copyWith(
+            color: style.foreground.withValues(alpha: 0.5),
+          ),
+        ),
+      ],
     ],
   );
+
+  /// A altura do botão que mora dentro de um cartão.
+  static const _compactHeight = 26.0;
 }
 
 /// Botão apenas de ícone: 36x36, transparente, com hover discreto.
@@ -228,12 +291,12 @@ class EgIconButton extends StatelessWidget {
         vertical: AppSpacing.xxs,
       ),
       decoration: BoxDecoration(
-        color: context.eg.colors.card,
-        borderRadius: context.eg.shapes.smallAll,
+        color: context.eg.colors.surface,
+        borderRadius: context.eg.shapes.segmentAll,
         border: context.eg.borderAll,
         boxShadow: context.eg.elevations.dropdown,
       ),
-      textStyle: context.eg.text.captionXS,
+      textStyle: context.eg.text.footnote,
       child: button,
     );
   }

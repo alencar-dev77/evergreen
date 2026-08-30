@@ -118,7 +118,7 @@ class NestItemCard extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
-          style: context.eg.text.bodyCompactEmphasis.copyWith(
+          style: context.eg.text.bodyEmphasis.copyWith(
             color: item.isMissing
                 ? context.eg.colors.textTertiary
                 : context.eg.colors.textPrimary,
@@ -130,7 +130,7 @@ class NestItemCard extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
-          style: context.eg.text.captionXS.copyWith(
+          style: context.eg.text.footnote.copyWith(
             color: context.eg.colors.textTertiary,
           ),
         ),

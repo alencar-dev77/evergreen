@@ -97,8 +97,8 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
       decoration: widget.bare
           ? null
           : BoxDecoration(
-              color: context.eg.colors.card,
-              borderRadius: context.eg.shapes.smallAll,
+              color: context.eg.colors.surface,
+              borderRadius: context.eg.shapes.segmentAll,
               border: context.eg.borderAll,
               boxShadow: _isFocused ? context.eg.elevations.focusRing : null,
             ),
@@ -162,15 +162,15 @@ class _Segment extends StatelessWidget {
       style: context.eg.surfaces.segment,
       isSelected: isSelected,
       // Concêntrico com o container: 6px do pai menos os 2px de padding.
-      borderRadius: context.eg.shapes.smallAll,
+      borderRadius: context.eg.shapes.segmentAll,
       padding: EdgeInsets.symmetric(
         horizontal: bare ? AppSpacing.xs : AppSpacing.md,
         vertical: AppSpacing.xxs,
       ),
       builder: (context, state) {
         final style = isSelected
-            ? context.eg.text.captionSmallEmphasis
-            : context.eg.text.captionSmall;
+            ? context.eg.text.bodyEmphasis
+            : context.eg.text.caption;
 
         return Text(
           label,

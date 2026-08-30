@@ -101,7 +101,7 @@ class _Bar extends StatelessWidget {
               height: _height,
               decoration: BoxDecoration(
                 color: _colorOf(context),
-                borderRadius: context.eg.shapes.smallAll,
+                borderRadius: context.eg.shapes.segmentAll,
               ),
             ),
           ),
@@ -109,7 +109,7 @@ class _Bar extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           label,
-          style: context.eg.text.captionXS.copyWith(
+          style: context.eg.text.footnote.copyWith(
             color: isHighlighted
                 ? context.eg.colors.textSecondary
                 : context.eg.colors.textTertiary,
@@ -135,7 +135,7 @@ class _Bar extends StatelessWidget {
     if (isHighlighted) return context.eg.colors.accent;
 
     return total == Duration.zero
-        ? context.eg.colors.border
+        ? context.eg.colors.line
         : context.eg.colors.textTertiary;
   }
 }

@@ -26,8 +26,8 @@ class EgKeyCap extends StatelessWidget {
         vertical: _capPadding,
       ),
       decoration: BoxDecoration(
-        color: context.eg.colors.card,
-        borderRadius: context.eg.shapes.smallAll,
+        color: context.eg.colors.surface,
+        borderRadius: context.eg.shapes.segmentAll,
         border: context.eg.borderAll,
       ),
       child: Text(label, style: context.eg.text.monoSmall),

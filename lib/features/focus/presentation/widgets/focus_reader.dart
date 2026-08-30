@@ -56,7 +56,7 @@ class FocusReader extends ConsumerWidget {
             '${DayLabel.of(session.startedAt)} · '
             '${DayLabel.time(session.startedAt)} · '
             '${DurationFormat.compact(session.duration)}',
-            style: context.eg.text.captionXS,
+            style: context.eg.text.footnote,
           ),
         ],
       ),

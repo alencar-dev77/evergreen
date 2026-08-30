@@ -1,90 +1,121 @@
 import 'package:flutter/widgets.dart';
 
-/// A geometria de um tema: raio, espessura de linha, densidade de linha e o
-/// tamanho dos controles.
+import 'eg_squircle.dart';
+
+/// Raios, alturas e paddings do Evergreen.
 ///
-/// É aqui que mora a maior diferença entre os dois temas depois da cor. O
-/// Evergreen é mais alto e mais arredondado; o Apple é denso, com meio pixel de
-/// linha e raio menor — a densidade do System Settings, não a de um app web.
+/// O raio subiu em toda a escala e passou a ser **contínuo** acima de
+/// [EgSquircle.threshold] — era a causa do "tudo muito quadrado": um arco
+/// circular de 6 a 12 pt contra um macOS que arredonda com curvatura contínua
+/// e raio maior. Abaixo do limiar o arco circular fica, porque ali os dois são
+/// indistinguíveis e o circular é mais barato de desenhar.
 @immutable
 class EgShapes {
   const EgShapes({
+    required this.radiusWindow,
     required this.radiusPanel,
+    required this.radiusStage,
     required this.radiusCard,
-    required this.radiusControl,
     required this.radiusRow,
-    required this.radiusSmall,
+    required this.radiusControl,
+    required this.radiusSegment,
+    required this.radiusChip,
     required this.hairline,
     required this.rowPaddingV,
     required this.rowPaddingH,
     required this.panelPadding,
     required this.listPadding,
     required this.controlHeight,
+    required this.rowHeight,
+    required this.rowHeightWithFootnote,
     required this.switchWidth,
     required this.switchHeight,
     required this.switchKnob,
-    required this.selectionEdge,
   });
 
-  final double radiusPanel;
-  final double radiusCard;
-  final double radiusControl;
-  final double radiusRow;
-  final double radiusSmall;
+  /// A janela do Hub.
+  final double radiusWindow;
 
-  /// A espessura de uma linha divisória.
-  ///
-  /// Meio pixel no tema Apple — o `hairline` do macOS, que numa tela Retina é
-  /// um pixel físico e por isso não some. É a diferença entre uma tabela do
-  /// sistema e uma tabela desenhada por quem só teve pixels inteiros.
+  /// O painel flutuante.
+  final double radiusPanel;
+
+  /// O bloco-instrumento: o anel do Focus, a pilha do Nest, a bancada do
+  /// gerador. É a superfície que não é cartão de ajuste nem painel.
+  final double radiusStage;
+
+  /// Cartão de seção.
+  final double radiusCard;
+
+  /// Linha de lista e item da barra lateral.
+  final double radiusRow;
+
+  /// Botão e campo.
+  final double radiusControl;
+
+  /// O segmento dentro do trilho de um segmented control.
+  final double radiusSegment;
+
+  /// A pílula: interruptor mestre, filtro, prazo. Grande o bastante para o
+  /// raio bater na metade da altura em qualquer tamanho de pílula.
+  final double radiusChip;
+
   final double hairline;
 
-  /// O respiro de uma linha de lista ou de configuração.
   final double rowPaddingV;
   final double rowPaddingH;
-
-  /// O respiro interno de um painel de conteúdo, e o de uma lista dentro dele.
   final double panelPadding;
   final double listPadding;
 
-  /// A altura de um controle de tamanho normal — botão, campo, pílula.
   final double controlHeight;
+
+  /// Linha de configuração sem explicação embaixo.
+  final double rowHeight;
+
+  /// Linha de configuração com a explicação de uma linha embaixo.
+  final double rowHeightWithFootnote;
 
   final double switchWidth;
   final double switchHeight;
   final double switchKnob;
 
-  /// A aresta à esquerda de uma linha selecionada.
-  ///
-  /// Três pixels no Evergreen, e é assinatura dele: seleção é fundo accent
-  /// suave **mais** a aresta. Zero no Apple, onde a linha selecionada é
-  /// preenchida inteira pelo accent, como no `NSTableView` — os dois juntos
-  /// seriam dizer a mesma coisa duas vezes.
-  final double selectionEdge;
+  ShapeBorder get windowShape => EgSquircle.shape(radiusWindow);
+  ShapeBorder get panelShape => EgSquircle.shape(radiusPanel);
+  ShapeBorder get stageShape => EgSquircle.shape(radiusStage);
+  ShapeBorder get cardShape => EgSquircle.shape(radiusCard);
 
-  BorderRadius get panelAll => BorderRadius.circular(radiusPanel);
-  BorderRadius get cardAll => BorderRadius.circular(radiusCard);
-  BorderRadius get controlAll => BorderRadius.circular(radiusControl);
-  BorderRadius get rowAll => BorderRadius.circular(radiusRow);
-  BorderRadius get smallAll => BorderRadius.circular(radiusSmall);
+  BorderRadius get panelAll => EgSquircle.radius(radiusPanel);
+  BorderRadius get stageAll => EgSquircle.radius(radiusStage);
+  BorderRadius get cardAll => EgSquircle.radius(radiusCard);
+  BorderRadius get rowAll => EgSquircle.radius(radiusRow);
+  BorderRadius get controlAll => EgSquircle.radius(radiusControl);
+  BorderRadius get segmentAll => EgSquircle.radius(radiusSegment);
+  BorderRadius get chipAll => BorderRadius.circular(radiusChip);
 
   static EgShapes lerp(EgShapes a, EgShapes b, double t) => EgShapes(
-    radiusPanel: lerpDouble(a.radiusPanel, b.radiusPanel, t),
-    radiusCard: lerpDouble(a.radiusCard, b.radiusCard, t),
-    radiusControl: lerpDouble(a.radiusControl, b.radiusControl, t),
-    radiusRow: lerpDouble(a.radiusRow, b.radiusRow, t),
-    radiusSmall: lerpDouble(a.radiusSmall, b.radiusSmall, t),
-    hairline: lerpDouble(a.hairline, b.hairline, t),
-    rowPaddingV: lerpDouble(a.rowPaddingV, b.rowPaddingV, t),
-    rowPaddingH: lerpDouble(a.rowPaddingH, b.rowPaddingH, t),
-    panelPadding: lerpDouble(a.panelPadding, b.panelPadding, t),
-    listPadding: lerpDouble(a.listPadding, b.listPadding, t),
-    controlHeight: lerpDouble(a.controlHeight, b.controlHeight, t),
-    switchWidth: lerpDouble(a.switchWidth, b.switchWidth, t),
-    switchHeight: lerpDouble(a.switchHeight, b.switchHeight, t),
-    switchKnob: lerpDouble(a.switchKnob, b.switchKnob, t),
-    selectionEdge: lerpDouble(a.selectionEdge, b.selectionEdge, t),
+    radiusWindow: _d(a.radiusWindow, b.radiusWindow, t),
+    radiusPanel: _d(a.radiusPanel, b.radiusPanel, t),
+    radiusStage: _d(a.radiusStage, b.radiusStage, t),
+    radiusCard: _d(a.radiusCard, b.radiusCard, t),
+    radiusRow: _d(a.radiusRow, b.radiusRow, t),
+    radiusControl: _d(a.radiusControl, b.radiusControl, t),
+    radiusSegment: _d(a.radiusSegment, b.radiusSegment, t),
+    radiusChip: _d(a.radiusChip, b.radiusChip, t),
+    hairline: _d(a.hairline, b.hairline, t),
+    rowPaddingV: _d(a.rowPaddingV, b.rowPaddingV, t),
+    rowPaddingH: _d(a.rowPaddingH, b.rowPaddingH, t),
+    panelPadding: _d(a.panelPadding, b.panelPadding, t),
+    listPadding: _d(a.listPadding, b.listPadding, t),
+    controlHeight: _d(a.controlHeight, b.controlHeight, t),
+    rowHeight: _d(a.rowHeight, b.rowHeight, t),
+    rowHeightWithFootnote: _d(
+      a.rowHeightWithFootnote,
+      b.rowHeightWithFootnote,
+      t,
+    ),
+    switchWidth: _d(a.switchWidth, b.switchWidth, t),
+    switchHeight: _d(a.switchHeight, b.switchHeight, t),
+    switchKnob: _d(a.switchKnob, b.switchKnob, t),
   );
 
-  static double lerpDouble(double a, double b, double t) => a + (b - a) * t;
+  static double _d(double a, double b, double t) => a + (b - a) * t;
 }

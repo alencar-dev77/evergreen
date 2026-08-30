@@ -90,7 +90,7 @@ class EgToggle extends StatelessWidget {
                 height: _thumbSize,
                 decoration: BoxDecoration(
                   color: value
-                      ? context.eg.colors.background
+                      ? context.eg.colors.canvas
                       : context.eg.colors.textSecondary,
                   shape: BoxShape.circle,
                 ),
@@ -113,6 +113,6 @@ class EgToggle extends StatelessWidget {
     if (state.isPressed) return context.eg.colors.pressed;
     return state.isHovered || state.isFocused
         ? context.eg.colors.hover
-        : context.eg.colors.border;
+        : context.eg.colors.line;
   }
 }

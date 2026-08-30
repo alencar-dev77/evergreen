@@ -106,7 +106,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       return Text(
         'Nenhuma fala reconhecida. Em geral é o microfone sem permissão ou '
         'o idioma errado na transcrição.',
-        style: context.eg.text.captionSmall,
+        style: context.eg.text.caption,
       );
     }
 
@@ -128,7 +128,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.isSummarizing) ...[
-            Text(_summarizingLabel(), style: context.eg.text.captionSmall),
+            Text(_summarizingLabel(), style: context.eg.text.caption),
             const SizedBox(height: AppSpacing.md),
           ],
           SelectableText(meeting.summary!, style: context.eg.text.reading),
@@ -138,12 +138,12 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     }
 
     if (widget.isSummarizing) {
-      return Text(_summarizingLabel(), style: context.eg.text.captionSmall);
+      return Text(_summarizingLabel(), style: context.eg.text.caption);
     }
 
     final explanation = widget.summaries.explanation;
     if (explanation != null) {
-      return Text(explanation, style: context.eg.text.captionSmall);
+      return Text(explanation, style: context.eg.text.caption);
     }
 
     // Sem resumo ainda, o lugar dele explica o que ele é — melhor que um vazio
@@ -151,7 +151,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     return Text(
       'Ainda sem resumo. Ele é feito nesta máquina, a partir da '
       'transcrição, e leva alguns segundos.',
-      style: context.eg.text.captionSmall,
+      style: context.eg.text.caption,
     );
   }
 
@@ -177,7 +177,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         children: [
           const EgSectionLabel('Instrução deste resumo'),
           const SizedBox(height: AppSpacing.xs),
-          SelectableText(prompt, style: context.eg.text.captionSmall),
+          SelectableText(prompt, style: context.eg.text.caption),
         ],
       ),
     );

@@ -149,11 +149,11 @@ class PinListItem extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         softWrap: false,
-        style: context.eg.text.bodyCompactEmphasis,
+        style: context.eg.text.bodyEmphasis,
       );
     }
 
-    final secondary = context.eg.text.captionXS.copyWith(
+    final secondary = context.eg.text.footnote.copyWith(
       color: context.eg.colors.textTertiary,
     );
 
@@ -168,7 +168,7 @@ class PinListItem extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       softWrap: false,
-      style: context.eg.text.bodyCompactEmphasis,
+      style: context.eg.text.bodyEmphasis,
     );
   }
 
@@ -228,7 +228,7 @@ class PinListItem extends StatelessWidget {
       RelativeTime.format(item.copiedAt),
       maxLines: 1,
       softWrap: false,
-      style: context.eg.text.captionXS.copyWith(
+      style: context.eg.text.footnote.copyWith(
         color: context.eg.colors.textTertiary,
       ),
     );

@@ -92,7 +92,7 @@ class EgSearchField extends StatelessWidget {
         vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: context.eg.colors.card,
+        color: context.eg.colors.surface,
         borderRadius: context.eg.shapes.controlAll,
         border: Border.all(color: context.eg.colors.accent),
       ),

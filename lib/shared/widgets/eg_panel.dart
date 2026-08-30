@@ -17,8 +17,8 @@ import '../../core/design/eg_tokens.dart';
 ///
 /// - **A sombra**, por fora, diz a que altura ela está (ver
 ///   [context.eg.elevations.floatingPanel], duas camadas).
-/// - **A borda**, [context.eg.colors.border], desenha o recorte contra o fundo.
-/// - **A luz**, [context.eg.colors.borderHighlight], corre por dentro da aresta
+/// - **A borda**, [context.eg.colors.line], desenha o recorte contra o fundo.
+/// - **A luz**, [context.eg.colors.edgeLight], corre por dentro da aresta
 ///   superior e some antes do meio. É o detalhe que separa "vidro" de
 ///   "retângulo mais claro": no macOS, superfície flutuante sempre pega luz na
 ///   quina de cima.
@@ -69,7 +69,7 @@ class EgPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     // Resolvidos uma vez: o que o chamador não disse, o tema diz.
     final radius = borderRadius ?? context.eg.shapes.panelAll;
-    final material = color ?? context.eg.colors.surfaceFloating;
+    final material = color ?? context.eg.colors.glassPanel;
 
     final fill = vibrant ? context.eg.gradients.panelVibrancy : gradient;
 
@@ -115,7 +115,7 @@ class EgPanel extends StatelessWidget {
     return CustomPaint(
       foregroundPainter: _EdgeLightPainter(
         radius,
-        context.eg.colors.borderHighlight,
+        context.eg.colors.edgeLight,
       ),
       child: surface,
     );
@@ -125,7 +125,7 @@ class EgPanel extends StatelessWidget {
 /// A luz de 1px na aresta superior, por dentro da borda.
 ///
 /// É um `inset 0 1px 0` com uma correção: em vez de parar seco nas quinas, o
-/// traço nasce em [context.eg.colors.borderHighlight] no topo e chega a zero na altura
+/// traço nasce em [context.eg.colors.edgeLight] no topo e chega a zero na altura
 /// do meio, que é o que uma luz de ambiente faz numa peça com espessura. Uma
 /// linha reta de ponta a ponta denuncia o retângulo em vez de esconder.
 class _EdgeLightPainter extends CustomPainter {
@@ -192,7 +192,7 @@ class EgIconBadge extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: borderRadius ?? context.eg.shapes.smallAll,
+        borderRadius: borderRadius ?? context.eg.shapes.segmentAll,
         border: bordered ? context.eg.borderAll : null,
       ),
       alignment: Alignment.center,

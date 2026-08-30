@@ -78,7 +78,7 @@ class PinPreviewPane extends StatelessWidget {
       children: [
         EgIconBadge(
           size: AppBadgeSizes.sm,
-          borderRadius: context.eg.shapes.smallAll,
+          borderRadius: context.eg.shapes.segmentAll,
           child: EgIcon(item.type.icon, size: AppIconSizes.sm),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -111,7 +111,7 @@ class PinPreviewPane extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: context.eg.colors.card,
+        color: context.eg.colors.surface,
         borderRadius: context.eg.shapes.controlAll,
         border: context.eg.borderAll,
       ),

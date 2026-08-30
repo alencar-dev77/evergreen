@@ -1,11 +1,8 @@
-import '../../../core/design/app_theme_id.dart';
-import '../../../shared/feature_flags.dart';
 
 /// Preferências do Evergreen como aplicativo — as que não pertencem a módulo
 /// nenhum.
 class AppSettings {
   const AppSettings({
-    this.theme = AppThemeId.evergreen,
     this.userName = '',
     this.launchAtLogin = false,
     this.startMinimized = true,
@@ -23,26 +20,6 @@ class AppSettings {
   /// funcionando: o rótulo volta a ser "Você" e as instruções voltam a falar de
   /// "a pessoa". Nome não é requisito de nada.
   final String userName;
-
-  /// A aparência: a paleta da casa ou o escuro do macOS.
-  ///
-  /// Preferência de aplicativo, como "iniciar com o macOS" — o tema atravessa
-  /// os seis módulos, então não pertence a nenhum deles. Começa no
-  /// [AppThemeId.evergreen] porque é a identidade do produto; o Apple é a
-  /// escolha de quem prefere que ele desapareça dentro do sistema.
-  final AppThemeId theme;
-
-  /// O tema que o app **de fato** desenha.
-  ///
-  /// Com a bandeira `FeatureFlags.themes` desligada, é sempre o da casa, seja
-  /// qual for o que está guardado. A escolha no disco fica intacta: desligar a
-  /// funcionalidade não é desfazer o que a pessoa escolheu, e religá-la devolve
-  /// a aparência dela em vez de zerar.
-  ///
-  /// Quem desenha lê **isto**, nunca o [theme] cru — é o único ponto do app em
-  /// que a bandeira decide alguma coisa.
-  AppThemeId get activeTheme =>
-      FeatureFlags.themes ? theme : AppThemeId.evergreen;
 
   /// Iniciar o Evergreen junto com o macOS.
   ///
@@ -63,14 +40,12 @@ class AppSettings {
   final bool automaticBackup;
 
   AppSettings copyWith({
-    AppThemeId? theme,
     String? userName,
     bool? launchAtLogin,
     bool? startMinimized,
     bool? automaticBackup,
   }) {
     return AppSettings(
-      theme: theme ?? this.theme,
       userName: userName ?? this.userName,
       launchAtLogin: launchAtLogin ?? this.launchAtLogin,
       startMinimized: startMinimized ?? this.startMinimized,

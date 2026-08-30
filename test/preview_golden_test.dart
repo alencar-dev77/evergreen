@@ -7,7 +7,6 @@ import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
-import 'package:evergreen/core/design/app_theme_id.dart';
 import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
@@ -336,7 +335,6 @@ void main() {
     VoidCallback? beforeSettle,
     bool fakeClock = false,
     DateTime? now,
-    AppThemeId theme = AppThemeId.evergreen,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 2.0;
@@ -379,9 +377,9 @@ void main() {
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(theme),
+          theme: AppTheme.build(),
           home: ColoredBox(
-            color: EgTokens.of(theme).colors.background,
+            color: EgTokens.evergreen().colors.canvas,
             child: home,
           ),
         ),
@@ -422,41 +420,6 @@ void main() {
     await expectLater(
       find.byType(PinOverlayView),
       matchesGoldenFile('goldens/pin_overlay_preview.png'),
-    );
-  });
-
-  /// As duas peles, nas duas telas que mais as revelam: o painel flutuante
-  /// (onde o Apple troca superfície opaca por vidro) e o Hub (onde a densidade
-  /// e a linha de meio pixel aparecem lado a lado com a sidebar).
-  ///
-  /// O tema Evergreen já tem as suas imagens nos goldens de sempre — estas são
-  /// as do Apple, para a comparação ser um par de arquivos, e não uma memória.
-  testWidgets('tema Apple — overlay do Pin', (tester) async {
-    await pump(
-      tester,
-      const PinOverlayView(),
-      const Size(1120, 1000),
-      beforeSettle: () => _loadHistory(tester),
-      theme: AppThemeId.apple,
-    );
-
-    await expectLater(
-      find.byType(PinOverlayView),
-      matchesGoldenFile('goldens/apple_pin_overlay_list.png'),
-    );
-  });
-
-  testWidgets('tema Apple — Hub', (tester) async {
-    await pump(
-      tester,
-      const HubView(),
-      const Size(1800, 1200),
-      theme: AppThemeId.apple,
-    );
-
-    await expectLater(
-      find.byType(HubView),
-      matchesGoldenFile('goldens/apple_hub_pin_settings.png'),
     );
   });
 

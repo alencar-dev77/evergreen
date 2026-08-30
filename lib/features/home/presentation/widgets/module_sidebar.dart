@@ -34,11 +34,11 @@ class ModuleSidebar extends ConsumerWidget {
     final settings = ref.watch(moduleSettingsViewModelProvider);
 
     return DecoratedBox(
-      // Superfície levemente translúcida (`context.eg.colors.sidebar`): o brilho verde
+      // Superfície levemente translúcida (`context.eg.colors.sidebarTint`): o brilho verde
       // do fundo atravessa de leve no topo, unificando a sidebar com a área de
       // conteúdo sem custo de blur.
       decoration: BoxDecoration(
-        color: context.eg.colors.sidebar,
+        color: context.eg.colors.sidebarTint,
         border: Border(right: context.eg.hairline),
       ),
       child: SizedBox(
@@ -98,7 +98,7 @@ class ModuleSidebar extends ConsumerWidget {
                 // A marca não muda de cor com a lista: o verde dela é
                 // identidade, não estado.
                 iconColor: context.eg.colors.accent,
-                iconBackground: context.eg.colors.card,
+                iconBackground: context.eg.colors.surface,
                 iconSize: AppIconSizes.lg,
                 borderedIcon: true,
                 isSelected: selected == null,
@@ -127,7 +127,7 @@ class ModuleSidebar extends ConsumerWidget {
         AppSpacing.xxl,
         AppSpacing.xl,
       ),
-      child: Text(AppInfo.versionLabel, style: context.eg.text.captionSmall),
+      child: Text(AppInfo.versionLabel, style: context.eg.text.caption),
     );
   }
 }

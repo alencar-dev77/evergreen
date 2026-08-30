@@ -139,7 +139,7 @@ class _GlobalShortcutSectionState extends ConsumerState<GlobalShortcutSection> {
           const SizedBox(height: AppSpacing.md),
           Text(
             _refusal!,
-            style: context.eg.text.captionSmall.copyWith(
+            style: context.eg.text.caption.copyWith(
               color: context.eg.colors.warning,
             ),
           ),
