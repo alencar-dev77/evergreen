@@ -120,16 +120,24 @@ class EgSettingsRow extends StatelessWidget {
     );
   }
 
-  /// Quem pega a largura primeiro é o **controle**, não o rótulo.
+  /// Quem **se mede** primeiro é o controle; quem fica com o **resto** é o
+  /// rótulo.
   ///
-  /// Com o rótulo em `Expanded` os dois dividiam a linha meio a meio, e um
-  /// seletor de cinco durações recebia 140 px onde precisava de 280 — então
-  /// ele quebrava em três fileiras, e cinco opções em três linhas deixam de
-  /// parecer um seletor. Agora o controle se mede pelo conteúdo e o rótulo
-  /// fica com o que sobra; um seletor só quebra quando nem assim couber.
+  /// As duas coisas juntas, e nessa ordem, são o arranjo. O controle é o filho
+  /// sem flex do `Row`, então ele é medido pelo próprio conteúdo antes de a
+  /// linha ser repartida: era o rótulo que se media primeiro, e um seletor de
+  /// cinco durações recebia 140 px onde precisava de 280 — quebrava em três
+  /// fileiras, e cinco opções em três linhas deixam de parecer um seletor. O
+  /// teto ([_labelFloor]) existe para o rótulo não sumir na conta: por mais
+  /// largo que seja o controle, 116 px continuam sendo do nome do ajuste.
   ///
-  /// O teto existe para o rótulo não sumir: por mais largo que seja o
-  /// controle, [_labelFloor] pixels continuam sendo do nome do ajuste.
+  /// O rótulo então leva todo o vão que sobrou — `Expanded`, e não `Flexible`.
+  /// Frouxo, ele encolhia até o tamanho do texto e trazia o controle junto:
+  /// num cartão de cinco interruptores, cada um parava num x diferente,
+  /// conforme o comprimento da explicação da linha, e a coluna de respostas
+  /// virava uma escadinha. O controle é a resposta da linha, e resposta fica
+  /// sempre no mesmo lugar — a borda do cartão (`spacing.md`: "ações à direita
+  /// sempre na mesma posição relativa à borda").
   Widget _inline(BuildContext context, double available) {
     final ceiling = (available - _labelFloor - AppSpacing.md).clamp(
       0.0,
@@ -138,7 +146,7 @@ class EgSettingsRow extends StatelessWidget {
 
     return Row(
       children: [
-        Flexible(child: _label(context)),
+        Expanded(child: _label(context)),
         const SizedBox(width: AppSpacing.md),
         ConstrainedBox(
           constraints: BoxConstraints(maxWidth: ceiling),
