@@ -110,9 +110,12 @@ class EgToggle extends StatelessWidget {
           : context.eg.colors.accent;
     }
 
+    // Apagado, o trilho é `hover`, e não a cor de divisor: sobre o cartão de
+    // seção um trilho na cor da linha somia dentro do próprio cartão, e um
+    // interruptor que não se vê apagado não conta que existe.
     if (state.isPressed) return context.eg.colors.pressed;
     return state.isHovered || state.isFocused
-        ? context.eg.colors.hover
-        : context.eg.colors.line;
+        ? context.eg.colors.line
+        : context.eg.colors.hover;
   }
 }

@@ -46,6 +46,7 @@ class EgSurfaceStyle {
     this.border,
     this.selectedBorder,
     this.innerHairline,
+    this.hairlineAlways = false,
     this.disabledOpacity = AppOpacities.disabled,
   });
 
@@ -109,6 +110,14 @@ class EgSurfaceStyle {
   /// `null` em quem não tem noção de seleção — botão, botão de ícone.
   final Color? innerHairline;
 
+  /// A linha de luz acende sempre, e não só no estado selecionado.
+  ///
+  /// É a superfície que **nasce** elevada: a faixa de estado do Hub não é uma
+  /// linha de lista que às vezes está escolhida — ela está sempre no topo da
+  /// pilha, e apagar a luz dela quando o mouse não está por perto a faria
+  /// afundar no cartão.
+  final bool hairlineAlways;
+
   /// Opacidade aplicada ao conteúdo quando o controle está indisponível.
   final double disabledOpacity;
 
@@ -131,6 +140,7 @@ class EgSurfaceStyle {
         border: border ?? this.border,
         selectedBorder: selectedBorder ?? this.selectedBorder,
         innerHairline: innerHairline,
+        hairlineAlways: hairlineAlways,
         disabledOpacity: disabledOpacity,
       );
 
@@ -195,7 +205,7 @@ class EgSurfaceStyle {
   /// A linha de luz do topo, quando ela existe e a superfície está no estado
   /// que a acende.
   Color? hairlineFor(EgInteraction state, {bool isSelected = false}) =>
-      isSelected ? innerHairline : null;
+      isSelected || hairlineAlways ? innerHairline : null;
 
   /// Anel de foco: só com o foco de teclado e só enquanto o controle responde.
   ///
