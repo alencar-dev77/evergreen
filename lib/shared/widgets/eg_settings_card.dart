@@ -59,7 +59,28 @@ enum EgCardTone {
 /// guardasse respiro embaixo de si empurraria um vão que ninguém pediu contra
 /// o rodapé do scroll, e mudar a separação exigiria mexer em todas as telas.
 class EgSettingsPage extends StatelessWidget {
-  const EgSettingsPage({super.key, required this.children, this.banner});
+  const EgSettingsPage({
+    super.key,
+    required this.children,
+    this.banner,
+    this.footer,
+    this.singleColumn = false,
+  });
+
+  /// A linha do pé da tela, abaixo de tudo e fora da grade.
+  ///
+  /// É onde vai a promessa da casa — "nada sai deste Mac" — e o link de
+  /// novidades: coisas que valem para a tela inteira e não pertencem a
+  /// assunto nenhum.
+  final Widget? footer;
+
+  /// Uma coluna, mesmo com largura para duas.
+  ///
+  /// É a tela do aplicativo: ela é um formulário e assume isso. Em duas
+  /// colunas, "Sistema" e "Seus dados" ficariam lado a lado como se fossem
+  /// alternativas, quando na verdade se leem em ordem — e um formulário lido
+  /// em zigue-zague é um formulário que se erra.
+  final bool singleColumn;
 
   /// O que atravessa as duas colunas, acima da grade.
   ///
@@ -87,23 +108,30 @@ class EgSettingsPage extends StatelessWidget {
           banner!,
           const SizedBox(height: AppSpacing.xxl),
         ],
-        LayoutBuilder(
-          builder: (context, constraints) =>
-              // Um cartão só nunca vai para a grade: numa das colunas ele fica
-              // com metade da largura e a outra metade da tela fica vazia — e
-              // meia largura é justamente o que uma lista (as reuniões do Echo,
-              // os destinos do Nest) não tem como aproveitar.
-              children.length < 2 || constraints.maxWidth < _twoColumnsAbove
-              ? _column(children)
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _column(_evens)),
-                    const SizedBox(width: AppSpacing.xl + AppSpacing.xxs),
-                    Expanded(child: _column(_odds)),
-                  ],
-                ),
-        ),
+        if (singleColumn)
+          _column(children)
+        else
+          LayoutBuilder(
+            builder: (context, constraints) =>
+                // Um cartão só nunca vai para a grade: numa das colunas ele fica
+                // com metade da largura e a outra metade da tela fica vazia — e
+                // meia largura é justamente o que uma lista (as reuniões do Echo,
+                // os destinos do Nest) não tem como aproveitar.
+                children.length < 2 || constraints.maxWidth < _twoColumnsAbove
+                ? _column(children)
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _column(_evens)),
+                      const SizedBox(width: AppSpacing.xl + AppSpacing.xxs),
+                      Expanded(child: _column(_odds)),
+                    ],
+                  ),
+          ),
+        if (footer != null) ...[
+          const SizedBox(height: AppSpacing.huge),
+          footer!,
+        ],
       ],
     );
   }

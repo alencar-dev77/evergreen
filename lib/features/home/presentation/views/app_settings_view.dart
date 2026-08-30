@@ -81,7 +81,13 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
     // a perguntar, e depois é só mais um campo que se pode corrigir.
     final hasName = settings.userName.isNotEmpty;
 
+    // **Uma coluna.** Esta é a única tela do app que continua sendo um
+    // formulário, e ela assume isso: em duas colunas, "Sistema" e "Seus dados"
+    // ficariam lado a lado como se fossem alternativas, quando na verdade se
+    // leem em ordem.
     return EgSettingsPage(
+      singleColumn: true,
+      footer: const _AboutLine(),
       children: [
         if (!hasName)
           EgSettingsCard(
@@ -98,6 +104,13 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
               value: settings.launchAtLogin,
               onChanged: viewModel.setLaunchAtLogin,
             ),
+            // O atalho do Hub mora aqui dentro, e não numa seção própria: uma
+            // seção inteira para uma pergunta é o que fazia esta tela ter mais
+            // títulos do que respostas.
+            const GlobalShortcutSection(
+              slot: GlobalShortcutSlot.hub,
+              bare: true,
+            ),
             EgSettingsRow.toggle(
               label: 'Abrir minimizado',
               description: 'Fica só na barra de menus, sem abrir janelas.',
@@ -112,8 +125,6 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           onAutomaticChanged: viewModel.setAutomaticBackup,
         ),
         const _RestoreSection(),
-        const GlobalShortcutSection(slot: GlobalShortcutSlot.hub),
-        const EgSettingsCard(title: 'Sobre', children: [_AboutLine()]),
       ],
     );
   }
@@ -285,11 +296,17 @@ class _AboutLine extends StatelessWidget {
       // A versão saiu daqui: ela subiu para o cabeçalho da tela, e dizer o
       // mesmo número duas vezes na mesma janela não confirma nada — só ocupa
       // a linha em que caberia a promessa da casa.
-      child: Text(
-        'nada sai deste Mac · sem conta · sem sync',
-        style: context.eg.text.monoSmall.copyWith(
-          color: context.eg.colors.textQuaternary,
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'nada sai deste Mac · sem conta · sem sync',
+              style: context.eg.text.monoSmall.copyWith(
+                color: context.eg.colors.textQuaternary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
