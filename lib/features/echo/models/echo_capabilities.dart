@@ -31,14 +31,12 @@ enum SummaryAvailability {
   String? get explanation => switch (this) {
     SummaryAvailability.available => null,
     SummaryAvailability.deviceNotEligible =>
-      'Este Mac não tem Apple Intelligence, então o resumo local não roda aqui. '
-          'A transcrição funciona normalmente.',
+      'Este Mac não tem Apple Intelligence, então o resumo não roda aqui. A '
+          'transcrição funciona normalmente.',
     SummaryAvailability.appleIntelligenceNotEnabled =>
-      'Ligue o Apple Intelligence em Ajustes do Sistema para resumir sem '
-          'internet.',
+      'Ligue o Apple Intelligence nos Ajustes do Sistema para resumir.',
     SummaryAvailability.modelNotReady =>
-      'O modelo ainda está sendo preparado pelo sistema. Tente de novo daqui a '
-          'pouco.',
+      'O sistema ainda está preparando o modelo. Tente daqui a pouco.',
     SummaryAvailability.unsupportedOS =>
       'O Echo precisa do macOS 26 ou superior.',
     SummaryAvailability.unavailable =>

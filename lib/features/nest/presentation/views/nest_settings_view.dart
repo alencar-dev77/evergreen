@@ -39,9 +39,8 @@ class NestSettingsView extends ConsumerWidget {
             EgSettingsRow.toggle(
               label: 'Chacoalhar para chamar a prateleira',
               description:
-                  'Com um arquivo sendo arrastado, sacuda o mouse e a '
-                  'prateleira aparece debaixo do cursor. Sem arquivo na mão, '
-                  'chacoalhar não faz nada.',
+                  'Sacuda o mouse no meio de um arraste e a prateleira vem '
+                  'até o cursor.',
               value: settings.useShake,
               onChanged: (value) =>
                   unawaited(viewModel.setUseShake(enabled: value)),
@@ -50,8 +49,7 @@ class NestSettingsView extends ConsumerWidget {
               label: 'Ao enviar para uma pasta',
               description:
                   'Copiar deixa o original onde está; mover leva junto. '
-                  'Segurar ⌥ na hora de enviar faz o contrário do que estiver '
-                  'escolhido aqui.',
+                  'Segurar ⌥ ao enviar faz o contrário.',
               showDivider: false,
               trailing: EgSegmentedControl<NestTransferMode>(
                 value: settings.defaultMode,
@@ -69,9 +67,8 @@ class NestSettingsView extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: Text(
-                  'Sem nenhuma pasta aqui, a prateleira guarda arquivos mas não '
-                  'tem para onde mandá-los. Cadastre as pastas que você usa '
-                  'toda semana — elas viram ⌘1, ⌘2, ⌘3 dentro do painel.',
+                  'Sem pasta aqui, a prateleira guarda arquivos e não tem '
+                  'para onde mandá-los. As cadastradas viram ⌘1, ⌘2, ⌘3.',
                   style: context.eg.text.captionSmall,
                 ),
               )
@@ -96,8 +93,8 @@ class NestSettingsView extends ConsumerWidget {
             if (settings.isFull) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'São ${NestSettings.maxDestinations} pastas no máximo — o '
-                'tanto que o teclado alcança sem procurar.',
+                'Máximo de ${NestSettings.maxDestinations} — o que o '
+                'teclado alcança sem procurar.',
                 style: context.eg.text.captionSmall,
               ),
             ],

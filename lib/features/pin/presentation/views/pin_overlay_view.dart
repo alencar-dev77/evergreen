@@ -428,7 +428,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
       icon: fromSearch ? EgIconData.search : EgIconData.document,
       title: fromSearch ? 'Nenhum resultado' : 'Nenhum item ainda',
       message: switch ((fromSearch, filterLabel)) {
-        (false, _) => 'Tudo que você copiar aparecerá aqui automaticamente.',
+        (false, _) => 'Tudo que você copiar aparece aqui.',
         (true, final label?) => 'Nada em $label corresponde à sua busca.',
         (true, _) => 'Nada no histórico corresponde à sua busca.',
       },

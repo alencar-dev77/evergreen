@@ -97,24 +97,22 @@ abstract final class ShortcutRules {
     required String Function(GlobalShortcutSlot slot) ownerOf,
   }) {
     if (!ShortcutKeys.isUsable(binding.key)) {
-      return 'Essa tecla não pode ser a tecla final de um atalho global.';
+      return 'Essa tecla não serve como tecla final.';
     }
 
     if (binding.modifiers.length < minimumModifiers) {
-      return 'Um atalho global precisa de pelo menos duas modificadoras. Com '
-          'uma só ele tomaria a tecla de todos os outros aplicativos — o '
-          'prefixo da casa é ⌘⇧.';
+      return 'Precisa de duas modificadoras: com uma só, a tecla é tomada '
+          'de todos os outros apps. O prefixo da casa é ⌘⇧.';
     }
 
     if (!binding.modifiers.contains(ShortcutModifier.meta) &&
         !binding.modifiers.contains(ShortcutModifier.control)) {
-      return 'Um atalho global precisa de ⌘ ou ⌃. Só com ⇧ e ⌥ a combinação '
-          'vira um caractere que se digita.';
+      return 'Precisa de ⌘ ou ⌃: só com ⇧ e ⌥, a combinação vira um '
+          'caractere que se digita.';
     }
 
     if (reserved.contains(binding)) {
-      return 'O macOS usa ${binding.compact} para uma função do próprio '
-          'sistema. Escolha outra combinação.';
+      return 'O macOS já usa ${binding.compact}. Escolha outra.';
     }
 
     for (final entry in taken.entries) {

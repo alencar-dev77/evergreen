@@ -13,8 +13,8 @@ enum EvergreenModule {
     name: 'Pin',
     tagline: 'Gerenciador de área de transferência',
     description:
-        'Registra tudo que você copia e devolve em um atalho. Histórico local, '
-        'busca instantânea e itens fixados.',
+        'Registra tudo que você copia e devolve em um atalho. Com busca e '
+        'itens fixados.',
     icon: EgIconData.clipboard,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.pin,
@@ -25,7 +25,7 @@ enum EvergreenModule {
     tagline: 'Cronômetro de foco',
     description:
         'Ciclos de foco e pausa, com o registro do que foi feito em cada '
-        'sessão. Histórico local e nada de notificação inútil.',
+        'sessão.',
     icon: EgIconData.timer,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.focus,
@@ -35,8 +35,8 @@ enum EvergreenModule {
     name: 'Leaf',
     tagline: 'Anotações rápidas',
     description:
-        'Uma parede de até nove anotações curtas, todas à vista de uma vez. '
-        'Para o que precisa sair da cabeça agora e ser resolvido depois.',
+        'Até nove anotações curtas, todas à vista de uma vez. Para o que '
+        'precisa sair da cabeça agora.',
     icon: EgIconData.note,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.leaf,
@@ -46,8 +46,8 @@ enum EvergreenModule {
     name: 'Awake',
     tagline: 'Mantém a tela acesa',
     description:
-        'Impede o Mac de apagar a tela e dormir pelo tempo que você escolher. '
-        'Nada de mexer nas configurações de energia por causa de uma reunião.',
+        'Impede o Mac de apagar a tela e dormir pelo tempo que você '
+        'escolher, sem mexer nas configurações de energia.',
     icon: EgIconData.sun,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.awake,
@@ -57,9 +57,8 @@ enum EvergreenModule {
     name: 'Echo',
     tagline: 'Transcrição de reuniões',
     description:
-        'Grava a reunião, separa a sua voz da dos outros e devolve tudo em '
-        'texto. O resumo sai do modelo do próprio Mac — nada sobe para '
-        'lugar nenhum.',
+        'Grava a reunião, separa a sua voz da dos outros e devolve em '
+        'texto. O resumo sai do modelo do próprio Mac.',
     icon: EgIconData.microphone,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.echo,
@@ -70,8 +69,7 @@ enum EvergreenModule {
     tagline: 'Prateleira de arquivos',
     description:
         'Junte arquivos de pastas diferentes numa prateleira e mande todos '
-        'para o mesmo lugar de uma vez. Solte no recorte da tela e ela abre '
-        'com o arquivo dentro.',
+        'para o mesmo lugar de uma vez.',
     icon: EgIconData.tray,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.nest,
@@ -82,8 +80,7 @@ enum EvergreenModule {
     tagline: 'O dia reconstruído',
     description:
         'Responde "o que eu fiz hoje" com o que os outros módulos já '
-        'gravaram: quanto você focou, quantas reuniões gravou e o que passou '
-        'pela área de transferência. Não captura nada — só lê.',
+        'gravaram. Não captura nada: só lê.',
     icon: EgIconData.track,
     status: ModuleStatus.available,
   );

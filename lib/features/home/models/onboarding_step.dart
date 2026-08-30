@@ -56,7 +56,7 @@ class OnboardingStep {
       imageHeight: 467,
       shortcut: '⌘⇧C',
       line:
-          'Tudo que você copia fica guardado aqui, com busca e itens fixados.\n'
+          'Tudo que você copia fica guardado aqui, com busca e fixados.\n'
           'Nada sai da sua máquina.',
     ),
     OnboardingStep(
@@ -66,8 +66,8 @@ class OnboardingStep {
       imageHeight: 250,
       shortcut: '⌘⇧F',
       line:
-          'Um cronômetro que pergunta no que você vai trabalhar e guarda a\n'
-          'resposta. No fim do dia, o Track junta tudo.',
+          'Um cronômetro que pergunta no que você vai trabalhar e guarda\n'
+          'a resposta. No fim do dia, o Track junta tudo.',
     ),
     OnboardingStep(
       module: EvergreenModule.leaf,
@@ -77,7 +77,7 @@ class OnboardingStep {
       shortcut: '⌘⇧D',
       line:
           'Nove anotações curtas, todas à vista de uma vez.\n'
-          'Para o que precisa sair da cabeça agora e ser resolvido depois.',
+          'Para o que precisa sair da cabeça agora.',
     ),
     OnboardingStep(
       module: EvergreenModule.awake,
@@ -87,7 +87,7 @@ class OnboardingStep {
       shortcut: '⌘⇧X',
       line:
           'Segura a tela acesa pelo tempo que você escolher.\n'
-          'Sem abrir as configurações de energia por causa de uma reunião.',
+          'Sem abrir as configurações de energia.',
     ),
     OnboardingStep(
       module: EvergreenModule.echo,

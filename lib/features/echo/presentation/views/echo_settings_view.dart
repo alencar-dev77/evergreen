@@ -154,8 +154,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             EgSettingsRow(
               label: 'Reuniões guardadas',
               description:
-                  'Passando disso, a mais antiga sai para a nova entrar. '
-                  'Reunião marcada com "guardar" não entra nessa conta.',
+                  'A mais antiga sai para a nova entrar. Reunião marcada '
+                  'com "guardar" não conta.',
               showDivider: false,
               trailing: EgSegmentedControl<int>(
                 value: settings.historyLimit,
@@ -175,18 +175,17 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             EgSettingsRow.toggle(
               label: 'Transcrever ao vivo',
               description:
-                  'O texto aparece enquanto a reunião acontece. Custa '
-                  'processador — em Mac com pouca memória, pode fazer a '
-                  'chamada engasgar. O áudio é gravado dos dois jeitos, então '
-                  'a transcrição final sai igual.',
+                  'O texto aparece durante a reunião. Custa processador e '
+                  'pode engasgar a chamada. A final sai igual dos dois '
+                  'jeitos.',
               value: settings.liveTranscription,
               onChanged: viewModel.setLiveTranscription,
             ),
             EgSettingsRow(
               label: 'Idioma da transcrição',
               description:
-                  'Transcrição no idioma errado não sai pior, sai inútil. O '
-                  'modelo do idioma é baixado uma vez, na troca.',
+                  'No idioma errado, a transcrição não sai pior: sai '
+                  'inútil. O modelo é baixado uma vez, na troca.',
               trailing: EgSegmentedControl<TranscriptionLanguage>(
                 value: settings.language,
                 options: TranscriptionLanguage.values,
@@ -201,9 +200,9 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: Text(
-                  'Este Mac não tem modelo de transcrição para '
-                  '${settings.language.label}. Escolha outro idioma: gravar '
-                  'assim devolveria palavras trocadas, não a reunião.',
+                  'Este Mac não tem modelo para '
+                  '${settings.language.label}. Assim, a gravação sairia em '
+                  'palavras trocadas.',
                   style: context.eg.text.captionSmall.copyWith(
                     color: context.eg.colors.warning,
                   ),
@@ -213,8 +212,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: Text(
-                  'O macOS atende ${settings.language.label} com o modelo de '
-                  '$substitutedLanguage — é ele que vai transcrever.',
+                  'O macOS atende ${settings.language.label} com o modelo '
+                  'de $substitutedLanguage.',
                   style: context.eg.text.captionSmall,
                 ),
               ),
@@ -224,10 +223,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             EgSettingsRow.field(
               label: 'Palavras que costumam aparecer',
               description:
-                  'Nome de pessoa, de empresa, de produto, jargão — um por '
-                  'linha. É o que o reconhecimento mais erra, porque tenta '
-                  'encaixar o som numa palavra comum do idioma. Vale só para a '
-                  'transcrição.',
+                  'Nomes, produtos, jargão — um por linha. É o que o '
+                  'reconhecimento mais erra.',
               showDivider: false,
               field: EgTextField(
                 controller: _vocabulary,
@@ -245,9 +242,9 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             EgSettingsRow.field(
               label: 'Como você quer o resumo',
               description:
-                  'Vale para todas as reuniões, e é aplicada quando você '
-                  'aperta Resumir. Curta e direta funciona melhor: o modelo é '
-                  'local e pequeno, e ignora instrução longa demais.',
+                  'Vale para todas as reuniões, ao apertar Resumir. Curta '
+                  'funciona melhor: o modelo é local e ignora instrução '
+                  'longa.',
               showDivider: false,
               field: EgTextField(
                 controller: _instructions,
@@ -288,9 +285,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             EchoPermissionRow(
               title: 'Gravação de Tela',
               detail:
-                  'Dá acesso ao áudio da reunião — a fala das outras pessoas. '
-                  'O Echo não grava imagem nenhuma; é só por aqui que o macOS '
-                  'entrega o som que sai do computador.',
+                  'Dá acesso à fala das outras pessoas. O Echo não grava '
+                  'imagem: é só por aqui que o macOS entrega o som.',
               status: capabilities.screenRecording,
               onPressed: recorder.requestScreenRecording,
             ),
@@ -298,9 +294,9 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.md),
                 child: Text(
-                  'Depois de ligar a Gravação de Tela nos Ajustes, encerre e '
-                  'abra o Evergreen de novo — o macOS só libera a captura para '
-                  'um app que iniciou depois da permissão.',
+                  'Depois de liberar nos Ajustes, encerre e abra o '
+                  'Evergreen: o macOS só entrega a captura a quem iniciou '
+                  'depois.',
                   style: context.eg.text.captionSmall,
                 ),
               ),
@@ -308,9 +304,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.md),
                 child: Text(
-                  'Tudo liberado. Com fone de ouvido a separação fica melhor: '
-                  'no alto-falante, o microfone escuta a reunião de volta e o '
-                  'Echo precisa filtrar o eco para saber quem falou.',
+                  'Tudo liberado. Com fone a separação fica melhor: no '
+                  'alto-falante, o Echo tem de filtrar o eco.',
                   style: context.eg.text.captionSmall,
                 ),
               ),

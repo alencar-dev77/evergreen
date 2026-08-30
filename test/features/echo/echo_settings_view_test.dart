@@ -142,7 +142,7 @@ void main() {
     await pumpSettings(tester, channel: channel);
 
     expect(
-      find.textContaining('não tem modelo de transcrição'),
+      find.textContaining('não tem modelo para'),
       findsOneWidget,
     );
   });
@@ -154,7 +154,7 @@ void main() {
     // avisar seria inventar um problema.
     await pumpSettings(tester);
 
-    expect(find.textContaining('não tem modelo de transcrição'), findsNothing);
+    expect(find.textContaining('não tem modelo para'), findsNothing);
   });
 
   testWidgets('variante atendida por outro modelo é dita, não escondida', (

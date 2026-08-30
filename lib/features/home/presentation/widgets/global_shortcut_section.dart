@@ -120,7 +120,7 @@ class _GlobalShortcutSectionState extends ConsumerState<GlobalShortcutSection> {
         EgSettingsRow(
           label: widget.slot.openLabel,
           description: _isRecording
-              ? 'Segure as modificadoras e aperte a tecla. Esc cancela.'
+              ? 'Aperte a combinação. Esc cancela.'
               : 'Funciona com qualquer aplicativo em foco.',
           showDivider: isCustom,
           trailing: EgShortcutRecorder(
@@ -147,9 +147,7 @@ class _GlobalShortcutSectionState extends ConsumerState<GlobalShortcutSection> {
         if (isCustom)
           EgSettingsRow(
             label: 'Restaurar padrão',
-            description:
-                'Volta para ${widget.slot.fallback.compact}, a combinação de '
-                'fábrica.',
+            description: 'Volta para ${widget.slot.fallback.compact}.',
             showDivider: false,
             trailing: EgButton.secondary(
               label: 'Restaurar',

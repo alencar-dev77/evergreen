@@ -130,8 +130,8 @@ class BackupViewModel extends Notifier<BackupState> {
     try {
       _service.restore(backup);
       _finish(
-        'Backup restaurado. O estado anterior ficou guardado na pasta, e os '
-        'painéis mostram o conteúdo novo ao abrir.',
+        'Backup restaurado. O estado anterior ficou na pasta, e os painéis '
+        'mostram o conteúdo novo ao abrir.',
       );
     } catch (error) {
       _finish('Não deu para restaurar: ${_reason(error)}');

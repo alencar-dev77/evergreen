@@ -227,8 +227,8 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
     title: state.notice ?? 'A prateleira está vazia',
     message: state.notice != null && state.canUndo
         ? '⌘Z desfaz.'
-        : 'Arraste arquivos para cá — ou chacoalhe um arquivo no meio do '
-              'arraste — e mande todos juntos para uma pasta.',
+        : 'Arraste arquivos para cá, ou chacoalhe um no meio do arraste, e '
+              'mande todos juntos para uma pasta.',
   );
 
   Widget _items(NestState state) {
@@ -292,8 +292,8 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
   Widget _destinations(NestState state) {
     if (!state.hasDestinations) {
       return Text(
-        'Nenhuma pasta cadastrada. Abra as preferências com ⌘, e escolha as '
-        'pastas para onde a prateleira manda.',
+        'Nenhuma pasta cadastrada. Abra as preferências com ⌘, e escolha '
+        'para onde a prateleira manda.',
         style: context.eg.text.captionSmall,
       );
     }

@@ -40,8 +40,8 @@ class EchoLibrary extends StatelessWidget {
         icon: EgIconData.microphone,
         title: 'Nenhuma reunião gravada',
         message:
-            'Aperte ⌘⇧E antes da próxima reunião. A transcrição aparece aqui '
-            'quando ela terminar.',
+            'Aperte ⌘⇧E antes da próxima. A transcrição aparece aqui no '
+            'fim.',
       );
     }
 
