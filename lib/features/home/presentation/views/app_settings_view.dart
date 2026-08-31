@@ -98,11 +98,20 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           title: 'Sistema',
           children: [
             if (hasName) _nameField(autofocus: false),
+            // As duas da partida ficam juntas, nesta ordem: uma decide **se** o
+            // Evergreen sobe, a outra decide **como** ele sobe. Separadas pelo
+            // atalho, a segunda parecia responder a outra pergunta.
             EgSettingsRow.toggle(
               label: 'Iniciar com o macOS',
               description: 'O Evergreen sobe junto com o sistema.',
               value: settings.launchAtLogin,
               onChanged: viewModel.setLaunchAtLogin,
+            ),
+            EgSettingsRow.toggle(
+              label: 'Abrir minimizado',
+              description: 'Fica só na barra de menus, sem abrir janelas.',
+              value: settings.startMinimized,
+              onChanged: viewModel.setStartMinimized,
             ),
             // O atalho do Hub mora aqui dentro, e não numa seção própria: uma
             // seção inteira para uma pergunta é o que fazia esta tela ter mais
@@ -110,12 +119,6 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
             const GlobalShortcutSection(
               slot: GlobalShortcutSlot.hub,
               bare: true,
-            ),
-            EgSettingsRow.toggle(
-              label: 'Abrir minimizado',
-              description: 'Fica só na barra de menus, sem abrir janelas.',
-              value: settings.startMinimized,
-              onChanged: viewModel.setStartMinimized,
             ),
           ],
         ),
