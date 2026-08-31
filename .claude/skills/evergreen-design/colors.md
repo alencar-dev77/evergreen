@@ -97,10 +97,22 @@ foco, rótulo selecionado e aresta deixaram de ser verdes de propósito. Quando
 tudo se destaca, nada se destaca — e o accent gasto em seis lugares não dizia
 mais "isto está ligado" em lugar nenhum.
 
-**2. Selecionado é elevação e peso, nunca cor.** Era accent a 14% mais uma
-aresta verde de 3px à esquerda; agora é a superfície `raised` com uma linha de
-luz de 1px no topo (`rowInnerHairline`), mais o texto em `bodyStrong`. O Flutter
-não tem sombra interna, então a elevação se desenha com luz.
+**2. Selecionado é elevação, peso e um véu — nesta ordem de importância.** A
+superfície sobe, o texto engrossa (`bodyStrong`) e o accent entra em
+**opacidade baixa**: 16% sobre superfície opaca, 24% sobre o vidro do painel,
+onde o véu responde sozinho porque o `raised` não vale sobre translucidez. O
+Flutter não tem sombra interna, então a elevação se desenha com luz
+(`rowInnerHairline`).
+
+A escada até aqui tem três degraus, e o do meio errou por pouco: era accent a
+14% **mais uma aresta verde de 3px à esquerda** — a cor no lugar da forma;
+virou só elevação e peso, o que devolveu ao verde os dois papéis dele; e hoje é
+elevação, peso **e** o véu. O que trouxe o verde de volta foi a leitura de
+perto: sobre o vidro, a linha escolhida e a linha sob o mouse ficavam a um
+passo de distância na escala, e a diferença sumia com uma janela clara atrás.
+Não é um terceiro papel para o verde — a linha escolhida **é** o que está
+ligado naquela lista. O que não volta é o bloco chapado: véu sobre a superfície
+elevada, nunca cor no lugar dela.
 
 **3. Os degraus de neutro têm de se ver — e "se ver" é na tela, não na
 tabela.** A paleta anterior amontoava cinco papéis entre `#0B` e `#2E`, e o olho
