@@ -1,4 +1,5 @@
 import AVFoundation
+import Accelerate
 import CoreGraphics
 import FlutterMacOS
 import Foundation
@@ -81,6 +82,14 @@ enum EchoChannel {
             liveTranscription: live, locale: locale, vocabulary: vocabulary,
             channel: channel, result: result)
         }
+
+      // Numa `Task`, como as demais: o gravador é um `actor`, e chamá-lo da
+      // thread do canal é falar com o estado dele de fora do isolamento.
+      case "pauseRecording":
+        Task { await recorder.pause(result: result) }
+
+      case "resumeRecording":
+        Task { await recorder.resume(result: result) }
 
       case "stopRecording":
         Task { await recorder.stop(result: result) }
@@ -324,6 +333,11 @@ actor EchoRecorder {
   private var stream: SCStream?
   private var output: EchoStreamOutput?
   private var startedAt: Date?
+
+  /// Desde quando está pausada, e quanto já ficou pausada antes disso.
+  private var pausedAt: Date?
+  private var pausedTotal: TimeInterval = 0
+
   private var micURL: URL?
   private var systemURL: URL?
 
@@ -588,7 +602,8 @@ actor EchoRecorder {
 
       let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
       let output = EchoStreamOutput(
-        micURL: micURL, systemURL: systemURL, queue: queue, recordingFormat: recordingFormat)
+        micURL: micURL, systemURL: systemURL, queue: queue,
+        recordingFormat: recordingFormat, channel: channel)
       if liveTranscription {
         await output.enableLiveTranscription(
           locale: resolved, vocabulary: vocabulary, channel: channel)
@@ -616,6 +631,41 @@ actor EchoRecorder {
     }
   }
 
+  /// Suspende a gravação sem encerrá-la.
+  ///
+  /// A captura continua de pé e os blocos continuam chegando — o que muda é
+  /// que eles são descartados. O trecho pausado não entra no arquivo e não
+  /// entra na duração; a reunião retoma exatamente de onde parou.
+  func pause(result: @escaping FlutterResult) {
+    guard let output = output, pausedAt == nil else {
+      result(FlutterError(
+        code: "not_recording",
+        message: "Nenhuma gravação em andamento para pausar.",
+        details: nil))
+      return
+    }
+
+    output.setPaused(true)
+    pausedAt = Date()
+    result(nil)
+  }
+
+  /// Volta a gravar de onde parou.
+  func resume(result: @escaping FlutterResult) {
+    guard let output = output, let since = pausedAt else {
+      result(FlutterError(
+        code: "not_paused",
+        message: "A gravação não está pausada.",
+        details: nil))
+      return
+    }
+
+    pausedTotal += Date().timeIntervalSince(since)
+    pausedAt = nil
+    output.setPaused(false)
+    result(nil)
+  }
+
   func stop(result: @escaping FlutterResult) async {
     guard let stream = stream else {
       result(FlutterError(code: "not_recording", message: "Nenhuma gravação em andamento.", details: nil))
@@ -626,7 +676,13 @@ actor EchoRecorder {
     stopMicrophone()
     await output?.finish()
 
-    let duration = startedAt.map { Int(Date().timeIntervalSince($0) * 1000) } ?? 0
+    // A duração é o tempo **gravado**, e não o tempo de relógio: o que passou
+    // pausado não está no arquivo, e uma reunião de 40 minutos com 10 de pausa
+    // que se anunciasse como 50 mentiria em duas telas (a lista e o Track).
+    let paused = pausedTotal + (pausedAt.map { Date().timeIntervalSince($0) } ?? 0)
+    let duration = startedAt.map {
+      max(0, Int((Date().timeIntervalSince($0) - paused) * 1000))
+    } ?? 0
 
     // O caminho só sai daqui quando existe arquivo com áudio dentro. Antes ele
     // saía sempre, e o Dart mandava transcrever um arquivo que nunca chegou a
@@ -675,6 +731,8 @@ actor EchoRecorder {
     delegate = nil
     micError = nil
     startedAt = nil
+    pausedAt = nil
+    pausedTotal = 0
     micURL = nil
     systemURL = nil
   }
@@ -732,11 +790,77 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   /// cada faixa já é uma fonte só.
   let recordingFormat: AVAudioFormat
 
-  init(micURL: URL, systemURL: URL, queue: DispatchQueue, recordingFormat: AVAudioFormat) {
+  init(
+    micURL: URL,
+    systemURL: URL,
+    queue: DispatchQueue,
+    recordingFormat: AVAudioFormat,
+    channel: FlutterMethodChannel
+  ) {
     self.micURL = micURL
     self.systemURL = systemURL
     self.queue = queue
     self.recordingFormat = recordingFormat
+    self.channel = channel
+  }
+
+  /// Por onde o nível de cada faixa sobe para a interface.
+  ///
+  /// O mesmo canal do engine que pediu a gravação — a janela flutuante —, e o
+  /// mesmo caminho do aviso da transcrição ao vivo. A diferença é que o nível
+  /// vai sempre, com ou sem transcrição ligada: ele é o que diz que o Echo
+  /// está ouvindo, e essa pergunta existe em toda gravação.
+  private let channel: FlutterMethodChannel
+
+  /// Liga e desliga a pausa **na fila do áudio**.
+  ///
+  /// A bandeira é lida a cada bloco, de dentro dessa fila; escrevê-la da main
+  /// thread seria uma corrida silenciosa com a thread de áudio.
+  func setPaused(_ value: Bool) {
+    queue.async { [weak self] in self?.isPaused = value }
+  }
+
+  /// A gravação está pausada: os blocos continuam chegando e são **jogados
+  /// fora**.
+  ///
+  /// Descartar é o que faz a pausa existir no arquivo: o trecho pausado
+  /// simplesmente não entra, e o áudio volta a correr onde parou. A
+  /// alternativa — parar e recomeçar a `SCStream` — trocaria de formato no
+  /// meio, criaria um segundo arquivo por faixa e faria a transcrição
+  /// remontar duas gravações como se fossem uma.
+  private var isPaused = false
+
+  /// O espectro de cada faixa — é ele que vira as barras do painel.
+  private lazy var micSpectrum = EchoSpectrum(
+    sampleRate: recordingFormat.sampleRate)
+  private lazy var systemSpectrum = EchoSpectrum(
+    sampleRate: recordingFormat.sampleRate)
+  private var lastLevelAt = Date.distantPast
+
+  /// De quanto em quanto tempo o nível sobe.
+  ///
+  /// Dez avisos por segundo: abaixo disso a barra anda aos saltos e deixa de
+  /// parecer um medidor; acima, é canal gasto para desenhar o que o olho não
+  /// separa.
+  private static let levelInterval: TimeInterval = 0.1
+
+  /// Manda o espectro das duas faixas para a interface, dez vezes por segundo.
+  ///
+  /// Vai **o que foi medido** — a energia por banda de frequência, de 0 a 1 — e
+  /// nada mais. Quantas barras, com que cor e com que altura mínima é decisão
+  /// de desenho, e mora do outro lado; aqui é o fato.
+  private func reportLevels() {
+    let now = Date()
+    guard now.timeIntervalSince(lastLevelAt) >= Self.levelInterval else { return }
+    lastLevelAt = now
+
+    let mic = micSpectrum.bands()
+    let system = systemSpectrum.bands()
+
+    // O canal é de main thread; daqui é a fila serial do áudio.
+    DispatchQueue.main.async { [channel] in
+      channel.invokeMethod("onLevels", arguments: ["mic": mic, "system": system])
+    }
   }
 
   /// A fila serial por onde passam as duas faixas.
@@ -784,6 +908,13 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   }
 
   private func write(_ rawBuffer: AVAudioPCMBuffer, isMicrophone: Bool) {
+    // Pausado, o bloco não é escrito nem transcrito — e o medidor cai a zero
+    // sozinho, porque nada alimenta a janela do próximo aviso.
+    if isPaused {
+      reportLevels()
+      return
+    }
+
     // A mixagem para um canal é nossa, não do `AVAudioConverter` — ver [mono].
     let buffer = Self.mono(rawBuffer)
     var converted: AVAudioPCMBuffer?
@@ -799,6 +930,7 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
           try micFile?.write(from: converted)
           micFrames += Int64(converted.frameLength)
           micPeak = max(micPeak, Self.peak(of: converted))
+          micSpectrum.append(converted)
         }
       } else {
         if systemFile == nil {
@@ -810,6 +942,7 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
           try systemFile?.write(from: converted)
           systemFrames += Int64(converted.frameLength)
           systemPeak = max(systemPeak, Self.peak(of: converted))
+          systemSpectrum.append(converted)
         }
       }
     } catch {
@@ -831,6 +964,8 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     if let converted = converted {
       live?.append(converted)
     }
+
+    reportLevels()
   }
 
   /// Cria o arquivo já no formato em que os blocos vão chegar.
@@ -1482,5 +1617,160 @@ final class EchoStreamDelegate: NSObject, SCStreamDelegate, @unchecked Sendable 
     lock.lock()
     stored = error.localizedDescription
     lock.unlock()
+  }
+}
+
+/// O espectro de uma faixa, em bandas — o que faz o painel ter um equalizador
+/// em vez de uma fita de áudio passando.
+///
+/// **Cada barra é uma faixa de frequência medida, não um enfeite que sobe e
+/// desce.** Um pico só por faixa responde "está entrando som?" e nada mais: com
+/// um número, todas as barras teriam a mesma altura, e desenhá-las diferentes
+/// seria inventar. Aqui o bloco de áudio passa por uma FFT e vira energia por
+/// banda, que é o que se vê mexendo quando alguém fala: as graves na voz, as
+/// agudas nas consoantes.
+///
+/// Roda na fila do áudio, junto do resto — 512 amostras de FFT a cada 100 ms
+/// são microssegundos de trabalho no Accelerate, contra os 23 MB por minuto que
+/// a mesma fila já converte e escreve em disco.
+@available(macOS 26.0, *)
+final class EchoSpectrum {
+  /// Amostras por análise.
+  ///
+  /// 512 a 16 kHz são 32 ms de som: janela curta o bastante para acompanhar a
+  /// fala e longa o bastante para separar o que é grave do que é agudo (cada
+  /// raia sai com 31 Hz de largura).
+  static let size = 512
+
+  /// Quantas barras cada faixa tem.
+  static let bands = 10
+
+  /// A faixa de frequência que interessa, em Hz.
+  ///
+  /// Começa acima do ronco de sala e do estouro de mesa; termina onde a voz
+  /// humana já não tem energia que valha uma barra. Fora disso o desenho
+  /// mostraria ar-condicionado.
+  private static let lowestHz: Float = 110
+  private static let highestHz: Float = 6000
+
+  /// O piso em decibéis que vira barra zerada. Abaixo disso é silêncio de sala.
+  private static let floorDb: Float = -58
+
+  private let sampleRate: Float
+  private let window: [Float]
+  private let fft: vDSP.FFT<DSPSplitComplex>?
+
+  /// As últimas [size] amostras, em anel: a análise é sempre sobre o som mais
+  /// recente, e não sobre o que sobrou do bloco anterior.
+  private var ring = [Float](repeating: 0, count: EchoSpectrum.size)
+  private var cursor = 0
+
+  init(sampleRate: Double) {
+    self.sampleRate = Float(sampleRate)
+
+    var hann = [Float](repeating: 0, count: Self.size)
+    // Sem janela, o corte seco nas pontas do bloco espalha energia por todas as
+    // raias — e um equalizador com todas as barras sempre acesas não mede nada.
+    vDSP_hann_window(&hann, vDSP_Length(Self.size), Int32(vDSP_HANN_NORM))
+    window = hann
+
+    let log2n = vDSP_Length(log2(Float(Self.size)))
+    fft = vDSP.FFT(log2n: log2n, radix: .radix2, ofType: DSPSplitComplex.self)
+  }
+
+  /// Guarda o bloco recém-convertido. Barato: é só cópia para o anel.
+  func append(_ buffer: AVAudioPCMBuffer) {
+    let frames = Int(buffer.frameLength)
+    guard frames > 0 else { return }
+
+    if let channel = buffer.floatChannelData?[0] {
+      for index in 0..<frames { push(channel[index]) }
+      return
+    }
+
+    if let channel = buffer.int16ChannelData?[0] {
+      for index in 0..<frames { push(Float(channel[index]) / 32768) }
+    }
+  }
+
+  private func push(_ sample: Float) {
+    ring[cursor] = sample
+    cursor = (cursor + 1) % Self.size
+  }
+
+  /// As bandas, de 0 a 1, da mais grave para a mais aguda.
+  func bands() -> [Double] {
+    guard let fft = fft else { return Array(repeating: 0, count: Self.bands) }
+
+    // Desenrola o anel: a amostra mais antiga primeiro, a mais nova por último.
+    var input = [Float](repeating: 0, count: Self.size)
+    for index in 0..<Self.size {
+      input[index] = ring[(cursor + index) % Self.size]
+    }
+    vDSP_vmul(input, 1, window, 1, &input, 1, vDSP_Length(Self.size))
+
+    let half = Self.size / 2
+    var real = [Float](repeating: 0, count: half)
+    var imaginary = [Float](repeating: 0, count: half)
+    var outputReal = [Float](repeating: 0, count: half)
+    var outputImaginary = [Float](repeating: 0, count: half)
+    var magnitudes = [Float](repeating: 0, count: half)
+
+    real.withUnsafeMutableBufferPointer { realPointer in
+      imaginary.withUnsafeMutableBufferPointer { imaginaryPointer in
+        var split = DSPSplitComplex(
+          realp: realPointer.baseAddress!, imagp: imaginaryPointer.baseAddress!)
+
+        input.withUnsafeBytes { raw in
+          vDSP_ctoz(
+            raw.bindMemory(to: DSPComplex.self).baseAddress!, 2,
+            &split, 1, vDSP_Length(half))
+        }
+
+        outputReal.withUnsafeMutableBufferPointer { outputRealPointer in
+          outputImaginary.withUnsafeMutableBufferPointer { outputImaginaryPointer in
+            var output = DSPSplitComplex(
+              realp: outputRealPointer.baseAddress!,
+              imagp: outputImaginaryPointer.baseAddress!)
+
+            fft.forward(input: split, output: &output)
+            vDSP_zvabs(&output, 1, &magnitudes, 1, vDSP_Length(half))
+          }
+        }
+      }
+    }
+
+    // A escala do `vDSP` é proporcional ao tamanho da janela; o fator devolve a
+    // amplitude ao terreno de 0 a 1, que é onde o decibel abaixo faz sentido.
+    let scale = 2 / Float(Self.size)
+    var result = [Double](repeating: 0, count: Self.bands)
+
+    for band in 0..<Self.bands {
+      let (start, end) = binRange(of: band, half: half)
+      var peak: Float = 0
+      for bin in start...end { peak = max(peak, magnitudes[bin] * scale) }
+
+      // Decibel, e não a amplitude crua: o ouvido é logarítmico, e em escala
+      // linear a barra só sairia do chão com alguém gritando.
+      let db = 20 * log10(peak + 1e-7)
+      result[band] = Double(min(1, max(0, (db - Self.floorDb) / -Self.floorDb)))
+    }
+
+    return result
+  }
+
+  /// As raias que entram em cada banda — espaçadas por oitava, como o ouvido
+  /// separa: em espaçamento linear, oito das dez barras seriam agudos que a voz
+  /// quase não usa.
+  private func binRange(of band: Int, half: Int) -> (Int, Int) {
+    let ratio = Self.highestHz / Self.lowestHz
+    let low = Self.lowestHz * pow(ratio, Float(band) / Float(Self.bands))
+    let high = Self.lowestHz * pow(ratio, Float(band + 1) / Float(Self.bands))
+
+    let hzPerBin = sampleRate / Float(Self.size)
+    let start = max(1, Int(low / hzPerBin))
+    let end = min(half - 1, max(start, Int(high / hzPerBin)))
+
+    return (start, end)
   }
 }

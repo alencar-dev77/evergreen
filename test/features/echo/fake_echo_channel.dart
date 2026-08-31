@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:evergreen/features/echo/data/echo_channel.dart';
 import 'package:evergreen/features/echo/models/echo_capabilities.dart';
+import 'package:evergreen/features/echo/models/echo_spectrum.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
 
 /// Um Echo sem microfone, sem reunião e sem modelo.
@@ -27,9 +28,12 @@ class FakeEchoChannel implements EchoChannel {
   EchoException? failWith;
 
   final _liveSegments = StreamController<String>.broadcast();
+  final _levels = StreamController<EchoSpectrum>.broadcast();
 
   bool didStart = false;
   bool didCancel = false;
+  bool didPause = false;
+  bool didResume = false;
 
   /// Com que preferências a gravação foi pedida.
   ///
@@ -55,6 +59,24 @@ class FakeEchoChannel implements EchoChannel {
   Stream<String> get onLiveSegment => _liveSegments.stream;
 
   void emitLive(String text) => _liveSegments.add(text);
+
+  @override
+  Stream<EchoSpectrum> get onLevels => _levels.stream;
+
+  void emitLevels(List<double> mic, List<double> system) =>
+      _levels.add(EchoSpectrum(mic: mic, system: system));
+
+  @override
+  Future<void> pauseRecording() async {
+    if (failWith != null) throw failWith!;
+    didPause = true;
+  }
+
+  @override
+  Future<void> resumeRecording() async {
+    if (failWith != null) throw failWith!;
+    didResume = true;
+  }
 
   @override
   void listen() {}
@@ -157,5 +179,8 @@ class FakeEchoChannel implements EchoChannel {
   Future<void> cleanOrphanAudio() async {}
 
   @override
-  void dispose() => _liveSegments.close();
+  void dispose() {
+    _liveSegments.close();
+    _levels.close();
+  }
 }

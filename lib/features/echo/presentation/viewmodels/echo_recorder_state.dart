@@ -1,4 +1,5 @@
 import '../../models/echo_capabilities.dart';
+import '../../models/echo_spectrum.dart';
 import '../../models/meeting.dart';
 
 /// Em que ponto da reunião o painel está.
@@ -25,6 +26,8 @@ class EchoRecorderState {
     this.capabilities = const EchoCapabilities(),
     this.elapsed = Duration.zero,
     this.liveText = const [],
+    this.spectrum,
+    this.isPaused = false,
     this.lastMeeting,
     this.errorMessage,
   });
@@ -41,12 +44,25 @@ class EchoRecorderState {
   /// Echo está ouvindo. O texto que vale sai do arquivo, depois.
   final List<String> liveText;
 
+  /// O que está entrando agora, por banda de frequência.
+  ///
+  /// Só o instante, e não uma fila de instantes: é um equalizador, e um
+  /// equalizador mostra agora. `null` quando não há gravação correndo.
+  final EchoSpectrum? spectrum;
+
+  /// A gravação está de pé, porém suspensa: nada entra no arquivo enquanto
+  /// isto valer, e o relógio não anda.
+  final bool isPaused;
+
   /// A reunião recém-transcrita, para o painel oferecer o caminho até ela.
   final Meeting? lastMeeting;
 
   final String? errorMessage;
 
   bool get isRecording => phase == EchoPhase.recording;
+
+  /// Gravando e correndo — o único estado em que o medidor diz alguma coisa.
+  bool get isCapturing => isRecording && !isPaused;
   bool get isBusy => phase == EchoPhase.transcribing;
 
   /// O rótulo que a barra de menus mostra enquanto a reunião corre.
@@ -67,6 +83,9 @@ class EchoRecorderState {
     EchoCapabilities? capabilities,
     Duration? elapsed,
     List<String>? liveText,
+    EchoSpectrum? spectrum,
+    bool? isPaused,
+    bool clearSpectrum = false,
     Meeting? lastMeeting,
     String? errorMessage,
     bool clearError = false,
@@ -77,6 +96,8 @@ class EchoRecorderState {
       capabilities: capabilities ?? this.capabilities,
       elapsed: elapsed ?? this.elapsed,
       liveText: liveText ?? this.liveText,
+      spectrum: clearSpectrum ? null : (spectrum ?? this.spectrum),
+      isPaused: isPaused ?? this.isPaused,
       lastMeeting: clearMeeting ? null : (lastMeeting ?? this.lastMeeting),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );

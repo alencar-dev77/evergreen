@@ -116,7 +116,20 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     };
   }
 
+  /// O resumo e, depois dele, a procedência.
   Widget _summary() {
+    final meeting = widget.meeting;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _summaryText(),
+        if (meeting.hasSummaryPrompt) _prompt(meeting.summaryPrompt!),
+      ],
+    );
+  }
+
+  Widget _summaryText() {
     final meeting = widget.meeting;
 
     if (meeting.hasSummary) {
@@ -132,7 +145,6 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
             const SizedBox(height: AppSpacing.md),
           ],
           SelectableText(meeting.summary!, style: context.eg.text.reading),
-          if (meeting.hasSummaryPrompt) _prompt(meeting.summaryPrompt!),
         ],
       );
     }

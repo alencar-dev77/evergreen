@@ -46,6 +46,16 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
   responde `unsupported_os` abaixo disso, e o resto do app segue no 10.15.
+  Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
+  texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro
+  de cada faixa dez vezes por segundo: uma FFT (`Accelerate`/`vDSP`) sobre os
+  últimos 32 ms, agregada em dez bandas por oitava entre 110 Hz e 6 kHz. É o
+  que o painel desenha como equalizador, e é medida, nunca animação — um pico
+  só por faixa daria dez barras da mesma altura. **Pausar não para a captura**: os blocos continuam
+  chegando e são descartados, então o trecho pausado não entra no arquivo nem
+  na duração (o `stop` desconta o tempo pausado). Parar e recomeçar a
+  `SCStream` criaria um segundo arquivo por faixa e faria a transcrição
+  remontar duas gravações como se fossem uma.
 - **`QLThumbnailGenerator` + `NSOpenPanel` + destino de arraste** (nativo,
   canal `nest`) — o Nest. Quem recebe o arraste do Finder é o **delegate da
   janela**, nunca a janela nem uma view invisível: `NSWindow` não implementa

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../models/echo_capabilities.dart';
+import '../models/echo_spectrum.dart';
 import '../models/meeting_segment.dart';
 
 /// O que sobrou da gravação: os arquivos de áudio, quanto tempo durou e como
@@ -129,20 +130,37 @@ class EchoChannel {
 
   final MethodChannel _channel;
   final _liveSegments = StreamController<String>.broadcast();
+  final _levels = StreamController<EchoSpectrum>.broadcast();
 
   /// Trechos que a transcrição ao vivo vai reconhecendo, quando ela está
   /// ligada. É enfeite: o resultado final vem do arquivo, depois.
   Stream<String> get onLiveSegment => _liveSegments.stream;
 
+  /// O espectro de cada faixa enquanto a gravação corre — dez avisos por
+  /// segundo.
+  ///
+  /// Diferente do texto ao vivo, este chega **sempre**: ele é o que responde
+  /// "o Echo está ouvindo?", e essa pergunta existe em toda reunião, com ou sem
+  /// transcrição ao vivo ligada.
+  Stream<EchoSpectrum> get onLevels => _levels.stream;
+
   /// Liga a escuta dos avisos do lado nativo. Uma vez, na inicialização.
   void listen() {
     _channel.setMethodCallHandler((call) async {
-      if (call.method != 'onLiveSegment') return;
-
       final arguments = call.arguments as Map<Object?, Object?>?;
-      final text = arguments?['text'] as String?;
-      if (text != null && text.trim().isNotEmpty && !_liveSegments.isClosed) {
-        _liveSegments.add(text);
+
+      switch (call.method) {
+        case 'onLiveSegment':
+          final text = arguments?['text'] as String?;
+          if (text != null &&
+              text.trim().isNotEmpty &&
+              !_liveSegments.isClosed) {
+            _liveSegments.add(text);
+          }
+        case 'onLevels':
+          if (arguments != null && !_levels.isClosed) {
+            _levels.add(EchoSpectrum.fromMap(arguments));
+          }
       }
     });
   }
@@ -196,6 +214,12 @@ class EchoChannel {
   }
 
   /// Para a gravação e joga o áudio fora — a saída de quem desistiu no meio.
+  /// Suspende a gravação sem encerrá-la: o trecho pausado não entra no arquivo
+  /// nem na duração, e a captura continua de pé.
+  Future<void> pauseRecording() => _invoke<Object>('pauseRecording');
+
+  Future<void> resumeRecording() => _invoke<Object>('resumeRecording');
+
   Future<void> cancelRecording() => _invoke<Object>('cancelRecording');
 
   /// Transcreve as duas faixas e devolve os trechos já intercalados por tempo.
@@ -293,5 +317,6 @@ class EchoChannel {
   void dispose() {
     _channel.setMethodCallHandler(null);
     _liveSegments.close();
+    _levels.close();
   }
 }

@@ -50,6 +50,12 @@ enum EgIconData {
   /// Sinal de mais.
   plus,
 
+  /// Duas barras — suspende o que está em curso.
+  pause,
+
+  /// Triângulo — retoma o que estava suspenso.
+  play,
+
   /// Xis — fecha o que está aberto.
   close,
 
@@ -215,6 +221,8 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.shuffle => _shufflePath(),
     EgIconData.search => _searchPath(),
     EgIconData.plus => _plusPath(),
+    EgIconData.pause => _pausePath(),
+    EgIconData.play => _playPath(),
     EgIconData.close => _closePath(),
     EgIconData.gear => _gearPath(),
     EgIconData.trash => _trashPath(),
@@ -378,6 +386,22 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(12, 8)
     ..moveTo(8, 4)
     ..lineTo(8, 12);
+
+  /// As duas barras da pausa, no mesmo traço do resto da família — e não dois
+  /// retângulos cheios, que pesariam mais que qualquer outro glifo ao lado.
+  Path _pausePath() => Path()
+    ..moveTo(6.2, 4.4)
+    ..lineTo(6.2, 11.6)
+    ..moveTo(9.8, 4.4)
+    ..lineTo(9.8, 11.6);
+
+  /// O triângulo do retomar, fechado: é a única forma que o olho lê como
+  /// "toca" — vazado, ele viraria um sinal de "maior que".
+  Path _playPath() => Path()
+    ..moveTo(5.8, 4.2)
+    ..lineTo(12, 8)
+    ..lineTo(5.8, 11.8)
+    ..close();
 
   /// O mesmo traço do [_plusPath] girado 45°, e não um "x" desenhado à parte:
   /// os dois convivem na mesma tela (no Leaf) e precisam ter o mesmo peso.

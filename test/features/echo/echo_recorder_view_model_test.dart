@@ -208,4 +208,69 @@ void main() {
     expect(state().liveText, hasLength(6));
     expect(state().liveText.last, 'trecho 9');
   });
+
+  test('o equalizador mostra a medida do instante, não a fila delas', () async {
+    await viewModel().initialize();
+    await viewModel().start();
+
+    channel.emitLevels(const [0.1, 0.2], const [0.3, 0.4]);
+    await Future<void>.delayed(Duration.zero);
+    channel.emitLevels(const [0.7, 0.8], const [0.9, 1.0]);
+    await Future<void>.delayed(Duration.zero);
+
+    // A anterior não fica guardada: o painel responde "agora", e uma fila de
+    // instantes seria a fita passando que o equalizador substituiu.
+    expect(state().spectrum?.mic, const [0.7, 0.8]);
+    expect(state().spectrum?.system, const [0.9, 1.0]);
+  });
+
+  group('pausar', () {
+    test('suspende a captura e zera o medidor', () async {
+      await viewModel().initialize();
+      await viewModel().start();
+
+      channel.emitLevels(const [0.4, 0.4], const [0.4, 0.4]);
+      await Future<void>.delayed(Duration.zero);
+      expect(state().spectrum, isNotNull);
+
+      await viewModel().pause();
+
+      expect(channel.didPause, isTrue);
+      expect(state().isPaused, isTrue);
+      expect(state().isRecording, isTrue, reason: 'pausada, não encerrada');
+      expect(state().isCapturing, isFalse);
+      // Parado não tem o que medir: barras congeladas diriam que ainda entra
+      // som.
+      expect(state().spectrum, isNull);
+    });
+
+    test('pausada, a medida que chega é ignorada', () async {
+      await viewModel().initialize();
+      await viewModel().start();
+      await viewModel().pause();
+
+      channel.emitLevels(const [0.9, 0.9], const [0.9, 0.9]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(state().spectrum, isNull);
+    });
+
+    test('retomar volta a capturar', () async {
+      await viewModel().initialize();
+      await viewModel().start();
+      await viewModel().pause();
+      await viewModel().resume();
+
+      expect(channel.didResume, isTrue);
+      expect(state().isPaused, isFalse);
+      expect(state().isCapturing, isTrue);
+    });
+
+    test('não pausa o que não está gravando', () async {
+      await viewModel().pause();
+
+      expect(channel.didPause, isFalse);
+      expect(state().isPaused, isFalse);
+    });
+  });
 }
