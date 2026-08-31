@@ -258,9 +258,16 @@ class _ShortcutButton extends StatelessWidget {
     // liga e a tecla que abre —, e duas formas diferentes na mesma linha se
     // leem como duas coisas soltas mesmo quando estão perfeitamente
     // centralizadas. O desalinho que se percebia era este, e não geometria.
+    //
+    // **Sem moldura em repouso.** A tecla é uma legenda: ela diz o que abre
+    // este módulo, e uma caixa desenhada em volta de uma legenda a promove a
+    // botão — no alto da tela, ao lado do interruptor, sobrava um contorno
+    // disputando atenção com o único controle de verdade daquela linha. A
+    // superfície aparece sob o mouse, que é quando "clicável" passa a ser a
+    // informação que importa.
     return EgInteractiveSurface(
       onTap: onTap,
-      style: eg.surfaces.secondary,
+      style: eg.surfaces.ghost,
       borderRadius: eg.shapes.chipAll,
       height: _height,
       padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH + 2),
