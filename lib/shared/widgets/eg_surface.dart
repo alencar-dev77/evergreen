@@ -534,11 +534,24 @@ class EgSurfaces {
   final EgTokens _eg;
 
   /// Linha de lista, entrada de menu: sem superfície própria em repouso.
+  ///
+  /// **Selecionado é elevação, peso e um véu de accent.** Os três juntos, e
+  /// nessa ordem de importância: a superfície sobe, o texto engrossa, e o verde
+  /// em opacidade baixa diz qual é a linha da vez a três metros da tela. Só a
+  /// elevação não bastava sobre o vidro do painel flutuante — ali a linha
+  /// escolhida e a linha sob o mouse ficavam a um passo de distância, e a
+  /// diferença sumia sobre qualquer janela clara atrás.
+  ///
+  /// O verde continua querendo dizer o que sempre quis (ligado, ou a ação
+  /// primária): a linha escolhida **é** o que está ligado naquela lista. O que
+  /// não pode voltar é o bloco chapado de accent do desenho antigo — a
+  /// opacidade é baixa de propósito, para o realce ser um véu sobre a
+  /// superfície elevada, e não uma cor no lugar dela.
   EgSurfaceStyle get row => EgSurfaceStyle(
     rest: AppColors.transparent,
     hover: _eg.colors.surfaceTop,
     pressed: _eg.colors.control,
-    selected: _eg.colors.raised,
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
     foreground: _eg.colors.textSecondary,
     hoverForeground: _eg.colors.textPrimary,
     selectedForeground: _eg.colors.textPrimary,
@@ -546,30 +559,39 @@ class EgSurfaces {
   );
 
   /// Item da barra lateral: a [row], com o glifo em verde claro quando é a
-  /// tela aberta. A cor entra no ícone, não no fundo.
+  /// tela aberta.
   EgSurfaceStyle get sidebarItem => EgSurfaceStyle(
     rest: AppColors.transparent,
     hover: _eg.colors.surfaceTop,
     pressed: _eg.colors.control,
-    selected: _eg.colors.raised,
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
     foreground: _eg.colors.textSecondary,
     hoverForeground: _eg.colors.textPrimary,
     selectedForeground: _eg.colors.textPrimary,
     innerHairline: _eg.elevations.rowInnerHairline,
   );
 
+  /// O véu de accent da linha escolhida, sobre superfície opaca e sobre vidro.
+  ///
+  /// Sobre o vidro ele é mais forte: lá o véu não tem uma superfície elevada
+  /// embaixo para ajudá-lo — o `raised` não vale sobre translucidez —, então
+  /// ele responde sozinho pela distinção.
+  static const _selectedVeil = 0.16;
+  static const _selectedVeilOnGlass = 0.24;
+
   /// A mesma linha, **dentro do vidro**.
   ///
   /// Sobre translucidez a escala de neutros não vale: o que passa por trás
   /// muda a leitura de qualquer cinza opaco, e uma linha selecionada pintada
-  /// de `raised` some quando o painel abre sobre uma janela clara. Ali a
-  /// seleção é branco com alfa, que é a única coisa que se comporta igual
-  /// sobre qualquer fundo.
+  /// de `raised` some quando o painel abre sobre uma janela clara. Por isso o
+  /// hover e o pressed são branco com alfa — a única coisa que se comporta
+  /// igual sobre qualquer fundo — e a escolhida é o véu de accent, que é a
+  /// única que precisa se distinguir **das outras duas**.
   EgSurfaceStyle get glassRow => EgSurfaceStyle(
     rest: AppColors.transparent,
     hover: _eg.colors.glassRow.withValues(alpha: 0.06),
     pressed: _eg.colors.glassRow.withValues(alpha: 0.14),
-    selected: _eg.colors.glassRow,
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeilOnGlass),
     foreground: _eg.colors.textSecondary,
     hoverForeground: _eg.colors.textPrimary,
     selectedForeground: _eg.colors.textPrimary,
@@ -604,7 +626,10 @@ class EgSurfaces {
     rest: _eg.colors.surface,
     hover: _eg.colors.surfaceTop,
     pressed: _eg.colors.control,
-    selected: _eg.colors.raised,
+    // O mesmo véu da linha de lista: o cartão escolhido do Leaf e a linha
+    // escolhida do Pin são a mesma pergunta ("qual é o da vez?"), e responder
+    // de dois jeitos faria a parede parecer de outro aplicativo.
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
     foreground: _eg.colors.textPrimary,
     selectedForeground: _eg.colors.textPrimary,
     border: _eg.colors.edge,
