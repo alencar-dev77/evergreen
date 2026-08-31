@@ -18,6 +18,7 @@ import '../../../nest/presentation/views/nest_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
 import '../../../track/presentation/views/track_view.dart';
 import '../../../track/presentation/widgets/track_reader.dart';
+import '../../../../core/window/hub_destination.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
 import '../viewmodels/app_settings_view_model.dart';
@@ -70,6 +71,17 @@ class _HubViewState extends ConsumerState<HubView> {
   /// "Gerador" seria o app lembrando de algo que ninguém pediu para lembrar.
   final Map<EvergreenModule, String> _tabs = {};
 
+  @override
+  void initState() {
+    super.initState();
+
+    // Quem abriu o Hub pode ter pedido um lugar dentro dele. O aviso pelo canal
+    // é para quando ele já estava de pé; esta leitura é para quando ele acabou
+    // de nascer, que é o caso de quem fecha uma reunião e vai ver a gravação.
+    unawaited(HubDestination.listen(_goToRequested));
+    unawaited(_goToRequested());
+  }
+
   /// O que acontece quando a abertura animada termina.
   ///
   /// Além de carimbar a build, ela decide onde o Hub cai: no Pin, como sempre,
@@ -86,6 +98,22 @@ class _HubViewState extends ConsumerState<HubView> {
 
     if (ref.read(appSettingsViewModelProvider).userName.isNotEmpty) return;
     setState(() => _selected = null);
+  }
+
+  /// Vai para onde quem abriu o Hub pediu — se alguém pediu.
+  ///
+  /// Roda ao nascer (o Hub estava fechado) e a cada aviso pelo canal (o Hub
+  /// estava aberto, escondido atrás de tudo). Ver [HubDestination].
+  Future<void> _goToRequested() async {
+    final moduleId = await HubDestination.take();
+    if (moduleId == null || !mounted) return;
+
+    final module = EvergreenModule.values
+        .where((candidate) => candidate.id == moduleId)
+        .firstOrNull;
+    if (module == null) return;
+
+    _select(module);
   }
 
   void _select(EvergreenModule? module) {

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
+import '../../../../core/window/hub_destination.dart';
 import '../../../../core/window/hub_window.dart';
+import '../../../home/models/evergreen_module.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../core/design/tokens/eg_squircle.dart';
@@ -108,8 +110,15 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
     await _viewModel.cancel();
   }
 
+  /// Abre o Hub **no Echo**.
+  ///
+  /// Quem acabou de gravar e aperta "Abrir no Hub" quer ver a reunião, não a
+  /// tela em que o Hub por acaso parou da última vez. O destino é pedido antes
+  /// de a janela aparecer, porque é ela que o lê ao nascer — ver
+  /// [HubDestination].
   Future<void> _openHub() async {
     await _close();
+    await HubDestination.request(EvergreenModule.echo.id);
     await HubWindow.instance.open();
   }
 
