@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
+import '../../../../core/design/eg_tokens.dart';
+import '../../models/leaf_note.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/widgets/eg_hint_bar.dart';
@@ -97,15 +99,13 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
     _viewModel.commitEdit(_editorController.text);
   }
 
-  /// `⌘N`: copia e sai de cena, como o `⌘1`–`⌘5` do Pin.
+  /// `1`–`9`: copia, e o painel **fica**.
   ///
-  /// Vaga vazia não fecha nada: a tecla não encontrou anotação nenhuma, e
-  /// fechar seria fingir que encontrou.
-  Future<void> _copySlot(int slot) async {
-    if (!await _viewModel.copySlot(slot)) return;
-
-    await _close();
-  }
+  /// Diferente do Pin, onde copiar é o fim do gesto e o painel some: ali se
+  /// procura um item num histórico de centenas; aqui a parede tem nove vagas
+  /// que se sabe de cor, e quem copia costuma copiar dois seguidos. O que o
+  /// sumiço dizia ("copiei") passou a ser dito pelo aviso no cartão.
+  Future<void> _copySlot(int slot) => _viewModel.copySlot(slot);
 
   /// `⌘,`: sai de cena primeiro, depois abre o Hub — nessa ordem, um problema
   /// ao criar a janela nunca deixa o painel preso na tela.
@@ -162,6 +162,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
             onActivate: _viewModel.editSelected,
             onMoveSelection: _viewModel.moveSelection,
             onCopySlot: _copySlot,
+            onEditSlot: _viewModel.editSlot,
             onDelete: _viewModel.deleteSelected,
             onUndoDelete: _viewModel.undoDelete,
             onClose: _close,
@@ -184,43 +185,45 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   }
 
   Widget _panel(LeafState state) {
-    // Anima os dois eixos: a parede ganha coluna ao chegar no terceiro cartão e
-    // perde linha a cada cartão jogado fora. Sem isto o painel saltaria de
-    // tamanho, e um salto de 200px é a diferença entre "encolheu" e "piscou".
-    // Cresce a partir do centro, como o painel se posiciona na janela: a parede
-    // se abre para os quatro lados em torno do mesmo ponto da tela.
-    return AnimatedSize(
-      duration: AppDurations.medium,
-      curve: AppDurations.curve,
-      alignment: Alignment.center,
-      child: SizedBox(
-        width: LeafGrid.widthFor(context, LeafGrid.columnsFor(state)),
-        child: EgPanel(
-          vibrant: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                // Enquanto o painel muda de tamanho, a parede já tem o tamanho
-                // novo: o viewport a recorta em silêncio por 220ms em vez de
-                // acusar estouro de layout.
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: LeafGrid(
-                    state: state,
-                    editorController: _editorController,
-                    editorFocusNode: _editorFocusNode,
-                    onSelect: _viewModel.editSlot,
-                    onDelete: _delete,
-                  ),
+    // Sem `AnimatedSize`: a parede é sempre a parede, então o painel tem um
+    // tamanho só. A animação existia porque a grade ganhava coluna no terceiro
+    // cartão e perdia linha a cada um jogado fora — com as nove vagas sempre
+    // desenhadas, não há mais o que animar, e animar nada custa uma camada.
+    return SizedBox(
+      width: LeafGrid.widthFor(context, LeafGrid.columnsFor(state)),
+      child: EgPanel(
+        vibrant: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _header(state),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xxl,
+                AppSpacing.lg,
+                AppSpacing.xxl,
+                AppSpacing.xxl,
+              ),
+              // O viewport fica, e não era pela animação que saiu: ele é o que
+              // faz uma superfície mais estreita que a parede **recortá-la** em
+              // silêncio em vez de acusar estouro de layout. A janela flutuante
+              // tem 920 e a parede pede 798, mas quem desenha o painel fora
+              // dela (um teste, um golden) não tem essa garantia.
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                child: LeafGrid(
+                  state: state,
+                  editorController: _editorController,
+                  editorFocusNode: _editorFocusNode,
+                  onSelect: _viewModel.editSlot,
+                  onDelete: _delete,
                 ),
               ),
-              _hintBar(state),
-            ],
-          ),
+            ),
+            _hintBar(state),
+          ],
         ),
       ),
     );
@@ -236,6 +239,45 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   /// Com o cartão em edição sobram duas: o Enter que guarda e o Esc que desfaz.
   /// Fora dela, o Enter muda de verbo conforme a vaga selecionada — é ele o
   /// botão primário desta tela, e o rodapé é onde isso se ensina.
+  /// O topo do painel: o nome do módulo, o que fazer, e quanto já foi usado.
+  ///
+  /// O painel não tinha cabeçalho — a parede começava colada na borda, e a
+  /// tecla que copia só estava dita no rodapé, do outro lado da tela. "Aperte o
+  /// número pra copiar" mora aqui porque é aqui que o olho entra, e a contagem
+  /// à direita é a única coisa que a grade não diz de relance: com as nove
+  /// vagas sempre desenhadas, quantas estão ocupadas passa a ser uma conta.
+  Widget _header(LeafState state) {
+    final eg = context.eg;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+        AppSpacing.lg,
+      ),
+      decoration: BoxDecoration(border: Border(bottom: eg.hairline)),
+      child: Row(
+        children: [
+          Text('Leaf', style: eg.text.bodyStrong),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              'aperte o número pra copiar',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: eg.text.footnote.copyWith(color: eg.colors.textTertiary),
+            ),
+          ),
+          Text(
+            '${state.notes.length} de ${LeafNote.maxNotes} usados',
+            style: eg.text.monoSmall.copyWith(color: eg.colors.textTertiary),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _hintBar(LeafState state) {
     if (state.isEditing) {
       return const EgHintBar(
@@ -248,14 +290,15 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
     }
 
     final hasNote = state.selectedNote != null;
+    final hasAny = state.notes.isNotEmpty;
 
     return EgHintBar(
       hints: [
-        EgHint(keys: const ['enter'], label: hasNote ? 'editar' : 'anotar'),
-        // `⌘+` só se anuncia quando o Enter não faz o mesmo: sobre a vaga
-        // livre os dois criam, e ensinar as duas teclas para a mesma coisa
-        // gastaria a linha à toa.
-        if (!state.isFull && hasNote) const EgHint(keys: ['⌘+'], label: 'nova'),
+        // As duas teclas da parede, sempre — elas são o módulo. O resto entra
+        // conforme o que está selecionado.
+        if (hasAny) const EgHint(keys: ['1–9'], label: 'copiar'),
+        if (hasAny) const EgHint(keys: ['⌥1–9'], label: 'editar'),
+        if (!hasAny) const EgHint(keys: ['enter'], label: 'anotar'),
         if (hasNote) const EgHint(keys: ['⌘⌫'], label: 'apagar'),
         // Só depois de apagar, e só enquanto o painel estiver aberto: a dica
         // aparece exatamente onde a dúvida nasce ("cadê o cartão que eu acabei

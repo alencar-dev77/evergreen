@@ -78,13 +78,17 @@ void main() {
   LeafViewModel viewModelOf(ProviderContainer container) =>
       container.read(leafViewModelProvider.notifier);
 
-  testWidgets('a parede vazia é uma vaga que convida, não uma tela de aviso', (
+  testWidgets('a parede vazia mostra as nove vagas, e só uma convida', (
     tester,
   ) async {
     await pumpPanel(tester);
 
-    expect(find.byType(LeafNewNoteCell), findsOneWidget);
+    // As nove desenhadas: a vaga é um endereço fixo, e o número dela precisa
+    // querer dizer alguma coisa antes de existir cartão.
+    expect(find.byType(LeafEmptySlot), findsNWidgets(LeafNote.maxNotes));
     expect(find.byType(LeafNoteCard), findsNothing);
+    // Mas o convite é um só — repetido em nove, a parede vazia viraria cartaz.
+    expect(find.text('enter pra criar'), findsOneWidget);
     // O rodapé fala do que a vaga selecionada faz — nela, o Enter anota.
     expect(find.text('anotar'), findsOneWidget);
     expect(find.text('fechar'), findsOneWidget);
@@ -166,15 +170,17 @@ void main() {
     repository.create(slot: 2, content: 'segunda', createdAt: clock);
     await pumpPanel(tester);
 
-    expect(find.text('1'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
-    // A vaga 3 é a que convida — ela não tem número porque ainda não copia
-    // nada; a 4 não existe para ninguém.
-    expect(find.text('3'), findsNothing);
-    expect(find.text('4'), findsNothing);
+    // Toda vaga mostra o número dela, ocupada ou não: ele é o endereço, e é a
+    // tecla que copia. As vazias mostram o mesmo número em traço apagado.
+    for (final slot in LeafNote.slots) {
+      expect(find.text('$slot'), findsOneWidget, reason: 'vaga $slot');
+    }
+    // E as duas primeiras são cartão, não vaga.
+    expect(find.byType(LeafNoteCard), findsNWidgets(2));
+    expect(find.byType(LeafEmptySlot), findsNWidgets(LeafNote.maxNotes - 2));
   });
 
-  testWidgets('apagar encolhe a parede em vez de deixá-la furada', (
+  testWidgets('apagar não deixa buraco, e a parede continua inteira', (
     tester,
   ) async {
     for (var slot = 1; slot <= 4; slot++) {
@@ -182,9 +188,9 @@ void main() {
     }
     final container = await pumpPanel(tester);
 
-    // Quatro cartões mais a vaga que convida: duas linhas.
+    // A parede é sempre a parede: quatro cartões e cinco vagas vazias.
     expect(find.byType(LeafNoteCard), findsNWidgets(4));
-    expect(stateOf(container).rows, 2);
+    expect(stateOf(container).rows, 3);
 
     viewModelOf(container).selectSlot(2);
     viewModelOf(container).deleteSelected();
@@ -194,14 +200,15 @@ void main() {
     expect(find.text('nota 2'), findsNothing);
     // A que estava embaixo subiu: nada de buraco no meio da parede.
     expect(stateOf(container).noteAt(2)?.content, 'nota 3');
-    expect(stateOf(container).rows, 2);
+    expect(stateOf(container).rows, 3);
 
     viewModelOf(container).deleteSelected();
     viewModelOf(container).deleteSelected();
     await tester.pumpAndSettle();
 
-    // Sobrou uma anotação e a vaga livre: a parede cabe em uma linha.
-    expect(stateOf(container).rows, 1);
+    // A parede não encolheu — o que encolheu foi o que o teclado alcança.
+    expect(stateOf(container).rows, 3);
+    expect(stateOf(container).lastSelectableSlot, 2);
   });
 
   testWidgets('apagar oferece o desfazer, e o ⌘Z devolve o cartão', (
@@ -286,9 +293,9 @@ void main() {
     await pumpPanel(tester);
 
     expect(find.byType(LeafNoteCard), findsNWidgets(LeafNote.maxNotes));
-    expect(find.byType(LeafNewNoteCell), findsNothing);
+    expect(find.byType(LeafEmptySlot), findsNothing);
     // Sem vaga livre, o rodapé não promete uma anotação nova.
-    expect(find.text('nova'), findsNothing);
+    expect(find.text('enter pra criar'), findsNothing);
   });
 
   /// O que um clique dentro do painel faz com o teclado.

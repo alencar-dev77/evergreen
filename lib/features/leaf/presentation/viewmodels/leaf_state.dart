@@ -7,6 +7,7 @@ class LeafState {
     this.notes = const <LeafNote>[],
     this.selectedSlot,
     this.editingSlot,
+    this.copiedSlot,
     this.undoableDelete,
   });
 
@@ -19,6 +20,13 @@ class LeafState {
   /// Vaga em edição. Pode ser uma anotação existente ou uma vaga ainda vazia —
   /// nesse caso é um rascunho, e desistir dele não deixa rastro.
   final int? editingSlot;
+
+  /// A vaga que acabou de ser copiada, enquanto o painel continuar aberto.
+  ///
+  /// Copiar deixou de fechar o painel — quem copia da parede costuma copiar
+  /// dois seguidos —, e sem o painel sumindo não sobrava nenhum sinal de que a
+  /// tecla funcionou. É o aviso no lugar do sumiço.
+  final int? copiedSlot;
 
   /// O último cartão arrancado da parede, enquanto ainda dá para colá-lo de
   /// volta.
@@ -62,33 +70,44 @@ class LeafState {
   /// livre é sempre a seguinte à última.
   int? get firstFreeSlot => isFull ? null : notes.length + 1;
 
-  /// Última vaga que a grade precisa desenhar.
+  /// A parede é sempre a parede inteira: nove vagas, três por linha.
   ///
-  /// Cobre as anotações, o rascunho em curso e a vaga vazia que convida a
-  /// próxima — abaixo disso a grade não desenha linha nenhuma, para a parede
-  /// não abrir com espaço reservado que ninguém pediu. É daqui que sai o
-  /// encolhimento do painel a cada cartão jogado fora.
-  int get lastVisibleSlot {
-    final occupied = notes.length;
-    if (isEditing) return editingSlot!.clamp(occupied, LeafNote.maxNotes);
+  /// Ela desenhava só o que existia mais a vaga seguinte, e encolhia a cada
+  /// cartão jogado fora. O mural cheio e o mural com dois cartões eram duas
+  /// telas de tamanhos diferentes, e a vaga em que um cartão *ia* nascer não
+  /// existia até ele nascer — então "o quatro" não queria dizer nada antes de
+  /// haver quatro. Com as nove sempre desenhadas, a vaga é um **endereço
+  /// fixo**: o número do cartão é o mesmo lugar da parede hoje e amanhã, que é
+  /// o que faz `1`–`9` ser um atalho e não uma adivinhação.
+  int get lastVisibleSlot => LeafNote.maxNotes;
 
-    return isFull ? occupied : occupied + 1;
-  }
+  /// Quantas linhas a grade ocupa — sempre as três.
+  int get rows => (LeafNote.maxNotes / LeafNote.columns).ceil();
 
-  /// Quantas linhas a grade ocupa agora.
-  int get rows => (lastVisibleSlot / LeafNote.columns).ceil();
+  /// A última vaga que o teclado alcança.
+  ///
+  /// **Desenhar as nove não é poder escolher as nove.** A vaga vazia lá do fim
+  /// não faz nada: a parede não tem buraco, então a próxima anotação nasce na
+  /// primeira livre, e uma seta que parasse na nona deixaria o Enter sem
+  /// resposta. O olho vê o endereço; o teclado anda até onde há o que fazer.
+  int get lastSelectableSlot => isFull ? notes.length : notes.length + 1;
 
   LeafState copyWith({
     List<LeafNote>? notes,
     int? selectedSlot,
     int? editingSlot,
+    int? copiedSlot,
     bool clearSelection = false,
     bool clearEditing = false,
+    bool clearCopied = false,
   }) {
     return LeafState(
       notes: notes ?? this.notes,
       selectedSlot: clearSelection ? null : selectedSlot ?? this.selectedSlot,
       editingSlot: clearEditing ? null : editingSlot ?? this.editingSlot,
+      // O aviso morre no gesto seguinte: escrever, apagar ou reabrir o painel
+      // apaga o "copiado" — ele conta o que **acabou** de acontecer.
+      copiedSlot: clearCopied ? null : copiedSlot ?? this.copiedSlot,
       undoableDelete: undoableDelete,
     );
   }

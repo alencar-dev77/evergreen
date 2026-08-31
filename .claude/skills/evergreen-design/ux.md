@@ -37,10 +37,11 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `⌘⇧D` | global | abre o painel do Leaf |
 | `⌘⇧X` | global | abre o painel do Awake (sem mnemônico: `⌘⇧A` é "Aplicativos" no Finder e `⌘⇧D` foi para o Leaf — não colidir vale mais que lembrar o nome) |
 | `⌘⇧R` | global | abre o painel do Nest — a prateleira também vem ao cursor ao chacoalhar o arquivo no meio do arraste (era `⌘⇧S`, que sequestrava o "Salvar como" de todo app) |
+| `1`–`9` | Leaf | copia a anotação daquela vaga — **sem fechar o painel**: quem copia da parede costuma copiar dois seguidos, e o cartão avisa com "copiado" no lugar do sumiço |
+| `⌥1`–`⌥9` | Leaf | abre aquela vaga para escrever |
 | `⌘+` | Leaf | abre um cartão em branco na primeira vaga livre |
 | `Enter` | Leaf | edita o cartão selecionado — ou anota, quando a vaga selecionada é a livre |
-| `←` `→` `↑` `↓` | Leaf | move a seleção pela grade, parando nas bordas |
-| `⌘1`–`⌘9` | Leaf | copia a anotação daquela vaga e fecha o painel |
+| `←` `→` `↑` `↓` | Leaf | move a seleção pela grade, parando na última vaga que tem o que fazer (as vazias de trás são endereço, não destino) |
 | `⌘⌫` | Leaf | tira o cartão selecionado; os seguintes sobem uma vaga e a parede encolhe |
 | `⌘Z` | Leaf | devolve o último cartão apagado à vaga em que ele estava — enquanto o painel estiver aberto e houver vaga |
 | `Enter` | cartão em edição | guarda a anotação e devolve o teclado à parede |

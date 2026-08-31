@@ -1,11 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_hoverable.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/leaf_note.dart';
 import '../../../../core/design/eg_tokens.dart';
@@ -50,6 +52,7 @@ class LeafNoteCard extends StatelessWidget {
     super.key,
     required this.note,
     required this.isSelected,
+    required this.isCopied,
     required this.onTap,
     required this.onDelete,
     this.now,
@@ -57,6 +60,10 @@ class LeafNoteCard extends StatelessWidget {
 
   final LeafNote note;
   final bool isSelected;
+
+  /// Esta é a vaga que acabou de ser copiada.
+  final bool isCopied;
+
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -79,6 +86,8 @@ class LeafNoteCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _header(context, state.isHovered),
+              const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: Text(
                   note.content,
@@ -87,8 +96,18 @@ class LeafNoteCard extends StatelessWidget {
                   style: context.eg.text.bodyCompact,
                 ),
               ),
-              SizedBox(height: AppSpacing.sm),
-              _footer(context, state.isHovered),
+              // A idade fica, e fica embaixo: ela é a única coisa que a parede
+              // conta sobre o tempo, e é o que separa o recado de hoje do que
+              // está colado ali há três semanas. No pé, no tom mais baixo da
+              // escala, ela não disputa com o texto nem com o número.
+              Text(
+                // A idade do recado, não a do papel: uma anotação reescrita
+                // agora dizia "há 3 semanas" — ver [LeafNote.changedAt].
+                RelativeTime.format(note.changedAt, now: now),
+                style: context.eg.text.footnote.copyWith(
+                  color: context.eg.colors.textQuaternary,
+                ),
+              ),
             ],
           ),
         );
@@ -96,83 +115,198 @@ class LeafNoteCard extends StatelessWidget {
     );
   }
 
-  /// Número da vaga à esquerda, idade à direita — e, com o mouse em cima, a
-  /// lixeira no lugar da idade.
+  /// A vaga em cima, à esquerda: ela é o **atalho**, não um rodapé.
   ///
-  /// Trocar em vez de somar: a lixeira precisa de um lugar previsível e o
-  /// cartão não tem largura para os dois, e sobrepor o texto seria pior. É a
-  /// mesma regra das ações que só aparecem no hover da linha, no Pin.
-  Widget _footer(BuildContext context, bool isHovered) {
+  /// O número era um algarismo solto no pé do cartão, ao lado da idade da
+  /// anotação — informação que ninguém procura num mural de nove recados. Em
+  /// cima, em etiqueta, ele é a tecla que copia aquele cartão, e a primeira
+  /// coisa que o olho encontra ao varrer a parede.
+  ///
+  /// À direita, o que acabou de acontecer: "copiado" logo depois da tecla, e a
+  /// lixeira sob o mouse. Trocar em vez de somar, como no rodapé de antes — o
+  /// cartão não tem largura para os dois, e sobrepor seria pior.
+  Widget _header(BuildContext context, bool isHovered) {
+    final eg = context.eg;
+
     return Row(
       children: [
-        Text(
-          '${note.slot}',
-          style: context.eg.text.monoSmall.copyWith(
-            color: isSelected
-                ? context.eg.colors.accentLight
-                : context.eg.colors.textSecondary,
-          ),
-        ),
-        Spacer(),
+        _SlotBadge(slot: note.slot, isCopied: isCopied),
+        const Spacer(),
         if (isHovered)
           _DeleteAffordance(onTap: onDelete)
-        else
+        else if (isCopied)
           Text(
-            // A idade do recado, não a do papel: uma anotação reescrita agora
-            // dizia "há 3 semanas" — ver [LeafNote.changedAt].
-            RelativeTime.format(note.changedAt, now: now),
-            style: context.eg.text.footnote.copyWith(
-              color: context.eg.colors.textTertiary,
-            ),
+            'copiado',
+            style: eg.text.monoSmall.copyWith(color: eg.colors.textSecondary),
           ),
       ],
     );
   }
 }
 
-/// A vaga livre que convida a próxima anotação.
+/// A etiqueta com o número da vaga.
 ///
-/// Existe por duas razões, e nenhuma delas é decoração: é o alvo de mouse do
-/// `⌘+` (nenhuma ação do Evergreen é só de teclado) e é o que explica, sem
-/// texto nenhum, que ainda há espaço na parede — quando ele some, a parede está
-/// cheia.
-class LeafNewNoteCell extends StatelessWidget {
-  const LeafNewNoteCell({
-    super.key,
-    required this.isSelected,
-    required this.onTap,
-  });
+/// Verde só quando aquele cartão acabou de ser copiado: é o mesmo verde de
+/// "ligado" do resto do aplicativo, aqui no sentido de "foi este".
+class _SlotBadge extends StatelessWidget {
+  const _SlotBadge({required this.slot, this.isCopied = false});
 
-  final bool isSelected;
-  final VoidCallback onTap;
+  final int slot;
+  final bool isCopied;
+
+  /// Lado da etiqueta. Quadrada, e do tamanho de um key-cap: ela **é** a tecla
+  /// que copia o cartão.
+  static const _size = 22.0;
 
   @override
   Widget build(BuildContext context) {
+    final eg = context.eg;
+
+    return EgIconBadge(
+      size: _size,
+      color: isCopied ? eg.colors.accent : eg.colors.control,
+      child: Text(
+        '$slot',
+        style: eg.text.keycap.copyWith(
+          color: isCopied ? eg.colors.onAccent : eg.colors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+/// Uma vaga vazia da parede: o número, e o contorno tracejado.
+///
+/// **Tracejado, e não sólido**: o traço interrompido é o que diz "aqui cabe
+/// alguma coisa" sem desenhar um cartão que não existe. Sólida, a vaga vazia
+/// parecia um cartão em branco — e nove cartões em branco parecem nove
+/// anotações que alguém apagou.
+///
+/// A primeira livre é a única clicável: ela é o alvo de mouse do `⌘+`, porque
+/// nenhuma ação do Evergreen é só de teclado. As de trás dela ficam ali como
+/// endereço — é o que faz "o sete" querer dizer alguma coisa antes de existir
+/// um sétimo cartão.
+class LeafEmptySlot extends StatelessWidget {
+  const LeafEmptySlot({
+    super.key,
+    required this.slot,
+    required this.isNext,
+    required this.isSelected,
+    this.onTap,
+  });
+
+  final int slot;
+
+  /// É a próxima vaga a ser usada — a que o Enter e o `⌘+` preenchem.
+  final bool isNext;
+
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final eg = context.eg;
+
     return EgHoverable(
       onTap: onTap,
-      // Um `+` desenhado não diz nada a quem não vê a tela — e o que ele conta
-      // (que ainda cabe anotação na parede) é justamente o que não está
+      // Um contorno tracejado não diz nada a quem não vê a tela — e o que ele
+      // conta (que ainda cabe anotação na parede) é justamente o que não está
       // escrito em lugar nenhum.
-      semanticLabel: 'Vaga livre, escrever anotação',
+      semanticLabel: isNext
+          ? 'Vaga $slot, livre — escrever anotação'
+          : 'Vaga $slot, livre',
       selected: isSelected ? true : null,
       builder: (context, state) {
-        return _LeafCardSurface(
-          state: state,
-          isSelected: isSelected,
-          isEmpty: true,
-          child: Center(
-            child: EgIcon(
-              EgIconData.plus,
-              size: AppIconSizes.lg,
-              color: isSelected || state.isHovered
-                  ? context.eg.colors.textSecondary
-                  : context.eg.colors.textTertiary,
+        final isLit = isSelected || state.isHovered;
+
+        return CustomPaint(
+          painter: _DashedBorder(
+            color: isLit ? eg.colors.line : eg.colors.edge,
+            radius: eg.shapes.cardAll.topLeft.x,
+          ),
+          child: SizedBox(
+            width: LeafCardMetrics.width,
+            height: LeafCardMetrics.height,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '$slot',
+                    style: eg.text.keycap.copyWith(
+                      color: eg.colors.textQuaternary,
+                    ),
+                  ),
+                  // Só a próxima diz o que fazer: repetir o convite em cinco
+                  // vagas transformaria a parede vazia num cartaz.
+                  if (isNext)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'enter pra criar',
+                          style: eg.text.footnote.copyWith(
+                            color: isLit
+                                ? eg.colors.textTertiary
+                                : eg.colors.textQuaternary,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );
       },
     );
   }
+}
+
+/// O contorno interrompido da vaga vazia.
+///
+/// Desenhado à mão porque o Flutter não tem borda tracejada: `Border` só sabe
+/// linha cheia, e um pacote a mais para dez linhas de `Path` seria uma
+/// dependência para o resto da vida do projeto.
+class _DashedBorder extends CustomPainter {
+  const _DashedBorder({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  /// O traço e o vão, em pixels. Curtos: o tracejado é para ser lido como
+  /// "provisório", não como carimbo de cupom.
+  static const _dash = 5.0;
+  static const _gap = 4.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outline = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          Radius.circular(radius),
+        ),
+      );
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = color;
+
+    for (final metric in outline.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final end = math.min(distance + _dash, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance = end + _gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorder old) =>
+      old.color != color || old.radius != radius;
 }
 
 /// A caixa do cartão: tamanho, superfície, borda e estados.
@@ -191,34 +325,12 @@ class _LeafCardSurface extends StatelessWidget {
     required this.isSelected,
     this.state = const EgInteraction(),
     this.isEditing = false,
-    this.isEmpty = false,
   });
 
   final Widget child;
   final bool isSelected;
   final EgInteraction state;
   final bool isEditing;
-
-  /// A vaga livre: em repouso ela é só um contorno, sem superfície própria.
-  final bool isEmpty;
-
-  /// A vaga livre. Igual ao cartão, menos a superfície de repouso — o que a
-  /// desenha é a borda.
-  EgSurfaceStyle _emptyStyle(BuildContext context) {
-    final eg = context.eg;
-
-    return EgSurfaceStyle(
-      rest: AppColors.transparent,
-      hover: eg.colors.hover,
-      pressed: eg.colors.pressed,
-      selected: eg.colors.raised,
-      foreground: eg.colors.textPrimary,
-      selectedForeground: eg.colors.textPrimary,
-      border: eg.colors.edge,
-      selectedBorder: eg.colors.edgeLight,
-      innerHairline: eg.elevations.rowInnerHairline,
-    );
-  }
 
   /// O cartão sendo escrito: borda accent cheia, em vez do `accentDeep` do
   /// apenas-selecionado. É um degrau a mais na mesma cor, não uma cor nova.
@@ -231,10 +343,8 @@ class _LeafCardSurface extends StatelessWidget {
     );
   }
 
-  EgSurfaceStyle _styleOf(BuildContext context) {
-    if (isEditing) return _editingStyle(context);
-    return isEmpty ? _emptyStyle(context) : context.eg.surfaces.card;
-  }
+  EgSurfaceStyle _styleOf(BuildContext context) =>
+      isEditing ? _editingStyle(context) : context.eg.surfaces.card;
 
   @override
   Widget build(BuildContext context) {
@@ -310,9 +420,12 @@ class LeafNoteEditor extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // A mesma etiqueta do cartão pronto, no mesmo canto: escrever não
+          // pode mudar de lugar o número da vaga, senão o cartão em edição
+          // parece outro componente.
+          _header(context),
+          const SizedBox(height: AppSpacing.md),
           Expanded(child: _field(context)),
-          const SizedBox(height: AppSpacing.sm),
-          _footer(context),
         ],
       ),
     );
@@ -343,7 +456,9 @@ class LeafNoteEditor extends StatelessWidget {
     );
   }
 
-  Widget _footer(BuildContext context) {
+  /// A vaga à esquerda e, quando o texto se aproxima do teto, quanto falta à
+  /// direita — no lugar em que o cartão pronto mostra o "copiado".
+  Widget _header(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
@@ -352,12 +467,7 @@ class LeafNoteEditor extends StatelessWidget {
 
         return Row(
           children: [
-            Text(
-              '$slot',
-              style: context.eg.text.monoSmall.copyWith(
-                color: context.eg.colors.accentLight,
-              ),
-            ),
+            _SlotBadge(slot: slot),
             const Spacer(),
             if (remaining <= _counterThreshold)
               Text(
