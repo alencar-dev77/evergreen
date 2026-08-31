@@ -76,6 +76,65 @@ void main() {
     });
   });
 
+  group('o seletor que não cabe ao lado do texto', () {
+    /// Quatro opções com rótulo de texto: é o idioma da transcrição do Echo, a
+    /// fila que quebrava em duas fileiras e deixava o "ES" parecendo um item
+    /// esquecido embaixo dos outros três.
+    Widget languages() => EgSegmentedControl<String>(
+      value: 'PT-BR',
+      options: const ['PT-BR', 'PT-PT', 'EN', 'ES'],
+      labelOf: (option) => option,
+      onChanged: (_) {},
+    );
+
+    testWidgets('desce inteiro, e continua numa fileira só', (tester) async {
+      await pumpCard(tester, [
+        EgSettingsRow(
+          label: 'Idioma da transcrição',
+          description: 'No idioma errado, a transcrição não sai pior: sai '
+              'inútil.',
+          trailing: languages(),
+        ),
+      ]);
+
+      final control = tester.getRect(find.byType(EgSegmentedControl<String>));
+      final label = tester.getRect(find.text('Idioma da transcrição'));
+
+      // Debaixo do texto, e alinhado com ele — não à direita, procurando um
+      // lugar.
+      expect(control.top, greaterThan(label.bottom));
+      expect(control.left, label.left);
+
+      // Uma fileira só: a altura é a de um segmento, e não a de dois.
+      final oneRow = await _aloneSize(tester, languages());
+      expect(control.height, oneRow.height);
+      expect(control.width, oneRow.width);
+    });
+  });
+
+  group('a linha de campo de texto', () {
+    testWidgets('o rótulo dela começa onde começam os outros', (tester) async {
+      await pumpCard(tester, [
+        EgSettingsRow.toggle(
+          label: 'Transcrever ao vivo',
+          value: true,
+          onChanged: (_) {},
+        ),
+        EgSettingsRow.field(
+          label: 'Como você quer o resumo',
+          field: const SizedBox(height: 40),
+        ),
+      ]);
+
+      // O recuo lateral é do cartão. Pedido de novo pela linha, ele dobrava — e
+      // o cartão ficava com uma linha recuada no meio das outras.
+      expect(
+        tester.getRect(find.text('Como você quer o resumo')).left,
+        tester.getRect(find.text('Transcrever ao vivo')).left,
+      );
+    });
+  });
+
   group('o controle largo', () {
     /// Cinco opções são o seletor de durações do Focus, que é o caso que fez a
     /// regra existir: medido depois do rótulo, ele quebrava em fileiras.
@@ -109,4 +168,22 @@ void main() {
       expect(inRow, alone);
     });
   });
+}
+
+/// O tamanho que um controle tem quando ninguém o aperta.
+Future<Size> _aloneSize(WidgetTester tester, Widget control) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.build(),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: IntrinsicWidth(child: control),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  return tester.getRect(find.byWidget(control)).size;
 }
