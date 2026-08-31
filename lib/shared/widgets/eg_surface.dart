@@ -610,11 +610,17 @@ class EgSurfaces {
 
   /// Pílula de um segmented control: são várias na tela ao mesmo tempo e só
   /// uma é a resposta, então o rótulo em repouso fica um nível atrás.
+  ///
+  /// A escolhida leva o mesmo véu de accent da linha de lista — é a mesma
+  /// pergunta ("qual é a da vez?"), e responder de dois jeitos na mesma tela é
+  /// o que fazia a fila de opções parecer desligada ao lado de uma lista com a
+  /// linha acesa. Sem a linha de luz no topo, essa sim: em 60 px de largura ela
+  /// viraria a metade de cima do componente.
   EgSurfaceStyle get segment => EgSurfaceStyle(
     rest: AppColors.transparent,
     hover: _eg.colors.surfaceTop,
     pressed: _eg.colors.raised,
-    selected: _eg.colors.hover,
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
     foreground: _eg.colors.textSecondary,
     hoverForeground: _eg.colors.textPrimary,
     selectedForeground: _eg.colors.textPrimary,

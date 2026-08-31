@@ -154,8 +154,9 @@ class _Segment extends StatelessWidget {
     // vezes para atravessar uma preferência só.
     //
     // A opção escolhida usa accent em baixa opacidade — o mesmo tratamento de
-    // seleção da lista e da sidebar. Preenchimento verde sólido puxaria o olho
-    // para uma preferência que não é a ação principal de tela nenhuma.
+    // seleção da lista e da sidebar, resolvido na matriz (`EgSurfaces.segment`)
+    // e não aqui. Preenchimento verde sólido puxaria o olho para uma
+    // preferência que não é a ação principal de tela nenhuma.
     return EgInteractiveSurface(
       onTap: onTap,
       focusable: false,
