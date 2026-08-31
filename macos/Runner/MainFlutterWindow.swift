@@ -66,6 +66,24 @@ class MainFlutterWindow: NSPanel {
     NestChannel.adopt(self)
   }
 
+  /// Deixa a janela ir para onde a pessoa arrastar — inclusive para cima.
+  ///
+  /// O padrão do AppKit é **prender** o quadro da janela dentro da área útil da
+  /// tela, para que a barra de título de uma janela comum nunca vá parar
+  /// debaixo da barra de menus, fora do alcance do mouse. Aqui isso não protege
+  /// nada e cobrava caro: a janela 0 tem 920x800 e é **transparente**, com o
+  /// painel desenhado no meio dela. Com o topo do quadro preso abaixo da barra
+  /// de menus, o painel — que está a 400 px desse topo — nunca alcançava a
+  /// metade de cima da tela: arrastá-lo para cima o fazia escorregar de volta
+  /// para o meio, que foi exatamente o sintoma relatado no Nest.
+  ///
+  /// Não há barra de título para proteger, e quem move a janela é o
+  /// `startDragging` do próprio painel: devolver o quadro como veio é o que faz
+  /// o painel parar onde o mouse soltou.
+  override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+    frameRect
+  }
+
   /// Faz da janela 0 um painel que não tira ninguém da frente.
   ///
   /// - `.nonactivatingPanel`: recebe teclado sem ativar o Evergreen.
