@@ -27,11 +27,18 @@ class EgGradients {
   ///
   /// Fraco de propósito: é o que dá a impressão de que a janela tem uma fonte
   /// de luz, sem que nada dentro dela fique verde.
+  ///
+  /// Ele estava no dobro disso, e o preço era o cartão. Verde a 7% sobre o
+  /// canvas soma uns doze pontos ao canal verde do fundo — e a área que o halo
+  /// cobre é o alto da janela, exatamente onde ficam os cartões de
+  /// preferência. O fundo empatava com a superfície do cartão no canal que
+  /// mais pesa na luminância, e o cartão sumia. Metade da opacidade mantém a
+  /// fonte de luz e devolve o degrau.
   RadialGradient get windowGlow => RadialGradient(
     center: const Alignment(-0.35, -1.15),
     radius: 1.45,
     colors: [
-      _eg.colors.accent.withValues(alpha: 0.07),
+      _eg.colors.accent.withValues(alpha: 0.035),
       _eg.colors.accent.withValues(alpha: 0.0),
     ],
   );

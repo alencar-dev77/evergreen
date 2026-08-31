@@ -100,21 +100,30 @@ Quem resolve é o `EgSquircle`:
 
 | Token | Valor | Aplicação |
 |---|---|---|
-| `radiusWindow` | 26 | a janela do Hub |
-| `radiusPanel` | 20 | painel flutuante, `EgConfirmDialog`, dropdown |
-| `radiusStage` | 18 | bloco-instrumento: o anel do Focus, a pilha do Nest, a bancada do gerador |
-| `radiusCard` | 14 | cartão de seção |
-| `radiusRow` | 11 | linha de lista, item de barra lateral, faixa de estado |
-| `radiusControl` | 10 | botão, campo |
-| `radiusSegment` | 7 | segmento dentro do trilho, keycap |
+| `radiusWindow` | 28 | a janela do Hub |
+| `radiusPanel` | 22 | painel flutuante, `EgConfirmDialog`, dropdown |
+| `radiusStage` | 20 | bloco-instrumento: o anel do Focus, a pilha do Nest, a bancada do gerador |
+| `radiusCard` | 17 | cartão de seção |
+| `radiusRow` | 13 | linha de lista, item de barra lateral, faixa de estado |
+| `radiusControl` | 12 | botão, campo |
+| `radiusSegment` | 9 | segmento dentro do trilho, keycap |
 | `radiusChip` | 999 | pílula: interruptor mestre, filtro, aba, tecla do cabeçalho |
 
-A escala subiu inteira — o teto era 12 e passou a 26. **Isso não é "arredondado
+A escala subiu inteira — o teto era 12 e passou a 28. **Isso não é "arredondado
 de app mobile"**: é o raio que o macOS usa nas próprias janelas, e o que o
 distingue de estética consumer é a curvatura contínua, não o número.
 
-Aninhamento continua concêntrico: o segmento interno usa `radiusSegment` (7)
-porque o trilho usa `radiusControl` (10) com 2px de padding.
+**Ela subiu duas vezes, e a segunda foi pelo pé.** A primeira levou o teto de
+12 a 26 e deixou o rodapé da escala onde estava — botão em 10, segmento e
+keycap em 7 —, e o app continuou parecendo quadrado: o que se olha de perto
+numa tela de preferências não é a janela, são os botões, as teclas e os
+segmentos, e eram justamente eles que ainda tinham canto de planilha. O
+rodapé subiu junto (12 e 9), e o resto acompanhou para a escada não achatar.
+**Onde a curva se nota é no pequeno**; o raio grande sozinho só arredonda o que
+ninguém estava olhando.
+
+Aninhamento continua concêntrico: o segmento interno usa `radiusSegment` (9)
+porque o trilho usa `radiusControl` (12) com 2px de padding.
 
 **Forma é família.** Dois controles vizinhos que fazem parte do mesmo par —
 o interruptor mestre e a tecla do módulo, no cabeçalho — usam o **mesmo** raio.

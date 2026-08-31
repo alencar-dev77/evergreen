@@ -58,7 +58,7 @@ O Evergreen não tem uma "fonte de luz" cenográfica como um app de design 3D. A
 O fundo das janelas do Evergreen **não** é uma cor chapada ("preto blocado"). Ele combina duas camadas baratas, ambas dentro do limite de sutileza acima:
 
 1. **Vinheta vertical** — gradiente do topo (levíssima elevação, com um toque quase imperceptível de verde) para a base (um degrau mais escuro). Variação de luminância na casa de 3–4%, nunca lida conscientemente como "gradiente".
-2. **Brilho verde difuso** — um gradiente radial de accent em opacidade muito baixa (~6%), ancorado acima do topo da janela, com falloff largo. Simula o "blur por cima" / luz difusa **sem** `BackdropFilter`, então pode ficar permanente na tela sem custo de render.
+2. **Brilho verde difuso** — um gradiente radial de accent em opacidade muito baixa (~3,5%), ancorado acima do topo da janela, com falloff largo. Simula o "blur por cima" / luz difusa **sem** `BackdropFilter`, então pode ficar permanente na tela sem custo de render.
 
 Implementação: tokens em `app_colors.dart` (`backgroundTop`, `backgroundDeep`, `surfaceTop`), gradientes compostos em `app_gradients.dart`, aplicados via `EgBackground` (janelas) e pelo parâmetro `gradient` do `EgPanel` (overlay do Pin). Sidebars podem ficar levemente translúcidas (sólido com alpha sobre o gradiente, sem blur) para o brilho atravessar e unificar as regiões.
 
@@ -68,7 +68,7 @@ Os papéis abstratos acima já têm nome e valor no produto. Use o token, nunca 
 
 | Papel | Token | Valor | Onde aparece |
 |---|---|---|---|
-| Fundo de janela | `canvas` → `canvasDeep` | `#14181A` → `#0B0D0E` | o degradê da janela; a luz entra por cima |
+| Fundo de janela | `canvas` → `canvasDeep` | `#0F1315` → `#08090A` | o degradê da janela; a luz entra por cima |
 | Cartão de seção | `surface` | `#191E20` | `EgSettingsCard`, superfície que carrega conteúdo |
 | Topo de bloco | `surfaceTop` | `#1D2325` | hover de linha, topo do bloco-instrumento |
 | **Elevado** | `raised` | `#212729` | **linha selecionada**, faixa de estado, hover de pílula |
@@ -76,7 +76,7 @@ Os papéis abstratos acima já têm nome e valor no produto. Use o token, nunca 
 | Hover de controle | `hover` | `#2E3639` | |
 | Pressionado | `pressed` | `#1D2325` | **mais escuro que o repouso** — afunda, não acende |
 | Divisor | `line` | `#363F42` | o que separa duas linhas dentro do mesmo cartão |
-| Aresta | `edge` | branco a 7% | borda de cartão — luz com alfa, não cinza opaco |
+| Aresta | `edge` | branco a 10% | borda de cartão — luz com alfa, não cinza opaco |
 | Luz | `edgeLight` | branco a 14% | hairline interna no topo de painel e de pílula |
 | Véu da barra lateral | `sidebarTint` | branco a 2,6% | chapado, por custo — ver abaixo |
 | Vidro | `glassPanel` | `#161B1D` a 66% | painel flutuante, sob blur 40 + saturação 165% |
@@ -102,11 +102,20 @@ aresta verde de 3px à esquerda; agora é a superfície `raised` com uma linha d
 luz de 1px no topo (`rowInnerHairline`), mais o texto em `bodyStrong`. O Flutter
 não tem sombra interna, então a elevação se desenha com luz.
 
-**3. Os degraus de neutro têm de se ver.** A paleta anterior amontoava cinco
-papéis entre `#0B` e `#2E` — o olho não separava fundo de cartão. Agora vizinhos
-guardam pelo menos cinco pontos de luminância entre si, e a borda saltou de
-`#262626` para branco a 7%, que se enxerga sobre `#191E20` num painel P3 a 50%
-de brilho.
+**3. Os degraus de neutro têm de se ver — e "se ver" é na tela, não na
+tabela.** A paleta anterior amontoava cinco papéis entre `#0B` e `#2E`, e o olho
+não separava fundo de cartão. Vizinhos guardam pelo menos cinco pontos de
+luminância entre si; a borda saltou de `#262626` para luz com alfa.
+
+O degrau de `canvas` para `surface` estava nesses cinco pontos e mesmo assim o
+cartão não aparecia, porque o degrau se mede **depois de tudo o que a janela
+põe por cima**. O halo verde do topo — accent a 7% — somava uns doze pontos ao
+canal verde do fundo, e o canal verde é o que mais pesa na luminância: o fundo
+alcançava o cartão exatamente na faixa em que os cartões ficam. O cartão virava
+uma mancha cinza sobre um campo esverdeado da mesma claridade, que é como um
+"cinza que não fica legal" se parece por dentro. O halo caiu para 3,5%, o
+`canvas` desceu para `#0F1315` e a aresta subiu para 10% — três correções para
+o mesmo degrau, porque separação de superfície é fundo, luz e contorno juntos.
 
 ### Onde o vidro liga, e onde não
 

@@ -18,11 +18,19 @@ import '../tokens/eg_type_scale.dart';
 /// módulo.
 abstract final class EvergreenTokens {
   static const palette = EgPalette(
-    // Neutros com amplitude de verdade: de #0B a #36, com pelo menos cinco
+    // Neutros com amplitude de verdade: de #08 a #36, com pelo menos cinco
     // pontos de luminância entre vizinhos. A escala anterior amontoava cinco
     // papéis entre #0B e #2E, e o olho não separava fundo de cartão.
-    canvas: Color(0xFF14181A),
-    canvasDeep: Color(0xFF0B0D0E),
+    //
+    // O fundo é o mais fundo do app, e é assim que o cartão aparece. Com o
+    // canvas em #14181A o cartão tinha cinco pontos de vantagem sobre ele —
+    // no papel. Na tela não tinha nenhum: o halo verde da janela mora
+    // justamente no alto, que é onde os cartões estão, e levantava o canal
+    // verde do fundo até o do cartão. O cartão virava uma mancha cinza sobre
+    // um campo esverdeado da mesma claridade. O halo baixou pela metade e o
+    // fundo desceu com ele.
+    canvas: Color(0xFF0F1315),
+    canvasDeep: Color(0xFF08090A),
     surface: Color(0xFF191E20),
     surfaceTop: Color(0xFF1D2325),
     raised: Color(0xFF212729),
@@ -32,8 +40,10 @@ abstract final class EvergreenTokens {
     pressed: Color(0xFF1D2325),
     line: Color(0xFF363F42),
     // Bordas são luz com alfa, não cinza opaco: assim a mesma borda serve ao
-    // cartão sobre o canvas e ao cartão sobre o vidro.
-    edge: Color(0x12FFFFFF),
+    // cartão sobre o canvas e ao cartão sobre o vidro. A 7% ela existia só na
+    // especificação; o contorno do cartão é a segunda coisa que o separa do
+    // fundo, e precisa ser vista sem se procurar.
+    edge: Color(0x1AFFFFFF),
     edgeLight: Color(0x24FFFFFF),
     sidebarTint: Color(0x07FFFFFF),
 
@@ -205,13 +215,13 @@ abstract final class EvergreenTokens {
   );
 
   static const shapes = EgShapes(
-    radiusWindow: 26,
-    radiusPanel: 20,
-    radiusStage: 18,
-    radiusCard: 14,
-    radiusRow: 11,
-    radiusControl: 10,
-    radiusSegment: 7,
+    radiusWindow: 28,
+    radiusPanel: 22,
+    radiusStage: 20,
+    radiusCard: 17,
+    radiusRow: 13,
+    radiusControl: 12,
+    radiusSegment: 9,
     radiusChip: 999,
     hairline: 1,
     rowPaddingV: 9,
