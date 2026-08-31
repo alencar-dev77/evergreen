@@ -21,12 +21,21 @@ class NestItemCard extends StatelessWidget {
     super.key,
     required this.item,
     required this.isSelected,
+    required this.position,
     this.onTap,
     this.onRemove,
   });
 
   final NestItem item;
   final bool isSelected;
+
+  /// O lugar dele na fila, a partir de 1.
+  ///
+  /// A prateleira guarda a ordem de chegada e a transferência sai nela; o
+  /// número é o que torna isso visível — sem ele, "a pilha guarda a ordem" é
+  /// uma promessa que a tela não mostra. Ele cede o lugar ao botão de tirar
+  /// quando o mouse chega: os dois moram na mesma ponta, e ali só cabe um.
+  final int position;
   final VoidCallback? onTap;
 
   /// Tira a linha da prateleira. O arquivo não é tocado.
@@ -65,7 +74,7 @@ class NestItemCard extends StatelessWidget {
             Expanded(child: _label(context)),
             const SizedBox(width: AppSpacing.sm),
             // A ação secundária só aparece sob o mouse — a lista em repouso
-            // fica com os nomes e nada mais.
+            // fica com os nomes e o lugar de cada um na fila.
             if (state.isHovered && onRemove != null)
               EgIconButton(
                 icon: EgIconData.close,
@@ -73,6 +82,17 @@ class NestItemCard extends StatelessWidget {
                 size: AppBadgeSizes.sm,
                 iconSize: AppIconSizes.xs,
                 onPressed: onRemove,
+              )
+            else
+              SizedBox(
+                width: AppBadgeSizes.sm,
+                child: Text(
+                  '$position',
+                  textAlign: TextAlign.center,
+                  style: context.eg.text.monoSmall.copyWith(
+                    color: context.eg.colors.textQuaternary,
+                  ),
+                ),
               ),
           ],
         ),

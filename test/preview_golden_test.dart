@@ -451,10 +451,12 @@ void main() {
   });
 
   testWidgets('painel do Focus — sessão em andamento', (tester) async {
+    // Mais alta que a do painel parado: com o anel, o diário e o campo de
+    // anotação, a sessão em andamento é a tela mais alta do módulo.
     await pump(
       tester,
       const FocusOverlayView(),
-      const Size(1120, 800),
+      const Size(1120, 1000),
       fakeClock: true,
     );
 
@@ -652,7 +654,9 @@ void main() {
       paths.add(path);
     }
 
-    await pump(tester, const NestOverlayView(), const Size(1120, 900));
+    // Mais alta que a do painel vazio: cheia, a prateleira ganha a capa da
+    // pilha em cima da fila e das pastas.
+    await pump(tester, const NestOverlayView(), const Size(1120, 1040));
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(NestOverlayView)),
@@ -751,19 +755,39 @@ void main() {
   });
 
   testWidgets('painel do Echo — gravando', (tester) async {
+    // Mais alta que a do painel parado: gravando, a tela ganha as duas faixas
+    // de nível e a última fala reconhecida.
     await pump(
       tester,
       const EchoOverlayView(),
-      const Size(1120, 700),
+      const Size(1120, 820),
       fakeClock: true,
     );
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(EchoOverlayView)),
     );
+    // `initialize` é quem liga a escuta do nativo — sem ela o painel não
+    // recebe nível nem texto ao vivo, que é metade do que esta tela mostra.
+    await container.read(echoRecorderViewModelProvider.notifier).initialize();
     await container.read(echoRecorderViewModelProvider.notifier).start();
     await tester.pump(const Duration(minutes: 12, seconds: 30));
-    await tester.pump(AppDurations.instant);
+
+    // Um instante de reunião de verdade: você falando (energia nas graves e
+    // médias da voz) por cima do fim da fala dos outros, mais fraca. O canal do
+    // teste emite as bandas que o nativo mediria.
+    channel.emitLevels(
+      const [0.34, 0.62, 0.78, 0.55, 0.41, 0.33, 0.22, 0.14, 0.08, 0.04],
+      const [0.18, 0.26, 0.31, 0.22, 0.17, 0.12, 0.09, 0.06, 0.03, 0.0],
+    );
+    channel.emitLive('então o painel pode ser caro de desenhar, a sidebar não');
+    // Três quadros, e cada um faz uma coisa: o primeiro entrega o aviso do
+    // canal ao estado, o segundo monta as barras na altura de repouso (é onde a
+    // animação começa) e o terceiro deixa os 100 ms delas correrem. Parando no
+    // segundo, o golden congela o equalizador no chão.
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
 
     await expectLater(
       find.byType(EchoOverlayView),

@@ -6,7 +6,7 @@ import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_icon.dart';
-import '../../../../shared/widgets/eg_section_label.dart';
+import '../../../../shared/widgets/eg_day_header.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/focus_session.dart';
 import '../../../../core/design/eg_tokens.dart';
@@ -69,17 +69,7 @@ class FocusHistoryList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final group in groups) ...[
-          // O rótulo do grupo alinha com o texto das linhas, não com a borda do
-          // fundo de hover — daí o recuo igual ao padding horizontal da linha.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.sm,
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.xxs,
-            ),
-            child: EgSectionLabel(group.label),
-          ),
+          EgDayHeader(label: group.label, total: _totalOf(group.items)),
           for (final session in group.items)
             _SessionRow(
               session: session,
@@ -90,6 +80,12 @@ class FocusHistoryList extends StatelessWidget {
       ],
     );
   }
+
+  /// O quanto de foco aquele dia teve — a soma das sessões, que é a pergunta
+  /// que a faixa da semana logo acima responde para a semana inteira.
+  static String _totalOf(List<FocusSession> sessions) => DurationFormat.compact(
+    sessions.fold(Duration.zero, (total, session) => total + session.duration),
+  );
 }
 
 class _SessionRow extends StatelessWidget {

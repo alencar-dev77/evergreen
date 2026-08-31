@@ -132,6 +132,7 @@ void main() {
         SizedBox(
           width: 400,
           child: NestItemCard(
+            position: 1,
             item: NestItem(
               path: '/Users/eu/Documentos/contrato.pdf',
               isDirectory: false,
@@ -164,6 +165,7 @@ void main() {
         SizedBox(
           width: 400,
           child: NestItemCard(
+            position: 1,
             item: NestItem(
               path: '/Users/eu/Documentos/contrato.pdf',
               isDirectory: false,
