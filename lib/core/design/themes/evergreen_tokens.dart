@@ -251,6 +251,15 @@ abstract final class EvergreenTokens {
         spreadRadius: -6,
       ),
     ],
+    // O cartão de seção: sombra de contato, e só. Ver `EgElevations.card`.
+    card: [
+      BoxShadow(
+        color: Color(0x73000000),
+        blurRadius: 12,
+        offset: Offset(0, 4),
+        spreadRadius: -6,
+      ),
+    ],
     dropdown: [
       BoxShadow(
         color: Color(0xB3000000),

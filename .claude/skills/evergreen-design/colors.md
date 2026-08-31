@@ -114,6 +114,17 @@ Não é um terceiro papel para o verde — a linha escolhida **é** o que está
 ligado naquela lista. O que não volta é o bloco chapado: véu sobre a superfície
 elevada, nunca cor no lugar dela.
 
+**2b. O que se escreve afunda; o que agrupa levanta.** Um campo de texto é
+conteúdo entrando na superfície, não uma peça apoiada sobre ela: ele é pintado
+de `canvasDeep`, **abaixo** do cartão em que mora. Era `surfaceTop`, quatro
+pontos *acima* do cartão — duas caixas arredondadas quase do mesmo cinza, uma
+dentro da outra, cada uma com o seu contorno, que é o "caixa dentro de caixa"
+que fazia a tela de preferências parecer desenho de arame. O cartão faz o
+contrário: linha de luz de 1px no topo interno e sombra de contato curta
+embaixo (`elevations.card`), que não o levanta — **assenta** ele. Com as duas
+direções, a tela ganha profundidade sem precisar de vidro: o que faltava não
+era translucidez, era luz.
+
 **3. Os degraus de neutro têm de se ver — e "se ver" é na tela, não na
 tabela.** A paleta anterior amontoava cinco papéis entre `#0B` e `#2E`, e o olho
 não separava fundo de cartão. Vizinhos guardam pelo menos cinco pontos de

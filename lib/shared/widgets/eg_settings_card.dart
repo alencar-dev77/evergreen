@@ -212,31 +212,52 @@ class EgSettingsCard extends StatelessWidget {
         // O recorte é o que faz o divisor morrer na borda do cartão em vez de
         // atravessá-la, e o que impede a primeira linha de vazar pelo canto
         // arredondado quando ela tem fundo próprio.
-        ClipPath(
-          clipper: ShapeBorderClipper(shape: eg.shapes.cardShape),
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: tone.surfaceOf(eg),
-              shape: EgSquircle.shape(
-                eg.shapes.radiusCard,
-                side: tone.edgeOf(eg),
-              ),
+        //
+        // **A luz e a sombra vêm por fora do recorte**, e é por isso que são
+        // duas camadas: a sombra de contato precisa cair *fora* do cartão, e
+        // um `ClipPath` recortaria justamente ela.
+        DecoratedBox(
+          decoration: ShapeDecoration(
+            color: tone.surfaceOf(eg),
+            shape: EgSquircle.shape(
+              eg.shapes.radiusCard,
+              side: tone.edgeOf(eg),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  // O divisor atravessa o cartão de ponta a ponta, por baixo
-                  // do respiro: recuado nas duas pontas ele viraria um traço
-                  // solto no meio, e não a linha que separa dois assuntos.
-                  if (i > 0)
-                    Container(
-                      height: eg.shapes.hairline,
-                      color: tone.edgeOf(eg).color,
-                    ),
-                  _padded(eg, children[i]),
+            shadows: eg.elevations.card,
+          ),
+          child: ClipPath(
+            clipper: ShapeBorderClipper(shape: eg.shapes.cardShape),
+            child: DecoratedBox(
+              // A linha de luz de 1px no topo interno: é ela que faz o cartão
+              // parecer pegar luz de cima em vez de ser um retângulo chapado. O
+              // Flutter não tem sombra interna, então elevação se desenha com
+              // luz — a mesma solução da linha selecionada.
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color:
+                        eg.elevations.rowInnerHairline ??
+                        const Color(0x00000000),
+                    width: eg.shapes.hairline,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    // O divisor atravessa o cartão de ponta a ponta, por baixo
+                    // do respiro: recuado nas duas pontas ele viraria um traço
+                    // solto no meio, e não a linha que separa dois assuntos.
+                    if (i > 0)
+                      Container(
+                        height: eg.shapes.hairline,
+                        color: tone.edgeOf(eg).color,
+                      ),
+                    _padded(eg, children[i]),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

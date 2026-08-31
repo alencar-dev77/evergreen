@@ -11,6 +11,7 @@ import 'package:flutter/widgets.dart';
 class EgElevations {
   const EgElevations({
     required this.floatingPanel,
+    required this.card,
     required this.dropdown,
     required this.control,
     required this.focusRing,
@@ -19,6 +20,15 @@ class EgElevations {
   });
 
   final List<BoxShadow> floatingPanel;
+
+  /// A sombra de contato de um cartão de seção.
+  ///
+  /// Curta, escura e quase sem desfoque: ela não levanta o cartão do fundo —
+  /// **assenta** ele. Um cartão do mesmo matiz do fundo, sem sombra nenhuma,
+  /// não tem por que parecer estar em cima de coisa alguma: o que separava os
+  /// dois era só o contorno, e contorno em tudo vira desenho de arame.
+  final List<BoxShadow> card;
+
   final List<BoxShadow> dropdown;
 
   /// Botão do Evergreen não levanta do fundo — daí a lista vazia. Está aqui
@@ -44,6 +54,7 @@ class EgElevations {
   static EgElevations lerp(EgElevations a, EgElevations b, double t) =>
       EgElevations(
         floatingPanel: _shadows(a.floatingPanel, b.floatingPanel, t),
+        card: _shadows(a.card, b.card, t),
         dropdown: _shadows(a.dropdown, b.dropdown, t),
         control: _shadows(a.control, b.control, t),
         focusRing: _shadows(a.focusRing, b.focusRing, t),

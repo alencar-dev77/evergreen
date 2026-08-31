@@ -123,7 +123,16 @@ class _EgTextFieldState extends State<EgTextField> {
               vertical: AppSpacing.md,
             ),
       decoration: BoxDecoration(
-        color: widget.bare && !_isFocused ? null : context.eg.colors.surfaceTop,
+        // **O campo afunda; o cartão levanta.** Ele era `surfaceTop`, quatro
+        // pontos *acima* do cartão em que mora — dois retângulos arredondados,
+        // quase do mesmo cinza, um dentro do outro, cada um com o seu contorno:
+        // era isso o "caixa dentro de caixa" que fazia a tela de preferências
+        // parecer um desenho de arame. Escrito é conteúdo que entra na
+        // superfície, não uma peça apoiada sobre ela — e o poço dá à tela a
+        // segunda direção de profundidade que faltava.
+        color: widget.bare && !_isFocused
+            ? null
+            : context.eg.colors.canvasDeep,
         borderRadius: context.eg.shapes.controlAll,
         border: Border.all(
           color: _isFocused
