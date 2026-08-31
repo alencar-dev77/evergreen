@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/design/app_metrics.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
@@ -50,46 +52,31 @@ class _TrackViewState extends ConsumerState<TrackView> {
     final now = ref.watch(clockProvider)();
 
     return EgSettingsPage(
-      // Os três blocos atravessam a tela, soltos, acima da grade: eles são o
-      // balanço do período inteiro, não um dos assuntos dele. Dentro de um
-      // cartão viravam cartão-dentro-de-cartão, que é uma moldura a mais sem
-      // nada a mais para emoldurar.
       banner: state.isEmpty
           ? null
-          : EgStatRow(
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                EgStatCard(
-                  label: 'Foco',
-                  value: DurationFormat.compact(state.totals.focus),
-                  detail: TrackCounts.of(
-                    state.totals.focusSessions,
-                    'sessão',
-                    'sessões',
-                  ),
-                  tone: EgPillTone.positive,
+                // O recorte é da **tela**, não de um cartão: ele muda os três
+                // números, a faixa da semana e a lista de dias ao mesmo tempo.
+                // Morando no cartão, ele mudava de lugar duas vezes — trocava
+                // de cartão ao trocar de recorte (a faixa da semana não existe
+                // em "Hoje") e trocava de x ao abrir a região de leitura, que
+                // desmancha as duas colunas. Um controle que se procura na tela
+                // é um controle que não está fixo.
+                Row(
+                  children: [
+                    const Expanded(child: EgSectionLabel('Balanço')),
+                    EgSegmentedControl<TrackRange>(
+                      value: state.range,
+                      options: TrackRange.values,
+                      labelOf: (range) => range.label,
+                      onChanged: viewModel.setRange,
+                    ),
+                  ],
                 ),
-                EgStatCard(
-                  label: 'Reunião',
-                  value: state.totals.meetingCount == 0
-                      ? '—'
-                      : DurationFormat.compact(state.totals.meetings),
-                  detail: TrackCounts.of(
-                    state.totals.meetingCount,
-                    'reunião',
-                    'reuniões',
-                  ),
-                  tone: EgPillTone.ember,
-                ),
-                EgStatCard(
-                  label: 'Copiado',
-                  value: '${state.totals.copied}',
-                  detail: TrackCounts.of(
-                    state.totals.notesWritten,
-                    'anotação',
-                    'anotações',
-                  ),
-                  tone: EgPillTone.tide,
-                ),
+                const SizedBox(height: AppSpacing.sm),
+                _totals(state),
               ],
             ),
       children: [
@@ -112,24 +99,10 @@ class _TrackViewState extends ConsumerState<TrackView> {
           if (state.range == TrackRange.week)
             EgSettingsCard(
               title: 'Últimos 7 dias',
-              trailing: EgSegmentedControl<TrackRange>(
-                value: state.range,
-                options: TrackRange.values,
-                labelOf: (range) => range.label,
-                onChanged: viewModel.setRange,
-              ),
               children: [TrackWeekStrip(days: state.days, now: now)],
             ),
           EgSettingsCard(
             title: 'Dias',
-            trailing: state.range == TrackRange.week
-                ? null
-                : EgSegmentedControl<TrackRange>(
-                    value: state.range,
-                    options: TrackRange.values,
-                    labelOf: (range) => range.label,
-                    onChanged: viewModel.setRange,
-                  ),
             children: [
               TrackDayList(
                 days: state.days,
@@ -147,6 +120,50 @@ class _TrackViewState extends ConsumerState<TrackView> {
             ],
           ),
         ],
+      ],
+    );
+  }
+
+  /// Os três números do período, soltos acima da grade.
+  ///
+  /// Eles são o balanço do recorte inteiro, não um dos assuntos dele — dentro
+  /// de um cartão virariam cartão-dentro-de-cartão, que é uma moldura a mais
+  /// sem nada a mais para emoldurar.
+  Widget _totals(TrackState state) {
+    return EgStatRow(
+      children: [
+        EgStatCard(
+          label: 'Foco',
+          value: DurationFormat.compact(state.totals.focus),
+          detail: TrackCounts.of(
+            state.totals.focusSessions,
+            'sessão',
+            'sessões',
+          ),
+          tone: EgPillTone.positive,
+        ),
+        EgStatCard(
+          label: 'Reunião',
+          value: state.totals.meetingCount == 0
+              ? '—'
+              : DurationFormat.compact(state.totals.meetings),
+          detail: TrackCounts.of(
+            state.totals.meetingCount,
+            'reunião',
+            'reuniões',
+          ),
+          tone: EgPillTone.ember,
+        ),
+        EgStatCard(
+          label: 'Copiado',
+          value: '${state.totals.copied}',
+          detail: TrackCounts.of(
+            state.totals.notesWritten,
+            'anotação',
+            'anotações',
+          ),
+          tone: EgPillTone.tide,
+        ),
       ],
     );
   }
