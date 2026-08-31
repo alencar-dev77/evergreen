@@ -277,6 +277,24 @@ void main() {
       expect(find.text('CPF'), findsOneWidget);
     });
 
+    testWidgets('o tipo desligado some da fila e da lista', (tester) async {
+      // Desligado na tela de preferências, que é outro engine — no teste, o
+      // mesmo disco.
+      SharedPreferences.setMockInitialValues({
+        'pin.ignored_types': <String>['link'],
+      });
+      preferences = await SharedPreferences.getInstance();
+
+      await pumpOverlay(tester);
+
+      // Some a pílula e some o item: o que a tela de preferências desligou tem
+      // de sumir **do Pin**, senão ela diz uma coisa e o painel mostra outra.
+      expect(find.text('Links'), findsNothing);
+      expect(find.text('https://pub.dev/packages/sqlite3'), findsNothing);
+      // E o que continua ligado fica onde estava — nada foi apagado do banco.
+      expect(find.text('Flutter'), findsOneWidget);
+    });
+
     testWidgets('a fila fica de pé mesmo com um tipo só no histórico', (
       tester,
     ) async {

@@ -166,7 +166,17 @@ class EvergreenBootstrap {
     );
 
     await _applyRuntime(settings);
+    await _applyPinSettings();
   }
+
+  /// Relê as preferências do Pin nesta janela.
+  ///
+  /// Elas são editadas no Hub, que é outro engine com a própria cópia em
+  /// memória — e quem captura a área de transferência é esta janela. Sem
+  /// reler, desligar um tipo só valia no lançamento seguinte: a tela mostrava
+  /// o tipo desligado e o Pin continuava guardando o que ele copiava.
+  Future<void> _applyPinSettings() =>
+      _container.read(pinSettingsRepositoryProvider).reload();
 
   /// O que cada atalho faz. Registrado uma vez e guardado pelo serviço: um
   /// [GlobalShortcutService.resume] depois de uma gravação precisa registrar
@@ -238,9 +248,9 @@ class EvergreenBootstrap {
             .read(pinOverlayViewModelProvider.notifier)
             .stopWatching();
       case EvergreenModule.nest:
-        await _container.read(nestChannelProvider).setShakeEnabled(
-          enabled: false,
-        );
+        await _container
+            .read(nestChannelProvider)
+            .setShakeEnabled(enabled: false);
       case EvergreenModule.focus:
         _container.read(focusTimerViewModelProvider.notifier).stop();
       case EvergreenModule.awake:
@@ -477,7 +487,11 @@ class EvergreenBootstrap {
   Future<void> _prepare(OverlayPanel panel) async {
     switch (panel) {
       case OverlayPanel.pin:
-        _container.read(pinOverlayViewModelProvider.notifier).prepareForOpen();
+        unawaited(
+          _container
+              .read(pinOverlayViewModelProvider.notifier)
+              .prepareForOpen(),
+        );
       case OverlayPanel.focus:
         await _container
             .read(focusTimerViewModelProvider.notifier)

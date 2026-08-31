@@ -94,7 +94,13 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   /// recorte da vez, não uma preferência. Encontrar o Pin filtrado por um tipo
   /// escolhido ontem seria encontrá-lo com metade do histórico faltando, sem
   /// nada explicando o porquê.
-  void prepareForOpen() {
+  Future<void> prepareForOpen() async {
+    // As preferências são editadas no Hub, que é outro engine: sem reler, o
+    // painel abriria com os tipos de ontem. O aviso pelo canal
+    // (`ModuleSettingsHost`) já releu esta cópia no instante da mudança — esta
+    // leitura é o cinto: se o canal falhar, o painel ainda abre certo.
+    await _settings.reload();
+
     state = state.copyWith(
       query: '',
       typeFilter: null,
@@ -403,9 +409,13 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   /// depois por `copiedAt`), que é a lista em repouso.
   List<ClipboardItem> _rank(ClipboardItemType? type) {
     final matched = <_ScoredItem>[];
+    final settings = _settings.load();
 
     for (final item in _allItems) {
       if (type != null && item.type != type) continue;
+      // Desligado é desligado, inclusive para o que já estava guardado: o item
+      // continua no banco (religar o devolve), mas não aparece.
+      if (!settings.captures(item.type)) continue;
 
       final match = PinSearch.match(item, state.query);
       if (match == null) continue;
@@ -451,11 +461,15 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   /// esconderia justamente de quem ainda não tem documento nenhum, que é quem
   /// precisa gerar um.
   List<ClipboardItemType> _availableTypes() {
+    final settings = _settings.load();
     final present = _allItems.map((item) => item.type).toSet()
       ..addAll(TaxIdKind.values.map((kind) => kind.itemType));
 
+    // O tipo desligado sai da fila mesmo com itens dele no banco: o que a tela
+    // de preferências desligou tem de sumir **do Pin**, senão ela diz uma coisa
+    // e o painel mostra outra. Religar devolve tudo — nada é apagado aqui.
     return ClipboardItemType.values
-        .where(present.contains)
+        .where((type) => present.contains(type) && settings.captures(type))
         .toList(growable: false);
   }
 
