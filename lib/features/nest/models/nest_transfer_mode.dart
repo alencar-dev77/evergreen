@@ -5,7 +5,7 @@
 /// necessariamente quer esvaziar as pastas de origem.
 ///
 /// A escolha vive nas preferências do módulo porque é uma decisão que se toma
-/// uma vez — e o `⌘` segurado na hora inverte a que estiver valendo, que é a
+/// uma vez — e o `⌥` segurado na hora inverte a que estiver valendo, que é a
 /// convenção do próprio macOS. Uma linha a mais no painel perguntando "copiar
 /// ou mover?" a cada envio seria uma decisão que ninguém pediu.
 enum NestTransferMode {

@@ -521,6 +521,9 @@ class NestWindowDropDelegate: NSObject, NSWindowDelegate, NSDraggingDestination 
 /// `[.copy, .move]`: com as duas, quem decide passa a ser a modificadora do
 /// sistema, e o rótulo em cima da lista ("COPIAR PARA") deixaria de valer para
 /// metade dos caminhos do módulo.
+///
+/// Declarar uma só não bastava, e é daí que vinha o arraste que nascia
+/// proibido. Ver [ignoreModifierKeys(for:)].
 class NestDragSource: NSObject, NSDraggingSource {
   private let move: Bool
 
@@ -533,6 +536,25 @@ class NestDragSource: NSObject, NSDraggingSource {
     sourceOperationMaskFor context: NSDraggingContext
   ) -> NSDragOperation {
     move ? .move : .copy
+  }
+
+  /// O `⌥` do Nest não é o `⌥` do sistema — e sem esta linha os dois se
+  /// anulavam.
+  ///
+  /// A máscara declarada acima não é a última palavra: antes de consultar
+  /// destino nenhum, o AppKit a cruza com o que a modificadora segurada pede —
+  /// `⌥` pede `.copy`, `⌘` pede `.move`. Como aqui o `⌥` é justamente o que
+  /// **inverte** o modo do painel, o caminho "padrão copiar, `⌥` para mover"
+  /// declarava `.move` com o `⌥` ainda para baixo: `.move` cruzado com `.copy`
+  /// é conjunto vazio, e o cursor virava o sinal de proibido antes de o
+  /// arquivo chegar a lugar algum. O caminho contrário passava por acidente —
+  /// padrão mover, `⌥` declara `.copy`, que é o que o `⌥` já pedia.
+  ///
+  /// Ignorar as modificadoras é o que faz o rótulo em cima da lista valer nos
+  /// dois sentidos: quando esta sessão começa, a decisão já foi tomada no
+  /// painel, e não há o que a tecla ainda tenha a dizer.
+  func ignoreModifierKeys(for session: NSDraggingSession) -> Bool {
+    true
   }
 
   func draggingSession(
