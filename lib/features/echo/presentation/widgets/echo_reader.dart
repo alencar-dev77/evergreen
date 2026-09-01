@@ -50,10 +50,17 @@ class EchoReader extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
-            '${DayLabel.of(meeting.startedAt)} · '
-            '${DayLabel.time(meeting.startedAt)} · '
-            '${DurationFormat.compact(meeting.duration)}',
-            style: context.eg.text.captionXS,
+            [
+              DayLabel.of(meeting.startedAt),
+              DayLabel.time(meeting.startedAt),
+              DurationFormat.compact(meeting.duration),
+              // O que a gravação pegou. Não é "quantas vozes": o Echo separa
+              // faixas, não pessoas, e dizer "3 vozes" prometeria um
+              // reconhecimento que ele não faz — ver `Speaker`.
+              if (!meeting.isEmpty)
+                meeting.hasMyVoice ? 'sua voz e a reunião' : 'só a reunião',
+            ].join(' · '),
+            style: context.eg.text.footnote,
           ),
         ],
       ),

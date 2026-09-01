@@ -48,6 +48,7 @@ class EchoLibrary extends StatelessWidget {
     return EchoMeetingList(
       meetings: state.meetings,
       selectedId: state.selectedId,
+      summarizingId: state.summarizingId,
       onSelect: onOpen,
       onToggleKept: onToggleKept,
       now: now,

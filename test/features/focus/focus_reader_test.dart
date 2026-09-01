@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../pin/fake_clipboard_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_focus_session_repository.dart';
@@ -75,6 +77,10 @@ void main() {
         overrides: [
           focusSessionRepositoryProvider.overrideWithValue(repository),
           sharedPreferencesProvider.overrideWithValue(preferences),
+          // O Hub abre no Pin, e a tela dele conta os itens por tipo.
+          clipboardRepositoryProvider.overrideWithValue(
+            FakeClipboardRepository(),
+          ),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -82,6 +88,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text(EvergreenModule.focus.name));
+    await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes", que é a aba padrão de todo módulo. A lista
+    // mora na outra.
+    await tester.tap(find.text('Histórico'));
     await tester.pumpAndSettle();
   }
 
@@ -179,7 +190,8 @@ void main() {
     );
 
     // O rótulo "Apagar" existe no botão da região e no do aviso; o do aviso é
-    // o último a entrar na árvore.
+    // o último a entrar na árvore. O cartão que leva a semana inteira diz
+    // "Apagar tudo", justamente para não se confundir com este.
     await tester.tap(find.text('Apagar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apagar').last);
@@ -198,9 +210,9 @@ void main() {
     await pumpHub(tester);
     await openSession(tester);
 
-    await tester.tap(find.text('Limpar'));
+    await tester.tap(find.text('Apagar tudo'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Limpar').last);
+    await tester.tap(find.text('Apagar').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(HubDetailRegion), findsNothing);

@@ -308,6 +308,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await mountPanel();
 
+    // A atividade fica debaixo do anel; o diário, acima do campo.
     expect(find.text('Refatorar o módulo de auth'), findsOneWidget);
     expect(
       find.text('aos 12 min — terminei a task e comecei outra'),

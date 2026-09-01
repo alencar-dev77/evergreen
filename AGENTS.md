@@ -46,6 +46,16 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
   responde `unsupported_os` abaixo disso, e o resto do app segue no 10.15.
+  Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
+  texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro
+  de cada faixa dez vezes por segundo: uma FFT (`Accelerate`/`vDSP`) sobre os
+  últimos 32 ms, agregada em dez bandas por oitava entre 110 Hz e 6 kHz. É o
+  que o painel desenha como equalizador, e é medida, nunca animação — um pico
+  só por faixa daria dez barras da mesma altura. **Pausar não para a captura**: os blocos continuam
+  chegando e são descartados, então o trecho pausado não entra no arquivo nem
+  na duração (o `stop` desconta o tempo pausado). Parar e recomeçar a
+  `SCStream` criaria um segundo arquivo por faixa e faria a transcrição
+  remontar duas gravações como se fossem uma.
 - **`QLThumbnailGenerator` + `NSOpenPanel` + destino de arraste** (nativo,
   canal `nest`) — o Nest. Quem recebe o arraste do Finder é o **delegate da
   janela**, nunca a janela nem uma view invisível: `NSWindow` não implementa
@@ -128,27 +138,36 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   entrega uma ruína. Teste de bandeira passa **nos dois estados** (`skip:
   !FeatureFlags.x` no que só existe de um lado); teste que só passa ligada
   obriga a mexer na suíte para desligar a funcionalidade, e aí ninguém desliga.
-  Hoje existem três, as três em `false`: `themes` (a escolha de aparência),
-  `intro` (a abertura animada do Hub) e `onboarding` (a apresentação de
-  boas-vindas). Cada uma decide num ponto só — `AppSettings.activeTheme`,
-  `HubIntroViewModel.build` e `OnboardingViewModel.build` —, e as duas de
-  primeira vez não gravam o "já vi" quando desligadas: religar apresenta quem
-  nunca foi apresentado, em vez de ter consumido a vez dele calado.
-- **O app tem dois temas escuros — `evergreen` e `apple` — e widget nenhum sabe
-  qual está em vigor.** Todo valor visual vem do tema pelo contexto
-  (`context.eg.colors.accent`, `context.eg.text.body`,
-  `context.eg.shapes.radiusCard`); os literais existem só em
-  `lib/core/design/themes/`. Papel que falta nasce nos **dois** temas ao mesmo
-  tempo — todo campo dos tokens é `required`, então é o compilador que cobra.
-  Um `if` por tema dentro de um widget é um token faltando; a única bandeira que
-  se lê é `usesVibrancy`, e só quem desenha painel a lê. Ler `THEMING.md` antes
-  de acrescentar token ou tema.
+  Hoje existem duas, as duas em `false`: `intro` (a abertura animada do Hub) e
+  `onboarding` (a apresentação de boas-vindas). Cada uma decide num ponto só —
+  `HubIntroViewModel.build` e `OnboardingViewModel.build` —, e nenhuma grava o
+  "já vi" quando desligada: religar apresenta quem nunca foi apresentado, em vez
+  de ter consumido a vez dele calado. Houve uma terceira, `themes`, e ela saiu
+  junto com o tema `apple`: uma bandeira existe para desligar algo pronto, e o
+  que ela desligava deixou de existir.
+- **O app é dark-only e tem uma pele só, a "Estufa" — e widget nenhum guarda um
+  valor visual.** Tudo vem do tema pelo contexto (`context.eg.colors.accent`,
+  `context.eg.text.body`, `context.eg.shapes.radiusCard`); os literais existem
+  só em `lib/core/design/themes/evergreen_tokens.dart`. Todo campo dos tokens é
+  `required`, então é o compilador que cobra o papel que falta. Houve um segundo
+  tema, o `apple`, e ele saiu: a escolha de aparência estava desligada por
+  bandeira desde que nasceu, e o segundo arquivo dobrava o custo de cada papel
+  novo. Se voltar, volta como um `EgPalette` completo — nunca como `if`s
+  espalhados.
+- **O canto é contínuo acima de 14** (`EgSquircle.shape`): o macOS não arredonda
+  com arco de círculo, e era daí que vinha o "tudo muito quadrado". Superfície
+  interativa desenha com `ShapeDecoration`, não `BoxDecoration`. Abaixo do
+  limiar o arco fica, por ser mais barato.
+- **A janela do Hub é fixa em 980×680 e não redimensiona.** O conteúdo é uma
+  grade de duas colunas de cartões, e cada largura intermediária entre uma e
+  duas colunas é um arranjo que ninguém desenhou. Tirar `.resizable` não impede
+  a região de leitura de crescer a janela pelo `setFrame`.
 - Espaçamento, tamanho de ícone e **durações** seguem estáticos em
   `app_metrics.dart`, e isso é decisão: o ritmo é do produto, não da pele — um
   app que fica mais lento ao trocar de aparência estaria mentindo sobre o que a
   troca faz. Do movimento, só a curva é do tema.
 - `copyWith` em estilo de texto vale só para cor; peso e tamanho são degraus da
-  escala, e degrau que falta entra na `EgTypeScale` dos dois temas com nome.
+  escala, e degrau que falta entra na `EgTypeScale` com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
 - **A marca do Evergreen é um desenho só**, o canivete de
@@ -162,15 +181,24 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - **Tela de preferência tem ordem fixa de tópicos**: o que aconteceu (a lista do
   módulo) → o que ele faz (interruptores no topo de cada tópico, depois
   seletores, campos de texto por último) → limites e ações destrutivas → atalho
-  global → permissões. A pilha é a `EgSettingsPage`, que é quem dá o vão entre
-  tópicos; a seção não guarda espaço embaixo de si. Campo de texto usa
+  global → permissões. A grade é a `EgSettingsPage` (duas colunas acima de 600
+  pt de conteúdo, um cartão sozinho ocupa a largura toda, e o `banner`
+  atravessa as duas); o cartão é o `EgSettingsCard`, que dá o respiro e desenha
+  os divisores — a linha não decide sozinha se tem divisor embaixo. O
+  interruptor mestre **não** é a primeira seção: ele vive no `EgScreenHeader`,
+  como pílula ao lado do título. Módulo com mais de um assunto ganha abas no
+  mesmo cabeçalho (Pin, Focus, Echo, Nest); módulo de um assunto só não ganha,
+  porque uma aba sozinha é a promessa de que existe outra. Campo de texto usa
   `EgSettingsRow.field`, nunca um rótulo com um campo solto embaixo. O detalhe
   de cada regra está em `components.md` da skill de design.
 - Estado de elemento interativo (hover, pressed, foco, selecionado, desabilitado)
   vem da matriz `EgSurfaceStyle` (`eg_surface.dart`), via `EgInteractiveSurface`
-  ou `EgSurface` — nunca de uma cadeia de `if`s dentro do widget. Selecionado é
-  fundo accent a 14% **mais** a aresta de 3px à esquerda (`selectedEdge`), a
-  mesma em linha de lista, item de sidebar e cartão do Leaf. Um componente
+  ou `EgSurface` — nunca de uma cadeia de `if`s dentro do widget. **Selecionado
+  é elevação e peso, nunca cor**: a superfície `raised` mais a linha de luz de
+  1px no topo (`innerHairline`) e o texto em `bodyStrong`, a mesma em linha de
+  lista, item de sidebar e cartão do Leaf. Era accent a 14% mais uma aresta
+  verde de 3px, e trocar a cor pela luz é o que devolveu ao verde os dois
+  papéis que sobraram para ele: **ligado, ou ação primária**. Um componente
   com combinação própria compõe uma `EgSurfaceStyle` a partir dos tokens; a
   ordem de precedência é a mesma para todo mundo. A folha visual de todos os
   estados é o golden `test/goldens/design_state_matrix.png`.

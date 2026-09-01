@@ -106,4 +106,5 @@ void main() {
       expect(MeetingTurn.from(const []), isEmpty);
     });
   });
+
 }

@@ -103,58 +103,66 @@ class _DestinationRowState extends State<_DestinationRow> {
 
   @override
   Widget build(BuildContext context) {
+    final eg = context.eg;
+
+    // Uma linha, e não um bloco de três: o campo de nome ocupava a largura
+    // toda e o caminho ia para uma segunda linha embaixo dele, o que fazia
+    // cada destino ter a altura de um cartão. Numa lista que chega a nove
+    // pastas, isso é a tela inteira para dizer nove nomes.
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      decoration: BoxDecoration(border: context.eg.borderBottom),
+      height: _rowHeight,
+      decoration: BoxDecoration(border: Border(bottom: eg.hairline)),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: _numberColumn,
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: Text(
-                '⌘${widget.number}',
-                style: context.eg.text.monoSmall.copyWith(
-                  color: context.eg.colors.textTertiary,
-                ),
-              ),
+            child: Text(
+              '⌘${widget.number}',
+              style: eg.text.keycap.copyWith(color: eg.colors.textQuaternary),
             ),
           ),
+          // O apelido é editável no lugar, sem moldura: até receber o cursor
+          // ele se lê como o nome da pasta, que é o que ele é. Uma caixa de
+          // campo permanente diria "isto é um formulário" para uma lista que
+          // é, na maior parte do tempo, só de leitura.
+          SizedBox(
+            width: _aliasColumn,
+            child: EgTextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              hintText: widget.destination.label,
+              bare: true,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                EgTextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  hintText: widget.destination.label,
-                  onSubmitted: widget.onRename,
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  widget.destination.path,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: false,
-                  style: context.eg.text.captionXS.copyWith(
-                    color: context.eg.colors.textTertiary,
-                  ),
-                ),
-              ],
+            child: Text(
+              widget.destination.path,
+              maxLines: 1,
+              // No meio, e não no fim: o fim de um caminho é o nome da pasta,
+              // que é justamente a parte que identifica o destino.
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: eg.text.footnote.copyWith(color: eg.colors.textQuaternary),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xxs),
-            child: EgIconButton(
-              icon: EgIconData.close,
-              tooltip: 'Remover ${widget.destination.label} da lista',
-              onPressed: widget.onRemove,
-            ),
+          EgIconButton(
+            icon: EgIconData.close,
+            tooltip: 'Remover ${widget.destination.alias}',
+            size: 24,
+            iconSize: AppIconSizes.sm,
+            onPressed: widget.onRemove,
           ),
         ],
       ),
     );
   }
+
+  /// A altura de uma linha de destino.
+  static const _rowHeight = 40.0;
+
+  /// A largura do apelido. Fixa para os nomes alinharem entre si — em largura
+  /// livre, cada linha começaria o caminho num lugar diferente.
+  static const _aliasColumn = 180.0;
 }

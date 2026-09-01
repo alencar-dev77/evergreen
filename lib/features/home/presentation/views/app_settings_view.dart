@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
-import '../../../../core/app_info.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/storage/backup_service.dart';
 import '../../../../core/system/global_shortcut_slot.dart';
@@ -12,12 +11,14 @@ import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
+import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_shortcut_grid.dart';
+import '../../models/evergreen_module.dart';
 import '../viewmodels/app_settings_view_model.dart';
-import '../../../../shared/feature_flags.dart';
+import '../viewmodels/module_settings_view_model.dart';
 import '../widgets/global_shortcut_section.dart';
-import '../widgets/theme_picker.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../widgets/backup_list.dart';
 import '../../../../core/design/eg_tokens.dart';
@@ -80,33 +81,26 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
     // a perguntar, e depois é só mais um campo que se pode corrigir.
     final hasName = settings.userName.isNotEmpty;
 
+    // **Uma coluna.** Esta é a única tela do app que continua sendo um
+    // formulário, e ela assume isso: em duas colunas, "Sistema" e "Seus dados"
+    // ficariam lado a lado como se fossem alternativas, quando na verdade se
+    // leem em ordem.
     return EgSettingsPage(
+      singleColumn: true,
+      footer: const _AboutLine(),
       children: [
         if (!hasName)
-          EgSettingsSection(
+          EgSettingsCard(
             title: 'Como você se chama',
             children: [_nameField(autofocus: true)],
           ),
-        EgSettingsSection(
-          title: 'Geral',
+        EgSettingsCard(
+          title: 'Sistema',
           children: [
             if (hasName) _nameField(autofocus: false),
-            // A aparência abre o tópico depois do nome: é a única preferência
-            // que muda o app inteiro, e a única que se responde olhando em vez
-            // de lendo. Atrás de bandeira: desligada, a linha **some** em vez de
-            // ficar apagada — controle desabilitado diz "existe, mas não para
-            // você", e aqui não há escolha nenhuma a mencionar.
-            if (FeatureFlags.themes)
-              EgSettingsRow(
-                label: 'Aparência',
-                description:
-                    'O Evergreen é a paleta da casa. O Apple segue o escuro '
-                    'do macOS: mais denso, com vidro.',
-                trailing: ThemePicker(
-                  value: settings.theme,
-                  onChanged: viewModel.setTheme,
-                ),
-              ),
+            // As duas da partida ficam juntas, nesta ordem: uma decide **se** o
+            // Evergreen sobe, a outra decide **como** ele sobe. Separadas pelo
+            // atalho, a segunda parecia responder a outra pergunta.
             EgSettingsRow.toggle(
               label: 'Iniciar com o macOS',
               description: 'O Evergreen sobe junto com o sistema.',
@@ -118,17 +112,22 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
               description: 'Fica só na barra de menus, sem abrir janelas.',
               value: settings.startMinimized,
               onChanged: viewModel.setStartMinimized,
-              showDivider: false,
+            ),
+            // O atalho do Hub mora aqui dentro, e não numa seção própria: uma
+            // seção inteira para uma pergunta é o que fazia esta tela ter mais
+            // títulos do que respostas.
+            const GlobalShortcutSection(
+              slot: GlobalShortcutSlot.hub,
+              bare: true,
             ),
           ],
         ),
+        const _ShortcutMapCard(),
         _BackupSection(
           isAutomatic: settings.automaticBackup,
           onAutomaticChanged: viewModel.setAutomaticBackup,
         ),
         const _RestoreSection(),
-        const GlobalShortcutSection(slot: GlobalShortcutSlot.hub),
-        const EgSettingsSection(title: 'Sobre', children: [_AboutLine()]),
       ],
     );
   }
@@ -144,7 +143,6 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           ? 'O resumo da reunião e o parágrafo do dia passam a chamar você '
                 'pelo nome. Fica nesta máquina, e dá para deixar em branco.'
           : 'Como o resumo e a transcrição chamam você.',
-      showDivider: !autofocus,
       field: EgTextField(
         controller: _name,
         focusNode: _nameFocus,
@@ -175,7 +173,7 @@ class _BackupSection extends ConsumerWidget {
     // costura não dá para verificar "há 8 dias" sem esperar oito dias.
     final now = ref.watch(clockProvider)();
 
-    return EgSettingsSection(
+    return EgSettingsCard(
       title: 'Backup',
       children: [
         EgSettingsRow.toggle(
@@ -202,7 +200,6 @@ class _BackupSection extends ConsumerWidget {
           // O caminho na tela porque a pergunta "onde isso foi parar" não pode
           // depender de abrir o Finder para descobrir.
           description: state.directoryLabel,
-          showDivider: false,
           trailing: EgButton.secondary(
             label: 'Mostrar no Finder',
             onPressed: () => unawaited(viewModel.reveal()),
@@ -222,7 +219,7 @@ class _RestoreSection extends ConsumerWidget {
     final state = ref.watch(backupViewModelProvider);
     final viewModel = ref.read(backupViewModelProvider.notifier);
 
-    return EgSettingsSection(
+    return EgSettingsCard(
       title: 'Restaurar',
       children: [
         if (state.isEmpty)
@@ -231,7 +228,7 @@ class _RestoreSection extends ConsumerWidget {
             child: Text(
               'A pasta está vazia. Um arquivo .db posto nela também aparece '
               'aqui: é assim que se traz o de outra máquina.',
-              style: context.eg.text.captionSmall,
+              style: context.eg.text.caption,
             ),
           )
         else ...[
@@ -247,7 +244,6 @@ class _RestoreSection extends ConsumerWidget {
             description:
                 'Troca tudo pelo conteúdo do backup. O estado de agora vira '
                 'a cópia "antes de restaurar".',
-            showDivider: false,
             trailing: EgButton.secondary(
               label: 'Restaurar',
               // Sem nada escolhido não há o que restaurar: o botão fica
@@ -262,7 +258,7 @@ class _RestoreSection extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           Text(
             state.message!,
-            style: context.eg.text.captionSmall.copyWith(
+            style: context.eg.text.caption.copyWith(
               color: context.eg.colors.textSecondary,
             ),
           ),
@@ -300,11 +296,62 @@ class _AboutLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xxs),
-      child: Text(
-        'Evergreen ${AppInfo.versionLabel}\n'
-        'Todos os dados ficam nesta máquina. Nada é enviado para a internet.',
-        style: context.eg.text.captionSmall,
+      // A versão saiu daqui: ela subiu para o cabeçalho da tela, e dizer o
+      // mesmo número duas vezes na mesma janela não confirma nada — só ocupa
+      // a linha em que caberia a promessa da casa.
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'nada sai deste Mac · sem conta · sem sync',
+              style: context.eg.text.monoSmall.copyWith(
+                color: context.eg.colors.textQuaternary,
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/// Todas as teclas do app num lugar só.
+///
+/// A barra lateral já mostra a de cada módulo, mas uma por linha, espalhada
+/// pela altura da janela — para responder "qual era mesmo o do Nest?" é
+/// preciso varrer sete linhas em três grupos. Aqui elas se leem de uma vez.
+///
+/// Módulo desligado continua na grade, apagado: some daqui seria esconder que
+/// a tecla dele **segue reservada**, e a pessoa tentaria usá-la noutro módulo
+/// só para ouvir que o atalho já é de alguém.
+class _ShortcutMapCard extends ConsumerWidget {
+  const _ShortcutMapCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(moduleSettingsViewModelProvider);
+
+    return EgSettingsCard(
+      title: 'Todos os atalhos num lugar',
+      children: [
+        EgShortcutGrid(
+          entries: [
+            for (final module in EvergreenModule.values)
+              if (module.shortcutSlot case final slot?)
+                EgShortcutEntry(
+                  icon: module.icon,
+                  label: module.name,
+                  keys: settings.bindingFor(slot).caps,
+                  isMuted: !settings.isEnabled(module),
+                ),
+            EgShortcutEntry(
+              icon: EgIconData.evergreen,
+              label: 'Aplicativo',
+              keys: settings.bindingFor(GlobalShortcutSlot.hub).caps,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

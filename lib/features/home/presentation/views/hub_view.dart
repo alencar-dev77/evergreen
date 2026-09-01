@@ -18,6 +18,7 @@ import '../../../nest/presentation/views/nest_settings_view.dart';
 import '../../../pin/presentation/views/pin_settings_view.dart';
 import '../../../track/presentation/views/track_view.dart';
 import '../../../track/presentation/widgets/track_reader.dart';
+import '../../../../core/window/hub_destination.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/hub_detail_view_model.dart';
 import '../viewmodels/app_settings_view_model.dart';
@@ -30,6 +31,9 @@ import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import '../widgets/module_switch.dart';
+import '../../../../core/app_info.dart';
+import '../../../../shared/widgets/eg_pill.dart';
+import '../../../../shared/widgets/eg_screen_header.dart';
 import 'app_settings_view.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -56,6 +60,28 @@ class _HubViewState extends ConsumerState<HubView> {
   /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
   EvergreenModule? _selected = EvergreenModule.pin;
 
+  /// A aba aberta de cada módulo, guardada por módulo.
+  ///
+  /// Por módulo, e não uma só para o Hub: quem estava no histórico do Focus,
+  /// foi ver um ajuste do Pin e voltou, quer o histórico de novo. Uma aba
+  /// única faria cada ida ao vizinho apagar onde a pessoa estava.
+  ///
+  /// No estado da tela, e não numa preferência: onde se estava é memória da
+  /// sessão, não uma escolha a guardar no disco — reabrir o Hub amanhã na aba
+  /// "Gerador" seria o app lembrando de algo que ninguém pediu para lembrar.
+  final Map<EvergreenModule, String> _tabs = {};
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Quem abriu o Hub pode ter pedido um lugar dentro dele. O aviso pelo canal
+    // é para quando ele já estava de pé; esta leitura é para quando ele acabou
+    // de nascer, que é o caso de quem fecha uma reunião e vai ver a gravação.
+    unawaited(HubDestination.listen(_goToRequested));
+    unawaited(_goToRequested());
+  }
+
   /// O que acontece quando a abertura animada termina.
   ///
   /// Além de carimbar a build, ela decide onde o Hub cai: no Pin, como sempre,
@@ -72,6 +98,22 @@ class _HubViewState extends ConsumerState<HubView> {
 
     if (ref.read(appSettingsViewModelProvider).userName.isNotEmpty) return;
     setState(() => _selected = null);
+  }
+
+  /// Vai para onde quem abriu o Hub pediu — se alguém pediu.
+  ///
+  /// Roda ao nascer (o Hub estava fechado) e a cada aviso pelo canal (o Hub
+  /// estava aberto, escondido atrás de tudo). Ver [HubDestination].
+  Future<void> _goToRequested() async {
+    final moduleId = await HubDestination.take();
+    if (moduleId == null || !mounted) return;
+
+    final module = EvergreenModule.values
+        .where((candidate) => candidate.id == moduleId)
+        .firstOrNull;
+    if (module == null) return;
+
+    _select(module);
   }
 
   void _select(EvergreenModule? module) {
@@ -119,7 +161,7 @@ class _HubViewState extends ConsumerState<HubView> {
     });
 
     return Scaffold(
-      backgroundColor: context.eg.colors.background,
+      backgroundColor: context.eg.colors.canvas,
       // A abertura fica por cima, e não no lugar do Hub: a tela de baixo monta
       // e resolve o que tem para resolver enquanto a marca está na frente, de
       // modo que a cena não some para revelar um Hub ainda em branco.
@@ -248,40 +290,75 @@ class _HubViewState extends ConsumerState<HubView> {
     _ => const SizedBox.shrink(),
   };
 
+  /// O cabeçalho fica **fora** do scroll, e o conteúdo rola por baixo dele.
+  ///
+  /// É o que faz o nome do módulo e o interruptor mestre continuarem à vista
+  /// numa tela longa: sem isso, rolar até o fim das preferências do Echo tira
+  /// da tela a única coisa que diz de qual módulo elas são.
   Widget _detail() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.huge,
-        AppSpacing.huge,
-        AppSpacing.huge,
-        AppSpacing.giant,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _header(),
-          const SizedBox(height: AppSpacing.xxxl),
-          _content(),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _header(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.huge - AppSpacing.xxs,
+              AppSpacing.xxl,
+              AppSpacing.huge - AppSpacing.xxs,
+              AppSpacing.giant,
+            ),
+            child: _content(),
+          ),
+        ),
+      ],
     );
   }
 
-  /// Cabeçalho de painel, não hero: título no maior estilo do app (17px) com a
-  /// tagline logo abaixo, colada nele — os dois são um bloco só.
+  /// O cabeçalho da tela: o nome do módulo no maior tipo do app, o interruptor
+  /// mestre como pílula e a tecla que abre o painel.
+  ///
+  /// O interruptor **saiu da lista de seções**. Ele é igual nos sete módulos e
+  /// não é um ajuste como os outros — é a chave que decide se os outros valem
+  /// alguma coisa; como primeira seção, ele empurrava o assunto de cada tela
+  /// para baixo da dobra.
   Widget _header() {
     final module = _selected;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(module?.name ?? 'Evergreen', style: context.eg.text.screenTitle),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          module?.tagline ?? 'Preferências do aplicativo',
-          style: context.eg.text.caption,
+    if (module == null) {
+      return EgScreenHeader(
+        title: 'Aplicativo',
+        subtitle: Text(
+          'Evergreen ${AppInfo.versionLabel} · '
+          '${EvergreenModule.values.length} módulos',
         ),
-      ],
+      );
+    }
+
+    final settings = ref.watch(moduleSettingsViewModelProvider);
+    final slot = module.shortcutSlot;
+    final hasSwitch = module != EvergreenModule.track;
+
+    return EgScreenHeader(
+      title: module.name,
+      subtitle: Text(module.description),
+      isEnabled: hasSwitch ? settings.isEnabled(module) : null,
+      onEnabledChanged: (value) => ref
+          .read(moduleSettingsViewModelProvider.notifier)
+          .setEnabled(module, enabled: value),
+      // O Track não liga nem desliga: ele se apaga quando os módulos que o
+      // alimentam se apagam. No lugar do interruptor, o que ele tem a dizer.
+      badge: hasSwitch
+          ? null
+          : const EgPill(
+              label: 'nada é gravado aqui',
+              tone: EgPillTone.tide,
+              showDot: false,
+            ),
+      shortcut: slot == null ? null : settings.bindingFor(slot).caps,
+      tabs: _tabsFor(module),
+      selectedTab: _tabOf(module),
+      onTabSelected: (tab) => setState(() => _tabs[module] = tab),
     );
   }
 
@@ -294,28 +371,65 @@ class _HubViewState extends ConsumerState<HubView> {
         .watch(moduleSettingsViewModelProvider)
         .isEnabled(module);
 
-    // O interruptor mestre é montado aqui, e não dentro de cada tela: ele é
-    // igual nos sete módulos, e o dia em que entrar um oitavo ele já vem com
-    // interruptor sem ninguém lembrar. O vão é o mesmo que a `EgSettingsPage`
-    // dá entre tópicos — a tela abaixo começa como se ele fosse o primeiro
-    // tópico dela, porque é o que ele é.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ModuleSwitchSection(module: module),
-        const SizedBox(height: AppSpacing.giant),
-        ModuleGate(enabled: isEnabled, child: _settingsFor(module)),
-      ],
-    );
+
+    // O interruptor mestre não está mais aqui: ele vive no cabeçalho, fora do
+    // scroll. O que fica é o portão, que apaga a tela do módulo desligado sem
+    // que ela precise saber disso.
+    return ModuleGate(enabled: isEnabled, child: _settingsFor(module));
   }
 
-  Widget _settingsFor(EvergreenModule module) => switch (module) {
-    EvergreenModule.pin => const PinSettingsView(),
-    EvergreenModule.focus => const FocusSettingsView(),
-    EvergreenModule.leaf => const LeafSettingsView(),
-    EvergreenModule.awake => const AwakeSettingsView(),
-    EvergreenModule.echo => const EchoSettingsView(),
-    EvergreenModule.nest => const NestSettingsView(),
-    EvergreenModule.track => const TrackView(),
+  /// As abas de cada módulo, e a ordem delas.
+  ///
+  /// **Vazio quer dizer "sem abas", e é o caso de quem tem um assunto só.**
+  /// Uma aba sozinha é a promessa de que existe outra: ela ocupa a linha, pede
+  /// um clique que não leva a lugar nenhum e ensina que ali há mais do que há.
+  ///
+  /// **"Ajustes" é sempre a primeira, e é onde a tela abre.**
+  ///
+  /// Ela é a única aba que todo módulo tem, e por isso é a única que pode ter
+  /// lugar fixo: mudando de posição entre um módulo e o vizinho, o olho teria
+  /// de reencontrá-la a cada troca de tela. E é a que se procura — as outras
+  /// são conteúdo, em que se cai.
+  ///
+  /// **Módulo que só tem ajustes mostra a aba mesmo assim.** Sem ela, o Awake
+  /// e o Leaf tinham ajustes que não estavam "na aba de ajustes", e o
+  /// cabeçalho mudava de altura de um módulo para o outro. A consistência do
+  /// topo entre as sete telas vale mais que a regra de não mostrar uma aba
+  /// sozinha.
+  ///
+  /// O custo, dito para não se perder: quem abre o Echo cai nos ajustes, não
+  /// na reunião de ontem. Trocar de ideia é reordenar esta lista.
+  static List<String> _tabsFor(EvergreenModule module) => switch (module) {
+    EvergreenModule.pin => const ['Ajustes', 'Tipos', 'Gerador'],
+    EvergreenModule.focus => const ['Ajustes', 'Histórico'],
+    EvergreenModule.echo => const ['Ajustes', 'Reuniões'],
+    EvergreenModule.nest => const ['Ajustes', 'Destinos'],
+    EvergreenModule.leaf => const ['Ajustes'],
+    EvergreenModule.awake => const ['Ajustes'],
+    // O Track não tem ajuste nenhum: ele é leitura do que os outros gravaram.
+    EvergreenModule.track => const [],
   };
+
+  /// A aba aberta do módulo — a primeira, enquanto ninguém tiver escolhido.
+  String? _tabOf(EvergreenModule module) {
+    final tabs = _tabsFor(module);
+    if (tabs.isEmpty) return null;
+
+    final chosen = _tabs[module];
+    return chosen != null && tabs.contains(chosen) ? chosen : tabs.first;
+  }
+
+  Widget _settingsFor(EvergreenModule module) {
+    final tab = _tabOf(module);
+
+    return switch (module) {
+      EvergreenModule.pin => PinSettingsView(tab: tab),
+      EvergreenModule.focus => FocusSettingsView(tab: tab),
+      EvergreenModule.leaf => const LeafSettingsView(),
+      EvergreenModule.awake => const AwakeSettingsView(),
+      EvergreenModule.echo => EchoSettingsView(tab: tab),
+      EvergreenModule.nest => NestSettingsView(tab: tab),
+      EvergreenModule.track => const TrackView(),
+    };
+  }
 }

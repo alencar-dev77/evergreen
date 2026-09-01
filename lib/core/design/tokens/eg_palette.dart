@@ -1,132 +1,150 @@
 import 'package:flutter/widgets.dart';
 
-/// As cores de um tema.
+/// Os papéis de cor do Evergreen.
 ///
-/// **Todos os campos são obrigatórios**, e é essa a regra que sustenta o
-/// sistema: um tema novo não compila enquanto não responder a cada papel. Sem
-/// isso, "tema faltando um token" seria um bug de tempo de execução, descoberto
-/// numa tela que ninguém abriu essa semana.
+/// Um papel não é uma cor: é **o que aquela cor significa**. `raised` não é
+/// "cinza um pouco mais claro", é "esta superfície está acima da que está
+/// atrás dela" — e é por isso que o mesmo valor pode servir a uma linha
+/// selecionada e a uma faixa de estado sem que nenhuma das duas saiba da
+/// outra.
 ///
-/// Os nomes são **papéis**, nunca cores: `accent`, e não `green`. O tema Apple
-/// também é verde, mas por coincidência — o dia em que um tema for azul, nada
-/// aqui precisa ser renomeado.
+/// A regra que sustenta a lista: **os degraus de neutro têm de se ver**. A
+/// paleta anterior amontoava cinco papéis entre `#0B` e `#2E`, e o olho não
+/// separava fundo de cartão. Aqui vizinhos guardam pelo menos cinco pontos de
+/// luminância entre si.
+///
+/// A outra regra é sobre o verde: **`accent` tem dois papéis e só dois** —
+/// ligado e ação primária. Seleção, foco e rótulo selecionado deixaram de ser
+/// verdes de propósito; quando tudo se destaca, nada se destaca.
 @immutable
 class EgPalette {
   const EgPalette({
-    required this.background,
-    required this.backgroundTop,
-    required this.backgroundDeep,
+    required this.canvas,
+    required this.canvasDeep,
     required this.surface,
     required this.surfaceTop,
-    required this.surfaceFloating,
-    required this.sidebar,
-    required this.card,
-    required this.cardTop,
+    required this.raised,
     required this.control,
     required this.hover,
     required this.pressed,
-    required this.border,
-    required this.borderHighlight,
+    required this.line,
+    required this.edge,
+    required this.edgeLight,
+    required this.sidebarTint,
+    required this.glassPanel,
+    required this.glassRow,
+    required this.glassControl,
     required this.accent,
     required this.accentLight,
     required this.accentDeep,
-    required this.accentShade,
-    required this.accentGradient,
+    required this.accentHover,
+    required this.accentPressed,
     required this.onAccent,
-    required this.selection,
-    required this.selectionGradient,
-    required this.selectionLabel,
+    required this.ember,
+    required this.tide,
     required this.focusRing,
     required this.textPrimary,
     required this.textSecondary,
     required this.textTertiary,
     required this.textQuaternary,
+    required this.textDisabled,
     required this.textSelection,
     required this.error,
     required this.warning,
     required this.shadow,
     required this.shadowContact,
     required this.scrim,
-    required this.systemBlue,
-    required this.systemIndigo,
-    required this.systemTeal,
-    required this.systemGray,
   });
 
-  /// O fundo da janela, e o topo/base do gradiente sutil sobre ele.
-  final Color background;
-  final Color backgroundTop;
-  final Color backgroundDeep;
+  /// O topo do degradê da janela — o "chão" de tudo que não é superfície.
+  final Color canvas;
 
-  /// A superfície de um painel assentado, e o topo do gradiente dela.
+  /// A base do mesmo degradê. Sozinha, é o fundo mais fundo do app.
+  final Color canvasDeep;
+
+  /// Cartão de seção: a superfície que carrega conteúdo dentro do canvas.
   final Color surface;
+
+  /// O topo do degradê de uma superfície destacada (o bloco-instrumento).
   final Color surfaceTop;
 
-  /// A superfície de um painel **flutuante** — o material do overlay.
-  ///
-  /// Separada da [surface] porque é ela que carrega a translucidez: no tema
-  /// Apple ela é semitransparente e depende do blur atrás; no Evergreen é a
-  /// mesma cor opaca da superfície assentada.
-  final Color surfaceFloating;
+  /// **Acima** da superfície: linha selecionada, faixa de estado, hover de
+  /// pílula. É o papel que substituiu o verde a 14% da seleção antiga.
+  final Color raised;
 
-  /// A superfície da barra lateral do Hub.
-  ///
-  /// Translúcida nos dois temas, por motivos diferentes: no Evergreen é o
-  /// brilho verde do fundo que atravessa de leve e costura a sidebar com a área
-  /// de conteúdo; no Apple é o que o sistema faz com toda sidebar, só que sem o
-  /// custo de um blur permanente — um sólido com alfa sobre o fundo da janela.
-  final Color sidebar;
-
-  /// Cartão e campo — o degrau acima da superfície.
-  final Color card;
-  final Color cardTop;
-
-  /// O fundo de um controle em repouso (botão secundário, pílula, trilho).
+  /// Botão secundário, campo, keycap — o material de um controle em repouso.
   final Color control;
 
+  /// Hover de controle.
   final Color hover;
+
+  /// Pressionado. **Mais escuro que o repouso, não mais claro**: um controle
+  /// que clareia ao ser apertado parece acender; um que escurece parece
+  /// afundar, que é o que o dedo acabou de fazer com ele.
   final Color pressed;
 
-  /// A linha que separa. A **espessura** é do `EgShapes`, não daqui: no macOS
-  /// ela tem meio pixel, e meio pixel é geometria.
-  final Color border;
+  /// Divisor visível — o que separa duas linhas dentro do mesmo cartão.
+  final Color line;
 
-  /// O fio de luz no topo de uma superfície flutuante.
-  final Color borderHighlight;
+  /// A borda de um cartão: branco a 7%, não um cinza opaco. Sobre qualquer
+  /// superfície da escala ela lê como aresta iluminada, e não como moldura.
+  final Color edge;
 
-  /// A cor da ação e da seleção, e os três degraus dela.
-  final Color accent;
-  final Color accentLight;
-  final Color accentDeep;
-  final Color accentShade;
+  /// A hairline interna de luz, no topo de um painel ou de uma pílula. É o
+  /// que faz uma superfície parecer feita de material em vez de desenhada.
+  final Color edgeLight;
 
-  /// O accent em degradê, quando o tema o usa em superfície preenchida.
+  /// O véu da barra lateral: branco a 2,6% sobre o canvas.
   ///
-  /// `null` diz "cor sólida" — não é ausência de valor, é a resposta do
-  /// Evergreen, cuja linguagem não tem botão com degradê.
-  final List<Color>? accentGradient;
+  /// Chapado, e não vidro, por custo: a barra lateral fica na tela o tempo
+  /// todo, e um `BackdropFilter` permanente recompõe tudo atrás dela a cada
+  /// quadro. Visualmente paga o mesmo papel.
+  final Color sidebarTint;
 
-  /// O texto que fica **em cima** do accent.
+  /// O vidro do painel flutuante — translúcido, para o blur atravessar.
+  final Color glassPanel;
+
+  /// Linha selecionada **dentro do vidro**. Sobre translucidez a escala de
+  /// neutros não vale: o que está atrás muda a leitura de qualquer cinza
+  /// opaco, então ali a seleção é branco com alfa.
+  final Color glassRow;
+
+  /// Controle dentro do vidro, pela mesma razão de [glassRow].
+  final Color glassControl;
+
+  /// O verde da casa. **Ligado, ou ação primária. Mais nada.**
+  final Color accent;
+
+  /// O verde claro de rótulo e glifo sobre fundo escuro — nunca de fundo.
+  final Color accentLight;
+
+  final Color accentDeep;
+  final Color accentHover;
+  final Color accentPressed;
+
+  /// A tinta que se escreve sobre [accent], [ember] e [tide].
   final Color onAccent;
 
-  /// O fundo de uma linha selecionada, e o degradê que o substitui quando o
-  /// tema pinta seleção sólida (o padrão do `NSTableView`).
-  final Color selection;
-  final List<Color>? selectionGradient;
+  /// Tempo de reunião, trabalho em curso, "está processando".
+  ///
+  /// Existe para que um segundo significado quantitativo não precise pedir o
+  /// verde emprestado — era o que fazia a semana do Track ser verde inteira e
+  /// não dizer nada.
+  final Color ember;
 
-  /// O texto de uma linha selecionada.
-  final Color selectionLabel;
+  /// Arquivo e sistema: informação neutra que ainda assim precisa de cor.
+  final Color tide;
 
+  /// O anel de foco — **branco**, não verde. Foco não é estado do produto, é
+  /// onde o teclado está; pintá-lo de accent gastava a única cor que o app
+  /// tem para dizer "ligado".
   final Color focusRing;
 
   final Color textPrimary;
   final Color textSecondary;
   final Color textTertiary;
-
-  /// O texto mais apagado da interface — o que está desabilitado.
   final Color textQuaternary;
-
-  /// O fundo do texto selecionado dentro de um campo.
+  final Color textDisabled;
   final Color textSelection;
 
   final Color error;
@@ -134,61 +152,43 @@ class EgPalette {
 
   final Color shadow;
   final Color shadowContact;
-
-  /// O véu por trás de um diálogo.
   final Color scrim;
 
-  /// As cores de sistema do macOS, para quando um significado pede uma cor que
-  /// não é o accent. Existem nos dois temas: o Evergreen responde com o
-  /// equivalente mais próximo da paleta dele.
-  final Color systemBlue;
-  final Color systemIndigo;
-  final Color systemTeal;
-  final Color systemGray;
-
-  /// Interpola duas paletas, cor a cor.
-  ///
-  /// É o que faz a troca de tema atravessar como um cross-fade em vez de piscar
-  /// de um lado para o outro. Os degradês são a exceção: um `null` no meio do
-  /// caminho não tem como virar meia lista, então eles trocam na metade.
   static EgPalette lerp(EgPalette a, EgPalette b, double t) => EgPalette(
-    background: Color.lerp(a.background, b.background, t)!,
-    backgroundTop: Color.lerp(a.backgroundTop, b.backgroundTop, t)!,
-    backgroundDeep: Color.lerp(a.backgroundDeep, b.backgroundDeep, t)!,
+    canvas: Color.lerp(a.canvas, b.canvas, t)!,
+    canvasDeep: Color.lerp(a.canvasDeep, b.canvasDeep, t)!,
     surface: Color.lerp(a.surface, b.surface, t)!,
     surfaceTop: Color.lerp(a.surfaceTop, b.surfaceTop, t)!,
-    surfaceFloating: Color.lerp(a.surfaceFloating, b.surfaceFloating, t)!,
-    sidebar: Color.lerp(a.sidebar, b.sidebar, t)!,
-    card: Color.lerp(a.card, b.card, t)!,
-    cardTop: Color.lerp(a.cardTop, b.cardTop, t)!,
+    raised: Color.lerp(a.raised, b.raised, t)!,
     control: Color.lerp(a.control, b.control, t)!,
     hover: Color.lerp(a.hover, b.hover, t)!,
     pressed: Color.lerp(a.pressed, b.pressed, t)!,
-    border: Color.lerp(a.border, b.border, t)!,
-    borderHighlight: Color.lerp(a.borderHighlight, b.borderHighlight, t)!,
+    line: Color.lerp(a.line, b.line, t)!,
+    edge: Color.lerp(a.edge, b.edge, t)!,
+    edgeLight: Color.lerp(a.edgeLight, b.edgeLight, t)!,
+    sidebarTint: Color.lerp(a.sidebarTint, b.sidebarTint, t)!,
+    glassPanel: Color.lerp(a.glassPanel, b.glassPanel, t)!,
+    glassRow: Color.lerp(a.glassRow, b.glassRow, t)!,
+    glassControl: Color.lerp(a.glassControl, b.glassControl, t)!,
     accent: Color.lerp(a.accent, b.accent, t)!,
     accentLight: Color.lerp(a.accentLight, b.accentLight, t)!,
     accentDeep: Color.lerp(a.accentDeep, b.accentDeep, t)!,
-    accentShade: Color.lerp(a.accentShade, b.accentShade, t)!,
-    accentGradient: t < 0.5 ? a.accentGradient : b.accentGradient,
+    accentHover: Color.lerp(a.accentHover, b.accentHover, t)!,
+    accentPressed: Color.lerp(a.accentPressed, b.accentPressed, t)!,
     onAccent: Color.lerp(a.onAccent, b.onAccent, t)!,
-    selection: Color.lerp(a.selection, b.selection, t)!,
-    selectionGradient: t < 0.5 ? a.selectionGradient : b.selectionGradient,
-    selectionLabel: Color.lerp(a.selectionLabel, b.selectionLabel, t)!,
+    ember: Color.lerp(a.ember, b.ember, t)!,
+    tide: Color.lerp(a.tide, b.tide, t)!,
     focusRing: Color.lerp(a.focusRing, b.focusRing, t)!,
     textPrimary: Color.lerp(a.textPrimary, b.textPrimary, t)!,
     textSecondary: Color.lerp(a.textSecondary, b.textSecondary, t)!,
     textTertiary: Color.lerp(a.textTertiary, b.textTertiary, t)!,
     textQuaternary: Color.lerp(a.textQuaternary, b.textQuaternary, t)!,
+    textDisabled: Color.lerp(a.textDisabled, b.textDisabled, t)!,
     textSelection: Color.lerp(a.textSelection, b.textSelection, t)!,
     error: Color.lerp(a.error, b.error, t)!,
     warning: Color.lerp(a.warning, b.warning, t)!,
     shadow: Color.lerp(a.shadow, b.shadow, t)!,
     shadowContact: Color.lerp(a.shadowContact, b.shadowContact, t)!,
     scrim: Color.lerp(a.scrim, b.scrim, t)!,
-    systemBlue: Color.lerp(a.systemBlue, b.systemBlue, t)!,
-    systemIndigo: Color.lerp(a.systemIndigo, b.systemIndigo, t)!,
-    systemTeal: Color.lerp(a.systemTeal, b.systemTeal, t)!,
-    systemGray: Color.lerp(a.systemGray, b.systemGray, t)!,
   );
 }

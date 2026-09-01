@@ -22,6 +22,7 @@ import '../../models/nest_transfer_mode.dart';
 import '../viewmodels/nest_state.dart';
 import '../viewmodels/nest_view_model.dart';
 import '../widgets/nest_item_card.dart';
+import '../widgets/nest_stack_header.dart';
 import 'nest_overlay_intents.dart';
 
 /// Painel flutuante do Nest — a prateleira que o `⌘⇧R` abre.
@@ -203,13 +204,32 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
     );
   }
 
+  /// De cima para baixo: **o que está na prateleira, e para onde ele vai.**
+  ///
+  /// A ordem é a da frase que o painel responde. Em cima, a pilha — a capa
+  /// dela, quantos são, quanto pesam, e a fila inteira, na ordem em que vai
+  /// sair. Embaixo, as pastas. Os destinos ficam no rodapé porque são o
+  /// **fim** do gesto e porque são a parte estável da tela: a prateleira muda a
+  /// cada arraste, as pastas favoritas ficam paradas por meses, e uma lista que
+  /// não muda em cima empurraria a que muda para baixo da dobra.
   Widget _body(NestState state) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (state.isEmpty) _empty(state) else _items(state),
+        if (state.isEmpty)
+          _empty(state)
+        else ...[
+          NestStackHeader(
+            items: state.items,
+            selected: state.selection.length,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _items(state),
+        ],
         const SizedBox(height: AppSpacing.lg),
+        // As pastas ficam mesmo com a prateleira vazia, apagadas: são elas que
+        // ensinam o `⌘1` antes de haver o que enviar.
         _destinations(state),
       ],
     );
@@ -240,6 +260,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
           NestItemCard(
             item: state.items[index],
             isSelected: state.selection.contains(index),
+            position: index + 1,
             // As modificadoras são lidas na hora do clique, e não guardadas no
             // estado: `⌘` e `⇧` aqui não mudam nada na tela enquanto seguradas
             // — diferente do `⌥`, que troca o que o painel promete fazer.
@@ -279,9 +300,12 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
         Padding(
           padding: const EdgeInsets.only(left: AppSpacing.sm),
           child: Text(
-            'Ou arraste daqui para qualquer pasta.',
-            style: context.eg.text.captionXS.copyWith(
-              color: context.eg.colors.textTertiary,
+            // As duas coisas que a lista não diz sozinha: que a ordem dela é a
+            // ordem da transferência, e que dá para sair por fora das pastas
+            // favoritas puxando a pilha para qualquer lugar.
+            'a pilha guarda a ordem · arraste daqui para qualquer pasta',
+            style: context.eg.text.footnote.copyWith(
+              color: context.eg.colors.textQuaternary,
             ),
           ),
         ),
@@ -294,7 +318,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
       return Text(
         'Nenhuma pasta cadastrada. Abra as preferências com ⌘, e escolha '
         'para onde a prateleira manda.',
-        style: context.eg.text.captionSmall,
+        style: context.eg.text.caption,
       );
     }
 
@@ -362,11 +386,16 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
   }
 }
 
-/// Uma pasta de destino no painel: o número do atalho e o nome.
+/// Uma pasta de destino no painel: a marca da pasta, o nome e o atalho.
 ///
 /// Só o nome, sem o caminho: quem cadastrou a pasta sabe onde ela fica, e o
 /// caminho inteiro numa linha de 420px viraria uma cauda de reticências. O
 /// caminho está na tela de preferências, que é onde ele é útil.
+///
+/// A marca verde à esquerda é o que separa de relance as **pastas** das linhas
+/// de arquivo logo acima: são duas listas empilhadas no mesmo painel, e sem uma
+/// diferença de forma a segunda parece a continuação da primeira. Verde porque
+/// aqui ele é a ação primária do painel — mandar a prateleira embora.
 class _DestinationRow extends StatelessWidget {
   const _DestinationRow({
     required this.destination,
@@ -381,8 +410,12 @@ class _DestinationRow extends StatelessWidget {
   /// ela que ensina o `⌘1` antes de haver o que enviar.
   final VoidCallback? onTap;
 
-  /// A altura de linha de lista do aplicativo.
-  static const _height = 34.0;
+  /// Um degrau acima da linha de lista do aplicativo: a marca da pasta pede o
+  /// respiro, e são poucas linhas — no máximo nove.
+  static const _height = 38.0;
+
+  /// Lado da marca da pasta.
+  static const _mark = 22.0;
 
   /// Coluna do atalho, à direita — alinhada como o `⌘1` do Pin.
   static const _shortcutColumn = 28.0;
@@ -395,13 +428,27 @@ class _DestinationRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       child: Row(
         children: [
+          EgIconBadge(
+            size: _mark,
+            color: context.eg.colors.accent.withValues(
+              alpha: onTap == null ? 0.10 : 0.18,
+            ),
+            child: EgIcon(
+              EgIconData.folder,
+              size: AppIconSizes.sm,
+              color: onTap == null
+                  ? context.eg.colors.textTertiary
+                  : context.eg.colors.accentLight,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
               destination.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: context.eg.text.bodyCompactEmphasis,
+              style: context.eg.text.bodyEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),

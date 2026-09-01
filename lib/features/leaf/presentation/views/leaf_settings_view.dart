@@ -1,74 +1,88 @@
-import '../../../../core/system/global_shortcut_slot.dart';
-import '../../../home/presentation/widgets/global_shortcut_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_key_cap.dart';
+import '../../../../shared/widgets/eg_pill.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_status_strip.dart';
+import '../../../home/presentation/widgets/global_shortcut_section.dart';
 import '../../models/leaf_note.dart';
+import '../viewmodels/leaf_view_model.dart';
 
-/// Tela do Leaf dentro do Hub.
+/// A tela do Leaf no Hub.
 ///
-/// O módulo não tem preferência nenhuma para oferecer, e isso é a decisão, não
-/// a falta dela: o limite de nove é o produto, e o tamanho da anotação é o que
-/// cabe no cartão. O que sobra para esta tela é ensinar as teclas do painel —
-/// que são mais do que a barra de dicas consegue mostrar de uma vez — e o botão
-/// de esvaziar a parede.
-class LeafSettingsView extends ConsumerWidget {
+/// **Curta de propósito, e ela assume isso.** A parede não aparece aqui: ela é
+/// o painel, e repetir os nove cartões no Hub seria a mesma coisa desenhada
+/// duas vezes, em dois lugares que discordariam no dia em que um deles mudasse.
+/// Saiu também a lista de teclas que ocupava metade da tela — o rodapé do
+/// painel já ensina cada uma delas, no momento em que elas servem para algo.
+///
+/// O que sobra é o que só o Hub sabe fazer: dizer quanto da parede está em uso
+/// e oferecer o que não cabe num painel de teclado — esvaziar tudo, com
+/// pergunta, e trocar a tecla que abre.
+///
+/// Uma tela curta não é uma tela pobre: é o módulo dizendo que não pede nada.
+/// Não preencher com nada.
+class LeafSettingsView extends ConsumerStatefulWidget {
   const LeafSettingsView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LeafSettingsView> createState() => _LeafSettingsViewState();
+}
+
+class _LeafSettingsViewState extends ConsumerState<LeafSettingsView> {
+  @override
+  void initState() {
+    super.initState();
+    // A parede é escrita no engine da janela flutuante; este é o do Hub, que
+    // só descobre o que existe indo ao disco. É a mesma releitura que o Track
+    // faz ao abrir, e pelo mesmo motivo.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(leafViewModelProvider.notifier).prepareForOpen();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notes = ref.watch(leafViewModelProvider).notes;
+
     return EgSettingsPage(
+      banner: _strip(notes),
       children: [
-        EgSettingsSection(
+        // A referência de teclas volta, mas como referência: quatro linhas de
+        // uma coluna, não quatro linhas de configuração com descrição de duas
+        // linhas cada. Ela não some porque é a única documentação do painel
+        // que existe fora do painel — e quem abre a tela do Leaf no Hub muitas
+        // vezes veio justamente conferir uma tecla.
+        EgSettingsCard(
           title: 'Dentro do painel',
           children: [
-            const EgSettingsRow(
-              label: 'Nova anotação',
-              description:
-                  'Abre um cartão na primeira vaga livre. Com as nove '
-                  'ocupadas, jogue uma fora antes.',
-              trailing: EgShortcutDisplay(keys: ['⌘', '+']),
-            ),
-            const EgSettingsRow(
-              label: 'Quebrar linha',
-              description:
-                  'No cartão, o Enter sozinho guarda a anotação.',
-              trailing: EgShortcutDisplay(keys: ['⇧', '⏎']),
-            ),
-            const EgSettingsRow(
-              label: 'Copiar uma anotação',
-              description:
-                  'O número do cartão é a tecla que o copia. Copiar fecha a '
-                  'parede, como no Pin.',
-              trailing: EgShortcutDisplay(keys: ['⌘', '1–9']),
-            ),
-            const EgSettingsRow(
-              label: 'Apagar a selecionada',
-              description:
-                  'As seguintes sobem uma vaga e a parede encolhe: nunca '
-                  'fica buraco no meio.',
-              showDivider: false,
-              trailing: EgShortcutDisplay(keys: ['⌘', '⌫']),
-            ),
+            for (final hint in _panelKeys)
+              EgSettingsRow(
+                label: hint.$1,
+                description: hint.$2,
+                trailing: EgShortcutDisplay(keys: hint.$3),
+              ),
           ],
         ),
-        EgSettingsSection(
-          title: 'Parede',
+        EgSettingsCard(
+          title: 'Sem volta',
+          tone: EgCardTone.destructive,
           children: [
             EgSettingsRow(
               label: 'Esvaziar a parede',
-              description:
-                  'Remove as ${LeafNote.maxNotes} anotações de uma vez.',
-              showDivider: false,
+              description: notes.isEmpty
+                  ? 'A parede já está vazia.'
+                  : 'Remove as ${notes.length} de uma vez, sem desfazer.',
               trailing: EgButton.destructive(
                 label: 'Esvaziar',
-                onPressed: () => _clear(context, ref),
+                onPressed: notes.isEmpty ? null : () => _clear(context),
               ),
             ),
           ],
@@ -78,16 +92,55 @@ class LeafSettingsView extends ConsumerWidget {
     );
   }
 
-  /// Esvaziar é irreversível — mesma confirmação do "limpar histórico" do Pin.
-  Future<void> _clear(BuildContext context, WidgetRef ref) async {
+  /// O que está na parede agora, numa linha — a única coisa que o Hub tem a
+  /// dizer sobre um módulo que se opera inteiro pelo teclado.
+  Widget _strip(List<LeafNote> notes) {
+    final used = notes.length;
+
+    if (used == 0) {
+      return const EgStatusStrip(
+        label: 'Parede vazia',
+        detail: 'o primeiro cartão nasce ao digitar',
+        tone: EgPillTone.neutral,
+        shortcut: ['⌘', '⇧', 'D'],
+      );
+    }
+
+    final last = notes
+        .map((note) => note.changedAt)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+
+    return EgStatusStrip(
+      label: 'Em uso',
+      value: '$used de ${LeafNote.maxNotes}',
+      detail: 'última edição ${RelativeTime.format(last)}',
+      shortcut: const ['⌘', '⇧', 'D'],
+    );
+  }
+
+  /// O que cada tecla faz dentro da parede.
+  ///
+  /// Uma linha por tecla, e a explicação em uma frase: aqui ela é legenda, não
+  /// manual. O detalhe de cada comportamento está no painel, no momento em que
+  /// ele acontece.
+  static const _panelKeys = <(String, String, List<String>)>[
+    ('Nova anotação', 'Na primeira vaga livre.', ['⌘', '+']),
+    ('Quebrar linha', 'O Enter sozinho guarda.', ['⇧', '⏎']),
+    ('Copiar', 'O número do cartão é a tecla.', ['⌘', '1–9']),
+    ('Apagar a selecionada', 'As seguintes sobem uma vaga.', ['⌘', '⌫']),
+  ];
+
+  Future<void> _clear(BuildContext context) async {
     final confirmed = await EgConfirmDialog.show(
       context,
       title: 'Esvaziar a parede?',
       message: 'Todas as anotações serão removidas. Não dá para desfazer.',
       confirmLabel: 'Esvaziar',
     );
+
     if (!confirmed) return;
 
     ref.read(leafRepositoryProvider).clearAll();
+    if (mounted) ref.read(leafViewModelProvider.notifier).prepareForOpen();
   }
 }

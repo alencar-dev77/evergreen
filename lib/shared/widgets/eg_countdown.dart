@@ -110,7 +110,7 @@ class _ProgressLine extends StatelessWidget {
       child: SizedBox(
         height: _height,
         child: DecoratedBox(
-          decoration: BoxDecoration(color: context.eg.colors.border),
+          decoration: BoxDecoration(color: context.eg.colors.line),
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
             widthFactor: value.clamp(0.0, 1.0),

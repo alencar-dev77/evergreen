@@ -65,12 +65,21 @@ class LeafViewModel extends Notifier<LeafState> {
 
   void editSlot(int slot) {
     if (state.noteAt(slot) == null) {
-      state = state.copyWith(selectedSlot: slot);
+      // Vaga vazia que não é a próxima da fila não abre nada: a parede não tem
+      // buraco, e `⌥8` com cinco cartões colados não pode fazer o sexto nascer
+      // no oitavo lugar.
+      if (slot != state.firstFreeSlot) return;
+
+      state = state.copyWith(selectedSlot: slot, clearCopied: true);
       startNote();
       return;
     }
 
-    state = state.copyWith(selectedSlot: slot, editingSlot: slot);
+    state = state.copyWith(
+      selectedSlot: slot,
+      editingSlot: slot,
+      clearCopied: true,
+    );
   }
 
   /// Guarda o que foi escrito e sai do campo.
@@ -184,13 +193,20 @@ class LeafViewModel extends Notifier<LeafState> {
 
   /// Copia a anotação da vaga e diz se havia algo lá.
   ///
-  /// O painel usa a resposta para decidir se fecha: `⌘7` numa vaga vazia não
-  /// pode fechar o mural como se tivesse copiado alguma coisa.
+  /// **Não fecha o painel.** Quem copia da parede costuma copiar dois seguidos
+  /// — o endereço e o telefone, o comando e a chave —, e fechar a cada tecla
+  /// obrigava a reabrir o mural para a segunda. O que o sumiço do painel dizia
+  /// ("copiei") passou a ser dito pelo aviso no cartão.
+  ///
+  /// A resposta continua existindo para o `7` numa vaga vazia não anunciar uma
+  /// cópia que não houve.
   Future<bool> copySlot(int slot) async {
     final note = state.noteAt(slot);
     if (note == null) return false;
 
     await Clipboard.setData(ClipboardData(text: note.content));
+    state = state.copyWith(selectedSlot: slot, copiedSlot: slot);
+
     return true;
   }
 
@@ -207,7 +223,7 @@ class LeafViewModel extends Notifier<LeafState> {
   /// vista, e uma seta que salta do primeiro cartão para o último faria a
   /// seleção passar direto pelo que a pessoa estava procurando.
   void moveSelection({int columns = 0, int rows = 0}) {
-    final last = state.lastVisibleSlot;
+    final last = state.lastSelectableSlot;
     if (last == 0) return;
 
     final current = state.selectedSlot ?? 1;

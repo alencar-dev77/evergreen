@@ -66,6 +66,16 @@ class Meeting {
 
   bool get isEmpty => segments.isEmpty;
 
+  /// Se a sua voz entrou na gravação.
+  ///
+  /// O Echo grava duas faixas — o microfone, que é você, e o áudio do Mac, que
+  /// é todo mundo menos você — e uma delas pode vir vazia: reunião em que você
+  /// só ouviu, ou microfone sem permissão. É a única coisa que se pode dizer
+  /// com honestidade sobre "vozes" nesta gravação; **quantas** pessoas falaram
+  /// do outro lado o Echo não sabe, e nunca soube.
+  bool get hasMyVoice =>
+      segments.any((segment) => segment.speaker == Speaker.me);
+
   /// A transcrição inteira como texto corrido, que é o que vai para o resumo.
   ///
   /// Com o rótulo de quem falou em cada linha: sem ele o modelo não teria como

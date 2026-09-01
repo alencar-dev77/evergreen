@@ -149,24 +149,21 @@ void main() {
     expect(repository.loadAll().map((note) => note.slot), [1, 2, 3]);
   });
 
-  test('a parede encolhe de linha quando a última esvazia', () {
+  test('a parede não encolhe: o teclado é que anda menos', () {
     final container = containerFor();
     fill(container, 4);
 
-    // 4 anotações + a vaga que convida = 5 vagas visíveis, duas linhas.
-    expect(stateOf(container).rows, 2);
+    // A parede é sempre a parede: nove vagas, três linhas, com dois cartões ou
+    // com nove. O número de uma vaga é o endereço dela, e endereço não muda.
+    expect(stateOf(container).rows, 3);
+    // O teclado anda até a primeira livre — a quinta, com quatro coladas.
+    expect(stateOf(container).lastSelectableSlot, 5);
 
     viewModelOf(container).selectSlot(4);
     viewModelOf(container).deleteSelected();
 
-    // 3 anotações + a vaga livre = 4 vagas... ainda duas linhas.
-    expect(stateOf(container).rows, 2);
-
-    viewModelOf(container).selectSlot(3);
-    viewModelOf(container).deleteSelected();
-
-    // 2 anotações + a vaga livre cabem numa linha só.
-    expect(stateOf(container).rows, 1);
+    expect(stateOf(container).rows, 3);
+    expect(stateOf(container).lastSelectableSlot, 4);
   });
 
   test('a seleção fica na vaga, que agora é de quem subiu', () {
@@ -216,17 +213,16 @@ void main() {
     expect(stateOf(container).selectedSlot, 6);
   });
 
-  test('a grade só desenha as linhas que tem o que mostrar', () {
+  test('a grade desenha as nove vagas, cheia ou vazia', () {
     final container = containerFor();
 
-    // Parede vazia: uma linha, só com a vaga que convida.
-    expect(stateOf(container).rows, 1);
-
-    fill(container, 3);
-    expect(stateOf(container).rows, 2);
+    expect(stateOf(container).rows, 3);
+    expect(stateOf(container).lastVisibleSlot, 9);
 
     fill(container, 6);
+
     expect(stateOf(container).rows, 3);
+    expect(stateOf(container).lastVisibleSlot, 9);
   });
 
   testWidgets('copiar leva o texto para a área de transferência', (

@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_button.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -28,8 +29,9 @@ class HubDetailRegion extends StatelessWidget {
     this.width = preferredWidth,
   });
 
-  /// O que identifica o que está aberto — título e metadados. Fica ao lado do
-  /// botão de fechar, no topo da região.
+  /// O que identifica o que está aberto — título e metadados. Fica logo abaixo
+  /// da etiqueta da região, e é do módulo: a região não sabe o que é um título
+  /// de reunião nem um de sessão.
   final Widget header;
 
   final Widget child;
@@ -88,14 +90,18 @@ class HubDetailRegion extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // A etiqueta diz o que é esta coluna, e o fechar mora na linha
+            // dela — não na do título. São duas coisas da *região*, e o título
+            // é do que está aberto dentro dela: alinhado com o título, o × dava
+            // a impressão de fechar a reunião, não a leitura. Com a etiqueta em
+            // cima, o título também para de ser a primeira coisa da coluna, que
+            // é o que fazia a região parecer um cartão solto encostado na tela.
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: header),
+                const Expanded(child: EgSectionLabel('Leitura')),
                 const SizedBox(width: AppSpacing.sm),
                 // Fechar tem atalho (`esc`) e alvo de mouse, como toda ação do
-                // Evergreen. O ícone fica no topo da região, alinhado com o
-                // título do que está aberto.
+                // Evergreen.
                 EgIconButton(
                   icon: EgIconData.close,
                   tooltip: 'Fechar (esc)',
@@ -103,6 +109,8 @@ class HubDetailRegion extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: AppSpacing.sm),
+            header,
             const SizedBox(height: AppSpacing.lg),
             Expanded(child: child),
           ],

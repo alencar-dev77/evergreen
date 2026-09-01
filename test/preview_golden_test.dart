@@ -7,7 +7,6 @@ import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
-import 'package:evergreen/core/design/app_theme_id.dart';
 import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
@@ -60,6 +59,15 @@ import 'golden_fonts.dart';
 /// Rode com `flutter test --update-goldens --tags preview` para regerar as
 /// imagens em `test/goldens/`. Não fazem parte da suíte padrão: são um apoio de
 /// revisão, não uma trava de regressão.
+/// A janela do Hub, em pixels físicos: 980×680 lógicos a 2x.
+///
+/// Fixa, como a janela de verdade — o golden do Hub deixou de ser uma medida
+/// escolhida no teste e passou a ser a janela que a pessoa abre.
+const _hubWindow = Size(1960, 1360);
+
+/// A mesma janela com a região de leitura aberta: 980 + 480.
+const _hubWindowWithRegion = Size(2920, 1360);
+
 void main() {
   setUpAll(loadGoldenFonts);
 
@@ -336,7 +344,6 @@ void main() {
     VoidCallback? beforeSettle,
     bool fakeClock = false,
     DateTime? now,
-    AppThemeId theme = AppThemeId.evergreen,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 2.0;
@@ -379,9 +386,9 @@ void main() {
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(theme),
+          theme: AppTheme.build(),
           home: ColoredBox(
-            color: EgTokens.of(theme).colors.background,
+            color: EgTokens.evergreen().colors.canvas,
             child: home,
           ),
         ),
@@ -425,43 +432,8 @@ void main() {
     );
   });
 
-  /// As duas peles, nas duas telas que mais as revelam: o painel flutuante
-  /// (onde o Apple troca superfície opaca por vidro) e o Hub (onde a densidade
-  /// e a linha de meio pixel aparecem lado a lado com a sidebar).
-  ///
-  /// O tema Evergreen já tem as suas imagens nos goldens de sempre — estas são
-  /// as do Apple, para a comparação ser um par de arquivos, e não uma memória.
-  testWidgets('tema Apple — overlay do Pin', (tester) async {
-    await pump(
-      tester,
-      const PinOverlayView(),
-      const Size(1120, 1000),
-      beforeSettle: () => _loadHistory(tester),
-      theme: AppThemeId.apple,
-    );
-
-    await expectLater(
-      find.byType(PinOverlayView),
-      matchesGoldenFile('goldens/apple_pin_overlay_list.png'),
-    );
-  });
-
-  testWidgets('tema Apple — Hub', (tester) async {
-    await pump(
-      tester,
-      const HubView(),
-      const Size(1800, 1200),
-      theme: AppThemeId.apple,
-    );
-
-    await expectLater(
-      find.byType(HubView),
-      matchesGoldenFile('goldens/apple_hub_pin_settings.png'),
-    );
-  });
-
   testWidgets('Hub — configurações do Pin', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1200));
+    await pump(tester, const HubView(), _hubWindow);
 
     await expectLater(
       find.byType(HubView),
@@ -479,10 +451,12 @@ void main() {
   });
 
   testWidgets('painel do Focus — sessão em andamento', (tester) async {
+    // Mais alta que a do painel parado: com o anel, o diário e o campo de
+    // anotação, a sessão em andamento é a tela mais alta do módulo.
     await pump(
       tester,
       const FocusOverlayView(),
-      const Size(1120, 800),
+      const Size(1120, 1000),
       fakeClock: true,
     );
 
@@ -516,9 +490,13 @@ void main() {
   /// test` não há janela nativa para crescer — o tamanho já entra aqui somado.
   /// Era um diálogo modal por cima da tela até a v0.4.
   testWidgets('Hub — Focus, a sessão aberta', (tester) async {
-    await pump(tester, const HubView(), const Size(2720, 1400));
+    await pump(tester, const HubView(), _hubWindowWithRegion);
 
     await tester.tap(find.text(EvergreenModule.focus.name));
+    await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes"; o histórico mora na outra aba.
+    await tester.tap(find.text('Histórico'));
     await tester.pumpAndSettle();
 
     // Na linha do histórico o título e o anúncio do que há dentro vivem num
@@ -542,7 +520,7 @@ void main() {
       now: backupToday,
     );
 
-    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.tap(find.text('Aplicativo'));
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -552,9 +530,13 @@ void main() {
   });
 
   testWidgets('Hub — Focus', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1900));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.focus.name));
+    await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes"; o histórico mora na outra aba.
+    await tester.tap(find.text('Histórico'));
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -594,7 +576,7 @@ void main() {
   });
 
   testWidgets('Hub — Leaf', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1900));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.leaf.name));
     await tester.pumpAndSettle();
@@ -612,9 +594,13 @@ void main() {
   /// estava na tela. Sob `flutter test` não há janela nativa para crescer, então
   /// o tamanho já entra aqui somado.
   Future<void> openReader(WidgetTester tester) async {
-    await pump(tester, const HubView(), const Size(2720, 1400));
+    await pump(tester, const HubView(), _hubWindowWithRegion);
 
     await tester.tap(find.text(EvergreenModule.echo.name));
+    await tester.pumpAndSettle();
+
+    // A tela abre em "Ajustes"; a lista mora na outra aba.
+    await tester.tap(find.text('Reuniões'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.textContaining('Alinhamento de escopo'));
@@ -668,7 +654,9 @@ void main() {
       paths.add(path);
     }
 
-    await pump(tester, const NestOverlayView(), const Size(1120, 900));
+    // Mais alta que a do painel vazio: cheia, a prateleira ganha a capa da
+    // pilha em cima da fila e das pastas.
+    await pump(tester, const NestOverlayView(), const Size(1120, 1040));
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(NestOverlayView)),
@@ -702,7 +690,7 @@ void main() {
       '{"path":"/Users/lucas/Clientes/Marina","alias":"Marina"}',
     ]);
 
-    await pump(tester, const HubView(), const Size(1800, 1400));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.nest.name));
     await tester.pumpAndSettle();
@@ -767,19 +755,39 @@ void main() {
   });
 
   testWidgets('painel do Echo — gravando', (tester) async {
+    // Mais alta que a do painel parado: gravando, a tela ganha as duas faixas
+    // de nível e a última fala reconhecida.
     await pump(
       tester,
       const EchoOverlayView(),
-      const Size(1120, 700),
+      const Size(1120, 820),
       fakeClock: true,
     );
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(EchoOverlayView)),
     );
+    // `initialize` é quem liga a escuta do nativo — sem ela o painel não
+    // recebe nível nem texto ao vivo, que é metade do que esta tela mostra.
+    await container.read(echoRecorderViewModelProvider.notifier).initialize();
     await container.read(echoRecorderViewModelProvider.notifier).start();
     await tester.pump(const Duration(minutes: 12, seconds: 30));
-    await tester.pump(AppDurations.instant);
+
+    // Um instante de reunião de verdade: você falando (energia nas graves e
+    // médias da voz) por cima do fim da fala dos outros, mais fraca. O canal do
+    // teste emite as bandas que o nativo mediria.
+    channel.emitLevels(
+      const [0.34, 0.62, 0.78, 0.55, 0.41, 0.33, 0.22, 0.14, 0.08, 0.04],
+      const [0.18, 0.26, 0.31, 0.22, 0.17, 0.12, 0.09, 0.06, 0.03, 0.0],
+    );
+    channel.emitLive('então o painel pode ser caro de desenhar, a sidebar não');
+    // Três quadros, e cada um faz uma coisa: o primeiro entrega o aviso do
+    // canal ao estado, o segundo monta as barras na altura de repouso (é onde a
+    // animação começa) e o terceiro deixa os 100 ms delas correrem. Parando no
+    // segundo, o golden congela o equalizador no chão.
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
 
     await expectLater(
       find.byType(EchoOverlayView),
@@ -791,7 +799,7 @@ void main() {
   });
 
   testWidgets('Hub — Echo', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1400));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.echo.name));
     await tester.pumpAndSettle();
@@ -803,7 +811,7 @@ void main() {
   });
 
   testWidgets('Hub — Awake', (tester) async {
-    await pump(tester, const HubView(), const Size(1800, 1200));
+    await pump(tester, const HubView(), _hubWindow);
 
     await tester.tap(find.text(EvergreenModule.awake.name));
     await tester.pumpAndSettle();

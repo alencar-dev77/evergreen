@@ -37,35 +37,57 @@ Trabalhe com uma escala pequena e disciplinada — poucos tamanhos, usados de fo
 
 Evite tamanhos grandes e decorativos (24px+) exceto em contextos muito específicos e raros, como o título de uma tela de boas-vindas/onboarding inicial (que deve ser mínima) ou um número de destaque isolado (ex: contador grande em um dashboard interno simples). Um app de produtividade não tem "títulos heroicos" espalhados pelas telas.
 
-### Escala implementada (`AppTypography`) — valores oficiais do produto
+### Escala implementada (`EgTypeScale`) — valores oficiais do produto
 
-Nada de `copyWith(fontSize: ...)` em widget: se falta um degrau, ele entra aqui como token nomeado.
+Nada de `copyWith(fontSize: ...)` em widget: se falta um degrau, ele entra aqui
+como token nomeado, nos arquivos de tema.
 
 | Token | Tamanho / peso | Uso |
 |---|---|---|
-| `screenTitle` | 17 / 600, tracking -0.2 | maior texto do app — cabeçalho de painel do Hub |
-| `sectionTitle` | 15 / 600 | cabeçalho de seção |
-| `panelTitle` | 15 / 600 | título de painel compacto e de diálogo |
-| `body` | 14 / 400 | corpo padrão, texto digitado no campo de busca |
-| `bodyEmphasis` | 14 / 500 | título dentro de uma linha, valor em vez de rótulo |
-| `bodyStrong` | 14 / 600, tracking -0.2 | nome próprio numa linha — a marca no rodapé da sidebar |
-| `bodyCompact` | 13 / 400 | corpo dentro do overlay, conteúdo do preview |
-| `bodyCompactEmphasis` | 13 / 500 | título de linha de lista, rótulo de configuração, título de empty state |
-| `caption` | 13 / 400, secundário | tagline de módulo, texto de apoio |
-| `captionSmall` | 12 / 400, secundário | descrição de linha de configuração, texto de empty state |
-| `captionSmallEmphasis` | 12 / 600, secundário | a opção escolhida de um segmented control |
-| `captionXS` | 11 / 400, secundário | timestamp de linha, rótulo de dica de atalho, subtítulo de sidebar |
-| `overline` | 11 / 600, caps, tracking +0.66 | label de seção ("FIXADOS", "GERAL") |
-| `button` | 14 / 600 | rótulo de botão |
-| `timer` | 36 / 500, tabular | contagem regressiva do Focus — a exceção do "número de destaque isolado" |
-| `mono` | 12 | conteúdo técnico monoespaçado |
-| `monoSmall` | 11 | key-cap, badge de atalho na linha |
+| `display` | 30 / 700, tracking −0.78 | o nome do módulo no cabeçalho do Hub — **um por tela** |
+| `title` | 20 / 600, tracking −0.28 | título de bloco: "Semana", "Destinos", o título da leitura |
+| `panelTitle` | 15 / 600 | título de painel flutuante e de diálogo |
+| `body` | 13,5 / 400 | linha de configuração, corpo padrão |
+| `bodyEmphasis` | 13,5 / 500 | item de lista que importa — nome de reunião, de arquivo |
+| `bodyStrong` | 13,5 / 600, tracking −0.1 | **a linha selecionada** |
+| `bodyCompact` | 12,5 / 400 | lista dentro de painel flutuante |
+| `reading` | 14 / 400, altura 1,65 | região de leitura — o que separa "texto que se lê" de "texto que se confere" |
+| `footnote` | 11,5 / 400, secundário | a explicação de uma linha sob o rótulo de um ajuste |
+| `caption` | 11,5 / 400, secundário | metadado: hora, contagem, origem |
+| `overline` | 11 / 600, caps, tracking +0.99, **mono** | rótulo de seção ("CAPTURA", "SEM VOLTA") |
+| `keycap` | 10,5 / 600, mono tabular | a tecla — `⌘⇧C` não dança de largura entre linhas |
+| `button` | 12,5 / 600 | rótulo de botão |
+| `timer` | 48 / 500, tabular | o cronômetro do painel do Focus |
+| `timerSmall` | 32 / 500, tabular | o mesmo, onde a largura não permite o `timer` |
+| `mono` / `monoSmall` | 12 / 10,5 | valores, contagens, caminhos |
 
-`timer` é a única entrada acima de 17 e existe sob condição: o número tem que
-ser o **conteúdo** da tela, não um enfeite dela. Peso 500 (não 600, que em 36px
-grita) e `FontFeature.tabularFigures()`, senão a linha dança a cada segundo.
+### O que mudou, e por quê
 
-O topo da escala (17) fica a **um** degrau do corpo (14), não a três: é o que impede o "título heroico" de voltar por acidente. Hierarquia dentro de um mesmo bloco se faz por **peso** (400 → 500 → 600), não por tamanho — daí os pares `body`/`bodyEmphasis` e `bodyCompact`/`bodyCompactEmphasis`. Peso 700 não existe mais na escala.
+**Entraram `display` (30) e `title` (20).** O topo da escala era 17, e nenhuma
+tela tinha ponto de entrada — tudo começava com o mesmo peso do que vinha
+depois, o que é a razão de o app inteiro parecer plano. A regra de "um degrau
+acima do corpo" protegia contra o título heroico e cobrava por isso uma tela sem
+hierarquia. `display` é **um por tela**: se aparecem dois, um deles é `title`.
+
+**O `overline` passou a mono.** Ele é rótulo de *estrutura*, não de conteúdo. Em
+mono com tracking largo, o olho o lê como etiqueta de gaveta e para de disputar
+com o corpo do texto. Custa zero — a SF Mono já está no bundle.
+
+**Entrou `keycap`.** A tecla tinha estilo emprestado do `monoSmall`, que não é
+tabular: `⌘⇧C` e `⌘⇧D` tinham larguras diferentes e a coluna da barra lateral
+tremia entre linhas.
+
+**Saíram** `screenTitle` (virou `display`), `sectionTitle` (virou `title`),
+`captionSmall`, `captionSmallEmphasis`, `captionXS` e `bodyCompactEmphasis`:
+eram cinco degraus entre 11 e 13 para três papéis, e ninguém sabia qual usar.
+
+`timer` e `timerSmall` existem sob condição: o número tem que ser o **conteúdo**
+da tela, não um enfeite dela. Peso 500 (não 600, que em 48px grita) e
+`FontFeature.tabularFigures()`, senão a linha dança a cada segundo.
+
+Hierarquia dentro de um mesmo bloco se faz por **peso** (400 → 500 → 600), não
+por tamanho — daí o trio `body`/`bodyEmphasis`/`bodyStrong`. Peso 700 existe
+num degrau só, o `display`.
 
 ## Peso e hierarquia
 
@@ -98,8 +120,8 @@ Em uma interface densa, texto que não cabe é constante — trate isso com inte
 - Metadado/apoio → `text/secondary` (`AppColors.textSecondary`).
 - Placeholder, desabilitado, timestamp discreto → `text/tertiary` (`AppColors.textTertiary`).
 
-Os tokens de `caption*` já nascem em `textSecondary`; para o terceiro nível, componha (`captionXS.copyWith(color: AppColors.textTertiary)`), como faz o timestamp da linha do Pin.
+`caption`, `footnote` e `overline` já nascem em cor secundária; para o terceiro nível, componha (`footnote.copyWith(color: context.eg.colors.textTertiary)`), como faz a explicação de uma linha de configuração.
 
-`copyWith` em widget vale **só para cor** — tamanho, peso e tracking são degraus da escala, e degrau novo entra aqui com nome. Foi assim que `bodyStrong` e `captionSmallEmphasis` nasceram: os dois já existiam escritos à mão dentro de um widget, que é como um degrau aparece no produto sem ninguém ter decidido que ele existe.
+`copyWith` em widget vale **só para cor** — tamanho, peso e tracking são degraus da escala, e degrau novo entra aqui com nome. Foi assim que `bodyStrong` e `keycap` nasceram: os dois já existiam escritos à mão dentro de um widget, que é como um degrau aparece no produto sem ninguém ter decidido que ele existe.
 
 Nunca use a cor de destaque (accent) em texto corrido apenas para chamar atenção — reserve accent em texto para links/referências clicáveis reais, mantendo o princípio de "cor como significado" também na tipografia.

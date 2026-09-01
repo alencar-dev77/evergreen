@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
 import '../../core/design/eg_tokens.dart';
+import '../../core/design/tokens/eg_squircle.dart';
 
 /// Superfície base de todo painel do Evergreen.
 ///
@@ -17,8 +18,8 @@ import '../../core/design/eg_tokens.dart';
 ///
 /// - **A sombra**, por fora, diz a que altura ela está (ver
 ///   [context.eg.elevations.floatingPanel], duas camadas).
-/// - **A borda**, [context.eg.colors.border], desenha o recorte contra o fundo.
-/// - **A luz**, [context.eg.colors.borderHighlight], corre por dentro da aresta
+/// - **A borda**, [context.eg.colors.line], desenha o recorte contra o fundo.
+/// - **A luz**, [context.eg.colors.edgeLight], corre por dentro da aresta
 ///   superior e some antes do meio. É o detalhe que separa "vidro" de
 ///   "retângulo mais claro": no macOS, superfície flutuante sempre pega luz na
 ///   quina de cima.
@@ -67,34 +68,40 @@ class EgPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Resolvidos uma vez: o que o chamador não disse, o tema diz.
-    final radius = borderRadius ?? context.eg.shapes.panelAll;
-    final material = color ?? context.eg.colors.surfaceFloating;
+    final eg = context.eg;
 
-    final fill = vibrant ? context.eg.gradients.panelVibrancy : gradient;
+    // Resolvidos uma vez: o que o chamador não disse, o tema diz. A forma é o
+    // canto contínuo do `EgSquircle` — num raio de 20 a diferença para o arco
+    // de círculo é o que separa "janela do macOS" de "retângulo lixado".
+    final shape = borderRadius == null
+        ? eg.shapes.panelShape
+        : EgSquircle.shapeFor(borderRadius!);
+    final material = color ?? eg.colors.glassPanel;
+    final fill = vibrant ? eg.gradients.panelVibrancy : gradient;
 
     Widget surface = Container(
       width: width,
       height: height,
       padding: padding,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: fill == null ? material : null,
         gradient: fill,
-        borderRadius: radius,
-        border: context.eg.borderAll,
+        shape: shape,
         // No painel de vidro a sombra fica na camada de fora: aqui dentro ela
-        // seria recortada pelo `ClipRRect` que segura o blur.
-        boxShadow: elevated && !vibrant
-            ? context.eg.elevations.floatingPanel
-            : null,
+        // seria recortada pelo clipe que segura o blur.
+        shadows: elevated && !vibrant ? eg.elevations.floatingPanel : null,
       ),
-      clipBehavior: Clip.antiAlias,
       child: child,
     );
 
+    surface = ClipPath(
+      clipper: ShapeBorderClipper(shape: shape),
+      child: surface,
+    );
+
     if (vibrant) {
-      surface = ClipRRect(
-        borderRadius: radius,
+      surface = ClipPath(
+        clipper: ShapeBorderClipper(shape: shape),
         child: BackdropFilter(
           filter: AppMaterials.panelVibrancy,
           child: surface,
@@ -103,9 +110,9 @@ class EgPanel extends StatelessWidget {
 
       if (elevated) {
         surface = DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            boxShadow: context.eg.elevations.floatingPanel,
+          decoration: ShapeDecoration(
+            shape: shape,
+            shadows: eg.elevations.floatingPanel,
           ),
           child: surface,
         );
@@ -114,8 +121,8 @@ class EgPanel extends StatelessWidget {
 
     return CustomPaint(
       foregroundPainter: _EdgeLightPainter(
-        radius,
-        context.eg.colors.borderHighlight,
+        shape,
+        eg.elevations.panelInnerHairline ?? AppColors.transparent,
       ),
       child: surface,
     );
@@ -125,14 +132,15 @@ class EgPanel extends StatelessWidget {
 /// A luz de 1px na aresta superior, por dentro da borda.
 ///
 /// É um `inset 0 1px 0` com uma correção: em vez de parar seco nas quinas, o
-/// traço nasce em [context.eg.colors.borderHighlight] no topo e chega a zero na altura
+/// traço nasce em [EgElevations.panelInnerHairline] no topo e chega a zero na altura
 /// do meio, que é o que uma luz de ambiente faz numa peça com espessura. Uma
 /// linha reta de ponta a ponta denuncia o retângulo em vez de esconder.
 class _EdgeLightPainter extends CustomPainter {
-  const _EdgeLightPainter(this.borderRadius, this.highlight);
+  const _EdgeLightPainter(this.shape, this.highlight);
 
-  /// O raio e a cor do painel. `null` nos dois quer dizer "os do tema" — e é
-  final BorderRadius borderRadius;
+  /// A forma do painel — a mesma que o recorte usa, para o fio correr por
+  /// dentro da aresta e não ao lado dela.
+  final ShapeBorder shape;
 
   /// A cor do fio, resolvida pelo painel: um painter não tem contexto de onde
   /// tirar um tema.
@@ -143,9 +151,9 @@ class _EdgeLightPainter extends CustomPainter {
     final rect = Offset.zero & size;
     // Meio pixel para dentro: um traço de 1px centrado na borda vazaria metade
     // para fora do recorte.
-    final outline = borderRadius.toRRect(rect).deflate(0.5);
+    final outline = shape.getOuterPath(rect.deflate(0.5));
 
-    canvas.drawRRect(
+    canvas.drawPath(
       outline,
       Paint()
         ..style = PaintingStyle.stroke
@@ -159,8 +167,7 @@ class _EdgeLightPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_EdgeLightPainter oldDelegate) =>
-      oldDelegate.borderRadius != borderRadius ||
-      oldDelegate.highlight != highlight;
+      oldDelegate.shape != shape || oldDelegate.highlight != highlight;
 }
 
 /// Badge quadrado arredondado que abriga um ícone.
@@ -192,7 +199,7 @@ class EgIconBadge extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: borderRadius ?? context.eg.shapes.smallAll,
+        borderRadius: borderRadius ?? context.eg.shapes.segmentAll,
         border: bordered ? context.eg.borderAll : null,
       ),
       alignment: Alignment.center,

@@ -96,10 +96,10 @@ class _DayRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               softWrap: false,
               style: day.isEmpty
-                  ? context.eg.text.bodyCompactEmphasis.copyWith(
+                  ? context.eg.text.bodyEmphasis.copyWith(
                       color: context.eg.colors.textSecondary,
                     )
-                  : context.eg.text.bodyCompactEmphasis,
+                  : context.eg.text.bodyEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -111,7 +111,7 @@ class _DayRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: context.eg.text.captionXS.copyWith(
+              style: context.eg.text.footnote.copyWith(
                 color: context.eg.colors.textTertiary,
               ),
             ),
@@ -127,10 +127,10 @@ class _DayRow extends StatelessWidget {
                   : DurationFormat.compact(day.registered),
               textAlign: TextAlign.right,
               style: day.registered == Duration.zero
-                  ? context.eg.text.bodyCompactEmphasis.copyWith(
+                  ? context.eg.text.bodyEmphasis.copyWith(
                       color: context.eg.colors.textTertiary,
                     )
-                  : context.eg.text.bodyCompactEmphasis,
+                  : context.eg.text.bodyEmphasis,
             ),
           ),
         ],

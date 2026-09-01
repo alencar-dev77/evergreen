@@ -1,4 +1,5 @@
 import 'package:evergreen/features/pin/data/clipboard_repository.dart';
+import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
 
 /// Repositório em memória, com a mesma ordenação do SQLite (fixados primeiro,
@@ -36,6 +37,12 @@ class FakeClipboardRepository implements ClipboardRepository {
 
     return sorted.take(limit).toList(growable: false);
   }
+
+  @override
+  Map<ClipboardItemType, int> countByType() => {
+    for (final type in ClipboardItemType.values)
+      type: _items.where((item) => item.type == type).length,
+  };
 
   @override
   ClipboardItem upsert(ClipboardItem item) {

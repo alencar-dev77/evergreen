@@ -49,6 +49,13 @@ class LeafCommitEditIntent extends Intent {
   const LeafCommitEditIntent();
 }
 
+/// `⌥1`–`⌥9`: abre aquela vaga para escrever.
+class LeafEditSlotIntent extends Intent {
+  const LeafEditSlotIntent(this.slot);
+
+  final int slot;
+}
+
 /// Esc dentro do campo: desfaz o que foi digitado.
 class LeafCancelEditIntent extends Intent {
   const LeafCancelEditIntent();
@@ -71,7 +78,7 @@ class LeafOpenSettingsIntent extends Intent {
 /// virar texto, mas só a combinação exata registrada — com o Shift junto, a
 /// tecla não casa com nada neste mapa, desce até o campo e quebra a linha.
 abstract final class LeafOverlayIntents {
-  /// Teclas de `⌘1` a `⌘9`, na ordem das vagas.
+  /// Teclas de `1` a `9`, na ordem das vagas.
   static const _numberKeys = <LogicalKeyboardKey>[
     LogicalKeyboardKey.digit1,
     LogicalKeyboardKey.digit2,
@@ -116,8 +123,16 @@ abstract final class LeafOverlayIntents {
         const LeafUndoDeleteIntent(),
     const SingleActivator(LogicalKeyboardKey.comma, meta: true):
         const LeafOpenSettingsIntent(),
+    // **Sem modificadora**: a parede não tem campo de texto enquanto ninguém
+    // está escrevendo, então o número está livre — e copiar é o que se vem
+    // fazer aqui. Enquanto um cartão é escrito, este mapa inteiro sai de cena
+    // (ver [editing]) e o número volta a ser caractere.
     for (var i = 0; i < LeafNote.maxNotes; i++)
-      SingleActivator(_numberKeys[i], meta: true): LeafCopySlotIntent(i + 1),
+      SingleActivator(_numberKeys[i]): LeafCopySlotIntent(i + 1),
+    // `⌥` no mesmo número abre o cartão para escrever: a segunda coisa que se
+    // faz com uma vaga, na mesma tecla da primeira.
+    for (var i = 0; i < LeafNote.maxNotes; i++)
+      SingleActivator(_numberKeys[i], alt: true): LeafEditSlotIntent(i + 1),
   };
 
   /// Mapa enquanto um cartão está sendo escrito.
@@ -132,6 +147,7 @@ abstract final class LeafOverlayIntents {
     required VoidCallback onActivate,
     required void Function({int columns, int rows}) onMoveSelection,
     required Future<void> Function(int slot) onCopySlot,
+    required ValueChanged<int> onEditSlot,
     required VoidCallback onDelete,
     required VoidCallback onUndoDelete,
     required Future<void> Function() onClose,
@@ -152,6 +168,12 @@ abstract final class LeafOverlayIntents {
       ),
       LeafCopySlotIntent: CallbackAction<LeafCopySlotIntent>(
         onInvoke: (intent) => onCopySlot(intent.slot),
+      ),
+      LeafEditSlotIntent: CallbackAction<LeafEditSlotIntent>(
+        onInvoke: (intent) {
+          onEditSlot(intent.slot);
+          return null;
+        },
       ),
       LeafDeleteIntent: CallbackAction<LeafDeleteIntent>(
         onInvoke: (_) => onDelete(),

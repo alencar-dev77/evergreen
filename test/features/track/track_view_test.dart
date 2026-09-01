@@ -12,6 +12,7 @@ import 'package:evergreen/features/track/presentation/widgets/track_day_list.dar
 import 'package:evergreen/features/track/presentation/widgets/track_week_strip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:evergreen/shared/widgets/eg_stat_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -120,18 +121,34 @@ void main() {
   Finder inDayList(String text) =>
       find.descendant(of: find.byType(TrackDayList), matching: find.text(text));
 
-  testWidgets('o balanço conta o período numa frase', (tester) async {
+  /// O balanço em três blocos, e não numa frase corrida: numa frase, o tempo
+  /// focado, a contagem de sessões e o número de reuniões tinham o mesmo peso e
+  /// se liam um atrás do outro.
+  testWidgets('o balanço conta o período em três medidas', (tester) async {
     insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
     insertFocus(at(0, 14, 30), const Duration(minutes: 40));
     insertMeeting(at(0, 10, 0), const Duration(minutes: 45), 'Weekly');
     insertCopy(at(0, 11, 0), 'https://exemplo.com', ClipboardItemType.link);
 
+    expect(find.byType(EgStatCard), findsNothing);
+
     await pumpTrack(tester);
 
-    expect(find.textContaining('1h 05min'), findsWidgets);
-    expect(find.textContaining('focadas em 2 sessões'), findsOneWidget);
-    expect(find.textContaining('em 1 reunião'), findsOneWidget);
-    expect(find.textContaining('item copiado'), findsWidgets);
+    expect(find.byType(EgStatCard), findsNWidgets(3));
+
+    Finder inCard(String label, String text) => find.descendant(
+      of: find.ancestor(
+        of: find.text(label),
+        matching: find.byType(EgStatCard),
+      ),
+      matching: find.textContaining(text),
+    );
+
+    expect(inCard('FOCO', '1h 05min'), findsOneWidget);
+    expect(inCard('FOCO', '2 sessões'), findsOneWidget);
+    expect(inCard('REUNIÃO', '45 min'), findsOneWidget);
+    expect(inCard('REUNIÃO', '1 reunião'), findsOneWidget);
+    expect(inCard('COPIADO', '1'), findsWidgets);
   });
 
   testWidgets('cada dia com registro vira uma linha', (tester) async {
@@ -188,11 +205,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HubDetailRegion), findsOneWidget);
-    expect(find.text('FOCO'), findsOneWidget);
+
+    // Escopo na região: "FOCO" e "COPIADO" também são etiquetas dos cartões de
+    // balanço da coluna ao lado, e são legítimas nos dois lugares.
+    Finder inDetail(String text) => find.descendant(
+      of: find.byType(HubDetailRegion),
+      matching: find.text(text),
+    );
+
+    expect(inDetail('FOCO'), findsOneWidget);
     expect(find.text('Refatorar o auth'), findsOneWidget);
-    expect(find.text('REUNIÕES'), findsOneWidget);
+    expect(inDetail('REUNIÕES'), findsOneWidget);
     expect(find.text('Weekly do time'), findsOneWidget);
-    expect(find.text('COPIADO'), findsOneWidget);
+    expect(inDetail('COPIADO'), findsOneWidget);
     // O tipo e a contagem, nunca o que foi copiado.
     expect(find.text('Links'), findsOneWidget);
     expect(find.text('https://exemplo.com'), findsNothing);

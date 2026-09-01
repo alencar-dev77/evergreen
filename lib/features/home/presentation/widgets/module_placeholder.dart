@@ -15,7 +15,7 @@ class ModulePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EgPanel(
-      color: context.eg.colors.card,
+      color: context.eg.colors.surface,
       borderRadius: context.eg.shapes.cardAll,
       elevated: false,
       padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -25,7 +25,7 @@ class ModulePlaceholder extends StatelessWidget {
           EgIconBadge(
             size: AppBadgeSizes.md,
             color: context.eg.colors.hover,
-            borderRadius: context.eg.shapes.smallAll,
+            borderRadius: context.eg.shapes.segmentAll,
             child: EgIcon(module.icon, size: AppIconSizes.xl),
           ),
           const SizedBox(width: AppSpacing.xl),

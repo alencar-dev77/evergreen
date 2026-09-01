@@ -9,7 +9,7 @@ import '../../../../core/system/global_shortcut_slot.dart';
 import '../../../../core/system/shortcut_binding.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
-import '../../../../shared/widgets/eg_settings_section.dart';
+import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_shortcut_recorder.dart';
 import '../viewmodels/module_settings_view_model.dart';
 
@@ -23,10 +23,22 @@ import '../viewmodels/module_settings_view_model.dart';
 ///
 /// O tópico continua sendo o penúltimo de toda tela de preferência, antes só de
 /// permissões. Ver a ordem fixa em `components.md`.
+/// A seção "Atalho global", ou as linhas dela soltas.
+///
+/// Com [bare], ela devolve as linhas sem o cartão em volta: é o que permite
+/// "Abrir o Hub com" morar dentro de "Sistema", na tela do aplicativo, em vez
+/// de ganhar uma seção inteira para uma pergunta só.
 class GlobalShortcutSection extends ConsumerStatefulWidget {
-  const GlobalShortcutSection({super.key, required this.slot});
+  const GlobalShortcutSection({
+    super.key,
+    required this.slot,
+    this.bare = false,
+  });
 
   final GlobalShortcutSlot slot;
+
+  /// Devolve só as linhas, sem o cartão em volta.
+  final bool bare;
 
   @override
   ConsumerState<GlobalShortcutSection> createState() =>
@@ -114,47 +126,51 @@ class _GlobalShortcutSectionState extends ConsumerState<GlobalShortcutSection> {
     final binding = settings.bindingFor(widget.slot);
     final isCustom = settings.isCustom(widget.slot);
 
-    return EgSettingsSection(
-      title: 'Atalho global',
-      children: [
-        EgSettingsRow(
-          label: widget.slot.openLabel,
-          description: _isRecording
-              ? 'Aperte a combinação. Esc cancela.'
-              : 'Funciona com qualquer aplicativo em foco.',
-          showDivider: isCustom,
-          trailing: EgShortcutRecorder(
-            binding: binding,
-            isRecording: _isRecording,
-            onStart: _start,
-            onCancel: _stop,
-            onRecorded: _record,
+    final rows = <Widget>[
+      EgSettingsRow(
+        label: widget.slot.openLabel,
+        description: _isRecording
+            ? 'Aperte a combinação. Esc cancela.'
+            : 'Funciona com qualquer aplicativo em foco.',
+        trailing: EgShortcutRecorder(
+          binding: binding,
+          isRecording: _isRecording,
+          onStart: _start,
+          onCancel: _stop,
+          onRecorded: _record,
+        ),
+      ),
+      // A recusa fica embaixo do tópico, e não no lugar da descrição: ela é
+      // mais longa que uma linha e precisa da cor de aviso, que a descrição
+      // não tem. É a mesma forma que a mensagem do "Restaurar" da tela do
+      // aplicativo já usa.
+      if (_refusal != null) ...[
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          _refusal!,
+          style: context.eg.text.caption.copyWith(
+            color: context.eg.colors.warning,
           ),
         ),
-        // A recusa fica embaixo do tópico, e não no lugar da descrição: ela é
-        // mais longa que uma linha e precisa da cor de aviso, que a descrição
-        // não tem. É a mesma forma que a mensagem do "Restaurar" da tela do
-        // aplicativo já usa.
-        if (_refusal != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            _refusal!,
-            style: context.eg.text.captionSmall.copyWith(
-              color: context.eg.colors.warning,
-            ),
-          ),
-        ],
-        if (isCustom)
-          EgSettingsRow(
-            label: 'Restaurar padrão',
-            description: 'Volta para ${widget.slot.fallback.compact}.',
-            showDivider: false,
-            trailing: EgButton.secondary(
-              label: 'Restaurar',
-              onPressed: () => _model.restoreDefault(widget.slot),
-            ),
-          ),
       ],
-    );
+      if (isCustom)
+        EgSettingsRow(
+          label: 'Restaurar padrão',
+          description: 'Volta para ${widget.slot.fallback.compact}.',
+          trailing: EgButton.secondary(
+            label: 'Restaurar',
+            onPressed: () => _model.restoreDefault(widget.slot),
+          ),
+        ),
+    ];
+
+    if (widget.bare) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: rows,
+      );
+    }
+
+    return EgSettingsCard(title: 'Atalho global', children: rows);
   }
 }

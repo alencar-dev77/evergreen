@@ -9,24 +9,6 @@
 /// compilando, continua nos testes e continua sendo mantido — senão, no dia em
 /// que ela virar `true`, o que aparece do outro lado é uma ruína.
 abstract final class FeatureFlags {
-  /// A escolha de aparência: o tema Apple e a linha "Aparência" nas
-  /// preferências.
-  ///
-  /// Em `false`, o app inteiro fica no tema da casa e a linha some da tela do
-  /// Evergreen — não desabilitada, some. Um controle apagado diz "isto existe,
-  /// mas não para você"; aqui a resposta certa é a tela não mencionar uma
-  /// escolha que ninguém pode fazer.
-  ///
-  /// O que **não** acontece ao desligar: a preferência guardada não é apagada.
-  /// Quem tinha escolhido o Apple continua com `apple` no disco, esperando; a
-  /// bandeira de volta em `true` devolve a escolha em vez de zerá-la. É a
-  /// diferença entre desligar uma funcionalidade e desfazer o que a pessoa fez.
-  ///
-  /// O código dos dois temas continua compilando e testado dos dois lados —
-  /// ver `THEMING.md`, e `AppSettings.activeTheme`, que é por onde a bandeira
-  /// realmente manda.
-  static const themes = false;
-
   /// A abertura animada do Hub — a lâmina do canivete girando para fora do
   /// cabo, uma vez por build instalada.
   ///

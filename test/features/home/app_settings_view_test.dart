@@ -84,7 +84,7 @@ void main() {
     expect(find.byType(PinSettingsView), findsOneWidget);
     expect(find.text('Iniciar com o macOS'), findsNothing);
 
-    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.tap(find.text('Aplicativo'));
     await tester.pumpAndSettle();
 
     expect(find.byType(AppSettingsView), findsOneWidget);
@@ -98,9 +98,11 @@ void main() {
   testWidgets('voltar para um módulo troca o painel', (tester) async {
     await pumpHub(tester);
 
-    await tester.tap(find.text('Preferências do aplicativo'));
+    await tester.tap(find.text('Aplicativo').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(EvergreenModule.pin.name));
+    // `.first` é o item da barra lateral: a tela do aplicativo lista todas as
+    // teclas do app, e o nome de cada módulo aparece lá também.
+    await tester.tap(find.text(EvergreenModule.pin.name).first);
     await tester.pumpAndSettle();
 
     expect(find.byType(AppSettingsView), findsNothing);
@@ -112,7 +114,7 @@ void main() {
   group('o nome', () {
     Future<void> openSettings(WidgetTester tester) async {
       await pumpHub(tester);
-      await tester.tap(find.text('Preferências do aplicativo'));
+      await tester.tap(find.text('Aplicativo'));
       await tester.pumpAndSettle();
     }
 
@@ -180,7 +182,7 @@ void main() {
   group('backup', () {
     Future<void> openSettings(WidgetTester tester) async {
       await pumpHub(tester);
-      await tester.tap(find.text('Preferências do aplicativo'));
+      await tester.tap(find.text('Aplicativo'));
       await tester.pumpAndSettle();
     }
 

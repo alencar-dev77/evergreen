@@ -1,8 +1,8 @@
 @Tags(['preview'])
 library;
 
-import 'package:evergreen/core/design/app_theme_id.dart';
 import 'package:evergreen/core/design/eg_tokens.dart';
+import 'package:evergreen/core/design/themes/evergreen_tokens.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/shared/widgets/eg_button.dart';
@@ -37,13 +37,12 @@ import 'golden_fonts.dart';
 void main() {
   setUpAll(loadGoldenFonts);
 
-  /// Uma folha por tema: a matriz é a mesma tabela, e o que muda é a pele.
-  /// Duas imagens lado a lado é a forma mais rápida de ver se um estado sumiu
-  /// numa das aparências — um hover que não se vê, uma seleção sem contraste.
-  for (final theme in AppThemeId.values) {
-    testWidgets('matriz de estado dos componentes — ${theme.name}', (
-      tester,
-    ) async {
+  /// A folha de todos os estados de todas as famílias.
+  ///
+  /// É o que prende a matriz: um hover que sumiu, uma seleção sem contraste ou
+  /// uma linha de luz que deixou de acender não quebram teste nenhum de
+  /// comportamento — quebram esta imagem.
+  testWidgets('matriz de estado dos componentes', (tester) async {
       tester.view.physicalSize = const Size(2000, 1240);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(tester.view.reset);
@@ -51,9 +50,9 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(theme),
+          theme: AppTheme.build(),
           home: ColoredBox(
-            color: EgTokens.of(theme).colors.background,
+            color: EgTokens.evergreen().colors.canvas,
             child: const _StateMatrixGallery(),
           ),
         ),
@@ -76,13 +75,12 @@ void main() {
 
       await expectLater(
         find.byType(_StateMatrixGallery),
-        matchesGoldenFile('goldens/design_state_matrix_${theme.name}.png'),
+        matchesGoldenFile('goldens/design_state_matrix.png'),
       );
 
-      await press.up();
-      await tester.pumpAndSettle();
-    });
-  }
+    await press.up();
+    await tester.pumpAndSettle();
+  });
 }
 
 class _StateMatrixGallery extends StatelessWidget {
@@ -118,7 +116,7 @@ class _StateMatrixGallery extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Matriz de estado', style: context.eg.text.screenTitle),
+          Text('Matriz de estado', style: context.eg.text.display),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             'Toda superfície interativa do Evergreen resolve o próprio fundo '
@@ -157,7 +155,7 @@ class _StateMatrixGallery extends StatelessWidget {
       children: [
         SizedBox(
           width: _labelWidth,
-          child: Text(name, style: context.eg.text.bodyCompactEmphasis),
+          child: Text(name, style: context.eg.text.bodyEmphasis),
         ),
         for (final entry in _states.entries)
           SizedBox(
@@ -180,7 +178,7 @@ class _StateMatrixGallery extends StatelessWidget {
     // A coluna sem estado selecionado deixa a célula vazia em vez de repetir o
     // repouso: o buraco na tabela é a informação.
     if (isSelected && style.selected == null) {
-      return Text('—', style: context.eg.text.captionXS);
+      return Text('—', style: context.eg.text.footnote);
     }
 
     return Opacity(
@@ -195,7 +193,7 @@ class _StateMatrixGallery extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           'Rótulo',
-          style: context.eg.text.bodyCompactEmphasis.copyWith(
+          style: context.eg.text.bodyEmphasis.copyWith(
             color: style.foregroundFor(
               state,
               isSelected: isSelected,
@@ -287,7 +285,8 @@ class _Components extends StatelessWidget {
                 EgNavTile(
                   icon: EgIconData.evergreen,
                   title: 'Pin',
-                  subtitle: 'Histórico da área de transferência',
+                  shortcut: '⌘⇧C',
+                  statusColor: EvergreenTokens.palette.accent,
                   isSelected: true,
                   onTap: () {},
                 ),
@@ -295,7 +294,8 @@ class _Components extends StatelessWidget {
                 EgNavTile(
                   icon: EgIconData.timer,
                   title: 'Focus',
-                  subtitle: 'Cronômetro de foco',
+                  shortcut: '⌘⇧F',
+                  statusColor: EvergreenTokens.palette.textQuaternary,
                   isSelected: false,
                   onTap: () {},
                 ),

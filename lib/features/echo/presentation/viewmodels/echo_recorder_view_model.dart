@@ -8,6 +8,7 @@ import '../../data/echo_repository.dart';
 import '../../data/echo_settings_repository.dart';
 import '../../models/cross_talk_filter.dart';
 import '../../models/echo_capabilities.dart';
+import '../../models/echo_spectrum.dart';
 import '../../models/meeting.dart';
 import 'echo_recorder_state.dart';
 
@@ -30,7 +31,13 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
 
   Timer? _ticker;
   StreamSubscription<String>? _liveSubscription;
+  StreamSubscription<EchoSpectrum>? _levelSubscription;
   DateTime? _startedAt;
+
+  /// Quanto tempo esta gravação passou pausada — sai da conta do relógio, como
+  /// sai da conta do arquivo do lado nativo.
+  Duration _paused = Duration.zero;
+  DateTime? _pausedAt;
 
   @override
   EchoRecorderState build() {
@@ -42,6 +49,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
     ref.onDispose(() {
       _ticker?.cancel();
       _liveSubscription?.cancel();
+      _levelSubscription?.cancel();
     });
 
     return const EchoRecorderState();
@@ -52,6 +60,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   Future<void> initialize() async {
     _channel.listen();
     _liveSubscription ??= _channel.onLiveSegment.listen(_onLiveSegment);
+    _levelSubscription ??= _channel.onLevels.listen(_onSpectrum);
 
     try {
       await _channel.cleanOrphanAudio();
@@ -123,10 +132,14 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
     }
 
     _startedAt = _now();
+    _paused = Duration.zero;
+    _pausedAt = null;
     state = state.copyWith(
       phase: EchoPhase.recording,
       elapsed: Duration.zero,
       liveText: const [],
+      isPaused: false,
+      clearSpectrum: true,
       clearError: true,
       clearMeeting: true,
     );
@@ -137,9 +150,49 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
 
   void _tick() {
     final startedAt = _startedAt;
-    if (startedAt == null || !state.isRecording) return;
+    if (startedAt == null || !state.isCapturing) return;
 
-    state = state.copyWith(elapsed: _now().difference(startedAt));
+    state = state.copyWith(elapsed: _now().difference(startedAt) - _paused);
+  }
+
+  /// Suspende a gravação. O que passa daqui até o `resume` não entra no
+  /// arquivo, não entra na duração e não move o relógio do painel.
+  Future<void> pause() async {
+    if (!state.isCapturing) return;
+
+    try {
+      await _channel.pauseRecording();
+    } on EchoException catch (error) {
+      state = state.copyWith(errorMessage: error.message);
+      return;
+    }
+
+    _pausedAt = _now();
+    // O equalizador zera junto: parado, ele não tem o que medir, e barras
+    // congeladas na última medida diriam que ainda está entrando som.
+    state = state.copyWith(isPaused: true, clearSpectrum: true);
+  }
+
+  Future<void> resume() async {
+    if (!state.isRecording || !state.isPaused) return;
+
+    try {
+      await _channel.resumeRecording();
+    } on EchoException catch (error) {
+      state = state.copyWith(errorMessage: error.message);
+      return;
+    }
+
+    final since = _pausedAt;
+    if (since != null) _paused += _now().difference(since);
+    _pausedAt = null;
+    state = state.copyWith(isPaused: false);
+  }
+
+  void _onSpectrum(EchoSpectrum spectrum) {
+    if (!state.isCapturing) return;
+
+    state = state.copyWith(spectrum: spectrum);
   }
 
   void _onLiveSegment(String text) {

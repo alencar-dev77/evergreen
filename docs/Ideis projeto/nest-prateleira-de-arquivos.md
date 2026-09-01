@@ -118,6 +118,19 @@ não são detalhe de implementação:
   modificadora do sistema, e aí o rótulo "COPIAR PARA" valeria para metade dos
   caminhos do módulo.
 
+E declarar uma operação só não bastou. A máscara declarada não é a última
+palavra: antes de consultar destino nenhum, o AppKit a cruza com o que a
+modificadora segurada pede — `⌥` pede `.copy`, `⌘` pede `.move`. Como aqui o
+`⌥` é justamente o que inverte o modo do painel, o caminho "padrão copiar, `⌥`
+para mover" declarava `.move` com o `⌥` ainda para baixo: `.move` cruzado com
+`.copy` é conjunto vazio, e o arraste nascia com o sinal de proibido colado no
+cursor. O contrário passava por acidente — padrão mover, `⌥` declara `.copy`,
+que é o que o `⌥` já pedia —, e foi por isso que o defeito ficou meio escondido:
+metade dos caminhos funcionava.
+
+A saída é `ignoreModifierKeys(for:)` devolvendo `true`. Quando a sessão começa,
+a decisão já foi tomada no painel, e a tecla não tem mais nada a dizer.
+
 ### Soltar em cima da própria prateleira é desistir
 
 Fora do painel, o relógio do cursor já faz a janela sumir para o mouse, e é isso

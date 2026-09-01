@@ -82,26 +82,54 @@ Regra prática: **quando em dúvida, prefira a densidade mais alta que ainda man
 
 ## Border-radius
 
-Radius no Evergreen é sutil e consistente, nunca "arredondado como app de mobile de IA genérica". Use uma escala pequena:
+**O canto do Evergreen é contínuo, não um arco de círculo.** O macOS arredonda
+com curvatura que entra e sai gradualmente, e é isso que faz um canto do sistema
+parecer macio enquanto um `BorderRadius.circular` do mesmo raio parece uma
+esquina lixada. Era o sintoma número um do desenho anterior — raios de 6 a 12 em
+arco circular contra um sistema que arredonda contínuo e maior.
 
-- **4–6px** — componentes pequenos e densos: botões compactos, badges, inputs pequenos, itens de lista com fundo (linha selecionada).
-- **8px** — componentes de tamanho médio: botões padrão, campos de busca, cards de configuração quando genuinamente necessários.
-- **10–12px** — superfícies flutuantes maiores: popups, dropdowns, modais.
-- **Nunca** use radius muito alto (16px+) em componentes retangulares de conteúdo — isso empurra a estética para "app de mobile consumer" em vez de "ferramenta desktop profissional". A exceção genuína é elementos circulares de propósito (avatar, indicador de ponto/dot), que naturalmente usam radius total (círculo), mas isso não é uma decisão de "radius alto", é geometria de círculo.
-- Mantenha o radius consistente entre elementos aninhados: se um popup tem radius de 10px e contém um botão internamente encostado na borda, o radius do botão deve respeitar a curvatura do container pai (radius menor ou concêntrico), nunca dois raios visualmente conflitantes.
+Quem resolve é o `EgSquircle`:
 
-### Escala implementada (`AppRadii`) — valores oficiais do produto
+- `EgSquircle.shape(r)` devolve um `ContinuousRectangleBorder` acima de **14**,
+  e o arredondado normal abaixo — ali os dois dão a mesma imagem, e o arco é
+  mais barato (um `ShapeDecoration` custa um `Path` por quadro).
+- Superfície interativa desenha com **`ShapeDecoration`**, não `BoxDecoration`.
+  `EgSurface` já faz isso para todo mundo.
+
+### Escala implementada (`EgShapes`) — valores oficiais do produto
 
 | Token | Valor | Aplicação |
 |---|---|---|
-| `panel` | 12 | superfície flutuante: painel do overlay, `EgConfirmDialog`, dropdown da menu bar |
-| `card` | 8 | card interno, superfície de conteúdo dentro de um painel |
-| `button` | 8 | botão, campo de busca, card de preview |
-| `listItem` | 6 | linha de lista, item de sidebar, botão de ícone |
-| `badge` | 6 | badge de ícone, container do segmented control, tooltip |
-| `badgeSmall` | 4 | key-cap, segmento interno do segmented control |
+| `radiusWindow` | 28 | a janela do Hub |
+| `radiusPanel` | 22 | painel flutuante, `EgConfirmDialog`, dropdown |
+| `radiusStage` | 20 | bloco-instrumento: o anel do Focus, a pilha do Nest, a bancada do gerador |
+| `radiusCard` | 17 | cartão de seção |
+| `radiusRow` | 13 | linha de lista, item de barra lateral, faixa de estado |
+| `radiusControl` | 12 | botão, campo |
+| `radiusSegment` | 9 | segmento dentro do trilho, keycap |
+| `radiusChip` | 999 | pílula: interruptor mestre, filtro, aba, tecla do cabeçalho |
 
-12px é o teto do app: nenhuma superfície do Evergreen passa disso. Aninhamento é concêntrico — o segmento interno usa `badgeSmall` (4) exatamente porque o container usa `badge` (6) com 2px de padding.
+A escala subiu inteira — o teto era 12 e passou a 28. **Isso não é "arredondado
+de app mobile"**: é o raio que o macOS usa nas próprias janelas, e o que o
+distingue de estética consumer é a curvatura contínua, não o número.
+
+**Ela subiu duas vezes, e a segunda foi pelo pé.** A primeira levou o teto de
+12 a 26 e deixou o rodapé da escala onde estava — botão em 10, segmento e
+keycap em 7 —, e o app continuou parecendo quadrado: o que se olha de perto
+numa tela de preferências não é a janela, são os botões, as teclas e os
+segmentos, e eram justamente eles que ainda tinham canto de planilha. O
+rodapé subiu junto (12 e 9), e o resto acompanhou para a escada não achatar.
+**Onde a curva se nota é no pequeno**; o raio grande sozinho só arredonda o que
+ninguém estava olhando.
+
+Aninhamento continua concêntrico: o segmento interno usa `radiusSegment` (9)
+porque o trilho usa `radiusControl` (12) com 2px de padding.
+
+**Forma é família.** Dois controles vizinhos que fazem parte do mesmo par —
+o interruptor mestre e a tecla do módulo, no cabeçalho — usam o **mesmo** raio.
+Cápsula ao lado de retângulo se lê como duas coisas soltas mesmo quando as duas
+estão perfeitamente centradas no mesmo eixo; foi exatamente esse o "desalinho"
+que se percebeu no cabeçalho antes de alguém medir.
 
 ## Alvos de clique e área de interação
 

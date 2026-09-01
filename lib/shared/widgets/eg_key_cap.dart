@@ -9,9 +9,16 @@ import '../../core/design/eg_tokens.dart';
 /// volta, numa frase só. Lidos um a um, os símbolos viram ruído — o leitor de
 /// tela não tem o que fazer com um `⌘` solto.
 class EgKeyCap extends StatelessWidget {
-  const EgKeyCap(this.label, {super.key});
+  const EgKeyCap(this.label, {super.key, this.onGlass = false});
 
   final String label;
+
+  /// A tecla mora sobre o vidro de um painel flutuante.
+  ///
+  /// Ali a escala de neutros não vale: o que passa por trás muda a leitura de
+  /// qualquer cinza opaco, e uma tecla pintada de `control` some quando o
+  /// painel abre sobre uma janela clara. Sobre vidro ela é branco com alfa.
+  final bool onGlass;
 
   /// Altura interna da tecla — ver a nota no `padding`.
   static const _capPadding = 3.0;
@@ -26,20 +33,28 @@ class EgKeyCap extends StatelessWidget {
         vertical: _capPadding,
       ),
       decoration: BoxDecoration(
-        color: context.eg.colors.card,
-        borderRadius: context.eg.shapes.smallAll,
-        border: context.eg.borderAll,
+        color: onGlass
+            ? context.eg.colors.glassControl
+            : context.eg.colors.control,
+        borderRadius: context.eg.shapes.segmentAll,
       ),
-      child: Text(label, style: context.eg.text.monoSmall),
+      child: Text(label, style: context.eg.text.keycap),
     );
   }
 }
 
 /// Sequência de key-caps que representa um atalho completo.
 class EgShortcutDisplay extends StatelessWidget {
-  const EgShortcutDisplay({super.key, required this.keys});
+  const EgShortcutDisplay({
+    super.key,
+    required this.keys,
+    this.onGlass = false,
+  });
 
   final List<String> keys;
+
+  /// Ver [EgKeyCap.onGlass].
+  final bool onGlass;
 
   /// O nome falado de cada símbolo de modificadora.
   ///
@@ -74,7 +89,7 @@ class EgShortcutDisplay extends StatelessWidget {
         children: [
           for (var i = 0; i < keys.length; i++) ...[
             if (i > 0) const SizedBox(width: AppSpacing.xxs),
-            EgKeyCap(keys[i]),
+            EgKeyCap(keys[i], onGlass: onGlass),
           ],
         ],
       ),

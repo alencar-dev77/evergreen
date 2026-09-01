@@ -75,11 +75,11 @@ class _NoteLine extends StatelessWidget {
           // quem se lê é o que foi escrito.
           TextSpan(
             text: '${note.label} — ',
-            style: context.eg.text.captionXS.copyWith(
+            style: context.eg.text.footnote.copyWith(
               color: context.eg.colors.textTertiary,
             ),
           ),
-          TextSpan(text: note.text, style: context.eg.text.captionXS),
+          TextSpan(text: note.text, style: context.eg.text.footnote),
         ],
       ),
     );

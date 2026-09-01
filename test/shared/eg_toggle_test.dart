@@ -1,7 +1,6 @@
 import 'package:evergreen/shared/widgets/eg_toggle.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
-import 'package:evergreen/core/design/app_theme_id.dart';
 import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   // O trilho conta o estado pela cor, e a cor é do tema: prendendo o do
   // Evergreen, o teste continua sendo sobre o estado, não sobre a pele.
-  final eg = EgTokens.of(AppThemeId.evergreen);
+  final eg = EgTokens.evergreen();
 
   Future<void> pump(
     WidgetTester tester, {
@@ -41,7 +40,10 @@ void main() {
     expect(trackColor(tester), eg.colors.accent);
 
     await pump(tester, value: false, onChanged: (_) {});
-    expect(trackColor(tester), eg.colors.border);
+    // Apagado, o trilho é `hover`, e não a cor de divisor: dentro de um cartão
+    // de seção um trilho na cor da linha some no próprio cartão, e um
+    // interruptor que não se vê apagado não conta que existe.
+    expect(trackColor(tester), eg.colors.hover);
   });
 
   testWidgets('o mouse por cima clareia o trilho nas duas colunas', (
@@ -97,7 +99,7 @@ void main() {
     await tester.tap(find.byType(EgToggle));
     await tester.pumpAndSettle();
 
-    expect(trackColor(tester), eg.colors.border);
+    expect(trackColor(tester), eg.colors.hover);
     expect(tester.widget<Opacity>(find.byType(Opacity).first).opacity, 0.4);
   });
 }

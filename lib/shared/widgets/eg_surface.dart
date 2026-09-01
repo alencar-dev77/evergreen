@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_metrics.dart';
+import '../../core/design/tokens/eg_squircle.dart';
 import 'eg_hoverable.dart';
 import '../../core/design/eg_tokens.dart';
 
@@ -40,12 +41,12 @@ class EgSurfaceStyle {
     required this.foreground,
     this.restGradient,
     this.selected,
-    this.selectedGradient,
     this.hoverForeground,
     this.selectedForeground,
     this.border,
     this.selectedBorder,
-    this.selectedEdge,
+    this.innerHairline,
+    this.hairlineAlways = false,
     this.disabledOpacity = AppOpacities.disabled,
   });
 
@@ -79,7 +80,6 @@ class EgSurfaceStyle {
   /// É a seleção sólida do `NSTableView`: no tema Apple a linha escolhida é
   /// preenchida inteira pelo accent, e um degradê de dois passos é o que
   /// impede que esse preenchimento pareça um adesivo colado na lista.
-  final Gradient? selectedGradient;
 
   /// Conteúdo sob o mouse, o foco ou o clique. `null` mantém [foreground] —
   /// que é o caso comum: quem acusa a interação é a superfície, não o texto.
@@ -98,15 +98,25 @@ class EgSurfaceStyle {
 
   /// Aresta que corre pela lateral esquerda da superfície selecionada.
   ///
-  /// É a assinatura de seleção do Evergreen: o fundo em accent a 14% diz "esta
-  /// é a linha", e a aresta diz de onde ela começa — num painel escuro, uma
-  /// superfície de baixo contraste sozinha se perde entre as vizinhas quando a
-  /// lista rola. Vale para as colunas que ocupam a largura toda de um bloco
-  /// ([row] e [card]); pílula de segmented control não tem, porque em 60px de
-  /// largura a aresta viraria metade do componente.
+  /// É a assinatura de seleção do "Estufa", e ela substituiu a aresta verde de
+  /// 3 px à esquerda. **Selecionado é elevação e peso, nunca cor**: o Flutter
+  /// não tem sombra interna, então a elevação se desenha com luz — uma linha
+  /// de 1 px no topo, como a borda de cima de uma superfície do macOS que
+  /// recebe o ambiente.
+  ///
+  /// Trocar a cor pela luz é o que devolveu significado ao verde: ele voltou a
+  /// dizer só "ligado" e "ação primária", em vez de dizer também "esta linha".
   ///
   /// `null` em quem não tem noção de seleção — botão, botão de ícone.
-  final Color? selectedEdge;
+  final Color? innerHairline;
+
+  /// A linha de luz acende sempre, e não só no estado selecionado.
+  ///
+  /// É a superfície que **nasce** elevada: a faixa de estado do Hub não é uma
+  /// linha de lista que às vezes está escolhida — ela está sempre no topo da
+  /// pilha, e apagar a luz dela quando o mouse não está por perto a faria
+  /// afundar no cartão.
+  final bool hairlineAlways;
 
   /// Opacidade aplicada ao conteúdo quando o controle está indisponível.
   final double disabledOpacity;
@@ -125,12 +135,12 @@ class EgSurfaceStyle {
         pressed: pressed,
         foreground: foreground,
         selected: selected,
-        selectedGradient: selectedGradient,
         hoverForeground: hoverForeground,
         selectedForeground: selectedForeground,
         border: border ?? this.border,
         selectedBorder: selectedBorder ?? this.selectedBorder,
-        selectedEdge: selectedEdge,
+        innerHairline: innerHairline,
+        hairlineAlways: hairlineAlways,
         disabledOpacity: disabledOpacity,
       );
 
@@ -160,9 +170,6 @@ class EgSurfaceStyle {
     bool isSelected = false,
     bool isEnabled = true,
   }) {
-    if (isSelected && selectedGradient != null && isEnabled) {
-      return selectedGradient;
-    }
     if (restGradient == null) return null;
     if (!isEnabled) return restGradient;
     if (isSelected && selected != null) return null;
@@ -195,8 +202,10 @@ class EgSurfaceStyle {
   ///
   /// Só o estado selecionado a acende: ela responde "onde o teclado está", e um
   /// hover que a acendesse faria o mouse parecer mover a seleção sem clicar.
-  Color? edgeFor(EgInteraction state, {bool isSelected = false}) =>
-      isSelected ? selectedEdge : null;
+  /// A linha de luz do topo, quando ela existe e a superfície está no estado
+  /// que a acende.
+  Color? hairlineFor(EgInteraction state, {bool isSelected = false}) =>
+      isSelected || hairlineAlways ? innerHairline : null;
 
   /// Anel de foco: só com o foco de teclado e só enquanto o controle responde.
   ///
@@ -266,7 +275,7 @@ class EgSurface extends StatelessWidget {
       isEnabled: isEnabled,
     );
 
-    final edgeColor = style.edgeFor(state, isSelected: isSelected);
+    final hairline = style.hairlineFor(state, isSelected: isSelected);
 
     return AnimatedContainer(
       // Pressed entra sem transição: o feedback de "registrei seu clique"
@@ -278,7 +287,12 @@ class EgSurface extends StatelessWidget {
       margin: margin,
       padding: padding,
       alignment: alignment,
-      decoration: BoxDecoration(
+      // `ShapeDecoration`, e não `BoxDecoration`: é o que permite o canto
+      // contínuo. Acima do limiar do `EgSquircle` a forma é um
+      // `ContinuousRectangleBorder` — a curvatura entra e sai gradualmente, do
+      // jeito que o macOS arredonda —, e abaixo dele continua sendo o arco de
+      // sempre, que ali dá a mesma imagem por menos trabalho.
+      decoration: ShapeDecoration(
         color: gradient != null
             ? null
             : style.backgroundFor(
@@ -287,22 +301,23 @@ class EgSurface extends StatelessWidget {
                 isEnabled: isEnabled,
               ),
         gradient: gradient,
-        borderRadius: radius,
-        border: borderColor == null
-            ? null
-            : Border.all(color: borderColor, width: eg.shapes.hairline),
-        boxShadow: style.shadowFor(state, eg, isEnabled: isEnabled),
+        shape: EgSquircle.shapeFor(
+          radius,
+          side: borderColor == null
+              ? BorderSide.none
+              : BorderSide(color: borderColor, width: eg.shapes.hairline),
+        ),
+        shadows: style.shadowFor(state, eg, isEnabled: isEnabled),
       ),
-      // A aresta vai em primeiro plano, e não na `decoration`: o `Border` do
-      // Flutter só aceita raio de canto quando os quatro lados são iguais, e
-      // desenhá-la só à esquerda de uma caixa arredondada é justamente o caso
-      // que a asserção proíbe.
-      foregroundDecoration: edgeColor == null
+      // A linha de luz vai em primeiro plano, e não na `decoration`: ela corre
+      // só na aresta de cima, e uma borda do Flutter com um lado diferente dos
+      // outros não aceita raio de canto.
+      foregroundDecoration: hairline == null
           ? null
-          : EgSelectionEdge(
-              color: edgeColor,
+          : EgInnerHairline(
+              color: hairline,
               borderRadius: radius,
-              width: eg.shapes.selectionEdge,
+              thickness: eg.shapes.hairline,
             ),
       child: child,
     );
@@ -408,77 +423,76 @@ class EgInteractiveSurface extends StatelessWidget {
   }
 }
 
-/// A aresta accent da superfície selecionada, pintada por cima da caixa.
+/// A linha de luz no topo de uma superfície elevada, pintada por cima da caixa.
 ///
-/// Uma decoração própria, e não um `Border` de um lado só, porque `BoxDecoration`
-/// exige borda uniforme para aceitar raio de canto — e a aresta precisa
-/// acompanhar o arredondamento da peça, senão ela vaza pelos cantos de cima e
-/// de baixo.
+/// Uma decoração própria, e não um `Border` de um lado só, porque uma borda
+/// com lados diferentes não aceita raio de canto — e a linha precisa
+/// acompanhar o arredondamento da peça, senão ela vaza pelos cantos.
 ///
-/// O recorte é o mesmo `RRect` da caixa: as pontas da barra saem arredondadas
-/// de graça, sem cálculo de canto.
+/// O recorte é o mesmo `RRect` da caixa: as pontas saem arredondadas de graça,
+/// sem cálculo de canto.
 @immutable
-class EgSelectionEdge extends Decoration {
-  const EgSelectionEdge({
+class EgInnerHairline extends Decoration {
+  const EgInnerHairline({
     required this.color,
     required this.borderRadius,
-    required this.width,
+    required this.thickness,
   });
 
   final Color color;
   final BorderRadius? borderRadius;
-  final double width;
+  final double thickness;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _EgSelectionEdgePainter(this);
+      _EgInnerHairlinePainter(this);
 
-  /// A aresta acende e apaga junto com a superfície — daí ela saber interpolar.
-  /// Sem isso, a barra apareceria de uma vez enquanto o fundo ainda transita, e
-  /// a linha selecionada piscaria a cada seta do teclado.
+  /// A linha acende e apaga junto com a superfície — daí ela saber interpolar.
+  /// Sem isso, ela apareceria de uma vez enquanto o fundo ainda transita, e a
+  /// linha selecionada piscaria a cada seta do teclado.
   @override
-  EgSelectionEdge? lerpFrom(Decoration? a, double t) {
+  EgInnerHairline? lerpFrom(Decoration? a, double t) {
     if (a == null) return _fade(t);
-    if (a is! EgSelectionEdge) return null;
+    if (a is! EgInnerHairline) return null;
 
-    return EgSelectionEdge(
+    return EgInnerHairline(
       color: Color.lerp(a.color, color, t)!,
       borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
-      width: lerpDouble(a.width, width, t)!,
+      thickness: lerpDouble(a.thickness, thickness, t)!,
     );
   }
 
   @override
-  EgSelectionEdge? lerpTo(Decoration? b, double t) {
+  EgInnerHairline? lerpTo(Decoration? b, double t) {
     if (b == null) return _fade(1 - t);
-    if (b is! EgSelectionEdge) return null;
+    if (b is! EgInnerHairline) return null;
 
     return b.lerpFrom(this, t);
   }
 
   /// A mesma aresta com [t] da opacidade — o caminho de ida e volta entre "não
   /// há aresta" e a aresta cheia.
-  EgSelectionEdge _fade(double t) => EgSelectionEdge(
+  EgInnerHairline _fade(double t) => EgInnerHairline(
     color: color.withValues(alpha: color.a * t.clamp(0.0, 1.0)),
     borderRadius: borderRadius,
-    width: width,
+    thickness: thickness,
   );
 
   @override
   bool operator ==(Object other) =>
-      other is EgSelectionEdge &&
+      other is EgInnerHairline &&
       other.color == color &&
       other.borderRadius == borderRadius &&
-      other.width == width;
+      other.thickness == thickness;
 
   @override
-  int get hashCode => Object.hash(color, borderRadius, width);
+  int get hashCode => Object.hash(color, borderRadius, thickness);
 }
 
-class _EgSelectionEdgePainter extends BoxPainter {
-  _EgSelectionEdgePainter(this.decoration);
+class _EgInnerHairlinePainter extends BoxPainter {
+  _EgInnerHairlinePainter(this.decoration);
 
-  final EgSelectionEdge decoration;
+  final EgInnerHairline decoration;
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
@@ -492,125 +506,195 @@ class _EgSelectionEdgePainter extends BoxPainter {
       (decoration.borderRadius ?? BorderRadius.zero).toRRect(rect),
     );
     canvas.drawRect(
-      Rect.fromLTWH(rect.left, rect.top, decoration.width, rect.height),
+      Rect.fromLTWH(rect.left, rect.top, rect.width, decoration.thickness),
       Paint()..color = decoration.color,
     );
     canvas.restore();
   }
 }
 
-/// A matriz de estados resolvida para um tema.
+/// A matriz de estados do Evergreen.
 ///
-/// As colunas são as mesmas nos dois temas — o que muda são as cores que cada
-/// uma pede ao tema. Vive aqui, e não em `EgSurfaceStyle`, porque um estilo é
-/// um punhado de cores e isto é a **tabela**: quem quiser uma combinação nova
-/// compõe uma `EgSurfaceStyle` a partir dos tokens, e a ordem de precedência
-/// continua a mesma para todo mundo.
+/// As colunas são as famílias de superfície; as linhas são os estados. Vive
+/// aqui, e não em `EgSurfaceStyle`, porque um estilo é um punhado de cores e
+/// isto é a **tabela**: quem precisar de uma combinação nova compõe uma
+/// `EgSurfaceStyle` a partir dos tokens, e a ordem de precedência continua a
+/// mesma para todo mundo — `disabled > selected > pressed > hover|focused >
+/// rest`.
+///
+/// A regra que atravessa a tabela inteira: **selecionado é elevação e peso,
+/// nunca cor**. Era um fundo verde a 14% mais uma aresta verde de 3 px, e ele
+/// gastava a única cor que o app tem para dizer "ligado" — agora é a superfície
+/// [EgPalette.raised] com a linha de luz no topo, e o peso do texto faz o
+/// resto.
 @immutable
 class EgSurfaces {
   const EgSurfaces(this._eg);
 
   final EgTokens _eg;
 
-  /// O degradê de seleção do tema, quando ele pinta seleção sólida.
-  Gradient? get _selectionGradient {
-    final colors = _eg.colors.selectionGradient;
-    if (colors == null) return null;
-
-    return LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: colors,
-    );
-  }
-
-  /// Linha de lista, item de sidebar, entrada de menu: sem superfície própria
-  /// em repouso, seleção no tom de seleção do tema.
+  /// Linha de lista, entrada de menu: sem superfície própria em repouso.
+  ///
+  /// **Selecionado é elevação, peso e um véu de accent.** Os três juntos, e
+  /// nessa ordem de importância: a superfície sobe, o texto engrossa, e o verde
+  /// em opacidade baixa diz qual é a linha da vez a três metros da tela. Só a
+  /// elevação não bastava sobre o vidro do painel flutuante — ali a linha
+  /// escolhida e a linha sob o mouse ficavam a um passo de distância, e a
+  /// diferença sumia sobre qualquer janela clara atrás.
+  ///
+  /// O verde continua querendo dizer o que sempre quis (ligado, ou a ação
+  /// primária): a linha escolhida **é** o que está ligado naquela lista. O que
+  /// não pode voltar é o bloco chapado de accent do desenho antigo — a
+  /// opacidade é baixa de propósito, para o realce ser um véu sobre a
+  /// superfície elevada, e não uma cor no lugar dela.
   EgSurfaceStyle get row => EgSurfaceStyle(
     rest: AppColors.transparent,
-    hover: _eg.colors.hover,
-    pressed: _eg.colors.pressed,
-    selected: _eg.colors.selection,
-    selectedGradient: _selectionGradient,
-    foreground: _eg.colors.textPrimary,
-    selectedForeground: _eg.colors.selectionLabel,
-    selectedEdge: _eg.shapes.selectionEdge > 0 ? _eg.colors.accent : null,
+    hover: _eg.colors.surfaceTop,
+    pressed: _eg.colors.control,
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
+    foreground: _eg.colors.textSecondary,
+    hoverForeground: _eg.colors.textPrimary,
+    selectedForeground: _eg.colors.textPrimary,
+    innerHairline: _eg.elevations.rowInnerHairline,
   );
 
-  /// Botão só de ícone e afordâncias que só aparecem sob o mouse: igual à
-  /// [row], mas sem estado selecionado e com conteúdo de segundo nível.
+  /// Item da barra lateral: a [row], com o glifo em verde claro quando é a
+  /// tela aberta.
+  EgSurfaceStyle get sidebarItem => EgSurfaceStyle(
+    rest: AppColors.transparent,
+    hover: _eg.colors.surfaceTop,
+    pressed: _eg.colors.control,
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
+    foreground: _eg.colors.textSecondary,
+    hoverForeground: _eg.colors.textPrimary,
+    selectedForeground: _eg.colors.textPrimary,
+    innerHairline: _eg.elevations.rowInnerHairline,
+  );
+
+  /// O véu de accent da linha escolhida, sobre superfície opaca e sobre vidro.
+  ///
+  /// Sobre o vidro ele é mais forte: lá o véu não tem uma superfície elevada
+  /// embaixo para ajudá-lo — o `raised` não vale sobre translucidez —, então
+  /// ele responde sozinho pela distinção.
+  static const _selectedVeil = 0.16;
+  static const _selectedVeilOnGlass = 0.24;
+
+  /// A mesma linha, **dentro do vidro**.
+  ///
+  /// Sobre translucidez a escala de neutros não vale: o que passa por trás
+  /// muda a leitura de qualquer cinza opaco, e uma linha selecionada pintada
+  /// de `raised` some quando o painel abre sobre uma janela clara. Por isso o
+  /// hover e o pressed são branco com alfa — a única coisa que se comporta
+  /// igual sobre qualquer fundo — e a escolhida é o véu de accent, que é a
+  /// única que precisa se distinguir **das outras duas**.
+  EgSurfaceStyle get glassRow => EgSurfaceStyle(
+    rest: AppColors.transparent,
+    hover: _eg.colors.glassRow.withValues(alpha: 0.06),
+    pressed: _eg.colors.glassRow.withValues(alpha: 0.14),
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeilOnGlass),
+    foreground: _eg.colors.textSecondary,
+    hoverForeground: _eg.colors.textPrimary,
+    selectedForeground: _eg.colors.textPrimary,
+    innerHairline: _eg.elevations.rowInnerHairline,
+  );
+
+  /// Botão só de ícone e afordância que só aparece sob o mouse: igual à [row],
+  /// sem estado selecionado e com o conteúdo um nível atrás.
   EgSurfaceStyle get ghost => EgSurfaceStyle(
     rest: AppColors.transparent,
-    hover: _eg.colors.hover,
-    pressed: _eg.colors.pressed,
+    hover: _eg.colors.surfaceTop,
+    pressed: _eg.colors.hover,
     foreground: _eg.colors.textSecondary,
     hoverForeground: _eg.colors.textPrimary,
   );
 
-  /// Pílula de um segmented control: a mesma [row], com o rótulo um nível
-  /// atrás em repouso — são várias na tela ao mesmo tempo e só uma delas é a
-  /// resposta.
+  /// Pílula de um segmented control: são várias na tela ao mesmo tempo e só
+  /// uma é a resposta, então o rótulo em repouso fica um nível atrás.
+  ///
+  /// A escolhida leva o mesmo véu de accent da linha de lista — é a mesma
+  /// pergunta ("qual é a da vez?"), e responder de dois jeitos na mesma tela é
+  /// o que fazia a fila de opções parecer desligada ao lado de uma lista com a
+  /// linha acesa. Sem a linha de luz no topo, essa sim: em 60 px de largura ela
+  /// viraria a metade de cima do componente.
   EgSurfaceStyle get segment => EgSurfaceStyle(
     rest: AppColors.transparent,
-    hover: _eg.colors.hover,
-    pressed: _eg.colors.pressed,
-    selected: _eg.colors.selection,
-    selectedGradient: _selectionGradient,
+    hover: _eg.colors.surfaceTop,
+    pressed: _eg.colors.raised,
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
     foreground: _eg.colors.textSecondary,
-    selectedForeground: _eg.colors.selectionLabel,
+    hoverForeground: _eg.colors.textPrimary,
+    selectedForeground: _eg.colors.textPrimary,
   );
 
-  /// Cartão com superfície própria — o cartão do Leaf. Em repouso já tem fundo,
-  /// então o hover precisa subir a partir dele, não do transparente.
+  /// Cartão com superfície própria. Em repouso já tem fundo, então o hover
+  /// sobe a partir dele, não do transparente.
   EgSurfaceStyle get card => EgSurfaceStyle(
-    rest: _eg.colors.card,
-    restGradient: LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [_eg.colors.cardTop, _eg.colors.card],
-    ),
-    hover: _eg.colors.hover,
-    pressed: _eg.colors.pressed,
-    selected: _eg.colors.selection,
-    selectedGradient: _selectionGradient,
+    rest: _eg.colors.surface,
+    hover: _eg.colors.surfaceTop,
+    pressed: _eg.colors.control,
+    // O mesmo véu da linha de lista: o cartão escolhido do Leaf e a linha
+    // escolhida do Pin são a mesma pergunta ("qual é o da vez?"), e responder
+    // de dois jeitos faria a parede parecer de outro aplicativo.
+    selected: _eg.colors.accent.withValues(alpha: _selectedVeil),
     foreground: _eg.colors.textPrimary,
-    selectedForeground: _eg.colors.selectionLabel,
-    border: _eg.colors.border,
-    selectedBorder: _eg.colors.accentDeep,
-    selectedEdge: _eg.shapes.selectionEdge > 0 ? _eg.colors.accent : null,
+    selectedForeground: _eg.colors.textPrimary,
+    border: _eg.colors.edge,
+    selectedBorder: _eg.colors.edgeLight,
+    innerHairline: _eg.elevations.rowInnerHairline,
   );
 
-  /// Ação primária: o accent chapado — ou em degradê, no tema que tem um.
+  /// Ação primária: o accent chapado.
+  ///
+  /// Sem degradê, e é decisão: um degradê num botão de 32 pt não acrescenta
+  /// profundidade nenhuma, só assinatura de template. O verde chapado é o
+  /// contraste mais alto da tela e não precisa de ajuda.
   EgSurfaceStyle get primary => EgSurfaceStyle(
     rest: _eg.colors.accent,
-    restGradient: _eg.colors.accentGradient == null
-        ? null
-        : LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: _eg.colors.accentGradient!,
-          ),
-    hover: _eg.colors.accentLight,
-    pressed: _eg.colors.accentDeep,
+    hover: _eg.colors.accentHover,
+    pressed: _eg.colors.accentPressed,
     foreground: _eg.colors.onAccent,
   );
 
-  /// Ação secundária: superfície de controle com borda sutil.
+  /// Ação de sistema — "Pausar", "Parar e resumir".
+  ///
+  /// Branca, e não verde, porque **verde quer dizer ligado ou ação primária**.
+  /// Parar uma gravação não é nem uma coisa nem outra: é a ação mais
+  /// importante da tela sem ser uma afirmação, e o branco a põe no topo do
+  /// contraste sem pedir o accent emprestado.
+  EgSurfaceStyle get neutralStrong => EgSurfaceStyle(
+    rest: _eg.colors.textPrimary,
+    hover: const Color(0xFFFFFFFF),
+    pressed: const Color(0xFFD2D9D6),
+    foreground: _eg.colors.canvasDeep,
+  );
+
+  /// Ação secundária: superfície de controle com a aresta de luz.
   EgSurfaceStyle get secondary => EgSurfaceStyle(
     rest: _eg.colors.control,
     hover: _eg.colors.hover,
     pressed: _eg.colors.pressed,
     foreground: _eg.colors.textPrimary,
-    border: _eg.colors.border,
+    border: _eg.colors.edge,
   );
 
-  /// Ação destrutiva: a mesma caixa da [secondary], só o texto em vermelho —
-  /// vermelho chapado gritaria mais que a ação primária de qualquer tela.
+  /// A [secondary] dentro do vidro, pela mesma razão da [glassRow].
+  EgSurfaceStyle get glassControl => EgSurfaceStyle(
+    rest: _eg.colors.glassControl,
+    hover: _eg.colors.glassRow,
+    pressed: _eg.colors.glassControl,
+    foreground: _eg.colors.textPrimary,
+    border: _eg.colors.edge,
+  );
+
+  /// Ação destrutiva: contorno vermelho, fundo transparente.
+  ///
+  /// Vermelho chapado gritaria mais que a ação primária de qualquer tela — e
+  /// apagar não é a ação principal de tela nenhuma.
   EgSurfaceStyle get destructive => EgSurfaceStyle(
-    rest: _eg.colors.control,
-    hover: _eg.colors.hover,
-    pressed: _eg.colors.pressed,
+    rest: AppColors.transparent,
+    hover: _eg.colors.error.withValues(alpha: 0.10),
+    pressed: _eg.colors.error.withValues(alpha: 0.18),
     foreground: _eg.colors.error,
-    border: _eg.colors.border,
+    border: _eg.colors.error.withValues(alpha: 0.40),
   );
 }

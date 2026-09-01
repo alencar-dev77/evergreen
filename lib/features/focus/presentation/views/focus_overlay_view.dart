@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
+import '../../../../core/design/eg_tokens.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/overlay_window.dart';
 import '../../../../shared/utils/duration_format.dart';
@@ -14,16 +15,18 @@ import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../viewmodels/focus_timer_state.dart';
 import '../viewmodels/focus_timer_view_model.dart';
-import '../../../../shared/widgets/eg_countdown.dart';
+import '../../../../shared/widgets/eg_section_label.dart';
+import '../widgets/focus_dial.dart';
 import '../widgets/focus_session_log.dart';
 import 'focus_overlay_intents.dart';
 
 /// Painel flutuante do Focus — a tela que o `⌘⇧F` abre.
 ///
 /// Divide a janela com o overlay do Pin (ver `OverlayWindow`). Os três estados
-/// — partida, contando e concluído — usam o mesmo esqueleto: rótulo da fase,
-/// número grande, uma ação principal. É o que faz a sessão inteira acontecer
-/// sem a tela nunca se reorganizar debaixo do olho de quem está lendo.
+/// — partida, contando e concluído — usam o mesmo esqueleto: a linha da fase, o
+/// anel com o tempo dentro, a atividade e uma ação principal. É o que faz a
+/// sessão inteira acontecer sem a tela nunca se reorganizar debaixo do olho de
+/// quem está lendo.
 ///
 /// Fechar o painel não encerra a sessão: ela continua no engine desta janela, e
 /// a contagem aparece na barra de menus.
@@ -256,10 +259,14 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        EgCountdown(
-          label: state.phase.label,
+        _phaseLine(state.phase.label),
+        const SizedBox(height: AppSpacing.lg),
+        FocusDial(
           value: DurationFormat.countdown(state.settings.focusDuration),
           isMuted: true,
+          semanticLabel:
+              'Foco de '
+              '${DurationFormat.compact(state.settings.focusDuration)}',
         ),
         if (state.settings.asksActivity) ...[
           const SizedBox(height: AppSpacing.xxl),
@@ -289,18 +296,40 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        EgCountdown(
-          label: isPaused ? 'Pausado' : state.phase.label,
-          value: DurationFormat.countdown(state.remaining),
-          progress: state.progress,
-          isMuted: isPaused,
+        _phaseLine(
+          isPaused ? 'Pausado' : state.phase.label,
+          trailing: _nextPhase(state),
         ),
-        if (state.phase.isFocus && state.settings.asksNotes) ...[
+        const SizedBox(height: AppSpacing.lg),
+        FocusDial(
+          value: DurationFormat.countdown(state.remaining),
+          // O que falta, não o que passou: o anel esvazia com a sessão.
+          filled: 1 - state.progress,
+          isMuted: isPaused,
+          semanticLabel:
+              '${isPaused ? 'Pausado' : state.phase.label}, faltam '
+              '${DurationFormat.compact(state.remaining)}',
+        ),
+        // A atividade debaixo do anel, centrada: é o que a sessão está
+        // fazendo, e não uma anotação — por isso fora do diário, que é o que
+        // foi escrito *durante* ela.
+        if (state.hasActivity) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            state.activity,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: context.eg.text.body,
+          ),
+        ],
+        if (_canNote(state)) ...[
           const SizedBox(height: AppSpacing.md),
           // Tudo vem do estado da ViewModel, não dos controladores: fechar e
-          // reabrir o painel não perde nada do que já foi escrito.
+          // reabrir o painel não perde nada do que já foi escrito. A atividade
+          // não entra de novo — ela está logo acima, debaixo do anel.
           FocusSessionLog(
-            activity: state.activity,
+            activity: null,
             notes: state.notes,
             maxHeight: _logMaxHeight,
           ),
@@ -316,15 +345,17 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
           children: [
             Expanded(
               // Retomar é primário porque, com o cronômetro parado, voltar é a
-              // única coisa que a tela está propondo. Contando, pausar é apenas
-              // uma opção — e opção não é botão verde.
+              // única coisa que a tela está propondo. Contando, pausar é a ação
+              // mais importante da tela sem ser uma afirmação — é branca, não
+              // verde: o accent quer dizer "ligado" ou "ação primária", e
+              // pausar não é nem uma coisa nem outra.
               child: isPaused
                   ? EgButton(
                       label: 'Retomar',
                       expand: true,
                       onPressed: _viewModel.resume,
                     )
-                  : EgButton.secondary(
+                  : EgButton.neutralStrong(
                       label: 'Pausar',
                       expand: true,
                       onPressed: _viewModel.pause,
@@ -344,7 +375,10 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
             ],
             const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: EgButton.destructive(
+              // Encerrar não é destrutivo: a sessão vai para o histórico com o
+              // que já foi focado. O vermelho ali dizia "você vai perder isto",
+              // e prometia um risco que não existe — ele fica para o que apaga.
+              child: EgButton.secondary(
                 label: 'Encerrar',
                 expand: true,
                 onPressed: _viewModel.stop,
@@ -368,11 +402,26 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        EgCountdown(
-          label: isFocus ? 'Sessão concluída' : 'Pausa concluída',
+        _phaseLine(isFocus ? 'Sessão concluída' : 'Pausa concluída'),
+        const SizedBox(height: AppSpacing.lg),
+        FocusDial(
           value: DurationFormat.compact(elapsed),
-          detail: isFocus ? state.activity : null,
+          // A volta completa: aqui o anel não conta tempo, diz que fechou.
+          filled: 1,
+          semanticLabel:
+              '${isFocus ? 'Sessão' : 'Pausa'} concluída, '
+              '${DurationFormat.compact(elapsed)}',
         ),
+        if (isFocus && state.hasActivity) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            state.activity,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: context.eg.text.body,
+          ),
+        ],
         if (isFocus && state.settings.asksSummary) ...[
           const SizedBox(height: AppSpacing.xxl),
           EgTextField(
@@ -407,6 +456,45 @@ class _FocusOverlayViewState extends ConsumerState<FocusOverlayView> {
       ],
     );
   }
+
+  /// A linha de cima do painel: a fase à esquerda, o que vem depois à direita.
+  ///
+  /// O que vem depois é a única coisa que o painel diz sobre o futuro, e ela
+  /// vale a linha: quem está a três minutos do fim decide diferente sabendo se
+  /// o que vem é uma pausa de cinco ou de quinze.
+  Widget _phaseLine(String label, {String? trailing}) {
+    return Row(
+      children: [
+        Expanded(child: EgSectionLabel(label)),
+        if (trailing != null)
+          Text(
+            trailing,
+            style: context.eg.text.footnote.copyWith(
+              color: context.eg.colors.textTertiary,
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// "pausa de 5 min a seguir" — a fase seguinte, com a duração que ela terá.
+  String _nextPhase(FocusTimerState state) {
+    final settings = state.settings;
+
+    return state.phase.isFocus
+        ? 'pausa de ${DurationFormat.compact(settings.breakDuration)} a seguir'
+        : 'foco de ${DurationFormat.compact(settings.focusDuration)} a seguir';
+  }
+
+  /// Esta sessão aceita anotação: é uma fase de foco em andamento, e o modo
+  /// Pomodoro puro não está ligado.
+  ///
+  /// É a preferência que decide, e só ela: ligada, o campo fica na tela a
+  /// sessão inteira; desligada, ele não existe. Houve um `⌘E` que o abria e
+  /// fechava, e ele saiu — esconder atrás de uma tecla o que a pessoa já disse
+  /// que quer é fazê-la pedir duas vezes.
+  bool _canNote(FocusTimerState state) =>
+      state.isActive && state.phase.isFocus && state.settings.asksNotes;
 
   /// As dicas mudam com o estado: cada tela anuncia o que dá para fazer nela,
   /// não o mapa inteiro de atalhos do módulo.

@@ -38,9 +38,9 @@ class EchoPermissionRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: context.eg.text.bodyCompactEmphasis),
+              Text(title, style: context.eg.text.bodyEmphasis),
               const SizedBox(height: AppSpacing.xxs),
-              Text(detail, style: context.eg.text.captionXS),
+              Text(detail, style: context.eg.text.footnote),
             ],
           ),
         ),
@@ -50,7 +50,7 @@ class EchoPermissionRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: AppSpacing.xxs),
             child: Text(
               'liberado',
-              style: context.eg.text.captionXS.copyWith(
+              style: context.eg.text.footnote.copyWith(
                 color: context.eg.colors.accent,
               ),
             ),

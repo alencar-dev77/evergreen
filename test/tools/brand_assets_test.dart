@@ -66,7 +66,7 @@ void main() {
             ),
             Radius.circular(box * radius),
           ),
-          Paint()..color = EvergreenTokens.palette.background,
+          Paint()..color = EvergreenTokens.palette.canvasDeep,
         );
 
         // 0.62 da laje: o bastante para a marca mandar no ícone, e não tanto
@@ -77,7 +77,7 @@ void main() {
           box,
           cover: 0.62,
           blade: EvergreenTokens.palette.accent,
-          handle: EvergreenTokens.palette.accentShade,
+          handle: EvergreenTokens.palette.accentDeep,
         );
       });
 

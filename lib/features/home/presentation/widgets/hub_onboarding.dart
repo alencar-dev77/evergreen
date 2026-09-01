@@ -176,7 +176,7 @@ class HubOnboarding extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(step.module.name, style: context.eg.text.screenTitle),
+        Text(step.module.name, style: context.eg.text.display),
         const SizedBox(width: AppSpacing.md),
         EgKeyCap(step.shortcut),
       ],

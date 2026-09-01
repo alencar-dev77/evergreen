@@ -2,93 +2,87 @@ import 'package:flutter/widgets.dart';
 
 import '../eg_tokens.dart';
 
-/// Os gradientes de profundidade, resolvidos para um tema.
+/// Os degradês do Evergreen.
 ///
-/// Existem para evitar o "preto blocado": variações curtas de luminância que
-/// dão volume a uma superfície sem virar gradiente decorativo. Saem dos mesmos
-/// tokens de cor, e por isso trocam de pele junto com o resto — no tema Apple,
-/// onde o fundo é chapado e a profundidade vem do material, eles quase somem
-/// sozinhos, porque as cores de origem estão a um grau de distância uma da
-/// outra.
+/// Regra única: **degradê serve à profundidade ou ao material, nunca à
+/// decoração.** Os anteriores tinham dois a cinco pontos de luminância de
+/// amplitude — não se viam, e o que não se vê é custo sem efeito. Os que
+/// ficaram sobem o suficiente para o olho registrar de onde vem a luz; os que
+/// não tinham o que dizer saíram, e o botão primário e o cartão de seção
+/// passaram a ser chapados.
 @immutable
 class EgGradients {
   const EgGradients(this._eg);
 
   final EgTokens _eg;
 
-  /// Fundo da janela principal: sobe de leve no topo e escurece na base.
+  /// O fundo da janela: a luz entra por cima e o pé é o mais fundo do app.
   LinearGradient get windowBackground => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      _eg.colors.backgroundTop,
-      _eg.colors.background,
-      _eg.colors.backgroundDeep,
-    ],
-    stops: const [0.0, 0.55, 1.0],
+    colors: [_eg.colors.canvas, _eg.colors.canvasDeep],
   );
 
-  /// A luz difusa ancorada acima do topo da janela — a única fonte de luz dela,
-  /// e o que a sidebar translúcida tem para atravessar.
+  /// O halo de accent no alto da janela do Hub.
+  ///
+  /// Fraco de propósito: é o que dá a impressão de que a janela tem uma fonte
+  /// de luz, sem que nada dentro dela fique verde.
+  ///
+  /// Ele estava no dobro disso, e o preço era o cartão. Verde a 7% sobre o
+  /// canvas soma uns doze pontos ao canal verde do fundo — e a área que o halo
+  /// cobre é o alto da janela, exatamente onde ficam os cartões de
+  /// preferência. O fundo empatava com a superfície do cartão no canal que
+  /// mais pesa na luminância, e o cartão sumia. Metade da opacidade mantém a
+  /// fonte de luz e devolve o degrau.
   RadialGradient get windowGlow => RadialGradient(
     center: const Alignment(-0.35, -1.15),
     radius: 1.45,
     colors: [
-      _eg.colors.accent.withValues(alpha: _eg.usesVibrancy ? 0.05 : 0.12),
+      _eg.colors.accent.withValues(alpha: 0.035),
       _eg.colors.accent.withValues(alpha: 0.0),
     ],
-    stops: const [0.0, 1.0],
   );
 
-  /// Superfície opaca de painel: iluminada de leve por cima.
-  LinearGradient get panelSurface => LinearGradient(
+  /// A superfície de um bloco-instrumento — o anel do Focus, a bancada do
+  /// gerador, a pilha do Nest.
+  LinearGradient get stageSurface => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [_eg.colors.surfaceTop, _eg.colors.surface],
-    stops: const [0.0, 0.55],
   );
 
-  /// O vidro do painel flutuante — a gêmea translúcida da [panelSurface].
+  /// O vidro do painel flutuante, por baixo do blur.
+  ///
+  /// Um degradê, e não uma cor chapada, porque o topo do painel recebe mais
+  /// luz que o pé — é a mesma razão da hairline interna, e as duas juntas são
+  /// o que faz o painel parecer material.
   LinearGradient get panelVibrancy => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      _eg.colors.surfaceFloating.withValues(
-        alpha: (_eg.colors.surfaceFloating.a + 0.06).clamp(0.0, 1.0),
+      _eg.colors.glassPanel.withValues(
+        alpha: (_eg.colors.glassPanel.a + 0.07).clamp(0.0, 1.0),
       ),
-      _eg.colors.surfaceFloating,
+      _eg.colors.glassPanel,
     ],
     stops: const [0.0, 0.6],
   );
 
-  /// O palco da apresentação de boas-vindas: do fundo ao accent, na diagonal.
-  ///
-  /// É o único gradiente do app que a pessoa deve **ver** como gradiente, e ele
-  /// custa uma justificativa: o `colors.md` proíbe gradiente decorativo porque
-  /// ferramenta de trabalho não decora. Isto não é tela de trabalho — é a única
-  /// vez em que o Evergreen se apresenta, e nela a cor da marca é o assunto,
-  /// não um estado. A regra continua valendo para todo o resto.
-  ///
-  /// Mesmo aqui ele é contido: parte do fundo, chega no [EgPalette.accentShade]
-  /// e para antes do accent, para o print que fica em cima continuar sendo a
-  /// coisa mais clara da composição. Chegando no accent cheio, o fundo
-  /// competiria com o botão verde que aparece dentro do próprio print.
+  /// O fundo da pilha do Nest: o verde vem do canto de onde o arquivo entra.
+  RadialGradient get nestStage => RadialGradient(
+    center: const Alignment(-0.6, -1.0),
+    radius: 1.2,
+    colors: [
+      _eg.colors.accent.withValues(alpha: 0.09),
+      _eg.colors.accent.withValues(alpha: 0.0),
+    ],
+  );
+
+  /// O palco da apresentação de boas-vindas.
   LinearGradient get onboardingStage => LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      _eg.colors.backgroundDeep,
-      _eg.colors.background,
-      _eg.colors.accentShade,
-    ],
+    colors: [_eg.colors.canvasDeep, _eg.colors.canvas, _eg.colors.accentDeep],
     stops: const [0.0, 0.42, 1.0],
-  );
-
-  /// Superfície do cartão — hoje o cartão do Leaf.
-  LinearGradient get cardSurface => LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [_eg.colors.cardTop, _eg.colors.card],
-    stops: const [0.0, 0.55],
   );
 }

@@ -6,12 +6,17 @@ import '../viewmodels/leaf_state.dart';
 import 'leaf_note_card.dart';
 import '../../../../core/design/eg_tokens.dart';
 
-/// A parede: até nove vagas em três colunas.
+/// A parede: as nove vagas, em três colunas, sempre.
 ///
-/// A grade nunca tem buraco. As vagas ocupadas são contíguas, então ela desenha
-/// exatamente os cartões que existem mais a vaga que convida o próximo — e
-/// encolhe a cada cartão jogado fora, que é o que se espera de um mural do qual
-/// se acabou de arrancar um papel.
+/// Ela desenhava só o que existia mais a vaga seguinte, e o painel encolhia a
+/// cada cartão jogado fora. O que se ganhava em "o mural diminuiu" se perdia em
+/// duas coisas maiores: a parede mudava de tamanho a cada gesto, e o número de
+/// uma vaga só passava a existir quando ela era ocupada — então `7` não queria
+/// dizer nada antes de haver sete cartões. Com as nove desenhadas, a vaga é um
+/// **endereço fixo**, que é o que faz o atalho de número ser decorável.
+///
+/// As vagas ocupadas continuam contíguas: a parede não tem buraco, e a livre é
+/// sempre a seguinte à última.
 class LeafGrid extends StatelessWidget {
   const LeafGrid({
     super.key,
@@ -36,15 +41,11 @@ class LeafGrid extends StatelessWidget {
 
   final DateTime? now;
 
-  /// Colunas que a parede ocupa agora.
+  /// Colunas da parede — as três, sempre.
   ///
-  /// Duas no mínimo: com uma só o painel ficaria mais estreito que a barra de
-  /// dicas do rodapé, e o rodapé passaria a mandar na largura de tudo.
-  static int columnsFor(LeafState state) {
-    final used = state.lastVisibleSlot;
-    if (used >= LeafNote.columns) return LeafNote.columns;
-    return used < 2 ? 2 : used;
-  }
+  /// Recebe o estado porque quem chama não precisa saber que a resposta deixou
+  /// de depender dele.
+  static int columnsFor(LeafState state) => LeafNote.columns;
 
   /// Largura de uma parede com [columns] colunas, já com o respiro do painel.
   ///
@@ -87,8 +88,6 @@ class LeafGrid extends StatelessWidget {
   }
 
   Widget _cell(int slot) {
-    if (slot > state.lastVisibleSlot) return const _EmptySlot();
-
     if (state.editingSlot == slot) {
       return LeafNoteEditor(
         slot: slot,
@@ -102,6 +101,7 @@ class LeafGrid extends StatelessWidget {
       return LeafNoteCard(
         note: note,
         isSelected: state.selectedSlot == slot,
+        isCopied: state.copiedSlot == slot,
         onTap: () => onSelect(slot),
         onDelete: () => onDelete(slot),
         now: now,
@@ -111,24 +111,13 @@ class LeafGrid extends StatelessWidget {
     // A vaga livre só convida enquanto ninguém está escrevendo: com um cartão
     // em edição, um segundo convite ao lado prometeria duas anotações ao mesmo
     // tempo.
-    if (slot == state.firstFreeSlot && !state.isEditing) {
-      return LeafNewNoteCell(
-        isSelected: state.selectedSlot == slot,
-        onTap: () => onSelect(slot),
-      );
-    }
+    final isNext = slot == state.firstFreeSlot && !state.isEditing;
 
-    return const _EmptySlot();
+    return LeafEmptySlot(
+      slot: slot,
+      isNext: isNext,
+      isSelected: state.selectedSlot == slot,
+      onTap: isNext ? () => onSelect(slot) : null,
+    );
   }
-}
-
-/// Uma vaga que não tem nada — nem cartão, nem contorno, nem convite.
-class _EmptySlot extends StatelessWidget {
-  const _EmptySlot();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox(
-    width: LeafCardMetrics.width,
-    height: LeafCardMetrics.height,
-  );
 }
