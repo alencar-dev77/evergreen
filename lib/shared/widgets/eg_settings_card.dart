@@ -40,20 +40,18 @@ enum EgCardTone {
   };
 }
 
-/// A grade de cartões de uma tela de preferências.
+/// A pilha de cartões de uma tela de preferências.
 ///
-/// **Duas colunas quando a janela deixa**, e é o que tira a tela da rolagem
-/// obrigatória: em uma coluna, cinco assuntos empilhados põem o quinto abaixo
-/// da dobra em qualquer janela de trabalho, e a pessoa passa a rolar para
-/// procurar em vez de olhar.
+/// **Uma coluna, sempre.** Foram duas — par à esquerda, ímpar à direita —, e o
+/// preço era o zigue-zague: o assunto seguinte ficava *ao lado* do atual e não
+/// abaixo dele, de modo que correr a tela de cima a baixo deixava de ser um
+/// movimento e passava a ser um vaivém. Em uma coluna, a ordem em que a tela
+/// foi escrita é a ordem em que ela é lida.
 ///
-/// A distribuição alterna — par à esquerda, ímpar à direita —, o que mantém a
-/// ordem de leitura da esquerda para a direita e é previsível para quem
-/// escreve a tela. Uma distribuição que equilibrasse alturas faria a mesma
-/// tela trocar de arranjo quando um cartão ganhasse uma linha.
-///
-/// **Cartão é atômico**: nenhum se parte entre colunas. Meia lista de destinos
-/// no pé de uma coluna e a outra metade no topo da vizinha não é uma lista.
+/// A rolagem que isso traz é o preço aceito, e é o menor dos dois: rolar é
+/// previsível, procurar não. Meia largura também era onde as listas — as
+/// reuniões do Echo, os destinos do Nest — não caíam bem, e era o x de cada
+/// cartão que mudava quando a região de leitura estreitava o conteúdo.
 ///
 /// O vão **entre** cartões é do conjunto, não de cada cartão: um cartão que
 /// guardasse respiro embaixo de si empurraria um vão que ninguém pediu contra
@@ -64,40 +62,23 @@ class EgSettingsPage extends StatelessWidget {
     required this.children,
     this.banner,
     this.footer,
-    this.singleColumn = false,
   });
 
-  /// A linha do pé da tela, abaixo de tudo e fora da grade.
+  /// A linha do pé da tela, abaixo de tudo e fora da pilha.
   ///
   /// É onde vai a promessa da casa — "nada sai deste Mac" — e o link de
   /// novidades: coisas que valem para a tela inteira e não pertencem a
   /// assunto nenhum.
   final Widget? footer;
 
-  /// Uma coluna, mesmo com largura para duas.
-  ///
-  /// É a tela do aplicativo: ela é um formulário e assume isso. Em duas
-  /// colunas, "Sistema" e "Seus dados" ficariam lado a lado como se fossem
-  /// alternativas, quando na verdade se leem em ordem — e um formulário lido
-  /// em zigue-zague é um formulário que se erra.
-  final bool singleColumn;
-
-  /// O que atravessa as duas colunas, acima da grade.
+  /// O que vai acima da pilha, encostado no topo da tela.
   ///
   /// É a faixa de estado: ela responde por *a tela inteira*, e não por um dos
-  /// assuntos dela. Dentro da grade, ela vira um cartão como os outros e passa
-  /// a dizer respeito só à coluna em que caiu — além de truncar, porque o que
-  /// ela tem a contar não cabe em meia largura.
+  /// assuntos dela. Como primeiro cartão, ela passaria a se ler como mais um
+  /// assunto, com rótulo de gaveta e tudo.
   final Widget? banner;
 
   final List<Widget> children;
-
-  /// Largura de conteúdo a partir da qual cabem duas colunas.
-  ///
-  /// É a área de conteúdo da janela mínima (720) menos a barra lateral (232),
-  /// com folga: abaixo disso cada coluna ficaria mais estreita que o cartão
-  /// mais apertado e o rótulo brigaria com o controle dentro dele.
-  static const _twoColumnsAbove = 600.0;
 
   @override
   Widget build(BuildContext context) {
@@ -108,26 +89,7 @@ class EgSettingsPage extends StatelessWidget {
           banner!,
           const SizedBox(height: AppSpacing.xxl),
         ],
-        if (singleColumn)
-          _column(children)
-        else
-          LayoutBuilder(
-            builder: (context, constraints) =>
-                // Um cartão só nunca vai para a grade: numa das colunas ele fica
-                // com metade da largura e a outra metade da tela fica vazia — e
-                // meia largura é justamente o que uma lista (as reuniões do Echo,
-                // os destinos do Nest) não tem como aproveitar.
-                children.length < 2 || constraints.maxWidth < _twoColumnsAbove
-                ? _column(children)
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _column(_evens)),
-                      const SizedBox(width: AppSpacing.xl + AppSpacing.xxs),
-                      Expanded(child: _column(_odds)),
-                    ],
-                  ),
-          ),
+        _column(children),
         if (footer != null) ...[
           const SizedBox(height: AppSpacing.huge),
           footer!,
@@ -135,14 +97,6 @@ class EgSettingsPage extends StatelessWidget {
       ],
     );
   }
-
-  List<Widget> get _evens => [
-    for (var i = 0; i < children.length; i += 2) children[i],
-  ];
-
-  List<Widget> get _odds => [
-    for (var i = 1; i < children.length; i += 2) children[i],
-  ];
 
   static Widget _column(List<Widget> cards) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -48,6 +48,11 @@ void main() {
   ) async {
     await pumpSettings(tester);
 
+    // Em uma coluna a tela é mais alta que a janela do teste: o botão existe,
+    // mas fora da dobra. Rolar até ele é o que a pessoa faria.
+    await tester.ensureVisible(find.text('Apagar'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Apagar'));
     await tester.pumpAndSettle();
 
@@ -66,6 +71,11 @@ void main() {
     tester,
   ) async {
     await pumpSettings(tester);
+
+    // Em uma coluna a tela é mais alta que a janela do teste: o botão existe,
+    // mas fora da dobra. Rolar até ele é o que a pessoa faria.
+    await tester.ensureVisible(find.text('Apagar'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Apagar'));
     await tester.pumpAndSettle();

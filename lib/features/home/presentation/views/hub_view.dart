@@ -315,8 +315,13 @@ class _HubViewState extends ConsumerState<HubView> {
     );
   }
 
-  /// O cabeçalho da tela: o nome do módulo no maior tipo do app, o interruptor
-  /// mestre como pílula e a tecla que abre o painel.
+  /// O cabeçalho da tela: o nome do módulo no maior tipo do app e o
+  /// interruptor mestre como pílula.
+  ///
+  /// A tecla que abre o painel **não fica aqui**. Ela é dita na barra lateral,
+  /// que é o mapa do teclado, e trocada na seção "Atalho global" da própria
+  /// tela — impressa também no topo, ela era a terceira das quatro cópias que
+  /// a tela do Leaf mostrava de uma vez.
   ///
   /// O interruptor **saiu da lista de seções**. Ele é igual nos sete módulos e
   /// não é um ajuste como os outros — é a chave que decide se os outros valem
@@ -336,7 +341,6 @@ class _HubViewState extends ConsumerState<HubView> {
     }
 
     final settings = ref.watch(moduleSettingsViewModelProvider);
-    final slot = module.shortcutSlot;
     final hasSwitch = module != EvergreenModule.track;
 
     return EgScreenHeader(
@@ -355,7 +359,6 @@ class _HubViewState extends ConsumerState<HubView> {
               tone: EgPillTone.tide,
               showDot: false,
             ),
-      shortcut: slot == null ? null : settings.bindingFor(slot).caps,
       tabs: _tabsFor(module),
       selectedTab: _tabOf(module),
       onTabSelected: (tab) => setState(() => _tabs[module] = tab),

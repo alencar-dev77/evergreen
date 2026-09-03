@@ -81,12 +81,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
     // a perguntar, e depois é só mais um campo que se pode corrigir.
     final hasName = settings.userName.isNotEmpty;
 
-    // **Uma coluna.** Esta é a única tela do app que continua sendo um
-    // formulário, e ela assume isso: em duas colunas, "Sistema" e "Seus dados"
-    // ficariam lado a lado como se fossem alternativas, quando na verdade se
-    // leem em ordem.
     return EgSettingsPage(
-      singleColumn: true,
       footer: const _AboutLine(),
       children: [
         if (!hasName)

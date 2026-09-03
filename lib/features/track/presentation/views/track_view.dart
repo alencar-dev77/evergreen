@@ -61,9 +61,9 @@ class _TrackViewState extends ConsumerState<TrackView> {
                 // números, a faixa da semana e a lista de dias ao mesmo tempo.
                 // Morando no cartão, ele mudava de lugar duas vezes — trocava
                 // de cartão ao trocar de recorte (a faixa da semana não existe
-                // em "Hoje") e trocava de x ao abrir a região de leitura, que
-                // desmancha as duas colunas. Um controle que se procura na tela
-                // é um controle que não está fixo.
+                // em "Hoje") e descia junto com a pilha ao abrir a região de
+                // leitura. Um controle que se procura na tela é um controle que
+                // não está fixo.
                 Row(
                   children: [
                     const Expanded(child: EgSectionLabel('Balanço')),

@@ -6,11 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// O cabeçalho de tela do Hub.
 ///
-/// O par do topo — o interruptor mestre e a tecla que abre o painel — já foi
-/// dado como alinhado três vezes sem estar, porque "alinhado" estava sendo
-/// julgado a olho numa captura de tela. Aqui ele é medido: se as duas caixas
-/// deixarem de dividir a mesma linha, ou se o conteúdo de uma sair do centro,
-/// o teste reprova antes de a captura chegar em alguém.
+/// O controle do topo — o interruptor mestre, ou a pílula do Track no lugar
+/// dele — já foi dado como alinhado três vezes sem estar, porque "alinhado"
+/// estava sendo julgado a olho numa captura de tela. Aqui ele é medido: se ele
+/// sair da faixa, descolar da margem direita ou mudar de altura entre um módulo
+/// e o vizinho, o teste reprova antes de a captura chegar em alguém.
+///
+/// A tecla do módulo ficava aqui, ao lado do interruptor, e saiu — ela é dita
+/// na barra lateral e trocada na seção "Atalho global".
 /// O recuo lateral do cabeçalho (`AppSpacing.huge - AppSpacing.xxs`).
 const _horizontalPadding = 28.0;
 
@@ -35,8 +38,6 @@ void main() {
             isEnabled: badge == null ? isEnabled : null,
             onEnabledChanged: (_) {},
             badge: badge,
-            shortcut: const ['⌘', '⇧', 'C'],
-            onShortcutTap: () {},
             tabs: tabs,
             selectedTab: tabs?.first,
             onTabSelected: (_) {},
@@ -47,51 +48,22 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  group('o par do topo', () {
-    testWidgets('o interruptor e a tecla ocupam a mesma faixa', (tester) async {
+  group('o controle do topo', () {
+    testWidgets('o interruptor encosta na margem direita', (tester) async {
       await pumpHeader(tester);
 
       final pill = tester.getRect(find.byType(EgMasterSwitch));
-      final cap = tester.getRect(find.text('⌘⇧C'));
-
-      // A mesma faixa vertical, e não "quase": um pixel de diferença entre duas
-      // caixas vizinhas é exatamente o que se lê como desalinho.
-      final capBox = tester.getRect(
-        find.ancestor(of: find.text('⌘⇧C'), matching: find.byType(Row)).last,
-      );
-
-      expect(pill.height, capBox.height, reason: 'alturas diferentes');
-      expect(pill.top, capBox.top, reason: 'topos em linhas diferentes');
-      expect(pill.bottom, capBox.bottom, reason: 'bases em linhas diferentes');
-
-      // E o conteúdo de cada uma centrado na própria caixa.
-      expect(cap.center.dy, pill.center.dy);
-
-      // **A tecla encosta na margem direita.** É o que faltava medir: o par
-      // estava com o topo, a base e o centro certos e mesmo assim parado no
-      // meio da tela, porque título em `Expanded` e controles em `Flexible`
-      // dividiam a linha meio a meio e os controles ficavam no começo da
-      // metade deles.
       final header = tester.getRect(find.byType(EgScreenHeader));
+
+      // **O par estava com o topo, a base e o centro certos e mesmo assim
+      // parado no meio da tela**, porque título em `Expanded` mais controles em
+      // `Flexible` dividiam a linha meio a meio e os controles ficavam no
+      // começo da metade deles. É esta distância que prende o conserto.
       expect(
-        header.right - capBox.right,
+        header.right - pill.right,
         closeTo(_horizontalPadding, 0.5),
-        reason: 'os controles do topo não estão colados à direita',
+        reason: 'o controle do topo não está colado à direita',
       );
-    });
-
-    testWidgets('o rótulo do interruptor divide o eixo com a tecla', (
-      tester,
-    ) async {
-      await pumpHeader(tester);
-
-      final ativo = tester.getRect(find.text('Ativo'));
-      final cap = tester.getRect(find.text('⌘⇧C'));
-
-      expect(ativo.center.dy, cap.center.dy);
-      // Tamanhos ópticos próximos: um rótulo de 11,5 ao lado de uma tecla de
-      // 10,5 lê como desalinho mesmo quando os dois estão centrados.
-      expect((ativo.height - cap.height).abs(), lessThan(2));
     });
 
     testWidgets('a pílula do Track ocupa a mesma faixa do interruptor', (
@@ -113,6 +85,14 @@ void main() {
       // O Track troca o interruptor por uma pílula; se ela tivesse outra
       // altura, o conteúdo da tela começaria um pixel acima do dos vizinhos.
       expect(comPilula.center.dy, comInterruptor.center.dy);
+    });
+
+    testWidgets('a tecla do módulo não é impressa aqui', (tester) async {
+      await pumpHeader(tester);
+
+      // Ela é dita na barra lateral e trocada na seção "Atalho global". No
+      // topo, era a terceira cópia da mesma combinação na mesma janela.
+      expect(find.textContaining('⌘'), findsNothing);
     });
   });
 

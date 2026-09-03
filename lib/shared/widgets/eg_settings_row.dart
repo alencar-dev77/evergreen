@@ -11,8 +11,8 @@ import 'eg_toggle.dart';
 /// um [EgSettingsCard].
 ///
 /// **A altura é 38 sem explicação embaixo, 46 com ela** — mínima, não fixa.
-/// É o que faz duas colunas de cartões lado a lado alinharem: sem um piso, cada
-/// cartão acharia um ritmo próprio conforme o que tivesse dentro. Mínima, e não
+/// É o que dá o mesmo ritmo a todos os cartões de uma tela: sem um piso, cada
+/// cartão acharia um passo próprio conforme o que tivesse dentro. Mínima, e não
 /// travada, porque o controle que não cabe ao lado do texto desce para baixo
 /// dele e a linha cresce — ver [_LabelAndControl], que é quem mede e decide.
 ///

@@ -102,7 +102,6 @@ class _LeafSettingsViewState extends ConsumerState<LeafSettingsView> {
         label: 'Parede vazia',
         detail: 'o primeiro cartão nasce ao digitar',
         tone: EgPillTone.neutral,
-        shortcut: ['⌘', '⇧', 'D'],
       );
     }
 
@@ -114,7 +113,6 @@ class _LeafSettingsViewState extends ConsumerState<LeafSettingsView> {
       label: 'Em uso',
       value: '$used de ${LeafNote.maxNotes}',
       detail: 'última edição ${RelativeTime.format(last)}',
-      shortcut: const ['⌘', '⇧', 'D'],
     );
   }
 

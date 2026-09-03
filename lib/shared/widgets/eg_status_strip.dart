@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_metrics.dart';
 import '../../core/design/eg_tokens.dart';
-import 'eg_key_cap.dart';
 import 'eg_pill.dart';
 import 'eg_surface.dart';
 
@@ -14,9 +13,13 @@ import 'eg_surface.dart';
 /// cronômetro e os botões do painel dentro do Hub — e aí passam a existir dois
 /// lugares para a mesma ação, que discordam no dia em que um deles mudar.
 ///
-/// Então a faixa informa e não opera: bolinha, texto, valor em mono, e a tecla
-/// do módulo à direita. **Não há botão nenhum aqui.** Clicar em qualquer ponto
-/// dela abre o painel, que é o único lugar onde se pausa e se encerra.
+/// Então a faixa informa e não opera: bolinha, texto e valor em mono. **Não há
+/// botão nenhum aqui.** Clicar em qualquer ponto dela abre o painel, que é o
+/// único lugar onde se pausa e se encerra.
+///
+/// A tecla do módulo ficava à direita e saiu: a barra lateral já a diz, a
+/// seção "Atalho global" já a troca, e no alto da tela do Leaf ela era a
+/// terceira impressão da mesma combinação numa janela só.
 class EgStatusStrip extends StatelessWidget {
   const EgStatusStrip({
     super.key,
@@ -24,7 +27,6 @@ class EgStatusStrip extends StatelessWidget {
     this.detail,
     this.value,
     this.tone = EgPillTone.positive,
-    this.shortcut,
     this.onTap,
   });
 
@@ -39,9 +41,6 @@ class EgStatusStrip extends StatelessWidget {
   final String? value;
 
   final EgPillTone tone;
-
-  /// As teclas que abrem o painel.
-  final List<String>? shortcut;
 
   /// Abrir o painel. `null` deixa a faixa como leitura pura — é o caso do
   /// módulo desligado, em que não há painel para abrir.
@@ -86,10 +85,6 @@ class EgStatusStrip extends StatelessWidget {
             ),
           ] else
             const Spacer(),
-          if (shortcut != null) ...[
-            const SizedBox(width: AppSpacing.sm),
-            EgShortcutDisplay(keys: shortcut!),
-          ],
         ],
       ),
     );
