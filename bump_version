@@ -4,7 +4,7 @@
 # está fora do ar.
 #
 # Normalmente ninguém roda isto: quem bumpa é o `.github/workflows/version-bump.yml`,
-# no merge de uma PR em `main`, lendo a label `bump:` da própria PR. Mas o
+# no merge de uma PR na `validation`, lendo a label `bump:` da própria PR. Mas o
 # workflow depende do GitHub Actions estar rodando, e quando o Actions para
 # (billing, incidente, greve de runner) o merge acontece e o bump não — a versão
 # congela em silêncio.
@@ -17,9 +17,10 @@
 # justamente a pergunta que se faz quando algo quebrou depois de uma instalação.
 #
 # Este script faz **exatamente** o que o workflow faria, do mesmo lugar: na
-# `main`, DEPOIS do merge. O Evergreen não tem branch de integração — as PRs vão
-# direto para a `main`, e é lá que a label é exigida
-# (`require-bump-label.yml`) e que a versão sobe.
+# `validation`, DEPOIS do merge. A `validation` é a branch de integração — é
+# para ela que vão as PRs de feature, é nela que a label é exigida
+# (`require-bump-label.yml`) e é nela que a versão sobe. A `main` herda o número
+# pela PR de promoção, que não bumpa nada.
 #
 # Não rode na branch da feature — o bump é ato de integração, não de feature:
 #   - duas PRs abertas ao mesmo tempo bumpariam as duas pro mesmo número e
@@ -38,7 +39,7 @@
 #
 set -euo pipefail
 
-BRANCH_BUMP="main"
+BRANCH_BUMP="validation"
 
 cd "$(dirname "$0")"
 
@@ -117,8 +118,8 @@ if [ -n "$PR_ALVO" ]; then
 fi
 
 if [ -z "$NIVEL" ]; then
-  # Sem nível explícito: descobre o que foi mergeado na main desde o último
-  # commit de bump — que é justamente o que o CI deixou de processar.
+  # Sem nível explícito: descobre o que foi mergeado na validation desde o
+  # último commit de bump — que é justamente o que o CI deixou de processar.
   command -v gh >/dev/null || erro "Sem 'gh' instalado, informe o nível: ./bump_version patch"
 
   ultimo_bump="$(git log -1 --format='%cI' --grep='^chore: bump version to' "origin/$BRANCH_BUMP" || true)"
