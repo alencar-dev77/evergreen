@@ -458,5 +458,25 @@ UI e microcopy em português (pt-BR).
   build, e com ela o macOS descarta a permissão de Acessibilidade — que é o que
   sustenta o auto-colar do Pin.
 - `./bump_version` — bump manual da versão, para quando o Actions está fora do
-  ar. Roda na `main`, **depois** do merge; normalmente quem bumpa é o
+  ar. Roda na `validation`, **depois** do merge; normalmente quem bumpa é o
   `.github/workflows/version-bump.yml`, pela label `bump:` da PR.
+
+# Branches
+
+O caminho é o do LuizLaporta e do Portal_LL: **a feature entra na `validation`,
+a `validation` é promovida para a `main`.** Cada PR passa por um portão só, e
+os dois portões perguntam coisas diferentes.
+
+- **Feature → `validation`.** É onde a label `bump:patch|minor|major` é exigida
+  (`require-bump-label.yml`) e, no merge, onde a versão sobe e a tag é criada
+  (`version-bump.yml`). A suíte **não** roda aqui.
+- **`validation` → `main`.** É a PR de promoção, e é ela que roda `flutter
+  analyze` e `flutter test` (`ci.yml`) — a integração é onde se confere o
+  conjunto, e um runner de macOS custa dez vezes um de Linux por minuto. Não
+  pede label: ela carrega um número que já foi decidido, e bumpar dos dois
+  lados daria dois números para o mesmo código.
+
+A consequência a saber: **entre a feature e a promoção, o que segura a barra é
+rodar `flutter analyze` e `flutter test` na máquina** antes de abrir a PR. O CI
+só vai falar na promoção, e lá ele fala sobre o conjunto — não sobre qual PR
+quebrou.

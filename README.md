@@ -275,9 +275,14 @@ As imagens são geradas em [test/goldens/](test/goldens/).
 ## Versão
 
 O `version:` do `pubspec.yaml` é o que a sidebar do Hub mostra no rodapé. Quem
-bumpa é o GitHub Actions no merge de uma PR em `main`, lendo a label `bump:` da
-própria PR. Quando o Actions está fora do ar, `./bump_version` faz o mesmo à mão
-— na `main`, depois do merge.
+bumpa é o GitHub Actions no merge de uma PR na `validation`, lendo a label
+`bump:` da própria PR; a `main` herda o número pela PR de promoção. Quando o
+Actions está fora do ar, `./bump_version` faz o mesmo à mão — na `validation`,
+depois do merge.
+
+O caminho de uma mudança é `feature → validation → main`: a PR de feature pede
+a label e faz a versão subir, e a PR de promoção é a que roda `flutter analyze`
+e `flutter test`.
 
 ---
 
