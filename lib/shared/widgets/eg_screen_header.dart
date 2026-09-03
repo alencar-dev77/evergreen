@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../../core/design/app_metrics.dart';
 import '../../core/design/eg_tokens.dart';
 import 'eg_pill.dart';
-import 'eg_surface.dart';
 import 'eg_toggle.dart';
 
 /// O cabeçalho de uma tela do Hub.
@@ -16,6 +15,9 @@ import 'eg_toggle.dart';
 /// igual nos sete módulos e não é um ajuste como os outros: é a chave que
 /// decide se os outros valem alguma coisa. Como primeira seção, ele empurrava
 /// o assunto da tela para baixo da dobra em todas elas.
+///
+/// **E ele é a única coisa à direita do título.** A tecla do módulo morava ao
+/// lado dele e saiu — ver [_trailingControls].
 class EgScreenHeader extends StatelessWidget {
   const EgScreenHeader({
     super.key,
@@ -24,8 +26,6 @@ class EgScreenHeader extends StatelessWidget {
     this.isEnabled,
     this.onEnabledChanged,
     this.badge,
-    this.shortcut,
-    this.onShortcutTap,
     this.tabs,
     this.selectedTab,
     this.onTabSelected,
@@ -53,13 +53,6 @@ class EgScreenHeader extends StatelessWidget {
   /// Uma pílula no lugar do interruptor: o "nada é gravado aqui" do Track, o
   /// "Rodando" do Focus.
   final Widget? badge;
-
-  /// As teclas do atalho global, impressas ao lado do interruptor.
-  ///
-  /// Clicáveis: é o caminho mais curto entre ver o atalho e trocá-lo, e poupa
-  /// a tela de ter uma seção "Atalho global" que existe para uma linha só.
-  final List<String>? shortcut;
-  final VoidCallback? onShortcutTap;
 
   /// As abas de tela. Só em módulo com mais de um assunto — Pin e Echo. Módulo
   /// simples não tem aba: uma aba sozinha é uma promessa de que há outra.
@@ -124,7 +117,7 @@ class EgScreenHeader extends StatelessWidget {
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: _trailingControls(context),
+                      children: _trailingControls,
                     ),
                   ),
                 ],
@@ -164,20 +157,20 @@ class EgScreenHeader extends StatelessWidget {
     );
   }
 
-  /// A ordem de quem cede: primeiro o rótulo do interruptor, depois a pílula.
-  /// A tecla nunca encolhe — ela já é o menor elemento da linha, e truncada
-  /// deixaria de ser uma tecla.
-  List<Widget> _trailingControls(BuildContext context) {
+  /// À direita do título fica **uma coisa só**: ou o interruptor, ou a pílula.
+  ///
+  /// A tecla do módulo estava aqui, ao lado do interruptor, e saiu: quem abre a
+  /// tela do Leaf lia `⌘⇧D` quatro vezes de uma vez — na barra lateral, aqui,
+  /// na faixa de estado e na seção que troca a tecla. Sobraram os dois
+  /// extremos, que são os únicos que fazem algo com ela: a barra lateral, que é
+  /// o mapa do teclado, e a seção "Atalho global", que é onde se troca.
+  List<Widget> get _trailingControls {
     return [
       if (badge != null) Flexible(child: badge!),
       if (isEnabled != null)
         Flexible(
           child: EgMasterSwitch(value: isEnabled!, onChanged: onEnabledChanged),
         ),
-      if (shortcut != null) ...[
-        const SizedBox(width: AppSpacing.sm),
-        _ShortcutButton(keys: shortcut!, onTap: onShortcutTap),
-      ],
     ];
   }
 
@@ -236,60 +229,6 @@ class EgMasterSwitch extends StatelessWidget {
             const SizedBox(width: AppSpacing.xxs),
           ],
         ),
-      ),
-    );
-  }
-
-  static const _height = 32.0;
-}
-
-/// O atalho do módulo no cabeçalho: as teclas, clicáveis.
-class _ShortcutButton extends StatelessWidget {
-  const _ShortcutButton({required this.keys, this.onTap});
-
-  final List<String> keys;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final eg = context.eg;
-
-    // Cápsula, como a pílula do interruptor ao lado: eles são um par — o que
-    // liga e a tecla que abre —, e duas formas diferentes na mesma linha se
-    // leem como duas coisas soltas mesmo quando estão perfeitamente
-    // centralizadas. O desalinho que se percebia era este, e não geometria.
-    //
-    // **Sem moldura em repouso.** A tecla é uma legenda: ela diz o que abre
-    // este módulo, e uma caixa desenhada em volta de uma legenda a promove a
-    // botão — no alto da tela, ao lado do interruptor, sobrava um contorno
-    // disputando atenção com o único controle de verdade daquela linha. A
-    // superfície aparece sob o mouse, que é quando "clicável" passa a ser a
-    // informação que importa.
-    return EgInteractiveSurface(
-      onTap: onTap,
-      style: eg.surfaces.ghost,
-      borderRadius: eg.shapes.chipAll,
-      height: _height,
-      padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH + 2),
-      semanticLabel: 'Atalho ${keys.join(' ')}. Clique para alterar.',
-      // A `Row` de tamanho mínimo é o que centraliza na vertical sem esticar
-      // na horizontal: o `alignment` do container faria as duas coisas, e a
-      // segunda é justamente a que não se quer.
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            keys.join(),
-            // A altura natural do tipo, e não a de 1.0 do token: com a caixa
-            // de linha rente ao corpo da letra, o desenho do ⌘ e do ⇧ — que
-            // ocupa o alto do em — assenta acima do centro óptico da caixa.
-            style: eg.text.keycap.copyWith(
-              color: eg.colors.textSecondary,
-              fontSize: 11.5,
-              height: 1.3,
-            ),
-          ),
-        ],
       ),
     );
   }

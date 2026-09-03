@@ -134,6 +134,16 @@ Dois detalhes de convenção que valem para atalhos futuros:
 - **O menu da barra ensina os atalhos globais.** Cada item mostra o seu ao lado
   do rótulo — é o único lugar permanente do app na tela, e quem clica ali com o
   mouse é justamente quem ainda não decorou a tecla.
+- **Dentro do Hub, a tecla de um módulo é impressa em dois lugares, e só
+  dois**: a **barra lateral**, que é o mapa do teclado, e a seção **"Atalho
+  global"** da tela dele, que é onde se troca. Ela esteve também ao lado do
+  interruptor mestre, no cabeçalho, e dentro da faixa de estado — e aí a tela
+  do Leaf mostrava `⌘⇧D` quatro vezes numa janela só. Descobribilidade é
+  mostrar a tecla onde ela serve para alguma coisa: repeti-la em toda superfície
+  que tem espaço não ensina mais rápido, só faz a tela parecer um panfleto. Fora
+  do Hub continuam valendo o menu da barra e o mapa "Todos os atalhos num
+  lugar", da tela do aplicativo — aquele existe justamente para responder "qual
+  era mesmo o do Nest?" sem varrer a barra lateral.
 - **Nem todo atalho cabe na barra de dicas — e "cabe" é literal.** A barra mostra o subconjunto relevante ao estado atual (`⌘⌫ excluir` só aparece com o preview aberto, onde há largura para ele e onde a exclusão é a ação em foco). Descobribilidade não é "mostrar tudo": é mostrar a coisa certa no momento em que a dúvida existe.
   Quando o estado acumula dicas, quem decide não é a esperança de caber: o grupo da esquerda vive num viewport que recorta em silêncio, e o excesso sai cortado no meio da palavra, encostando no `esc`. O rodapé do Pin trabalha com **orçamento de vagas** — dica com rótulo custa duas, sem rótulo custa uma — e percorre as candidatas em ordem de prioridade, pulando a que não couber e continuando a tentar as mais curtas.
 

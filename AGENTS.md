@@ -120,7 +120,14 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   `ShortcutRules`, que é puro: piso de duas modificadoras com `⌘` ou `⌃`, a
   lista curta do que o macOS toma de todo mundo, e conflito conferido contra os
   sete slots — inclusive os de módulos desligados, cuja tecla continua
-  reservada. Gravar **suspende os atalhos do sistema** enquanto a tela escuta,
+  reservada. **E ela é impressa em dois lugares na tela de um módulo, não em
+  quatro**: a barra lateral, que é o mapa do teclado, e a seção "Atalho
+  global", que é onde se troca. Estava também ao lado do interruptor mestre e
+  na faixa de estado — na tela do Leaf a mesma combinação aparecia quatro vezes
+  de uma vez, e as duas cópias que saíram eram as que não faziam nada com ela.
+  Fora da tela do módulo continuam valendo o menu da barra (que ensina o atalho
+  no item que ele dispara) e o mapa de "Todos os atalhos num lugar", na tela do
+  aplicativo. Gravar **suspende os atalhos do sistema** enquanto a tela escuta,
   senão apertar `⌘⇧C` para gravar abre o painel do Pin por cima das
   preferências.
 - **Preferência decidida no Hub e aplicada na janela 0 atravessa o
@@ -158,10 +165,10 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   com arco de círculo, e era daí que vinha o "tudo muito quadrado". Superfície
   interativa desenha com `ShapeDecoration`, não `BoxDecoration`. Abaixo do
   limiar o arco fica, por ser mais barato.
-- **A janela do Hub é fixa em 980×680 e não redimensiona.** O conteúdo é uma
-  grade de duas colunas de cartões, e cada largura intermediária entre uma e
-  duas colunas é um arranjo que ninguém desenhou. Tirar `.resizable` não impede
-  a região de leitura de crescer a janela pelo `setFrame`.
+- **A janela do Hub é fixa em 980×680 e não redimensiona.** É a largura em que
+  o cartão de preferência foi desenhado, e uma janela que encolhe é uma tela
+  que ninguém desenhou. Tirar `.resizable` não impede a região de leitura de
+  crescer a janela pelo `setFrame`.
 - Espaçamento, tamanho de ícone e **durações** seguem estáticos em
   `app_metrics.dart`, e isso é decisão: o ritmo é do produto, não da pele — um
   app que fica mais lento ao trocar de aparência estaria mentindo sobre o que a
@@ -181,12 +188,14 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - **Tela de preferência tem ordem fixa de tópicos**: o que aconteceu (a lista do
   módulo) → o que ele faz (interruptores no topo de cada tópico, depois
   seletores, campos de texto por último) → limites e ações destrutivas → atalho
-  global → permissões. A grade é a `EgSettingsPage` (duas colunas acima de 600
-  pt de conteúdo, um cartão sozinho ocupa a largura toda, e o `banner`
-  atravessa as duas); o cartão é o `EgSettingsCard`, que dá o respiro e desenha
-  os divisores — a linha não decide sozinha se tem divisor embaixo. O
-  interruptor mestre **não** é a primeira seção: ele vive no `EgScreenHeader`,
-  como pílula ao lado do título. Módulo com mais de um assunto ganha abas no
+  global → permissões. A pilha é a `EgSettingsPage` — **uma coluna, sempre**, com
+  o `banner` acima dela; foram duas, e o assunto seguinte ficava ao lado do
+  atual em vez de abaixo, o que trocava a leitura de cima a baixo por um
+  vaivém. O cartão é o `EgSettingsCard`, que dá o respiro e desenha os
+  divisores — a linha não decide sozinha se tem divisor embaixo. O interruptor
+  mestre **não** é a primeira seção: ele vive no `EgScreenHeader`, como pílula
+  ao lado do título — e é a **única** coisa à direita do título, porque a tecla
+  do módulo saiu de lá (ver a regra do atalho). Módulo com mais de um assunto ganha abas no
   mesmo cabeçalho (Pin, Focus, Echo, Nest); módulo de um assunto só não ganha,
   porque uma aba sozinha é a promessa de que existe outra. Campo de texto usa
   `EgSettingsRow.field`, nunca um rótulo com um campo solto embaixo. O detalhe
