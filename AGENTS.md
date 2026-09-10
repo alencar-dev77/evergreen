@@ -80,28 +80,23 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   janela**, nunca a janela nem uma view invisível: `NSWindow` não implementa
   `NSDraggingDestination`, e o AppKit acha uma view pelo mesmo `hitTest` do
   mouse — as duas alternativas falham em silêncio, com o arquivo caindo e nada
-  acontecendo. A miniatura de um arquivo qualquer é o mesmo mecanismo que
-  desenha as prévias do Finder, e arrastar a prateleira **para fora** é uma
-  `NSDraggingSession` começada pela view do Flutter — nenhum dos três tem
-  equivalente em Flutter puro. A saída tem dois caminhos que convivem: as pastas
-  favoritas (`⌘1..⌘9`, com desfazer, porque quem copia somos nós) e o arraste
-  para qualquer lugar (sem desfazer, porque quem copia é o destino). Soltar de
-  volta em cima do painel é desistir: o `NestDrop` recusa o arraste cuja origem
-  é a própria prateleira — sem essa recusa o arquivo atravessaria o painel e
-  cairia na janela que estava atrás dele. A outra porta de entrada é
-  **chacoalhar o arquivo** (`NestShakeMonitor`), e a regra dela é *perguntar,
-  nunca escutar*: durante uma sessão de arraste o AppKit não entrega movimento
-  de mouse a monitor nenhum, então quem responde é `NSEvent.mouseLocation` e
-  `NSEvent.pressedMouseButtons`, que são propriedades e não custam permissão —
-  o mesmo motivo do relógio do `followCursor`. O único evento apanhado é o botão
+  acontecendo. A miniatura é o mecanismo das prévias do Finder, e arrastar a
+  prateleira **para fora** é uma `NSDraggingSession` da view do Flutter —
+  nenhum dos três tem equivalente em Flutter puro. A saída tem dois caminhos:
+  as pastas favoritas (`⌘1..⌘9`, com desfazer, porque quem copia somos nós) e
+  o arraste para qualquer lugar (sem desfazer, porque quem copia é o destino).
+  O `NestDrop` recusa o arraste cuja origem é a própria prateleira — sem essa
+  recusa o arquivo atravessaria o painel e cairia na janela atrás dele. A
+  outra porta é **chacoalhar o arquivo** (`NestShakeMonitor`), e a regra dela
+  é *perguntar, nunca escutar*: durante uma sessão de arraste o AppKit não
+  entrega movimento de mouse a monitor nenhum, então quem responde é
+  `NSEvent.mouseLocation` e `NSEvent.pressedMouseButtons`, que são
+  propriedades e não custam permissão. O único evento apanhado é o botão
   descendo, que acontece antes do arraste. Só dispara com arquivo na mão
-  (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta em
-  que o painel vai até o cursor em vez do contrário
-  (`OverlayWindow.positionForCursor`). **Houve uma terceira porta, o recorte da
-  tela, e ela saiu**: uma segunda janela sempre no topo que nunca recebeu um
-  arquivo, em três rodadas de conserto — e que ficou redundante quando o
-  chacoalhar passou a fazer o mesmo em qualquer Mac. A regra da casa voltou a
-  ser absoluta: **só a janela 0**. Ver
+  (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta
+  em que o painel vai até o cursor em vez do contrário
+  (`OverlayWindow.positionForCursor`). Não há terceira porta — o recorte de
+  tela foi tentado e saiu: **só a janela 0**. Ver
   [docs/Ideis projeto/nest-prateleira-de-arquivos.md](docs/Ideis%20projeto/nest-prateleira-de-arquivos.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
