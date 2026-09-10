@@ -24,7 +24,7 @@ enum EchoChannel {
   ///
   /// O Echo inteiro exige macOS 26 — é de lá que vêm o `SpeechAnalyzer` e o
   /// modelo do Apple Intelligence. Guardar o gravador como `Any?` é o preço de
-  /// o resto do Evergreen continuar rodando no macOS 10.15.
+  /// o resto do Evergreen continuar rodando no macOS 12.
   private static var storedRecorder: Any?
 
   @available(macOS 26.0, *)

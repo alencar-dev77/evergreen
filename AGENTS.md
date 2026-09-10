@@ -17,6 +17,19 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 # Stack
 
 - **Flutter** (Dart SDK ^3.11.5) — app desktop nativo, sem backend.
+- **O piso é macOS 12, e quem o escolheu foi a ferramenta.** Era 10.15, e o
+  `macos_deployment_target_migration` do Flutter reescreve `10.11`, `10.13`,
+  `10.14`, `10.15` e `11.0` para `12.0` no primeiro build — no `project.pbxproj`
+  e no `Podfile` juntos, porque os dois precisam concordar. Reverter à mão não
+  para de pé: o build seguinte reescreve de novo. Fica registrado aqui porque a
+  linha antiga dizia 10.15 e ninguém tinha decidido trocá-la; o custo real é
+  pequeno, já que o macOS 11 é de 2020 e o Echo já exigia o 26.
+- **A build é híbrida, SPM mais CocoaPods.** O mesmo build integrou o Swift
+  Package Manager, e dois plugins ainda não o suportam no macOS:
+  `desktop_multi_window` e `hotkey_manager_macos`. Hoje o Flutter avisa; ele
+  promete transformar isso em erro numa versão futura, e aí os dois viram um
+  problema de verdade — o primeiro é o que sustenta o Hub, e o segundo, todo
+  atalho global.
 - **Riverpod** (`flutter_riverpod`) — gerenciamento de estado, padrão MVVM.
 - **SQLite direto** (`sqlite3` via native assets) — não usa Isar (descartado:
   sem manutenção ativa, codegen quebra no Dart 3.11); acesso isolado atrás de
@@ -45,7 +58,7 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   equivalente em Flutter puro; o porquê de cada um está em
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
-  responde `unsupported_os` abaixo disso, e o resto do app segue no 10.15.
+  responde `unsupported_os` abaixo disso, e o resto do app segue no 12.0.
   Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
   texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro
   de cada faixa dez vezes por segundo: uma FFT (`Accelerate`/`vDSP`) sobre os
