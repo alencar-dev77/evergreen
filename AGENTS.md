@@ -24,12 +24,18 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   para de pé: o build seguinte reescreve de novo. Fica registrado aqui porque a
   linha antiga dizia 10.15 e ninguém tinha decidido trocá-la; o custo real é
   pequeno, já que o macOS 11 é de 2020 e o Echo já exigia o 26.
-- **A build é híbrida, SPM mais CocoaPods.** O mesmo build integrou o Swift
-  Package Manager, e dois plugins ainda não o suportam no macOS:
-  `desktop_multi_window` e `hotkey_manager_macos`. Hoje o Flutter avisa; ele
-  promete transformar isso em erro numa versão futura, e aí os dois viram um
-  problema de verdade — o primeiro é o que sustenta o Hub, e o segundo, todo
-  atalho global.
+- **A build é híbrida, SPM mais CocoaPods — e falta um só para deixar de ser.**
+  Seis dos sete plugins nativos vêm pelo Swift Package Manager; o
+  `hotkey_manager_macos` é o último de CocoaPods, e é ele que segura o
+  `Podfile` de pé. Não é escolha nossa: o suporte a SPM tem de vir num
+  `Package.swift` **dentro do plugin**, e a 0.2.0 dele — a última — só traz
+  `.podspec`. Enquanto isso o Flutter avisa a cada build, e promete transformar
+  o aviso em erro; no dia em que transformar, o que para é todo atalho global.
+  A saída, se a hora chegar antes do autor, é vendorizar o plugin com um
+  `Package.swift` nosso. O `desktop_multi_window` era o outro da lista e saiu
+  dela na 0.3.1, cujo changelog é exatamente essa uma linha — vale reconferir
+  o `hotkey_manager` de tempos em tempos pelo mesmo caminho:
+  `flutter pub outdated`.
 - **Riverpod** (`flutter_riverpod`) — gerenciamento de estado, padrão MVVM.
 - **SQLite direto** (`sqlite3` via native assets) — não usa Isar (descartado:
   sem manutenção ativa, codegen quebra no Dart 3.11); acesso isolado atrás de
