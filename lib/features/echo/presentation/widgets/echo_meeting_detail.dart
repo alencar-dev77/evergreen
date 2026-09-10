@@ -33,6 +33,7 @@ class EchoMeetingDetail extends StatefulWidget {
     required this.isSummarizing,
     required this.progress,
     required this.onSummarize,
+    required this.onCancelSummary,
     required this.onDelete,
   });
 
@@ -48,6 +49,10 @@ class EchoMeetingDetail extends StatefulWidget {
   final (int, int)? progress;
 
   final VoidCallback onSummarize;
+
+  /// Desistir do resumo em curso. Ver `EchoSummaryRunner.cancel`.
+  final VoidCallback onCancelSummary;
+
   final VoidCallback onDelete;
 
   @override
@@ -255,6 +260,17 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
                   onPressed: widget.onSummarize,
                   isLoading: widget.isSummarizing,
                 ),
+        // "Cancelar" ao lado, e não no lugar de "Resumir": o botão que carrega
+        // a espera é o mesmo que a começou, e trocá-lo por outro no instante do
+        // clique é a armadilha que o comentário acima já descreve. Secundário
+        // porque desistir nunca é a ação principal da tela.
+        if (canSummarize && widget.isSummarizing) ...[
+          const SizedBox(width: AppSpacing.sm),
+          EgButton.secondary(
+            label: 'Cancelar',
+            onPressed: widget.onCancelSummary,
+          ),
+        ],
         const Spacer(),
         EgButton.destructive(label: 'Apagar', onPressed: widget.onDelete),
       ],

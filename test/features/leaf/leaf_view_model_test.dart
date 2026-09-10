@@ -417,7 +417,7 @@ void main() {
       expect(stateOf(container).canUndoDelete, isFalse);
     });
 
-    test('fechar o painel encerra a oferta', () async {
+    test('fechar e reabrir o painel não encerra a oferta', () async {
       final container = containerFor();
       fill(container, 2);
 
@@ -428,7 +428,46 @@ void main() {
 
       await viewModelOf(container).prepareForOpen();
 
-      // O desfazer é para o engano de um segundo atrás, não para o de ontem.
+      // Fechar o Leaf é o gesto seguinte mais provável depois de apagar por
+      // engano — o painel some sozinho ao perder o foco. Se a oferta morresse
+      // aí, o `⌘Z` quase nunca daria tempo de ser cobrado.
+      expect(stateOf(container).canUndoDelete, isTrue);
+
+      viewModelOf(container).undoDelete();
+      expect(stateOf(container).notes, hasLength(2));
+    });
+
+    test('apagar dois seguidos devolve os dois, do último para o primeiro', () {
+      final container = containerFor();
+      fill(container, 3);
+
+      final first = stateOf(container).noteAt(1)!.content;
+      final second = stateOf(container).noteAt(2)!.content;
+
+      // Apaga a vaga 1; quem estava na 2 sobe para ela, e apagar a 1 de novo
+      // arranca o segundo cartão.
+      viewModelOf(container)
+        ..selectSlot(1)
+        ..deleteSelected()
+        ..selectSlot(1)
+        ..deleteSelected();
+      expect(stateOf(container).notes, hasLength(1));
+
+      // O último a sair é o primeiro a voltar.
+      viewModelOf(container).undoDelete();
+      expect(
+        stateOf(container).notes.map((note) => note.content),
+        contains(second),
+      );
+
+      // E o de antes dele continua ao alcance: era isto que se perdia quando a
+      // oferta guardava um cartão só.
+      expect(stateOf(container).canUndoDelete, isTrue);
+      viewModelOf(container).undoDelete();
+      expect(
+        stateOf(container).notes.map((note) => note.content),
+        containsAll(<String>[first, second]),
+      );
       expect(stateOf(container).canUndoDelete, isFalse);
     });
   });

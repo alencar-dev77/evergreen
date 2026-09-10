@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -73,6 +75,7 @@ class EchoReader extends ConsumerWidget {
         isSummarizing: library.summarizingId == meeting.id,
         progress: library.progress,
         onSummarize: () => viewModel.summarize(meeting.id!),
+        onCancelSummary: () => unawaited(viewModel.cancelSummary()),
         onDelete: () {
           viewModel.delete(meeting.id!);
           // Apagar a última reunião esvazia a biblioteca: a região se fecha

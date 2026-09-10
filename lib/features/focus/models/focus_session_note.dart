@@ -16,13 +16,28 @@ class FocusSessionNote {
   /// Como o momento é lido na interface.
   String get label => minute <= 0 ? 'no início' : 'aos $minute min';
 
+  /// Uma observação é de uma linha só — sempre, venha de onde vier.
+  ///
+  /// O `\n` é o separador de registros da serialização, então um dentro do
+  /// texto não deixa a nota feia: parte a linha em duas, e a segunda metade
+  /// não tem `minuto|` na frente, some no `decodeList` e leva o resto da
+  /// observação junto. Colar um parágrafo no campo era o caminho: o campo é de
+  /// uma linha, mas colar não respeita isso.
+  ///
+  /// Achatar aqui, e não só no campo, é o que fecha a porta: [encodeList]
+  /// aplica de novo antes de gravar, então nenhum caminho — nem um teste, nem
+  /// uma leitura de rastro antigo — consegue escrever uma linha quebrada.
+  static String sanitize(String text) =>
+      text.replaceAll(RegExp(r'\s*[\r\n]+\s*'), ' ').trim();
+
   /// Serialização para a coluna `notes` do SQLite: uma linha por observação,
-  /// `minuto|texto`. O campo de escrita é de linha única, então `\n` nunca
-  /// aparece dentro de um texto.
+  /// `minuto|texto`.
   static String? encodeList(List<FocusSessionNote> notes) {
     if (notes.isEmpty) return null;
 
-    return notes.map((note) => '${note.minute}|${note.text}').join('\n');
+    return notes
+        .map((note) => '${note.minute}|${sanitize(note.text)}')
+        .join('\n');
   }
 
   static List<FocusSessionNote> decodeList(String? encoded) {

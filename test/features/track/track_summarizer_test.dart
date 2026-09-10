@@ -82,6 +82,146 @@ void main() {
     test('não existem num dia sem nada', () {
       expect(TrackSummarizer.factsOf(dayWith()), isNull);
     });
+
+    /// Um parágrafo que sabe que houve "3 h em duas sessões" e não sabe em quê
+    /// elas foram é um relatório de ponto. O resumo que a pessoa escreveu ao
+    /// fechar a sessão, e o que o modelo escreveu sobre a reunião, já estão no
+    /// banco — e são texto que ela escolheu produzir sobre o próprio trabalho,
+    /// ao contrário do conteúdo do Pin, que continua fora daqui.
+    group('levam os resumos que já existem', () {
+      test('o da sessão de foco, com o nome da atividade na frente', () {
+        final facts = TrackSummarizer.factsOf(
+          dayWith(
+            focus: [
+              TrackEntry(
+                at: date.add(const Duration(hours: 9)),
+                duration: const Duration(minutes: 50),
+                label: 'Refatorar o auth',
+                summary: 'Separei o token do refresh e cobri com teste.',
+              ),
+            ],
+          ),
+        );
+
+        expect(facts, contains('Sobre as sessões'));
+        expect(facts, contains('Refatorar o auth — Separei o token'));
+      });
+
+      test('o da reunião', () {
+        final facts = TrackSummarizer.factsOf(
+          dayWith(
+            meetings: [
+              TrackEntry(
+                at: date.add(const Duration(hours: 10)),
+                duration: const Duration(minutes: 45),
+                label: 'Weekly',
+                summary: 'Decidido adiar o lançamento para a semana que vem.',
+              ),
+            ],
+          ),
+        );
+
+        expect(facts, contains('Sobre as reuniões'));
+        expect(facts, contains('Decidido adiar o lançamento'));
+      });
+
+      test('a sessão sem resumo não abre a linha', () {
+        final facts = TrackSummarizer.factsOf(
+          dayWith(
+            focus: [
+              TrackEntry(
+                at: date.add(const Duration(hours: 9)),
+                duration: const Duration(minutes: 25),
+                label: 'Refatorar o auth',
+              ),
+            ],
+          ),
+        );
+
+        expect(facts, isNot(contains('Sobre as sessões')));
+      });
+
+      /// O resumo de uma reunião é um documento; o parágrafo do dia tem três
+      /// frases. Mandar os documentos inteiros estouraria a janela de contexto
+      /// — e ali não há conserto: o dia perde o parágrafo por inteiro.
+      test('um resumo comprido é cortado, e vira uma linha só', () {
+        final facts = TrackSummarizer.factsOf(
+          dayWith(
+            meetings: [
+              TrackEntry(
+                at: date.add(const Duration(hours: 10)),
+                duration: const Duration(minutes: 45),
+                summary: 'Tópico.\n${'palavra ' * 400}',
+              ),
+            ],
+          ),
+        )!;
+
+        final linha = facts
+            .split('\n')
+            .firstWhere((line) => line.startsWith('Sobre as reuniões'));
+
+        expect(linha.length, lessThan(500));
+        expect(linha, contains('…'));
+        expect(linha, contains('Tópico. palavra'));
+      });
+
+      test('entram no máximo três de cada tipo', () {
+        final facts = TrackSummarizer.factsOf(
+          dayWith(
+            meetings: [
+              for (var i = 1; i <= 5; i++)
+                TrackEntry(
+                  at: date.add(Duration(hours: 8 + i)),
+                  duration: const Duration(minutes: 30),
+                  summary: 'reuniao$i',
+                ),
+            ],
+          ),
+        )!;
+
+        expect(facts, contains('reuniao3'));
+        expect(facts, isNot(contains('reuniao4')));
+      });
+    });
+  });
+
+  /// O parágrafo é cache, com assinatura do dia: se ela não vir os resumos,
+  /// resumir uma reunião de terça na quinta deixa na tela o parágrafo de terça
+  /// escrito sem ele — e um texto que não bate com os números ao lado é pior
+  /// que texto nenhum.
+  group('a assinatura do dia', () {
+    TrackDay dayWithMeeting({String? summary}) => TrackDay(
+      date: date,
+      meetings: [
+        TrackEntry(
+          at: date.add(const Duration(hours: 10)),
+          duration: const Duration(minutes: 45),
+          summary: summary,
+        ),
+      ],
+    );
+
+    test('muda quando um resumo aparece', () {
+      expect(
+        dayWithMeeting().signature,
+        isNot(dayWithMeeting(summary: 'o que foi decidido').signature),
+      );
+    });
+
+    test('muda quando um resumo é reescrito', () {
+      expect(
+        dayWithMeeting(summary: 'primeira versão').signature,
+        isNot(dayWithMeeting(summary: 'segunda versao').signature),
+      );
+    });
+
+    test('não muda com o mesmo dia lido duas vezes', () {
+      expect(
+        dayWithMeeting(summary: 'igual').signature,
+        dayWithMeeting(summary: 'igual').signature,
+      );
+    });
   });
 
   group('escrever o parágrafo', () {

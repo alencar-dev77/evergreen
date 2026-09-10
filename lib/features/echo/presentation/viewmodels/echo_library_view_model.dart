@@ -180,6 +180,25 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     await _syncSummary();
   }
 
+  /// Desiste do resumo em curso.
+  ///
+  /// O `_syncSummary` no fim é o que devolve a tela ao estado parado sem
+  /// esperar meio segundo pela pergunta periódica seguinte — e é ele, e não
+  /// este método, quem decide o que mostrar: a verdade continua sendo a do
+  /// runner. Ver [EchoSummaryRunner.cancel] para o que "cancelar" alcança.
+  Future<void> cancelSummary() async {
+    if (state.summarizingId == null) return;
+
+    try {
+      await _runner.cancel();
+    } on EchoException catch (error) {
+      state = state.copyWith(errorMessage: error.message);
+      return;
+    }
+
+    await _syncSummary();
+  }
+
   /// Copia para a tela o que o runner está fazendo, e liga (ou desliga) a
   /// pergunta periódica conforme houver trabalho.
   Future<void> _syncSummary() async {

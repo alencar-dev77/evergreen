@@ -11,7 +11,12 @@ import '../../pin/models/clipboard_item_type.dart';
 /// repositório, não da linha.
 @immutable
 class TrackEntry {
-  const TrackEntry({required this.at, required this.duration, this.label});
+  const TrackEntry({
+    required this.at,
+    required this.duration,
+    this.label,
+    this.summary,
+  });
 
   final DateTime at;
   final Duration duration;
@@ -20,7 +25,23 @@ class TrackEntry {
   /// `null` numa sessão de foco iniciada sem dizer em quê.
   final String? label;
 
+  /// O que já foi escrito sobre isto: o resumo que a pessoa digitou ao fechar a
+  /// sessão de foco, ou o resumo que o modelo escreveu sobre a reunião.
+  ///
+  /// **Isto não fura a regra do módulo.** O que o Track não lê é conteúdo do
+  /// Pin — porque o Pin registra tudo o que passa pela área de transferência,
+  /// senha inclusive, e ninguém escolheu pôr aquilo lá. Um resumo é o oposto:
+  /// é texto que a pessoa escreveu de propósito sobre o próprio trabalho, ou
+  /// que ela mandou escrever. Sai desta máquina tanto quanto o resto — ou seja,
+  /// não sai.
+  ///
+  /// `null` quase sempre: a maioria das sessões termina sem resumo, e a
+  /// reunião só tem um depois de alguém pedir.
+  final String? summary;
+
   bool get hasLabel => label != null && label!.trim().isNotEmpty;
+
+  bool get hasSummary => summary != null && summary!.trim().isNotEmpty;
 }
 
 /// Um dia reconstruído a partir do que os módulos já gravaram.
@@ -123,7 +144,11 @@ class TrackDay {
       TrackCounts.of(copiedTotal, 'item copiado', 'itens copiados'),
     if (notesWritten > 0) TrackCounts.of(notesWritten, 'anotação', 'anotações'),
     if (filesOrganized > 0)
-      TrackCounts.of(filesOrganized, 'arquivo organizado', 'arquivos organizados'),
+      TrackCounts.of(
+        filesOrganized,
+        'arquivo organizado',
+        'arquivos organizados',
+      ),
   ];
 
   /// Assinatura barata do conteúdo do dia.
@@ -132,11 +157,34 @@ class TrackDay {
   /// este dia: sem ela, uma sessão registrada depois de o resumo ter sido
   /// escrito deixaria na tela um texto que não bate mais com os números ao
   /// lado — e um resumo errado é pior que resumo nenhum.
+  ///
+  /// **Ela cobre tudo o que vai para o modelo, não só o que aparece na tela.**
+  /// Os resumos das sessões e das reuniões entram no parágrafo (ver
+  /// `TrackSummarizer.factsOf`), então resumir uma reunião de terça na
+  /// quinta-feira precisa refazer o parágrafo de terça — e reescrever um resumo
+  /// que já existia também, o que a contagem sozinha não veria: daí o
+  /// comprimento somado ao lado dela.
   String get signature =>
       '${focus.length}/${focusTotal.inMinutes}/'
       '${meetings.length}/${meetingTotal.inMinutes}/'
       '${awake.length}/${awakeTotal.inMinutes}/'
-      '$copiedTotal/$notesWritten';
+      '$copiedTotal/$notesWritten/$filesOrganized/'
+      '${_summarySignature(focus)}/${_summarySignature(meetings)}';
+
+  /// Quantos resumos há e quanto texto eles somam — o bastante para notar que
+  /// um apareceu, sumiu ou foi reescrito, sem guardar nada do que dizem.
+  static String _summarySignature(List<TrackEntry> entries) {
+    var count = 0;
+    var length = 0;
+
+    for (final entry in entries) {
+      if (!entry.hasSummary) continue;
+      count++;
+      length += entry.summary!.length;
+    }
+
+    return '$count:$length';
+  }
 }
 
 /// Os totais de um período — o que a frase do topo da tela conta.
