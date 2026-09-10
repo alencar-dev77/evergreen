@@ -57,7 +57,7 @@ class SqliteTrackRepository implements TrackRepository {
     // certo.
     for (final row in _db.select(
       '''
-      SELECT started_at, duration_seconds, activity
+      SELECT started_at, duration_seconds, activity, summary
         FROM focus_sessions
        WHERE started_at >= ?
        ORDER BY started_at ASC;
@@ -70,13 +70,14 @@ class SqliteTrackRepository implements TrackRepository {
           at: DateTime.fromMillisecondsSinceEpoch(at),
           duration: Duration(seconds: row['duration_seconds'] as int),
           label: row['activity'] as String?,
+          summary: row['summary'] as String?,
         ),
       );
     }
 
     for (final row in _db.select(
       '''
-      SELECT started_at, duration_ms, title
+      SELECT started_at, duration_ms, title, summary
         FROM echo_meetings
        WHERE started_at >= ?
        ORDER BY started_at ASC;
@@ -89,6 +90,7 @@ class SqliteTrackRepository implements TrackRepository {
           at: DateTime.fromMillisecondsSinceEpoch(at),
           duration: Duration(milliseconds: row['duration_ms'] as int),
           label: row['title'] as String?,
+          summary: row['summary'] as String?,
         ),
       );
     }

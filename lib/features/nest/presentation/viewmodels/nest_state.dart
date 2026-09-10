@@ -82,6 +82,17 @@ class NestState {
 
   bool get hasDestinations => destinations.isNotEmpty;
 
+  /// Há linhas apontando para arquivo que sumiu do disco.
+  ///
+  /// É o que decide se a prateleira oferece a limpeza — ver
+  /// [NestViewModel.removeMissing]. Sem nenhuma, o convite não aparece: um
+  /// botão de limpar o que não existe é ruído permanente para um caso raro.
+  bool get hasMissingItems => items.any((item) => item.isMissing);
+
+  /// Quantos destinos apontam para pasta que não está mais lá.
+  int get missingDestinationCount =>
+      destinations.where((destination) => destination.isMissing).length;
+
   /// O item sob o cursor — o que o `⌘R` revela no Finder.
   NestItem? get cursorItem {
     final index = cursor;

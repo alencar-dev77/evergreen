@@ -24,6 +24,18 @@ abstract interface class EchoSummaryRunner {
 
   /// O andamento agora.
   Future<EchoSummaryStatus> status();
+
+  /// Desiste do resumo em curso. Sem nada em curso, não faz nada.
+  ///
+  /// **Desistir é entre blocos, não no meio de um.** A chamada ao modelo é uma
+  /// só, do outro lado do canal, e o `FoundationModels` não a interrompe: o
+  /// bloco que já está com ele termina e é descartado. Numa reunião longa isso
+  /// é o que a pessoa quer de qualquer forma — ela desiste porque são doze
+  /// blocos pela frente, não porque o atual demora.
+  ///
+  /// Nada é gravado: a reunião fica exatamente como estava, com o resumo antigo
+  /// se havia um. Cancelar não é apagar.
+  Future<void> cancel();
 }
 
 /// O resumo acontecendo de verdade, no engine que o pediu.
@@ -74,6 +86,15 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
 
   EchoSummaryStatus _status = const EchoSummaryStatus();
 
+  /// Qual resumo é o de agora.
+  ///
+  /// Cancelar não interrompe o `await` que está de pé — ele incrementa este
+  /// número, e o trabalho que voltar com um número velho se descobre demitido e
+  /// sai sem gravar nada. É mais simples e mais seguro que um sinalizador
+  /// booleano: entre o cancelamento e o retorno do bloco, a pessoa pode ter
+  /// pedido um resumo novo, e o antigo não pode confundir o dela com o seu.
+  int _generation = 0;
+
   /// A falha é **entregue uma vez** e some.
   ///
   /// Ela precisa esperar por quem pediu o resumo — que pode ter fechado o Hub e
@@ -89,6 +110,17 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
     }
 
     return current;
+  }
+
+  @override
+  Future<void> cancel() async {
+    if (!_status.isRunning) return;
+
+    _generation++;
+    // A tela precisa parar de mostrar "Resumindo…" agora, e não quando o bloco
+    // em curso voltar do modelo — que é o que a pessoa acabou de dizer que não
+    // quer mais esperar.
+    _status = const EchoSummaryStatus();
   }
 
   @override
@@ -114,8 +146,11 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
     if (chunks.isEmpty) return;
 
     _status = EchoSummaryStatus(meetingId: meetingId, total: chunks.length);
-    unawaited(_run(meetingId, chunks, instructions));
+    unawaited(_run(meetingId, chunks, instructions, ++_generation));
   }
+
+  /// Este trabalho ainda é o trabalho de agora?
+  bool _isCurrent(int generation) => generation == _generation;
 
   /// Em dois passos quando o texto não cabe de uma vez: cada bloco vira um
   /// resumo neutro, e o passo final junta os resumos aplicando a instrução que
@@ -124,20 +159,28 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
     int meetingId,
     List<String> chunks,
     String instructions,
+    int generation,
   ) async {
     try {
       final summary = chunks.length == 1
-          ? await _summarize(chunks.single, instructions)
-          : await _summarizeInBlocks(chunks, instructions);
+          ? await _summarize(chunks.single, instructions, generation)
+          : await _summarizeInBlocks(chunks, instructions, generation);
 
       _repository.setSummary(meetingId, summary, prompt: instructions);
       _status = const EchoSummaryStatus();
+    } on _Cancelled {
+      // Nada a gravar e nada a dizer: o `cancel` já limpou o estado, e a pessoa
+      // sabe o que pediu. Um aviso de "cancelado" seria o aplicativo repetindo
+      // de volta o próprio clique dela.
+      return;
     } on EchoException catch (error) {
+      if (!_isCurrent(generation)) return;
       _status = EchoSummaryStatus(errorMessage: error.message);
     } catch (error) {
       // Nada aqui roda sob uma tela: uma exceção não prevista escapando de um
       // `unawaited` derrubaria o engine que segura a gravação, o cronômetro e
       // a captura do clipboard. O resumo é a única coisa que pode falhar.
+      if (!_isCurrent(generation)) return;
       _status = EchoSummaryStatus(errorMessage: 'O resumo falhou: $error');
     }
   }
@@ -145,40 +188,71 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   Future<String> _summarizeInBlocks(
     List<String> chunks,
     String instructions,
+    int generation,
   ) async {
     final partials = <String>[];
 
     for (var index = 0; index < chunks.length; index++) {
+      // A checagem vem antes de anunciar o bloco: sem ela, um resumo cancelado
+      // continuaria escrevendo "bloco 4 de 12" por cima do estado limpo, e a
+      // tela voltaria a dizer que está resumindo.
+      if (!_isCurrent(generation)) throw const _Cancelled();
+
       _status = EchoSummaryStatus(
         meetingId: _status.meetingId,
         done: index + 1,
         total: chunks.length,
       );
-      partials.add(await _summarize(chunks[index], blockInstructions));
+      partials.add(
+        await _summarize(chunks[index], blockInstructions, generation),
+      );
     }
 
-    return _summarize(partials.join('\n\n'), instructions);
+    return _summarize(partials.join('\n\n'), instructions, generation);
   }
 
   /// Uma chamada ao modelo, com a saída para o texto que não coube.
   ///
   /// O estouro de janela é o único erro que dá para resolver aqui: repartir o
   /// bloco ao meio e resumir as metades chega no mesmo lugar, só mais devagar.
-  Future<String> _summarize(String text, String instructions) async {
+  Future<String> _summarize(
+    String text,
+    String instructions,
+    int generation,
+  ) async {
+    if (!_isCurrent(generation)) throw const _Cancelled();
+
+    final String answer;
     try {
-      return await _channel.summarize(text: text, instructions: instructions);
+      answer = await _channel.summarize(text: text, instructions: instructions);
     } on EchoException catch (error) {
       if (!error.isContextWindowExceeded || text.length < 500) rethrow;
 
       final halves = SummaryChunker.chunk(text, maxChars: text.length ~/ 2);
       final partials = <String>[];
       for (final half in halves) {
-        partials.add(await _summarize(half, blockInstructions));
+        partials.add(await _summarize(half, blockInstructions, generation));
       }
 
-      return _summarize(partials.join('\n\n'), instructions);
+      return _summarize(partials.join('\n\n'), instructions, generation);
     }
+
+    // De novo na volta: o bloco levou minutos com o modelo, e é justamente
+    // nesse intervalo que a desistência acontece.
+    if (!_isCurrent(generation)) throw const _Cancelled();
+
+    return answer;
   }
+}
+
+/// A desistência, subindo pela pilha do trabalho até quem sabe descartá-lo.
+///
+/// Privada e sem mensagem: ela nunca chega a uma tela — quem a captura é o
+/// [LocalEchoSummaryRunner._run], que sai calado. Não é um [EchoException]
+/// porque não é uma falha: a diferença entre "não deu" e "não quis" é toda a
+/// diferença para quem está olhando.
+class _Cancelled implements Exception {
+  const _Cancelled();
 }
 
 /// O mesmo pedido, feito de outra janela.
@@ -205,6 +279,9 @@ class WindowEchoSummaryRunner implements EchoSummaryRunner {
         ? const EchoSummaryStatus()
         : EchoSummaryStatus.fromMap(raw);
   }
+
+  @override
+  Future<void> cancel() async => _invoke<void>('cancel');
 
   /// Falha de canal vira [EchoException] porque é assim que o resto do Echo
   /// conta um problema, e a tela já sabe mostrar isso. Calar seria pior que o
@@ -248,6 +325,9 @@ abstract final class EchoSummaryHost {
             return null;
           case 'status':
             return (await runner.status()).toMap();
+          case 'cancel':
+            await runner.cancel();
+            return null;
           default:
             throw MissingPluginException('echo_summary: ${call.method}');
         }

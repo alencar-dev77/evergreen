@@ -8,7 +8,7 @@ class LeafState {
     this.selectedSlot,
     this.editingSlot,
     this.copiedSlot,
-    this.undoableDelete,
+    this.undoableDeletes = const <LeafNote>[],
   });
 
   /// Anotações em ordem de vaga.
@@ -28,14 +28,29 @@ class LeafState {
   /// tecla funcionou. É o aviso no lugar do sumiço.
   final int? copiedSlot;
 
-  /// O último cartão arrancado da parede, enquanto ainda dá para colá-lo de
-  /// volta.
+  /// Os cartões arrancados da parede, do mais antigo para o mais recente —
+  /// `⌘Z` devolve sempre o último.
   ///
-  /// Vive só na memória e só enquanto o painel está aberto: o desfazer existe
-  /// para o engano de um segundo atrás — apagar o cartão errado, ou esvaziar o
-  /// campo sem querer, que também apaga —, não para ressuscitar o que se jogou
-  /// fora ontem. Fechar o painel encerra a oferta, como encerra a edição.
-  final LeafNote? undoableDelete;
+  /// **Uma pilha, e não um cartão só.** Esvaziar o campo apaga a anotação, e é
+  /// a forma mais fácil de apagar sem querer: quem faz isso duas vezes seguidas
+  /// — o gesto que mais precisa de desfazer — perdia a primeira, porque a
+  /// segunda tomava o lugar dela.
+  ///
+  /// **E sobrevive ao painel fechar.** Vive na memória do engine da janela 0,
+  /// que é o app inteiro, não o painel: fechar o Leaf é a coisa mais natural a
+  /// fazer depois de apagar por engano — o painel some ao perder o foco —, e
+  /// era exatamente aí que a oferta morria. Reabrir devolve a pilha
+  /// ([LeafViewModel.prepareForOpen] a preserva); sair do aplicativo, não, e
+  /// aí é a mesma regra de antes: o desfazer é para o engano de um minuto
+  /// atrás, não para ressuscitar o que se jogou fora ontem.
+  ///
+  /// Guarda no máximo [LeafNote.maxNotes]: nove é o que cabe na parede, e uma
+  /// pilha sem teto seria uma lixeira que ninguém pediu.
+  final List<LeafNote> undoableDeletes;
+
+  /// O próximo a voltar, ou `null` se não há nenhum.
+  LeafNote? get undoableDelete =>
+      undoableDeletes.isEmpty ? null : undoableDeletes.last;
 
   bool get isEmpty => notes.isEmpty;
 
@@ -50,7 +65,7 @@ class LeafState {
   ///
   /// A parede cheia tira a oferta em vez de prometer o que não cabe: entre
   /// apagar e desfazer, a pessoa pode ter escrito outra anotação.
-  bool get canUndoDelete => undoableDelete != null && !isFull;
+  bool get canUndoDelete => undoableDeletes.isNotEmpty && !isFull;
 
   LeafNote? noteAt(int slot) {
     for (final note in notes) {
@@ -97,6 +112,7 @@ class LeafState {
     int? selectedSlot,
     int? editingSlot,
     int? copiedSlot,
+    List<LeafNote>? undoableDeletes,
     bool clearSelection = false,
     bool clearEditing = false,
     bool clearCopied = false,
@@ -108,7 +124,7 @@ class LeafState {
       // O aviso morre no gesto seguinte: escrever, apagar ou reabrir o painel
       // apaga o "copiado" — ele conta o que **acabou** de acontecer.
       copiedSlot: clearCopied ? null : copiedSlot ?? this.copiedSlot,
-      undoableDelete: undoableDelete,
+      undoableDeletes: undoableDeletes ?? this.undoableDeletes,
     );
   }
 }

@@ -40,6 +40,7 @@ void main() {
     required bool isSummarizing,
     (int, int)? progress,
     String userName = '',
+    VoidCallback? onCancelSummary,
   }) async {
     tester.view.physicalSize = const Size(900, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -56,6 +57,7 @@ void main() {
             isSummarizing: isSummarizing,
             progress: progress,
             onSummarize: () {},
+            onCancelSummary: onCancelSummary ?? () {},
             onDelete: () {},
           ),
         ),
@@ -228,4 +230,48 @@ void main() {
     expect(resumindo, parado);
   });
 
+  group('desistir do resumo', () {
+    testWidgets('o botão só existe enquanto há resumo em curso', (
+      tester,
+    ) async {
+      final meeting = meetingWith();
+
+      await pumpDetail(tester, meeting: meeting, isSummarizing: false);
+      await openSummaryTab(tester);
+      expect(find.text('Cancelar'), findsNothing);
+
+      await pumpDetail(tester, meeting: meeting, isSummarizing: true);
+      await openSummaryTab(tester);
+      expect(find.text('Cancelar'), findsOneWidget);
+    });
+
+    testWidgets('apertar avisa quem sabe desistir', (tester) async {
+      var pedidos = 0;
+
+      await pumpDetail(
+        tester,
+        meeting: meetingWith(),
+        isSummarizing: true,
+        onCancelSummary: () => pedidos++,
+      );
+      await openSummaryTab(tester);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pump();
+
+      expect(pedidos, 1);
+    });
+
+    /// O "Resumir" continua na tela ao lado do "Cancelar": é ele que carrega a
+    /// espera, e trocá-lo pelo outro no instante do clique é a armadilha que o
+    /// teste do "Apagar" acima já descreve.
+    testWidgets('o botão de resumir não sai do lugar', (tester) async {
+      final meeting = meetingWith();
+
+      await pumpDetail(tester, meeting: meeting, isSummarizing: true);
+      await openSummaryTab(tester);
+
+      expect(find.text('Resumir'), findsOneWidget);
+      expect(find.text('Cancelar'), findsOneWidget);
+    });
+  });
 }

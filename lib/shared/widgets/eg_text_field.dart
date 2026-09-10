@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/design/app_metrics.dart';
 import '../../core/design/eg_tokens.dart';
@@ -111,6 +112,31 @@ class _EgTextFieldState extends State<EgTextField> {
     setState(() => _isFocused = _node.hasFocus);
   }
 
+  /// Campo de uma linha não guarda quebra de linha — nem colada.
+  ///
+  /// Digitar não produz `\n` num campo de uma linha, mas **colar produz**: o
+  /// Flutter insere o texto da área de transferência como veio, e o campo
+  /// passa a conter uma quebra que ele não sabe desenhar. O estrago aparece
+  /// depois, em quem serializa: a observação do Focus usa `\n` como separador
+  /// de registros, e uma nota colada de dois parágrafos virava uma nota
+  /// truncada mais uma linha de lixo descartada em silêncio.
+  ///
+  /// A regra fica aqui, e não em cada chamador, pela mesma razão que a matriz
+  /// de estado do `EgSurfaceStyle` não mora dentro de cada botão: quem sabe
+  /// que este campo é de uma linha é este campo. O apelido do Pin, o do
+  /// destino do Nest e a atividade do Focus ganham a mesma proteção sem saber
+  /// dela.
+  static final _singleLine = <TextInputFormatter>[
+    FilteringTextInputFormatter.deny(
+      RegExp(r'\s*[\r\n]+\s*'),
+      replacementString: ' ',
+    ),
+  ];
+
+  /// `null` no campo de várias linhas: lá a quebra é o conteúdo.
+  List<TextInputFormatter>? get _formatters =>
+      (widget.maxLines ?? 2) > 1 ? null : _singleLine;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -130,9 +156,7 @@ class _EgTextFieldState extends State<EgTextField> {
         // parecer um desenho de arame. Escrito é conteúdo que entra na
         // superfície, não uma peça apoiada sobre ela — e o poço dá à tela a
         // segunda direção de profundidade que faltava.
-        color: widget.bare && !_isFocused
-            ? null
-            : context.eg.colors.canvasDeep,
+        color: widget.bare && !_isFocused ? null : context.eg.colors.canvasDeep,
         borderRadius: context.eg.shapes.controlAll,
         border: Border.all(
           color: _isFocused
@@ -153,6 +177,7 @@ class _EgTextFieldState extends State<EgTextField> {
           onSubmitted: widget.onSubmitted,
           minLines: widget.minLines,
           maxLines: widget.maxLines,
+          inputFormatters: _formatters,
           cursorColor: context.eg.colors.accent,
           cursorWidth: 1.5,
           // Altura fixa só faz sentido na linha única; em campo de várias

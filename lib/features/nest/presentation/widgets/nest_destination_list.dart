@@ -137,13 +137,23 @@ class _DestinationRowState extends State<_DestinationRow> {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              widget.destination.path,
+              // A pasta sumiu do disco: o caminho gravado continua na tela —
+              // é o que permite reconhecer qual era e recadastrá-la —, com o
+              // aviso na frente e em cor de alerta. Ver
+              // [NestDestination.isMissing].
+              widget.destination.isMissing
+                  ? 'não encontrada · ${widget.destination.path}'
+                  : widget.destination.path,
               maxLines: 1,
               // No meio, e não no fim: o fim de um caminho é o nome da pasta,
               // que é justamente a parte que identifica o destino.
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: eg.text.footnote.copyWith(color: eg.colors.textQuaternary),
+              style: eg.text.footnote.copyWith(
+                color: widget.destination.isMissing
+                    ? eg.colors.warning
+                    : eg.colors.textQuaternary,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),

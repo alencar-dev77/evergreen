@@ -228,11 +228,9 @@ void main() {
 
     test('o ⌘ acrescenta e tira um a um', () async {
       final container = await makeContainer();
-      await viewModelOf(container).addPaths([
-        writeFile('a.txt'),
-        writeFile('b.txt'),
-        writeFile('c.txt'),
-      ]);
+      await viewModelOf(
+        container,
+      ).addPaths([writeFile('a.txt'), writeFile('b.txt'), writeFile('c.txt')]);
 
       viewModelOf(container).select(0);
       viewModelOf(container).select(2, toggle: true);
@@ -244,11 +242,9 @@ void main() {
 
     test('o ⇧ vai do cursor até onde se clicou', () async {
       final container = await makeContainer();
-      await viewModelOf(container).addPaths([
-        writeFile('a.txt'),
-        writeFile('b.txt'),
-        writeFile('c.txt'),
-      ]);
+      await viewModelOf(
+        container,
+      ).addPaths([writeFile('a.txt'), writeFile('b.txt'), writeFile('c.txt')]);
 
       viewModelOf(container).select(0);
       viewModelOf(container).select(2, extend: true);
@@ -272,11 +268,9 @@ void main() {
 
     test('o ⌫ tira todos os escolhidos de uma vez', () async {
       final container = await makeContainer();
-      await viewModelOf(container).addPaths([
-        writeFile('a.txt'),
-        writeFile('b.txt'),
-        writeFile('c.txt'),
-      ]);
+      await viewModelOf(
+        container,
+      ).addPaths([writeFile('a.txt'), writeFile('b.txt'), writeFile('c.txt')]);
 
       viewModelOf(container).select(0);
       viewModelOf(container).select(1, extend: true);
@@ -435,10 +429,92 @@ void main() {
 
       await container
           .read(nestSettingsRepositoryProvider)
-          .save(NestSettings(destinations: [NestDestination(path: target.path)]));
+          .save(
+            NestSettings(destinations: [NestDestination(path: target.path)]),
+          );
       await viewModelOf(container).prepareForOpen();
 
       expect(stateOf(container).destinations.single.path, target.path);
+    });
+
+    /// O favorito guarda caminho de texto, e o Finder não avisa ninguém ao
+    /// renomear uma pasta: sem esta conferência, o `⌘1` falhava toda vez e a
+    /// lista não mostrava nada de errado.
+    test('marca a pasta favorita que saiu do lugar', () async {
+      final container = await makeContainer();
+      expect(stateOf(container).destinations.single.isMissing, isFalse);
+      expect(stateOf(container).missingDestinationCount, 0);
+
+      target.renameSync(p.join(root.path, 'destino-renomeado'));
+      await viewModelOf(container).prepareForOpen();
+
+      expect(stateOf(container).destinations.single.isMissing, isTrue);
+      expect(stateOf(container).missingDestinationCount, 1);
+      // O favorito continua na lista: `⌘1..⌘9` é posicional, e tirar o
+      // terceiro faria o quarto virar terceiro sem ninguém pedir.
+      expect(stateOf(container).destinations, hasLength(1));
+      expect(stateOf(container).destinations.single.alias, 'Recibos');
+    });
+
+    test('a pasta que volta ao lugar deixa de ser marcada', () async {
+      final container = await makeContainer();
+      final renamed = p.join(root.path, 'destino-renomeado');
+
+      target.renameSync(renamed);
+      await viewModelOf(container).prepareForOpen();
+      expect(stateOf(container).destinations.single.isMissing, isTrue);
+
+      // O caso do volume desmontado: a pasta reaparece e o favorito volta a
+      // valer sozinho, sem ninguém recadastrar nada.
+      Directory(renamed).renameSync(target.path);
+      await viewModelOf(container).prepareForOpen();
+
+      expect(stateOf(container).destinations.single.isMissing, isFalse);
+    });
+  });
+
+  /// Marcar era metade do trabalho; tirar da prateleira é a outra.
+  group('limpar o que sumiu', () {
+    test('tira só as linhas mortas, e não toca nas vivas', () async {
+      final container = await makeContainer();
+      final some = writeFile('some.txt');
+      final fica = writeFile('fica.txt');
+      await viewModelOf(container).addPaths([some, fica]);
+
+      File(some).deleteSync();
+      await viewModelOf(container).prepareForOpen();
+      expect(stateOf(container).hasMissingItems, isTrue);
+
+      viewModelOf(container).removeMissing();
+
+      expect(stateOf(container).items, hasLength(1));
+      expect(stateOf(container).items.single.path, fica);
+      expect(stateOf(container).hasMissingItems, isFalse);
+      expect(stateOf(container).notice, contains('1 item'));
+    });
+
+    test('sem nada marcado não faz nada', () async {
+      final container = await makeContainer();
+      await viewModelOf(container).addPaths([writeFile('a.txt')]);
+
+      viewModelOf(container).removeMissing();
+
+      expect(stateOf(container).items, hasLength(1));
+      expect(stateOf(container).notice, isNull);
+    });
+
+    /// A prateleira guarda referências: limpar a lista não é apagar arquivo.
+    test('o arquivo que ficou continua no disco', () async {
+      final container = await makeContainer();
+      final some = writeFile('some.txt');
+      final fica = writeFile('fica.txt');
+      await viewModelOf(container).addPaths([some, fica]);
+
+      File(some).deleteSync();
+      await viewModelOf(container).prepareForOpen();
+      viewModelOf(container).removeMissing();
+
+      expect(File(fica).existsSync(), isTrue);
     });
   });
 }
