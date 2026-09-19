@@ -20,6 +20,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../echo/fake_echo_channel.dart';
 import '../focus/fake_focus_session_repository.dart';
 import '../pin/fake_clipboard_repository.dart';
+import '../echo/fake_export_service.dart';
 
 /// A tela do Track dentro do Hub.
 ///
@@ -104,6 +105,7 @@ void main() {
           ),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
           clockProvider.overrideWithValue(() => now),
         ],

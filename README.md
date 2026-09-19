@@ -58,6 +58,12 @@ para. Nada é apagado: religar devolve tudo como estava.
 O **Echo exige macOS 26** (é de lá que vêm `SpeechAnalyzer` e o modelo de resumo
 local). Abaixo disso o módulo se recusa a gravar e o resto do app segue normal.
 
+Uma reunião aberta no Hub tem duas faces — resumo e transcrição — e cada uma
+tem os próprios botões de **Copiar** e **Exportar**, ao lado do seletor: eles
+sempre agem sobre a face que está na tela. Copiar leva o texto como ele se lê;
+exportar escreve um `.md` em `Exportações/`, dentro da pasta do aplicativo, e
+abre o Finder com o arquivo selecionado.
+
 O painel do Echo é o único que **se arrasta**: pegue por qualquer área vazia
 dele e puxe para tirar a transcrição da frente da reunião. E, enquanto grava ou
 transcreve, ele **não some quando você clica na reunião** — dá para acompanhar o

@@ -8,6 +8,7 @@ import 'package:evergreen/features/echo/models/transcription_language.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/hub_detail_region.dart';
+import 'package:evergreen/shared/widgets/eg_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'fake_echo_channel.dart';
+import 'fake_export_service.dart';
 
 /// A região de leitura do Hub — a coluna que a janela cresce para mostrar.
 ///
@@ -28,6 +30,7 @@ import 'fake_echo_channel.dart';
 void main() {
   late SharedPreferences preferences;
   late Database db;
+  late FakeExportService exports;
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
@@ -42,6 +45,7 @@ void main() {
 
     db = sqlite3.openInMemory();
     AppDatabase.migrate(db);
+    exports = FakeExportService();
 
     final repository = SqliteEchoRepository(db);
     repository.insert(
@@ -81,6 +85,7 @@ void main() {
           ),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
+          exportServiceProvider.overrideWithValue(exports),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -185,5 +190,58 @@ void main() {
 
     expect(find.byType(HubDetailRegion), findsNothing);
     expect(find.text('Nenhuma reunião gravada'), findsOneWidget);
+  });
+
+  /// O caminho inteiro de "Exportar": o botão, a ViewModel, o texto montado e
+  /// o arquivo escrito. Os pedaços têm teste próprio; o que se prende aqui é a
+  /// fiação entre eles — e que o que sai é a **face aberta**, não a reunião
+  /// toda.
+  testWidgets('exportar escreve a face aberta, com nome próprio', (
+    tester,
+  ) async {
+    await pumpHub(tester);
+    await openMeeting(tester);
+
+    await tester.tap(find.text('Transcrição'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Exportar'));
+    await tester.pumpAndSettle();
+
+    expect(exports.written, hasLength(1));
+
+    final written = exports.written.single;
+    expect(written.baseName, endsWith('-alinhamento-de-escopo-transcricao'));
+    expect(written.content, contains('# Alinhamento de escopo'));
+    expect(written.content, contains('## Transcrição'));
+    expect(written.content, contains('Então, a ideia é fechar o escopo hoje.'));
+
+    // O arquivo vai parar numa pasta funda demais para alguém achá-la
+    // sozinho: mostrar no Finder é o que completa a ação.
+    expect(exports.revealed, hasLength(1));
+
+    expect(find.text('Transcrição exportada'), findsOneWidget);
+  });
+
+  /// A reunião deste teste não tem resumo, e um botão que copiaria vazio
+  /// promete uma cópia que não acontece.
+  testWidgets('sem resumo, a aba do resumo não oferece o que levar', (
+    tester,
+  ) async {
+    await pumpHub(tester);
+    await openMeeting(tester);
+
+    expect(
+      tester
+          .widget<EgButton>(
+            find.ancestor(
+              of: find.text('Exportar'),
+              matching: find.byType(EgButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(exports.written, isEmpty);
   });
 }

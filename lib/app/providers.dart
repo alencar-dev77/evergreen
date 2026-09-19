@@ -7,6 +7,7 @@ import 'dart:io';
 import '../core/storage/app_database.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/storage/backup_service.dart';
+import '../core/storage/export_service.dart';
 import '../core/window/overlay_panel.dart';
 import '../core/window/window_kind.dart';
 import '../features/awake/data/awake_session_repository.dart';
@@ -71,6 +72,20 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService(
     database: database.db,
     directory: Directory(p.join(database.directoryPath, 'Backups')),
+  );
+});
+
+/// Os textos que saem do Evergreen, na subpasta `Exportações` do aplicativo.
+///
+/// Ao lado dos backups, e pela mesma razão: ali o macOS não pede permissão
+/// nenhuma, e `~/Documents` pediria — no meio de um clique em "Exportar", o
+/// que transformaria uma ação de um passo numa caixa de diálogo do sistema.
+/// A pasta é funda, então quem escreve o arquivo o mostra no Finder.
+final exportServiceProvider = Provider<ExportService>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return LocalExportService(
+    directory: Directory(p.join(database.directoryPath, 'Exportações')),
   );
 });
 
