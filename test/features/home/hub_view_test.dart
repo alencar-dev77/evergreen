@@ -22,6 +22,7 @@ import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
 import 'backup_fixture.dart';
 import 'fake_module_settings_notifier.dart';
+import '../echo/fake_export_service.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -72,6 +73,7 @@ void main() {
           // máquina permite — nem um nem outro existem dentro de um teste.
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
           // O Track lê o mesmo banco — ele não tem tabela própria.
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
           // A tela do Leaf lê a parede para dizer quantas vagas estão em uso.

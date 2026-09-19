@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/echo/models/echo_capabilities.dart';
 import 'package:evergreen/features/echo/models/meeting.dart';
+import 'package:evergreen/features/echo/models/meeting_document.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
 import 'package:evergreen/features/echo/models/transcription_language.dart';
 import 'package:evergreen/features/echo/presentation/widgets/echo_meeting_detail.dart';
@@ -41,6 +44,8 @@ void main() {
     (int, int)? progress,
     String userName = '',
     VoidCallback? onCancelSummary,
+    Future<String?> Function(MeetingDocumentKind kind)? onCopy,
+    Future<String?> Function(MeetingDocumentKind kind)? onExport,
   }) async {
     tester.view.physicalSize = const Size(900, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -58,6 +63,8 @@ void main() {
             progress: progress,
             onSummarize: () {},
             onCancelSummary: onCancelSummary ?? () {},
+            onCopy: onCopy ?? (_) async => null,
+            onExport: onExport ?? (_) async => null,
             onDelete: () {},
           ),
         ),
@@ -272,6 +279,182 @@ void main() {
 
       expect(find.text('Resumir'), findsOneWidget);
       expect(find.text('Cancelar'), findsOneWidget);
+    });
+  });
+
+  /// Copiar e exportar são do **documento aberto**, não da reunião.
+  ///
+  /// É a razão de os dois botões morarem na linha do seletor, e não no rodapé
+  /// com "Resumir" e "Apagar": o alvo deles muda junto com a aba, e ver as duas
+  /// coisas na mesma linha é o que torna isso óbvio sem uma palavra escrita.
+  group('copiar e exportar', () {
+    testWidgets('os dois botões existem nas duas abas', (tester) async {
+      await pumpDetail(
+        tester,
+        meeting: meetingWith(summary: 'O time fechou o escopo.'),
+        isSummarizing: false,
+      );
+      await openSummaryTab(tester);
+
+      expect(find.text('Copiar'), findsOneWidget);
+      expect(find.text('Exportar'), findsOneWidget);
+
+      await tester.tap(find.text('Transcrição'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Copiar'), findsOneWidget);
+      expect(find.text('Exportar'), findsOneWidget);
+    });
+
+    testWidgets('o alvo do botão é a aba aberta', (tester) async {
+      final pedidos = <MeetingDocumentKind>[];
+
+      await pumpDetail(
+        tester,
+        meeting: meetingWith(summary: 'O time fechou o escopo.'),
+        isSummarizing: false,
+        onCopy: (kind) async {
+          pedidos.add(kind);
+          return kind.copiedLabel;
+        },
+      );
+      await openSummaryTab(tester);
+
+      await tester.tap(find.text('Copiar'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Transcrição'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copiar'));
+      await tester.pumpAndSettle();
+
+      expect(pedidos, [
+        MeetingDocumentKind.summary,
+        MeetingDocumentKind.transcript,
+      ]);
+    });
+
+    /// Sem resumo não há o que copiar, e um botão que copiaria vazio promete
+    /// uma cópia que não acontece. A transcrição, essa sempre existe quando a
+    /// reunião tem fala.
+    testWidgets('sem resumo, os botões da aba do resumo não respondem', (
+      tester,
+    ) async {
+      await pumpDetail(tester, meeting: meetingWith(), isSummarizing: false);
+      await openSummaryTab(tester);
+
+      final copiar = tester.widget<EgButton>(
+        find.ancestor(of: find.text('Copiar'), matching: find.byType(EgButton)),
+      );
+      final exportar = tester.widget<EgButton>(
+        find.ancestor(
+          of: find.text('Exportar'),
+          matching: find.byType(EgButton),
+        ),
+      );
+
+      expect(copiar.onPressed, isNull);
+      expect(exportar.onPressed, isNull);
+
+      await tester.tap(find.text('Transcrição'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<EgButton>(
+              find.ancestor(
+                of: find.text('Copiar'),
+                matching: find.byType(EgButton),
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    });
+
+    testWidgets('a confirmação aparece e sai sozinha', (tester) async {
+      await pumpDetail(
+        tester,
+        meeting: meetingWith(summary: 'O time fechou o escopo.'),
+        isSummarizing: false,
+        onCopy: (kind) async => kind.copiedLabel,
+      );
+      await openSummaryTab(tester);
+
+      expect(find.text('Resumo copiado'), findsNothing);
+
+      await tester.tap(find.text('Copiar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Resumo copiado'), findsOneWidget);
+
+      // Ela responde "deu certo", e a resposta perde o sentido assim que a
+      // pessoa volta ao texto — permanente, viraria um rótulo fixo.
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('Resumo copiado'), findsNothing);
+    });
+
+    /// A confirmação é da face que estava aberta: mantida, ela diria que o
+    /// resumo foi copiado enquanto a transcrição está na tela.
+    testWidgets('trocar de aba apaga a confirmação', (tester) async {
+      await pumpDetail(
+        tester,
+        meeting: meetingWith(summary: 'O time fechou o escopo.'),
+        isSummarizing: false,
+        onCopy: (kind) async => kind.copiedLabel,
+      );
+      await openSummaryTab(tester);
+
+      await tester.tap(find.text('Copiar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Resumo copiado'), findsOneWidget);
+
+      await tester.tap(find.text('Transcrição'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Resumo copiado'), findsNothing);
+    });
+
+    /// Exportar mexe no disco e abre o Finder. O botão carrega a espera em vez
+    /// de sair da tela — a mesma regra do "Refazer resumo" logo acima.
+    testWidgets('exportando, o botão fica na tela carregando', (tester) async {
+      final release = Completer<String?>();
+
+      await pumpDetail(
+        tester,
+        meeting: meetingWith(summary: 'O time fechou o escopo.'),
+        isSummarizing: false,
+        onExport: (_) => release.future,
+      );
+      await openSummaryTab(tester);
+
+      await tester.tap(find.text('Exportar'));
+      await tester.pump();
+
+      expect(find.text('Exportar'), findsOneWidget);
+      expect(find.byType(EgSpinner), findsOneWidget);
+
+      release.complete('Resumo exportado');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EgSpinner), findsNothing);
+      expect(find.text('Resumo exportado'), findsOneWidget);
+    });
+
+    /// Falhar em escrever não pode confirmar nada: quem devolve `null` é quem
+    /// já pôs o aviso de erro no lugar de sempre.
+    testWidgets('exportação que falhou não confirma nada', (tester) async {
+      await pumpDetail(
+        tester,
+        meeting: meetingWith(summary: 'O time fechou o escopo.'),
+        isSummarizing: false,
+        onExport: (_) async => null,
+      );
+      await openSummaryTab(tester);
+
+      await tester.tap(find.text('Exportar'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('exportad'), findsNothing);
     });
   });
 }

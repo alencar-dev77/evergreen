@@ -76,6 +76,8 @@ class EchoReader extends ConsumerWidget {
         progress: library.progress,
         onSummarize: () => viewModel.summarize(meeting.id!),
         onCancelSummary: () => unawaited(viewModel.cancelSummary()),
+        onCopy: (kind) => viewModel.copy(meeting.id!, kind),
+        onExport: (kind) => viewModel.export(meeting.id!, kind),
         onDelete: () {
           viewModel.delete(meeting.id!);
           // Apagar a última reunião esvazia a biblioteca: a região se fecha

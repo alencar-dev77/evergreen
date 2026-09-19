@@ -1,14 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/storage/export_service.dart';
+import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
 import '../../data/echo_channel.dart';
 import '../../data/echo_repository.dart';
 import '../../data/echo_summary_runner.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/echo_summary_status.dart';
 import '../../models/meeting.dart';
+import '../../models/meeting_document.dart';
 
 final echoLibraryViewModelProvider =
     NotifierProvider<EchoLibraryViewModel, EchoLibraryState>(
@@ -95,6 +99,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
   late final EchoRepository _repository;
   late final EchoChannel _channel;
   late final EchoSummaryRunner _runner;
+  late final ExportService _exports;
 
   Timer? _poll;
 
@@ -103,6 +108,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     _repository = ref.watch(echoRepositoryProvider);
     _channel = ref.watch(echoChannelProvider);
     _runner = ref.watch(echoSummaryRunnerProvider);
+    _exports = ref.watch(exportServiceProvider);
 
     ref.onDispose(() => _poll?.cancel());
 
@@ -161,6 +167,79 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
       clearSelection: !stillThere && meetings.isEmpty,
     );
   }
+
+  /// Põe na área de transferência a face aberta da reunião.
+  ///
+  /// Devolve a frase de confirmação que a tela mostra por um instante, ou
+  /// `null` quando não havia o que copiar — resumo que ainda não foi feito,
+  /// reunião em que nenhuma fala foi reconhecida. O botão já não é oferecido
+  /// nesses casos; o `null` é o cinto, para o caminho do teclado.
+  ///
+  /// **O que vai é o que está na tela**, não a transcrição crua que vai ao
+  /// modelo: quem copia está levando o texto para um e-mail, e lá ele precisa
+  /// estar em turnos, como se lê. Ver [MeetingDocument].
+  Future<String?> copy(int id, MeetingDocumentKind kind) async {
+    final text = _documentBody(id, kind);
+    if (text == null) return null;
+
+    await Clipboard.setData(ClipboardData(text: text));
+
+    return kind.copiedLabel;
+  }
+
+  /// Escreve a face aberta num arquivo e o mostra no Finder.
+  ///
+  /// Devolve a confirmação que a tela mostra por um instante. O nome do
+  /// arquivo não entra nela: quem o mostra é a janela do Finder que acabou de
+  /// abrir com ele selecionado, e repeti-lo numa linha de 140px só o cortaria
+  /// no meio. Falhar em escrever vira aviso de erro no lugar de sempre
+  /// ([EchoLibraryState.errorMessage]), e não uma confirmação silenciosa de
+  /// algo que não aconteceu.
+  Future<String?> export(int id, MeetingDocumentKind kind) async {
+    final meeting = _meetingById(id);
+    if (meeting == null) return null;
+
+    final content = MeetingDocument.file(
+      meeting,
+      kind,
+      userName: _userName,
+    );
+    if (content == null) return null;
+
+    try {
+      await _exports.write(
+        baseName: MeetingDocument.fileName(meeting, kind),
+        content: content,
+      );
+
+      state = state.copyWith(clearError: true);
+
+      return kind.exportedLabel;
+    } on Object catch (error) {
+      state = state.copyWith(
+        errorMessage: 'Não foi possível exportar: $error',
+      );
+      return null;
+    }
+  }
+
+  String? _documentBody(int id, MeetingDocumentKind kind) {
+    final meeting = _meetingById(id);
+    if (meeting == null) return null;
+
+    return MeetingDocument.body(meeting, kind, userName: _userName);
+  }
+
+  Meeting? _meetingById(int id) {
+    for (final meeting in state.meetings) {
+      if (meeting.id == id) return meeting;
+    }
+    return null;
+  }
+
+  /// Como chamar quem falou pelo microfone, para a transcrição que sai daqui
+  /// dizer o mesmo que a que está na tela.
+  String get _userName => ref.read(appSettingsViewModelProvider).userName;
 
   /// Manda resumir a reunião — e volta assim que o pedido foi aceito.
   ///

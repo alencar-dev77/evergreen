@@ -314,6 +314,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   nela. A pasta `Backups/` fica dentro da pasta do aplicativo, onde o macOS não
   pede permissão, e o botão "Mostrar no Finder" é a interface — diálogo de
   "salvar como" exigiria um pacote novo.
+- **O que a pessoa pede para levar embora é outra coisa, e tem uma saída só: o
+  `ExportService`.** A regra acima é sobre o aplicativo traduzir o banco dele
+  por conta própria; exportar é **um documento por vez, pedido no botão, do
+  texto que está na tela** — o resumo e a transcrição de uma reunião, hoje
+  (`MeetingDocument`). Nada disso é lido de volta. A pasta é `Exportações/`, ao
+  lado de `Backups/` e pela mesma razão (`~/Documents` pede permissão no meio do
+  clique), e por isso escrever **termina mostrando o arquivo no Finder**: a
+  pasta é funda demais para alguém achá-la sozinho. O serviço é interface, como
+  o `NestFileService`, pelo motivo de sempre — no relógio falso do teste de
+  widget a resposta de uma escrita em disco nunca chega. Ver
+  [docs/Ideis projeto/echo-copiar-e-exportar.md](docs/Ideis%20projeto/echo-copiar-e-exportar.md).
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
   em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
   chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A

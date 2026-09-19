@@ -53,6 +53,7 @@ import 'features/leaf/fake_leaf_repository.dart';
 import 'features/nest/fake_nest_channel.dart';
 import 'features/pin/fake_clipboard_repository.dart';
 import 'golden_fonts.dart';
+import 'features/echo/fake_export_service.dart';
 
 /// Goldens usados como conferência visual do design durante o desenvolvimento.
 ///
@@ -370,6 +371,7 @@ void main() {
             SqliteEchoRepository(echoDb),
           ),
           echoChannelProvider.overrideWithValue(channel),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
           nestChannelProvider.overrideWithValue(nestChannel),
           nestTransferRepositoryProvider.overrideWithValue(
             SqliteNestTransferRepository(echoDb),
