@@ -641,15 +641,20 @@ void main() {
       '{"path":"/Users/lucas/Desktop/Triagem","alias":""}',
     ]);
 
+    // Numa pasta com nome de gente, e com tamanhos de arquivo de verdade: este
+    // print também é o do Nest na apresentação de boas-vindas, e o caminho
+    // temporário do teste (`…/T/nest_golden…`) e "2 KB" denunciavam a fixture.
+    final downloads = Directory(p.join(nestFiles.path, 'lucas', 'Downloads'))
+      ..createSync(recursive: true);
     final paths = <String>[];
-    for (final name in const [
-      'contrato-marina.pdf',
-      'reuniao-23-07.mov',
-      'notas fiscais',
+    for (final (name, bytes) in const [
+      ('contrato-marina.pdf', 248000),
+      ('reuniao-23-07.mov', 4800000),
+      ('notas fiscais', 0),
     ]) {
-      final path = p.join(nestFiles.path, name);
+      final path = p.join(downloads.path, name);
       if (name.contains('.')) {
-        File(path).writeAsStringSync('x' * 2400);
+        File(path).writeAsBytesSync(List.filled(bytes, 0));
       } else {
         Directory(path).createSync();
       }
