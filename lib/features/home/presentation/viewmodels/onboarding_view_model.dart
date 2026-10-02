@@ -32,16 +32,18 @@ class OnboardingState {
 /// gravada —, e é de propósito: quem pulou respondeu, não adiou.
 class OnboardingViewModel extends Notifier<OnboardingState> {
   late final OnboardingRepository _repository;
+  late final String _stamp;
 
   @override
   OnboardingState build() {
     _repository = ref.watch(onboardingRepositoryProvider);
+    _stamp = ref.watch(buildStampProvider);
 
     // A bandeira responde antes do "já vi", e de propósito não o grava:
     // desligada, ela não consome a apresentação de ninguém.
     return OnboardingState(
       index: 0,
-      visible: FeatureFlags.onboarding && _repository.shouldShow(),
+      visible: FeatureFlags.onboarding && _repository.shouldShow(_stamp),
     );
   }
 
@@ -63,6 +65,6 @@ class OnboardingViewModel extends Notifier<OnboardingState> {
   Future<void> finish() async {
     if (!state.visible) return;
     state = OnboardingState(index: state.index, visible: false);
-    await _repository.markSeen();
+    await _repository.markSeen(_stamp);
   }
 }

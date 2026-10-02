@@ -13,7 +13,7 @@ import '../../models/onboarding_step.dart';
 /// A apresentação de boas-vindas: um painel do Evergreen por vez, com o print
 /// do painel de verdade sobre um palco que vai do preto ao verde da marca.
 ///
-/// Roda uma vez por instalação. Quem decide é o `OnboardingViewModel`; este
+/// Roda uma vez por build instalada. Quem decide é o `OnboardingViewModel`; este
 /// widget só desenha o passo que recebe e avisa quando alguém avança, volta ou
 /// desiste.
 ///
