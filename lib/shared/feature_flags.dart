@@ -24,7 +24,7 @@ abstract final class FeatureFlags {
   static const intro = true;
 
   /// A apresentação de boas-vindas: os seis passos com o print de cada painel,
-  /// na primeira abertura de uma instalação.
+  /// uma vez por build instalada — instalação ou atualização, como a [intro].
   ///
   /// É a irmã da [intro], e por isso vive ao lado dela: a abertura animada
   /// mostra a marca, a apresentação mostra o que o app faz. Desligar as duas é

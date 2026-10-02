@@ -10,9 +10,10 @@ import 'package:evergreen/shared/feature_flags.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// A apresentação de boas-vindas roda **uma vez por instalação** — atualização
-/// não a traz de volta, ao contrário da abertura animada do Hub. Pular conta
-/// como visto: quem fechou respondeu, e reabrir na próxima seria não escutar.
+/// A apresentação de boas-vindas roda **uma vez por build instalada**, como a
+/// abertura animada do Hub: instalar ou atualizar a traz de volta. Pular conta
+/// como visto: quem fechou respondeu, e reabrir antes da próxima build seria
+/// não escutar.
 void main() {
   late SharedPreferences preferences;
 
@@ -28,17 +29,23 @@ void main() {
   });
 
   group('OnboardingRepository', () {
-    test('mostra uma vez e nunca mais', () async {
+    test('mostra uma vez por build', () async {
       final repository = OnboardingRepository(preferences);
 
-      expect(repository.shouldShow(), isTrue);
+      expect(repository.shouldShow('build-1'), isTrue);
 
-      await repository.markSeen();
-      expect(repository.shouldShow(), isFalse);
+      await repository.markSeen('build-1');
+      expect(repository.shouldShow('build-1'), isFalse);
 
-      // Nem uma build nova a traz de volta: quem já conhece os painéis não
-      // precisa ser reapresentado porque saiu uma versão.
-      expect(OnboardingRepository(preferences).shouldShow(), isFalse);
+      // Build nova — atualização, reinstalação, `run_build_copy` —, nova
+      // apresentação: a versão nova pode ter painel novo.
+      expect(OnboardingRepository(preferences).shouldShow('build-2'), isTrue);
+    });
+
+    test('sem carimbo, não mostra', () {
+      // Vazio é "não consegui ler o executável". Mostrar seria mostrar em toda
+      // abertura, para sempre.
+      expect(OnboardingRepository(preferences).shouldShow(''), isFalse);
     });
   });
 
@@ -47,7 +54,10 @@ void main() {
   group('OnboardingViewModel', skip: !FeatureFlags.onboarding, () {
     ProviderContainer container() {
       final c = ProviderContainer(
-        overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          buildStampProvider.overrideWithValue('build-1'),
+        ],
       );
       addTearDown(c.dispose);
       return c;
@@ -70,7 +80,7 @@ void main() {
       await model.next();
 
       expect(c.read(onboardingViewModelProvider).visible, isFalse);
-      expect(preferences.getBool('app.onboarding_seen'), isTrue);
+      expect(preferences.getString('app.onboarding_seen_build'), 'build-1');
     });
 
     test('pular também conta como visto', () async {
@@ -78,7 +88,7 @@ void main() {
       await c.read(onboardingViewModelProvider.notifier).finish();
 
       expect(c.read(onboardingViewModelProvider).visible, isFalse);
-      expect(preferences.getBool('app.onboarding_seen'), isTrue);
+      expect(preferences.getString('app.onboarding_seen_build'), 'build-1');
       expect(container().read(onboardingViewModelProvider).visible, isFalse);
     });
 
@@ -97,7 +107,7 @@ void main() {
       final c = container();
       await c.read(onboardingViewModelProvider.notifier).next();
 
-      expect(preferences.getBool('app.onboarding_seen'), isNull);
+      expect(preferences.getString('app.onboarding_seen_build'), isNull);
     });
   });
 
