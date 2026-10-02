@@ -390,7 +390,12 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   usá-lo faz duas coisas, nunca uma: põe o nome **no texto** que vai ao modelo
   (no Echo é o rótulo de quem falou, `Speaker.labelFor`) e **na instrução**,
   dizendo que aquele nome é de quem pediu — o rótulo sozinho faz o modelo achar
-  que é mais um participante. Vazio é o estado normal e nada pode depender dele.
+  que é mais um participante. **E a instrução cerca o nome, nunca o solta**: ele
+  só leva o que está nas falas marcadas com ele, e não é apresentado quando a
+  pessoa não falou — o único nome de um texto vira o dono de todas as falas, e
+  um vídeo assistido em silêncio saiu resumido como "Lucas afirma…". O resto é
+  escrito sobre o assunto, não sobre quem disse (`LocalEchoSummaryRunner.rulesFor`).
+  Vazio é o estado normal e nada pode depender dele.
   Módulo que roda no engine da janela 0 relê o disco antes
   (`AppSettingsRepository.reload`): o nome é escrito no Hub, que é outro engine.
 - A pergunta do nome aparece **uma vez por instalação**, quando a abertura
