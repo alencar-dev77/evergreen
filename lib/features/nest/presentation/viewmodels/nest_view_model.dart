@@ -102,8 +102,8 @@ class NestViewModel extends Notifier<NestState> {
   /// como estava.
   ///
   /// Não há desfazer neste caminho, e é uma consequência, não um esquecimento:
-  /// quem copiou ou moveu foi o destino, e o Evergreen não fica sabendo para
-  /// onde os arquivos foram. Quem desfaz é o `⌘Z` do próprio Finder.
+  /// o destino é do sistema, e o Evergreen não guarda para onde os arquivos
+  /// foram. Na cópia, quem desfaz é o `⌘Z` do próprio Finder.
   void _finishDragOut(NestTransferMode? operation) {
     final mode = _draggingOutAs;
     _draggingOutAs = null;

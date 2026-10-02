@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import QuickLookThumbnailing
+import UniformTypeIdentifiers
 
 /// O que o Nest não consegue fazer em Flutter puro.
 ///
@@ -73,6 +74,12 @@ class NestChannel: NSObject {
 
   /// Há um arraste **saindo** da prateleira agora.
   private static var isDraggingOut = false
+
+  /// Quem cumpre as promessas do arraste que move. Um só, sem estado — o
+  /// caminho de cada arquivo vai no `userInfo` da promessa —, e estático
+  /// porque a `NSFilePromiseProvider` guarda o delegate como referência fraca
+  /// e o destino pode pedir o arquivo depois de a sessão terminar.
+  private static let promiseMover = NestPromiseMover()
 
   static func register(with messenger: FlutterBinaryMessenger, isOverlay: Bool) {
     let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
@@ -157,6 +164,16 @@ class NestChannel: NSObject {
   /// A operação é a que o painel está mostrando (a preferência, invertida pelo
   /// `⌥`), e não a do sistema: dentro do módulo, "copiar ou mover" tem uma
   /// resposta só, e ela está escrita na tela em cima da lista.
+  ///
+  /// **Mover sai como promessa de arquivo, e quem move somos nós.** Declarar
+  /// `.move` com um `file URL` deixava a decisão com o destino, e o destino lê
+  /// as modificadoras sozinho: no caminho "padrão copiar, `⌥` para mover", o
+  /// Finder via o `⌥` ainda apertado, queria `.copy`, não achava `.copy` na
+  /// máscara e mostrava o sinal de proibido (#67). O `ignoreModifierKeys` do
+  /// nosso lado não alcança o que o destino lê. Com a promessa, o destino só
+  /// diz **para onde**, e o `⌥` deixa de ter o que contrariar. O preço: quem
+  /// não aceita promessa (campo de upload de navegador) não recebe arquivo
+  /// movido — e mover para dentro de um upload nunca fez sentido.
   private static func beginDrag(
     paths: [String],
     move: Bool,
@@ -174,7 +191,10 @@ class NestChannel: NSObject {
     let origin = view.convert(event.locationInWindow, from: nil)
 
     let items = paths.enumerated().map { index, path -> NSDraggingItem in
-      let item = NSDraggingItem(pasteboardWriter: URL(fileURLWithPath: path) as NSURL)
+      let writer: NSPasteboardWriting = move
+        ? promise(for: path)
+        : URL(fileURLWithPath: path) as NSURL
+      let item = NSDraggingItem(pasteboardWriter: writer)
       let step = CGFloat(index) * 4
 
       // Um monte de ícones ligeiramente deslocados: é como o Finder mostra
@@ -201,8 +221,26 @@ class NestChannel: NSObject {
     result(true)
   }
 
+  /// A promessa de um arquivo da prateleira. O tipo é o do próprio arquivo, que
+  /// é o que o destino usa para decidir se aceita.
+  private static func promise(for path: String) -> NSFilePromiseProvider {
+    let url = URL(fileURLWithPath: path)
+    let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+    let type = isDirectory
+      ? UTType.folder
+      : UTType(filenameExtension: url.pathExtension) ?? .data
+
+    let provider = NSFilePromiseProvider(fileType: type.identifier, delegate: promiseMover)
+    provider.userInfo = path
+    return provider
+  }
+
   /// O arraste terminou — no Finder, na lixeira ou em lugar nenhum.
-  static func dragOutEnded(_ operation: NSDragOperation) {
+  ///
+  /// Num arraste de promessa o destino responde `.copy` — do ponto de vista
+  /// dele, recebeu um arquivo novo —, mas quem o escreveu fomos nós, movendo.
+  /// Por isso [promised] traduz a resposta de volta para "mover".
+  static func dragOutEnded(_ operation: NSDragOperation, promised: Bool) {
     isDraggingOut = false
     dragSource = nil
 
@@ -212,7 +250,9 @@ class NestChannel: NSObject {
     if interactiveRect == nil { overlayWindow?.ignoresMouseEvents = false }
 
     let name: String
-    if operation.contains(.move) {
+    if promised && !operation.isEmpty {
+      name = "move"
+    } else if operation.contains(.move) {
       name = "move"
     } else if operation.contains(.copy) {
       name = "copy"
@@ -517,10 +557,14 @@ class NestWindowDropDelegate: NSObject, NSWindowDelegate, NSDraggingDestination 
 
 /// A origem de um arraste que sai da prateleira.
 ///
-/// Declara uma operação só — a que o painel está mostrando —, e não
-/// `[.copy, .move]`: com as duas, quem decide passa a ser a modificadora do
-/// sistema, e o rótulo em cima da lista ("COPIAR PARA") deixaria de valer para
-/// metade dos caminhos do módulo.
+/// Declara uma operação só, e não `[.copy, .move]`: com as duas, quem decide
+/// passa a ser a modificadora do sistema, e o rótulo em cima da lista
+/// ("COPIAR PARA") deixaria de valer para metade dos caminhos do módulo.
+///
+/// A operação é **sempre `.copy`**, nos dois modos. Copiar é um `file URL` que
+/// o destino copia; mover é uma promessa que o destino aceita como cópia e nós
+/// cumprimos movendo (ver `NestChannel.beginDrag`). É também o que o `⌥` do
+/// sistema pede, então segurá-lo nunca mais faz o arraste nascer proibido.
 ///
 /// Declarar uma só não bastava, e é daí que vinha o arraste que nascia
 /// proibido. Ver [ignoreModifierKeys(for:)].
@@ -535,24 +579,19 @@ class NestDragSource: NSObject, NSDraggingSource {
     _ session: NSDraggingSession,
     sourceOperationMaskFor context: NSDraggingContext
   ) -> NSDragOperation {
-    move ? .move : .copy
+    .copy
   }
 
-  /// O `⌥` do Nest não é o `⌥` do sistema — e sem esta linha os dois se
-  /// anulavam.
-  ///
   /// A máscara declarada acima não é a última palavra: antes de consultar
   /// destino nenhum, o AppKit a cruza com o que a modificadora segurada pede —
-  /// `⌥` pede `.copy`, `⌘` pede `.move`. Como aqui o `⌥` é justamente o que
-  /// **inverte** o modo do painel, o caminho "padrão copiar, `⌥` para mover"
-  /// declarava `.move` com o `⌥` ainda para baixo: `.move` cruzado com `.copy`
-  /// é conjunto vazio, e o cursor virava o sinal de proibido antes de o
-  /// arquivo chegar a lugar algum. O caminho contrário passava por acidente —
-  /// padrão mover, `⌥` declara `.copy`, que é o que o `⌥` já pedia.
+  /// `⌥` pede `.copy`, `⌘` pede `.move`. Com a máscara sempre em `.copy`, o
+  /// `⌘` segurado a esvaziaria e o arraste nasceria proibido; ignorar as
+  /// modificadoras é o que mantém a decisão no painel, tomada antes de esta
+  /// sessão começar.
   ///
-  /// Ignorar as modificadoras é o que faz o rótulo em cima da lista valer nos
-  /// dois sentidos: quando esta sessão começa, a decisão já foi tomada no
-  /// painel, e não há o que a tecla ainda tenha a dizer.
+  /// Isto vale só do nosso lado. O destino lê as modificadoras por conta
+  /// própria, e foi por isso que mover deixou de ser `.move` declarado e virou
+  /// promessa — ver `NestChannel.beginDrag`.
   func ignoreModifierKeys(for session: NSDraggingSession) -> Bool {
     true
   }
@@ -562,6 +601,72 @@ class NestDragSource: NSObject, NSDraggingSource {
     endedAt screenPoint: NSPoint,
     operation: NSDragOperation
   ) {
-    NestChannel.dragOutEnded(operation)
+    NestChannel.dragOutEnded(operation, promised: move)
+  }
+}
+
+/// Cumpre a promessa de um arraste que move: o destino diz onde quer o arquivo,
+/// e ele é **movido** para lá.
+///
+/// `FileManager.moveItem` atravessa volumes sozinho (copia e apaga a origem),
+/// que é o caso que o `rename` do Dart precisa tratar à mão. Em colisão, o nome
+/// livre segue a regra do Finder — e do resto do Nest: `contrato 2.pdf`.
+class NestPromiseMover: NSObject, NSFilePromiseProviderDelegate {
+  /// Fora da thread principal: mover entre volumes é copiar, e um vídeo grande
+  /// congelaria o painel inteiro.
+  private let queue: OperationQueue = {
+    let queue = OperationQueue()
+    queue.qualityOfService = .userInitiated
+    return queue
+  }()
+
+  func filePromiseProvider(
+    _ filePromiseProvider: NSFilePromiseProvider,
+    fileNameForType fileType: String
+  ) -> String {
+    URL(fileURLWithPath: filePromiseProvider.userInfo as? String ?? "").lastPathComponent
+  }
+
+  func filePromiseProvider(
+    _ filePromiseProvider: NSFilePromiseProvider,
+    writePromiseTo url: URL,
+    completionHandler: @escaping (Error?) -> Void
+  ) {
+    guard let path = filePromiseProvider.userInfo as? String else {
+      completionHandler(CocoaError(.fileNoSuchFile))
+      return
+    }
+
+    do {
+      try FileManager.default.moveItem(
+        at: URL(fileURLWithPath: path),
+        to: Self.freeURL(for: url)
+      )
+      completionHandler(nil)
+    } catch {
+      NSLog("[Nest] não deu para mover \(path): \(error.localizedDescription)")
+      completionHandler(error)
+    }
+  }
+
+  func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue {
+    queue
+  }
+
+  private static func freeURL(for url: URL) -> URL {
+    let manager = FileManager.default
+    guard manager.fileExists(atPath: url.path) else { return url }
+
+    let folder = url.deletingLastPathComponent()
+    let ext = url.pathExtension
+    let stem = url.deletingPathExtension().lastPathComponent
+
+    for index in 2..<1000 {
+      let name = ext.isEmpty ? "\(stem) \(index)" : "\(stem) \(index).\(ext)"
+      let candidate = folder.appendingPathComponent(name)
+      if !manager.fileExists(atPath: candidate.path) { return candidate }
+    }
+
+    return url
   }
 }
