@@ -1,4 +1,5 @@
 import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/features/leaf/data/leaf_repository.dart';
@@ -22,6 +23,7 @@ import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
 import 'backup_fixture.dart';
 import 'fake_module_settings_notifier.dart';
+import '../echo/fake_export_service.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -32,11 +34,11 @@ void main() {
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
-    // apresentação de boas-vindas (que espera cinco cliques em "Próximo") e a
+    // apresentação de boas-vindas (que espera seis cliques em "Próximo") e a
     // pergunta do nome (que leva o Hub para a tela do aplicativo). Aqui o app
-    // já foi apresentado e já sabe com quem fala.
+    // já foi apresentado nesta build e já sabe com quem fala.
     SharedPreferences.setMockInitialValues({
-      'app.onboarding_seen': true,
+      'app.onboarding_seen_build': AppInfo.readBuildStamp(),
       'app.user_name': 'Lucas',
     });
     preferences = await SharedPreferences.getInstance();
@@ -72,6 +74,7 @@ void main() {
           // máquina permite — nem um nem outro existem dentro de um teste.
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
           // O Track lê o mesmo banco — ele não tem tabela própria.
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
           // A tela do Leaf lê a parede para dizer quantas vagas estão em uso.

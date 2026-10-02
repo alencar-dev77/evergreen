@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 /// As bandeiras de build: a abertura animada e a apresentação de boas-vindas.
 ///
 /// Estes testes passam com elas **nos dois estados**, e é isso que se espera de
@@ -45,7 +44,10 @@ void main() {
   /// A apresentação de boas-vindas, pela mesma régua da abertura.
   test('a apresentação acompanha a bandeira', () {
     final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(preferences),
+        buildStampProvider.overrideWithValue('build-nunca-vista'),
+      ],
     );
     addTearDown(container.dispose);
 
@@ -55,6 +57,6 @@ void main() {
     );
     // Desligada, ela não consome a apresentação de ninguém: o "já vi" fica por
     // gravar, e religar a bandeira apresenta quem nunca foi apresentado.
-    expect(preferences.getBool('app.onboarding_seen'), isNull);
+    expect(preferences.getString('app.onboarding_seen_build'), isNull);
   });
 }

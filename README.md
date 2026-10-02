@@ -2,9 +2,9 @@
 
 Suíte pessoal de produtividade para macOS. Tudo local, nada vai para a internet.
 
-Seis módulos em um app só: **Pin** (área de transferência), **Focus**
-(cronômetro), **Leaf** (anotações), **Awake** (tela acesa), **Echo** (reuniões)
-e **Track** (o dia reconstruído).
+Sete módulos em um app só: **Pin** (área de transferência), **Focus**
+(cronômetro), **Leaf** (anotações), **Awake** (tela acesa), **Echo** (reuniões),
+**Nest** (prateleira de arquivos) e **Track** (o dia reconstruído).
 
 ---
 
@@ -58,6 +58,12 @@ para. Nada é apagado: religar devolve tudo como estava.
 O **Echo exige macOS 26** (é de lá que vêm `SpeechAnalyzer` e o modelo de resumo
 local). Abaixo disso o módulo se recusa a gravar e o resto do app segue normal.
 
+Uma reunião aberta no Hub tem duas faces — resumo e transcrição — e cada uma
+tem os próprios botões de **Copiar** e **Exportar**, ao lado do seletor: eles
+sempre agem sobre a face que está na tela. Copiar leva o texto como ele se lê;
+exportar escreve um `.md` em `Exportações/`, dentro da pasta do aplicativo, e
+abre o Finder com o arquivo selecionado.
+
 O painel do Echo é o único que **se arrasta**: pegue por qualquer área vazia
 dele e puxe para tirar a transcrição da frente da reunião. E, enquanto grava ou
 transcreve, ele **não some quando você clica na reunião** — dá para acompanhar o
@@ -66,7 +72,7 @@ gravação não para com o painel fechado. A posição não fica guardada: o pr�
 `⌘⇧E` abre de volta no centro.
 
 O **Track** não tem atalho nem painel de propósito: ele não grava nada, só lê o
-que os outros cinco módulos já gravaram.
+que os outros seis módulos já gravaram.
 
 ---
 
@@ -96,8 +102,8 @@ posições.
 #### Tipos de item
 
 Cada item é classificado na captura como **texto**, **link**, **e-mail**,
-**telefone**, **CPF** ou **comando**, e o tipo vira uma pílula de filtro na
-busca. Imagens, arquivos e rich text continuam de fora.
+**telefone**, **CPF**, **CNPJ** ou **comando**, e o tipo vira uma pílula de
+filtro na busca. Imagens, arquivos e rich text continuam de fora.
 
 #### Apelidos
 
@@ -196,7 +202,8 @@ se conecta a ele automaticamente via *native assets* — sem CocoaPods extra, se
 > nem as ViewModels.
 
 Um arquivo só, com uma tabela por módulo que grava (`clipboard_items`,
-`focus_sessions`, `leaf_notes`, `echo_meetings`):
+`focus_sessions`, `leaf_notes`, `echo_meetings`, `awake_sessions`,
+`nest_transfers`):
 
 ```
 ~/Library/Application Support/com.alencardev.evergreen/evergreen.db
@@ -238,7 +245,7 @@ lib/
     utils/
   features/
     home/       o Hub e as configurações do aplicativo
-    pin/  focus/  leaf/  awake/  echo/  track/
+    pin/  focus/  leaf/  awake/  echo/  nest/  track/
       data/         repositórios e serviços do módulo
       models/       entidades
       presentation/
@@ -288,8 +295,6 @@ e `flutter test`.
 
 ## O que ainda não está pronto
 
-- **Atalhos globais fixos.** As telas de configuração mostram o atalho de cada
-  módulo, mas ainda não permitem regravá-lo.
 - **Pin só guarda texto.** Imagens, arquivos e rich text estão no plano.
 - **Fixados não se reordenam arrastando.** Por teclado (`⌥↑`/`⌥↓`) já funciona;
   o arrasto com o mouse é que falta.

@@ -69,7 +69,7 @@ mantém inteira.
   contraste saem pior. É limitação do modelo do sistema, não de implementação —
   e o usuário precisa poder salvar mesmo assim.
 - Piso de macOS 14 para a máscara de recorte. Menor que o do Echo (26), maior que
-  o do resto do app (10.15).
+  o do resto do app (12).
 - Escopo tem tendência a virar saco de utilidades. O módulo é "tirar fundo" com
   três acompanhamentos, não um editor de imagem.
 

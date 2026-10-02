@@ -165,6 +165,13 @@ class FakeEchoChannel implements EchoChannel {
     return summaryValue;
   }
 
+  /// A janela do modelo, como o nativo responderia. `null` é o "não deu para
+  /// perguntar" — o mesmo que acontece fora do macOS 26.
+  int? contextSizeValue;
+
+  @override
+  Future<int?> summaryContextSize() async => contextSizeValue;
+
   @override
   Future<String?> installLanguage(String locale) async => locale;
 

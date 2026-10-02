@@ -13,7 +13,7 @@ import '../../models/onboarding_step.dart';
 /// A apresentação de boas-vindas: um painel do Evergreen por vez, com o print
 /// do painel de verdade sobre um palco que vai do preto ao verde da marca.
 ///
-/// Roda uma vez por instalação. Quem decide é o `OnboardingViewModel`; este
+/// Roda uma vez por build instalada. Quem decide é o `OnboardingViewModel`; este
 /// widget só desenha o passo que recebe e avisa quando alguém avança, volta ou
 /// desiste.
 ///
@@ -128,13 +128,14 @@ class HubOnboarding extends StatelessWidget {
                     width: math.min(step.imageWidth, constraints.maxWidth),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        // Onze, e não um token de raio: este canto é o do
-                        // **print**, que já vem arredondado dentro do arquivo.
+                        // Vinte e dois, e não um token de raio: este canto é o
+                        // do **print**, que já vem arredondado dentro do
+                        // arquivo (o recorte usa o raio do painel no golden).
                         // A sombra precisa acompanhar aquele canto, não o que o
                         // tema em vigor usaria — ela é a sombra da imagem, não
                         // de um painel desenhado aqui.
                         borderRadius: const BorderRadius.all(
-                          Radius.circular(11),
+                          Radius.circular(22),
                         ),
                         boxShadow: context.eg.elevations.floatingPanel,
                       ),
@@ -215,8 +216,8 @@ class HubOnboarding extends StatelessWidget {
     );
   }
 
-  /// Quantos passos faltam. Sem número escrito: numa sequência de cinco, contar
-  /// pontos é mais rápido que ler "3 de 5".
+  /// Quantos passos faltam. Sem número escrito: numa sequência de seis, contar
+  /// pontos é mais rápido que ler "3 de 6".
   Widget _dots(BuildContext context) {
     return Semantics(
       label: 'Passo ${index + 1} de $total',

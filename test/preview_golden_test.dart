@@ -53,6 +53,7 @@ import 'features/leaf/fake_leaf_repository.dart';
 import 'features/nest/fake_nest_channel.dart';
 import 'features/pin/fake_clipboard_repository.dart';
 import 'golden_fonts.dart';
+import 'features/echo/fake_export_service.dart';
 
 /// Goldens usados como conferência visual do design durante o desenvolvimento.
 ///
@@ -108,11 +109,11 @@ void main() {
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
-    // apresentação de boas-vindas (que espera cinco cliques em "Próximo") e a
+    // apresentação de boas-vindas (que espera seis cliques em "Próximo") e a
     // pergunta do nome (que leva o Hub para a tela do aplicativo). Aqui o app
-    // já foi apresentado e já sabe com quem fala.
+    // já foi apresentado nesta build e já sabe com quem fala.
     SharedPreferences.setMockInitialValues({
-      'app.onboarding_seen': true,
+      'app.onboarding_seen_build': AppInfo.readBuildStamp(),
       'app.user_name': 'Lucas',
     });
     preferences = await SharedPreferences.getInstance();
@@ -370,6 +371,7 @@ void main() {
             SqliteEchoRepository(echoDb),
           ),
           echoChannelProvider.overrideWithValue(channel),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
           nestChannelProvider.overrideWithValue(nestChannel),
           nestTransferRepositoryProvider.overrideWithValue(
             SqliteNestTransferRepository(echoDb),
@@ -639,15 +641,20 @@ void main() {
       '{"path":"/Users/lucas/Desktop/Triagem","alias":""}',
     ]);
 
+    // Numa pasta com nome de gente, e com tamanhos de arquivo de verdade: este
+    // print também é o do Nest na apresentação de boas-vindas, e o caminho
+    // temporário do teste (`…/T/nest_golden…`) e "2 KB" denunciavam a fixture.
+    final downloads = Directory(p.join(nestFiles.path, 'lucas', 'Downloads'))
+      ..createSync(recursive: true);
     final paths = <String>[];
-    for (final name in const [
-      'contrato-marina.pdf',
-      'reuniao-23-07.mov',
-      'notas fiscais',
+    for (final (name, bytes) in const [
+      ('contrato-marina.pdf', 248000),
+      ('reuniao-23-07.mov', 4800000),
+      ('notas fiscais', 0),
     ]) {
-      final path = p.join(nestFiles.path, name);
+      final path = p.join(downloads.path, name);
       if (name.contains('.')) {
-        File(path).writeAsStringSync('x' * 2400);
+        File(path).writeAsBytesSync(List.filled(bytes, 0));
       } else {
         Directory(path).createSync();
       }

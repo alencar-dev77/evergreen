@@ -17,6 +17,25 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 # Stack
 
 - **Flutter** (Dart SDK ^3.11.5) — app desktop nativo, sem backend.
+- **O piso é macOS 12, e quem o escolheu foi a ferramenta.** Era 10.15, e o
+  `macos_deployment_target_migration` do Flutter reescreve `10.11`, `10.13`,
+  `10.14`, `10.15` e `11.0` para `12.0` no primeiro build — no `project.pbxproj`
+  e no `Podfile` juntos, porque os dois precisam concordar. Reverter à mão não
+  para de pé: o build seguinte reescreve de novo. Fica registrado aqui porque a
+  linha antiga dizia 10.15 e ninguém tinha decidido trocá-la; o custo real é
+  pequeno, já que o macOS 11 é de 2020 e o Echo já exigia o 26.
+- **A build é híbrida, SPM mais CocoaPods — e falta um só para deixar de ser.**
+  Seis dos sete plugins nativos vêm pelo Swift Package Manager; o
+  `hotkey_manager_macos` é o último de CocoaPods, e é ele que segura o
+  `Podfile` de pé. Não é escolha nossa: o suporte a SPM tem de vir num
+  `Package.swift` **dentro do plugin**, e a 0.2.0 dele — a última — só traz
+  `.podspec`. Enquanto isso o Flutter avisa a cada build, e promete transformar
+  o aviso em erro; no dia em que transformar, o que para é todo atalho global.
+  A saída, se a hora chegar antes do autor, é vendorizar o plugin com um
+  `Package.swift` nosso. O `desktop_multi_window` era o outro da lista e saiu
+  dela na 0.3.1, cujo changelog é exatamente essa uma linha — vale reconferir
+  o `hotkey_manager` de tempos em tempos pelo mesmo caminho:
+  `flutter pub outdated`.
 - **Riverpod** (`flutter_riverpod`) — gerenciamento de estado, padrão MVVM.
 - **SQLite direto** (`sqlite3` via native assets) — não usa Isar (descartado:
   sem manutenção ativa, codegen quebra no Dart 3.11); acesso isolado atrás de
@@ -45,7 +64,7 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   equivalente em Flutter puro; o porquê de cada um está em
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
-  responde `unsupported_os` abaixo disso, e o resto do app segue no 10.15.
+  responde `unsupported_os` abaixo disso, e o resto do app segue no 12.0.
   Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
   texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro
   de cada faixa dez vezes por segundo: uma FFT (`Accelerate`/`vDSP`) sobre os
@@ -61,28 +80,25 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   janela**, nunca a janela nem uma view invisível: `NSWindow` não implementa
   `NSDraggingDestination`, e o AppKit acha uma view pelo mesmo `hitTest` do
   mouse — as duas alternativas falham em silêncio, com o arquivo caindo e nada
-  acontecendo. A miniatura de um arquivo qualquer é o mesmo mecanismo que
-  desenha as prévias do Finder, e arrastar a prateleira **para fora** é uma
-  `NSDraggingSession` começada pela view do Flutter — nenhum dos três tem
-  equivalente em Flutter puro. A saída tem dois caminhos que convivem: as pastas
-  favoritas (`⌘1..⌘9`, com desfazer, porque quem copia somos nós) e o arraste
-  para qualquer lugar (sem desfazer, porque quem copia é o destino). Soltar de
-  volta em cima do painel é desistir: o `NestDrop` recusa o arraste cuja origem
-  é a própria prateleira — sem essa recusa o arquivo atravessaria o painel e
-  cairia na janela que estava atrás dele. A outra porta de entrada é
-  **chacoalhar o arquivo** (`NestShakeMonitor`), e a regra dela é *perguntar,
-  nunca escutar*: durante uma sessão de arraste o AppKit não entrega movimento
-  de mouse a monitor nenhum, então quem responde é `NSEvent.mouseLocation` e
-  `NSEvent.pressedMouseButtons`, que são propriedades e não custam permissão —
-  o mesmo motivo do relógio do `followCursor`. O único evento apanhado é o botão
+  acontecendo. A miniatura é o mecanismo das prévias do Finder, e arrastar a
+  prateleira **para fora** é uma `NSDraggingSession` da view do Flutter —
+  nenhum dos três tem equivalente em Flutter puro. A saída tem dois caminhos:
+  as pastas favoritas (`⌘1..⌘9`, com desfazer, porque quem copia somos nós) e
+  o arraste para qualquer lugar (sem desfazer: copiando, quem copia é o
+  destino; movendo, o arraste é uma promessa de arquivo que nós cumprimos,
+  porque o destino lê o `⌥` sozinho e um `.move` declarado nascia proibido).
+  O `NestDrop` recusa o arraste cuja origem é a própria prateleira — sem essa
+  recusa o arquivo atravessaria o painel e cairia na janela atrás dele. A
+  outra porta é **chacoalhar o arquivo** (`NestShakeMonitor`), e a regra dela
+  é *perguntar, nunca escutar*: durante uma sessão de arraste o AppKit não
+  entrega movimento de mouse a monitor nenhum, então quem responde é
+  `NSEvent.mouseLocation` e `NSEvent.pressedMouseButtons`, que são
+  propriedades e não custam permissão. O único evento apanhado é o botão
   descendo, que acontece antes do arraste. Só dispara com arquivo na mão
-  (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta em
-  que o painel vai até o cursor em vez do contrário
-  (`OverlayWindow.positionForCursor`). **Houve uma terceira porta, o recorte da
-  tela, e ela saiu**: uma segunda janela sempre no topo que nunca recebeu um
-  arquivo, em três rodadas de conserto — e que ficou redundante quando o
-  chacoalhar passou a fazer o mesmo em qualquer Mac. A regra da casa voltou a
-  ser absoluta: **só a janela 0**. Ver
+  (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta
+  em que o painel vai até o cursor em vez do contrário
+  (`OverlayWindow.positionForCursor`). Não há terceira porta — o recorte de
+  tela foi tentado e saiu: **só a janela 0**. Ver
   [docs/Ideis projeto/nest-prateleira-de-arquivos.md](docs/Ideis%20projeto/nest-prateleira-de-arquivos.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
@@ -145,7 +161,7 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   entrega uma ruína. Teste de bandeira passa **nos dois estados** (`skip:
   !FeatureFlags.x` no que só existe de um lado); teste que só passa ligada
   obriga a mexer na suíte para desligar a funcionalidade, e aí ninguém desliga.
-  Hoje existem duas, as duas em `false`: `intro` (a abertura animada do Hub) e
+  Hoje existem duas, as duas em `true`: `intro` (a abertura animada do Hub) e
   `onboarding` (a apresentação de boas-vindas). Cada uma decide num ponto só —
   `HubIntroViewModel.build` e `OnboardingViewModel.build` —, e nenhuma grava o
   "já vi" quando desligada: religar apresenta quem nunca foi apresentado, em vez
@@ -300,6 +316,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   nela. A pasta `Backups/` fica dentro da pasta do aplicativo, onde o macOS não
   pede permissão, e o botão "Mostrar no Finder" é a interface — diálogo de
   "salvar como" exigiria um pacote novo.
+- **O que a pessoa pede para levar embora é outra coisa, e tem uma saída só: o
+  `ExportService`.** A regra acima é sobre o aplicativo traduzir o banco dele
+  por conta própria; exportar é **um documento por vez, pedido no botão, do
+  texto que está na tela** — o resumo e a transcrição de uma reunião, hoje
+  (`MeetingDocument`). Nada disso é lido de volta. A pasta é `Exportações/`, ao
+  lado de `Backups/` e pela mesma razão (`~/Documents` pede permissão no meio do
+  clique), e por isso escrever **termina mostrando o arquivo no Finder**: a
+  pasta é funda demais para alguém achá-la sozinho. O serviço é interface, como
+  o `NestFileService`, pelo motivo de sempre — no relógio falso do teste de
+  widget a resposta de uma escrita em disco nunca chega. Ver
+  [docs/Ideis projeto/echo-copiar-e-exportar.md](docs/Ideis%20projeto/echo-copiar-e-exportar.md).
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
   em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
   chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A
@@ -363,7 +390,12 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   usá-lo faz duas coisas, nunca uma: põe o nome **no texto** que vai ao modelo
   (no Echo é o rótulo de quem falou, `Speaker.labelFor`) e **na instrução**,
   dizendo que aquele nome é de quem pediu — o rótulo sozinho faz o modelo achar
-  que é mais um participante. Vazio é o estado normal e nada pode depender dele.
+  que é mais um participante. **E a instrução cerca o nome, nunca o solta**: ele
+  só leva o que está nas falas marcadas com ele, e não é apresentado quando a
+  pessoa não falou — o único nome de um texto vira o dono de todas as falas, e
+  um vídeo assistido em silêncio saiu resumido como "Lucas afirma…". O resto é
+  escrito sobre o assunto, não sobre quem disse (`LocalEchoSummaryRunner.rulesFor`).
+  Vazio é o estado normal e nada pode depender dele.
   Módulo que roda no engine da janela 0 relê o disco antes
   (`AppSettingsRepository.reload`): o nome é escrito no Hub, que é outro engine.
 - A pergunta do nome aparece **uma vez por instalação**, quando a abertura

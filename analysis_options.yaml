@@ -7,6 +7,13 @@
 
 # The following line activates a set of recommended lints for Flutter apps,
 # packages, and plugins designed to encourage good coding practices.
+# Posto pelo próprio Flutter, e mantido: sem ele a ferramenta o reescreve a cada
+# `flutter analyze`, e o arquivo aparecia modificado em toda branch. Não esconde
+# nada nosso — não há Dart em `macos/` nem em `build/`, só produto de build.
+analyzer:
+  exclude:
+    - build/**
+    - macos/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

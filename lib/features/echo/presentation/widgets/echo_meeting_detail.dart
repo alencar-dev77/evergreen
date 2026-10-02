@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/app_metrics.dart';
@@ -6,6 +8,7 @@ import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
+import '../../models/meeting_document.dart';
 import '../../models/meeting_segment.dart';
 import '../../models/meeting_turn.dart';
 import '../../../../core/design/eg_tokens.dart';
@@ -33,6 +36,9 @@ class EchoMeetingDetail extends StatefulWidget {
     required this.isSummarizing,
     required this.progress,
     required this.onSummarize,
+    required this.onCancelSummary,
+    required this.onCopy,
+    required this.onExport,
     required this.onDelete,
   });
 
@@ -48,25 +54,63 @@ class EchoMeetingDetail extends StatefulWidget {
   final (int, int)? progress;
 
   final VoidCallback onSummarize;
+
+  /// Desistir do resumo em curso. Ver `EchoSummaryRunner.cancel`.
+  final VoidCallback onCancelSummary;
+
+  /// Leva a face aberta para a área de transferência e devolve a confirmação
+  /// a mostrar — ou `null` se não havia o que copiar.
+  final Future<String?> Function(MeetingDocumentKind kind) onCopy;
+
+  /// Escreve a face aberta num arquivo e devolve o nome dele.
+  final Future<String?> Function(MeetingDocumentKind kind) onExport;
+
   final VoidCallback onDelete;
 
   @override
   State<EchoMeetingDetail> createState() => _EchoMeetingDetailState();
 }
 
-enum _DetailTab {
-  summary('Resumo'),
-  transcript('Transcrição');
-
-  const _DetailTab(this.label);
-
-  final String label;
-}
-
 class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
+  /// Quanto tempo a confirmação de copiar ou exportar fica na tela.
+  ///
+  /// Tempo de ler três palavras e nada mais: ela responde "deu certo", e a
+  /// resposta perde o sentido assim que a pessoa volta ao texto. Permanente,
+  /// viraria um rótulo fixo dizendo algo que já não está acontecendo — o
+  /// cartão do Leaf pode manter o "copiado" porque o painel dele fecha em
+  /// seguida, e esta região fica aberta pelo tempo que a leitura durar.
+  static const _noteDuration = Duration(seconds: 3);
+
+  /// O quanto a confirmação pode ocupar na linha do documento.
+  static const _noteMaxWidth = 140.0;
+
   /// Trocar de reunião mantém a aba: quem está comparando a transcrição de duas
   /// reuniões não quer voltar ao resumo a cada clique na lista.
-  var _tab = _DetailTab.summary;
+  var _tab = MeetingDocumentKind.summary;
+
+  /// O que acabou de acontecer com este documento — "Resumo copiado", o nome
+  /// do arquivo escrito. `null` no repouso, que é quase sempre.
+  String? _note;
+  Timer? _noteTimer;
+
+  /// Exportar mexe no disco e abre o Finder: o botão carrega a espera em vez
+  /// de sair da tela, como todo botão de trabalho demorado do aplicativo.
+  var _isExporting = false;
+
+  @override
+  void didUpdateWidget(EchoMeetingDetail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Trocar de reunião apaga a confirmação: "Resumo copiado" sobre a reunião
+    // seguinte diria que o resumo *dela* foi copiado, e não foi.
+    if (oldWidget.meeting.id != widget.meeting.id) _clearNote();
+  }
+
+  @override
+  void dispose() {
+    _noteTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,15 +120,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!meeting.isEmpty) ...[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: EgSegmentedControl<_DetailTab>(
-              value: _tab,
-              options: _DetailTab.values,
-              labelOf: (option) => option.label,
-              onChanged: (option) => setState(() => _tab = option),
-            ),
-          ),
+          _documentBar(),
           const SizedBox(height: AppSpacing.md),
         ],
         // A leitura rola dentro do painel, não na página: é o que mantém a
@@ -101,6 +137,138 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     );
   }
 
+  /// A linha do documento: que face está aberta, e o que fazer com ela.
+  ///
+  /// **Copiar e exportar moram aqui, e não no rodapé com "Resumir" e
+  /// "Apagar".** O rodapé é o que se faz com a *reunião* — refazer o resumo
+  /// dela, apagá-la. Estes dois são o que se faz com o *documento* que está
+  /// aberto, e por isso ficam na linha que escolhe qual deles é: o botão muda
+  /// de alvo junto com a aba, e ver as duas coisas na mesma linha é o que
+  /// torna isso óbvio sem uma palavra de explicação.
+  Widget _documentBar() {
+    // `Wrap`, e não `Row` — a mesma razão que o `EgSegmentedControl` documenta
+    // para a fila dele: a região de leitura tem 480px, e numa tela pequena
+    // demais para a janela crescer, ou nos 220ms em que ela ainda está
+    // crescendo, o seletor mais os dois botões não cabem na mesma linha.
+    // Quebrando, as ações continuam todas visíveis; num `Row` elas estourariam
+    // o layout, que é o mesmo que escondê-las. Onde há largura — que é o caso
+    // normal — nada muda: `spaceBetween` mantém o seletor à esquerda e as ações
+    // à direita, numa linha só.
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: AppSpacing.sm,
+      children: [
+        EgSegmentedControl<MeetingDocumentKind>(
+          value: _tab,
+          options: MeetingDocumentKind.values,
+          labelOf: (option) => option.label,
+          onChanged: _selectTab,
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _noteLabel(),
+            EgButton.secondary(
+              label: 'Copiar',
+              compact: true,
+              onPressed: _hasDocument ? _copy : null,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            EgButton.secondary(
+              label: 'Exportar',
+              compact: true,
+              isLoading: _isExporting,
+              onPressed: _hasDocument ? _export : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// A confirmação, alinhada à direita, colada nos botões que a produziram.
+  ///
+  /// Texto, e não um toast: um aviso flutuante para "copiei" é peso de mais
+  /// para uma ação que não pode dar errado, e a região de leitura não tem
+  /// canto onde ele caberia sem cobrir o que se está lendo.
+  Widget _noteLabel() {
+    final note = _note;
+    if (note == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
+      child: ConstrainedBox(
+        // Teto, e não largura: a confirmação é curta ("Resumo copiado"), e o
+        // teto existe para ela nunca empurrar os botões que a produziram para
+        // fora da linha. É também por isso que exportar confirma "exportado" e
+        // não o nome do arquivo — o nome é longo, e quem vai lê-lo é a janela
+        // do Finder que abriu com ele selecionado.
+        constraints: const BoxConstraints(maxWidth: _noteMaxWidth),
+        child: Text(
+          note,
+          textAlign: TextAlign.right,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: context.eg.text.footnote,
+        ),
+      ),
+    );
+  }
+
+  /// Há texto nesta face para levar embora?
+  ///
+  /// É a mesma pergunta que o corpo responde ao desenhar: resumo que ainda não
+  /// foi feito não tem o que copiar, e oferecer o botão assim mesmo seria
+  /// prometer uma cópia vazia.
+  bool get _hasDocument =>
+      MeetingDocument.body(
+        widget.meeting,
+        _tab,
+        userName: widget.userName,
+      ) !=
+      null;
+
+  void _selectTab(MeetingDocumentKind kind) {
+    // A confirmação é da face que estava aberta; a aba nova começa limpa.
+    _clearNote();
+    setState(() => _tab = kind);
+  }
+
+  Future<void> _copy() async {
+    final note = await widget.onCopy(_tab);
+    _showNote(note);
+  }
+
+  Future<void> _export() async {
+    setState(() => _isExporting = true);
+
+    final String? note;
+    try {
+      note = await widget.onExport(_tab);
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+
+    _showNote(note);
+  }
+
+  void _showNote(String? note) {
+    if (!mounted || note == null) return;
+
+    _noteTimer?.cancel();
+    setState(() => _note = note);
+    _noteTimer = Timer(_noteDuration, _clearNote);
+  }
+
+  void _clearNote() {
+    _noteTimer?.cancel();
+    _noteTimer = null;
+
+    if (!mounted || _note == null) return;
+    setState(() => _note = null);
+  }
+
   Widget _body() {
     if (widget.meeting.isEmpty) {
       return Text(
@@ -111,8 +279,8 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     }
 
     return switch (_tab) {
-      _DetailTab.summary => _summary(),
-      _DetailTab.transcript => _transcript(),
+      MeetingDocumentKind.summary => _summary(),
+      MeetingDocumentKind.transcript => _transcript(),
     };
   }
 
@@ -223,7 +391,8 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
   /// A ação da aba aberta à esquerda; apagar sempre à direita, longe dela.
   ///
   /// Só a aba do resumo tem ação: a transcrição é o que a gravação produziu,
-  /// não há o que refazer nela.
+  /// não há o que refazer nela. Copiar e exportar não estão aqui de propósito
+  /// — eles são do documento, e moram na linha dele (ver [_documentBar]).
   Widget _actions() {
     final meeting = widget.meeting;
 
@@ -237,7 +406,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     final canSummarize =
         !meeting.isEmpty &&
         widget.summaries.isAvailable &&
-        _tab == _DetailTab.summary;
+        _tab == MeetingDocumentKind.summary;
 
     return Row(
       children: [
@@ -255,6 +424,17 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
                   onPressed: widget.onSummarize,
                   isLoading: widget.isSummarizing,
                 ),
+        // "Cancelar" ao lado, e não no lugar de "Resumir": o botão que carrega
+        // a espera é o mesmo que a começou, e trocá-lo por outro no instante do
+        // clique é a armadilha que o comentário acima já descreve. Secundário
+        // porque desistir nunca é a ação principal da tela.
+        if (canSummarize && widget.isSummarizing) ...[
+          const SizedBox(width: AppSpacing.sm),
+          EgButton.secondary(
+            label: 'Cancelar',
+            onPressed: widget.onCancelSummary,
+          ),
+        ],
         const Spacer(),
         EgButton.destructive(label: 'Apagar', onPressed: widget.onDelete),
       ],

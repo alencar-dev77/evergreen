@@ -158,6 +158,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
             onSend: _viewModel.sendToIndex,
             onRemove: _viewModel.removeSelected,
             onClear: _viewModel.clear,
+            onClearMissing: _viewModel.removeMissing,
             onUndo: _viewModel.undo,
             onMoveCursor: _viewModel.moveCursor,
             onSelectAll: _viewModel.selectAll,
@@ -220,10 +221,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
         if (state.isEmpty)
           _empty(state)
         else ...[
-          NestStackHeader(
-            items: state.items,
-            selected: state.selection.length,
-          ),
+          NestStackHeader(items: state.items, selected: state.selection.length),
           const SizedBox(height: AppSpacing.lg),
           _items(state),
         ],
@@ -380,6 +378,12 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
         ),
         if (state.selection.isNotEmpty)
           const EgHint(keys: ['⌫'], label: 'tirar'),
+        // Só quando há o que limpar. A dica é o convite: o `⇧⌫` não se
+        // adivinha, e sem ela as linhas marcadas ficariam para sempre na
+        // prateleira sendo tiradas uma a uma. Aparece no lugar onde a pessoa já
+        // procura o que fazer com a seleção, e some quando não há mais nenhuma.
+        if (state.hasMissingItems)
+          const EgHint(keys: ['⇧⌫'], label: 'tirar o que sumiu'),
       ],
       trailing: const EgHint(keys: ['esc'], label: 'fechar'),
     );
@@ -422,6 +426,12 @@ class _DestinationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A pasta sumiu: a linha continua na tela e continua clicável — o `⌘1..⌘9`
+    // é posicional, e tirar a terceira faria a quarta virar a terceira no meio
+    // do gesto de quem já sabe onde ela está. Ela avisa em vez de sumir, e o
+    // envio falha com o motivo de sempre ("a pasta de destino sumiu").
+    final isMissing = destination.isMissing;
+
     return EgInteractiveSurface(
       onTap: onTap,
       height: _height,
@@ -430,13 +440,20 @@ class _DestinationRow extends StatelessWidget {
         children: [
           EgIconBadge(
             size: _mark,
-            color: context.eg.colors.accent.withValues(
-              alpha: onTap == null ? 0.10 : 0.18,
-            ),
+            // A mesma pasta, na cor de aviso: o desenho continua dizendo o que
+            // a linha é, e a cor diz o que há de errado com ela. Um glifo de
+            // alerta no lugar diria "atenção" antes de dizer "pasta".
+            color: isMissing
+                ? context.eg.colors.warning.withValues(alpha: 0.14)
+                : context.eg.colors.accent.withValues(
+                    alpha: onTap == null ? 0.10 : 0.18,
+                  ),
             child: EgIcon(
               EgIconData.folder,
               size: AppIconSizes.sm,
-              color: onTap == null
+              color: isMissing
+                  ? context.eg.colors.warning
+                  : onTap == null
                   ? context.eg.colors.textTertiary
                   : context.eg.colors.accentLight,
             ),
@@ -444,11 +461,17 @@ class _DestinationRow extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              destination.label,
+              isMissing
+                  ? '${destination.label} — pasta não encontrada'
+                  : destination.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: context.eg.text.bodyEmphasis,
+              style: isMissing
+                  ? context.eg.text.bodyEmphasis.copyWith(
+                      color: context.eg.colors.textTertiary,
+                    )
+                  : context.eg.text.bodyEmphasis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),

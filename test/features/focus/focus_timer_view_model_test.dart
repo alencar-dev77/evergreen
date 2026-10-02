@@ -413,4 +413,52 @@ void main() {
     expect(decoded[1].minute, 12);
     expect(decoded[1].text, 'terminei a task | comecei outra');
   });
+
+  /// O `\n` é o separador de registros: um dentro do texto partia a linha em
+  /// duas, e a segunda metade — sem `minuto|` na frente — era descartada em
+  /// silêncio pelo `decodeList`, levando junto o resto da observação. O campo é
+  /// de uma linha, mas **colar** não respeita isso.
+  group('observação colada de várias linhas', () {
+    test('a quebra vira espaço em vez de partir a nota', () {
+      const notes = [
+        FocusSessionNote(minute: 3, text: 'primeira linha\nsegunda linha'),
+      ];
+
+      final decoded = FocusSessionNote.decodeList(
+        FocusSessionNote.encodeList(notes),
+      );
+
+      expect(decoded, hasLength(1));
+      expect(decoded.single.minute, 3);
+      expect(decoded.single.text, 'primeira linha segunda linha');
+    });
+
+    test('as vizinhas continuam inteiras', () {
+      const notes = [
+        FocusSessionNote(minute: 1, text: 'antes'),
+        FocusSessionNote(minute: 2, text: 'a\r\nb\n\nc'),
+        FocusSessionNote(minute: 3, text: 'depois'),
+      ];
+
+      final decoded = FocusSessionNote.decodeList(
+        FocusSessionNote.encodeList(notes),
+      );
+
+      expect(decoded.map((note) => note.text), ['antes', 'a b c', 'depois']);
+    });
+
+    testWidgets('anotar pelo painel achata antes de guardar', (tester) async {
+      final container = containerFor(tester);
+      viewModelOf(container).start(activity: 'Refatorar o módulo de auth');
+      await tester.pump(const Duration(minutes: 5));
+
+      viewModelOf(container).addNote('  uma linha\noutra linha  ');
+
+      expect(stateOf(container).notes, hasLength(1));
+      expect(stateOf(container).notes.single.text, 'uma linha outra linha');
+
+      // O cronômetro não pode ficar de pé depois do teste.
+      viewModelOf(container).stop();
+    });
+  });
 }

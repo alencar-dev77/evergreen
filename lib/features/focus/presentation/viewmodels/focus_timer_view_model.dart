@@ -191,7 +191,10 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
   /// Só durante o foco: a pausa não tem o que anotar, e o registro pertence à
   /// sessão que está correndo.
   void addNote(String text) {
-    final trimmed = text.trim();
+    // Achatado antes de virar nota: colar um parágrafo no campo de uma linha é
+    // o caminho por onde uma quebra entra, e ela é o separador de registros do
+    // rastro (ver [FocusSessionNote.sanitize]).
+    final trimmed = FocusSessionNote.sanitize(text);
     if (trimmed.isEmpty || !state.isActive || !state.phase.isFocus) return;
 
     _accrue();

@@ -10,7 +10,11 @@ import 'package:path/path.dart' as p;
 /// (`⌘1..⌘9`) e diz de antemão o que vai acontecer.
 @immutable
 class NestDestination {
-  const NestDestination({required this.path, this.alias = ''});
+  const NestDestination({
+    required this.path,
+    this.alias = '',
+    this.isMissing = false,
+  });
 
   /// Caminho absoluto da pasta.
   final String path;
@@ -19,12 +23,30 @@ class NestDestination {
   /// pasta se apresenta pelo próprio nome.
   final String alias;
 
+  /// A pasta não está mais onde este caminho diz.
+  ///
+  /// O favorito é um caminho de texto, e o Finder não avisa ninguém ao renomear
+  /// ou mover uma pasta — o destino simplesmente deixa de existir, e `⌘3`
+  /// passava a falhar toda vez sem que a lista de preferências mostrasse nada
+  /// de errado. Quem confere é [NestDestinations.resolve], na abertura do
+  /// painel e da tela.
+  ///
+  /// **Não é gravado.** É o que o disco respondeu agora, não um atributo do
+  /// favorito: guardá-lo faria uma pasta em volume desmontado voltar marcada
+  /// como perdida depois de remontada. Ver [toJson].
+  final bool isMissing;
+
   /// Como o destino aparece na lista.
   String get label => alias.trim().isEmpty ? p.basename(path) : alias.trim();
 
-  NestDestination copyWith({String? path, String? alias}) =>
-      NestDestination(path: path ?? this.path, alias: alias ?? this.alias);
+  NestDestination copyWith({String? path, String? alias, bool? isMissing}) =>
+      NestDestination(
+        path: path ?? this.path,
+        alias: alias ?? this.alias,
+        isMissing: isMissing ?? this.isMissing,
+      );
 
+  /// Só o que é do favorito: [isMissing] é do disco, e não entra.
   Map<String, Object?> toJson() => {'path': path, 'alias': alias};
 
   static NestDestination? fromJson(Map<String, Object?> json) {
@@ -39,8 +61,11 @@ class NestDestination {
 
   @override
   bool operator ==(Object other) =>
-      other is NestDestination && other.path == path && other.alias == alias;
+      other is NestDestination &&
+      other.path == path &&
+      other.alias == alias &&
+      other.isMissing == isMissing;
 
   @override
-  int get hashCode => Object.hash(path, alias);
+  int get hashCode => Object.hash(path, alias, isMissing);
 }

@@ -343,8 +343,28 @@ class EvergreenBootstrap {
     _nestDrops = _container
         .read(nestChannelProvider)
         .onDropped
-        .listen((_) => unawaited(showOverlay(OverlayPanel.nest)));
+        .listen((_) => unawaited(_bringNestForward()));
   }
+
+  /// Com a prateleira já na tela, o arquivo que caiu nela só devolve o teclado
+  /// ao painel — **sem mexer na janela**.
+  ///
+  /// Passar pelo [showOverlay] reposicionava a janela no lugar de sempre a cada
+  /// arquivo solto, e quem tinha arrastado o painel para o lado (é para isso
+  /// que ele é `draggable`) via a prateleira pular de volta para o meio da
+  /// tela no instante em que soltava (#66).
+  Future<void> _bringNestForward() async {
+    if (await _isNestOnScreen()) {
+      await OverlayWindow.instance.refocus();
+      return;
+    }
+
+    await showOverlay(OverlayPanel.nest);
+  }
+
+  Future<bool> _isNestOnScreen() async =>
+      await OverlayWindow.instance.isVisible() &&
+      _container.read(overlayPanelProvider) == OverlayPanel.nest;
 
   /// O módulo dono deste painel está ligado?
   ///
@@ -372,11 +392,7 @@ class EvergreenBootstrap {
   }
 
   Future<void> _openNestAtCursor() async {
-    final overlay = OverlayWindow.instance;
-    if (await overlay.isVisible() &&
-        _container.read(overlayPanelProvider) == OverlayPanel.nest) {
-      return;
-    }
+    if (await _isNestOnScreen()) return;
 
     final cursor = await screenRetriever.getCursorScreenPoint();
     await showOverlay(OverlayPanel.nest, at: cursor);

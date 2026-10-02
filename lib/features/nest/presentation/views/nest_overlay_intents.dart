@@ -20,6 +20,15 @@ class NestClearIntent extends Intent {
 }
 
 /// Desfaz a última transferência.
+/// `⇧⌫`: tirar da prateleira o que sumiu do disco.
+///
+/// Vizinho do `⌫` (tira o escolhido) e do `⌘⌫` (esvazia): as três são a mesma
+/// família — tirar linhas da prateleira sem tocar em arquivo nenhum —, e o
+/// `⇧` é o que diz "esses aí" no lugar de "este" ou "todos".
+class NestClearMissingIntent extends Intent {
+  const NestClearMissingIntent();
+}
+
 class NestUndoIntent extends Intent {
   const NestUndoIntent();
 }
@@ -80,11 +89,15 @@ abstract final class NestOverlayIntents {
         const NestMoveCursorIntent(1, extend: true),
     const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
         const NestSelectAllIntent(),
-    const SingleActivator(LogicalKeyboardKey.backspace): const NestRemoveIntent(
-    ),
+    const SingleActivator(LogicalKeyboardKey.backspace):
+        const NestRemoveIntent(),
     const SingleActivator(LogicalKeyboardKey.delete): const NestRemoveIntent(),
     const SingleActivator(LogicalKeyboardKey.backspace, meta: true):
         const NestClearIntent(),
+    const SingleActivator(LogicalKeyboardKey.backspace, shift: true):
+        const NestClearMissingIntent(),
+    const SingleActivator(LogicalKeyboardKey.delete, shift: true):
+        const NestClearMissingIntent(),
     const SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
         const NestUndoIntent(),
     const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
@@ -120,6 +133,7 @@ abstract final class NestOverlayIntents {
     required Future<void> Function(int index) onSend,
     required VoidCallback onRemove,
     required VoidCallback onClear,
+    required VoidCallback onClearMissing,
     required Future<void> Function() onUndo,
     required void Function(int delta, {bool extend}) onMoveCursor,
     required VoidCallback onSelectAll,
@@ -136,6 +150,9 @@ abstract final class NestOverlayIntents {
       ),
       NestClearIntent: CallbackAction<NestClearIntent>(
         onInvoke: (_) => onClear(),
+      ),
+      NestClearMissingIntent: CallbackAction<NestClearMissingIntent>(
+        onInvoke: (_) => onClearMissing(),
       ),
       NestUndoIntent: CallbackAction<NestUndoIntent>(onInvoke: (_) => onUndo()),
       NestMoveCursorIntent: CallbackAction<NestMoveCursorIntent>(

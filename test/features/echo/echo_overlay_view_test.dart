@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'fake_echo_channel.dart';
+import 'fake_export_service.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -33,6 +34,7 @@ void main() {
       ProviderScope(
         overrides: [
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           sharedPreferencesProvider.overrideWithValue(preferences),
         ],

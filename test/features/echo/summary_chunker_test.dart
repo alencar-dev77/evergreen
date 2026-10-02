@@ -2,6 +2,27 @@ import 'package:evergreen/features/echo/models/summary_chunker.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('SummaryChunker.maxCharsFor', () {
+    test('sem saber a janela, fica no teto de sempre', () {
+      expect(SummaryChunker.maxCharsFor(null), SummaryChunker.defaultMaxChars);
+    });
+
+    test('a janela do macOS 26 dá o teto medido para ela', () {
+      expect(SummaryChunker.maxCharsFor(4096), SummaryChunker.defaultMaxChars);
+    });
+
+    test('janela menor que a de referência não encolhe o teto', () {
+      // Encolher seria adivinhar: o teto conservador já foi medido, e o
+      // estouro continua tendo a saída de repartir o bloco.
+      expect(SummaryChunker.maxCharsFor(2048), SummaryChunker.defaultMaxChars);
+    });
+
+    test('a janela do macOS 27 vira texto, não reserva', () {
+      // 4.096 tokens a mais, três caracteres cada.
+      expect(SummaryChunker.maxCharsFor(8192), 5000 + 4096 * 3);
+    });
+  });
+
   group('SummaryChunker', () {
     test('texto que cabe vira um bloco só', () {
       final chunks = SummaryChunker.chunk('Você: bom dia', maxChars: 100);

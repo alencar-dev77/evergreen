@@ -33,10 +33,20 @@ class LeafViewModel extends Notifier<LeafState> {
   /// O Hub roda em outro engine e pode ter esvaziado o mural desde a última
   /// vez; e qualquer edição pendente morre aqui, porque o painel não deve
   /// reabrir dentro de um campo de texto que a pessoa já esqueceu que existia.
+  ///
+  /// **A pilha do desfazer atravessa.** Ela é a única coisa aqui que não está
+  /// no banco, e fechar o painel é o gesto seguinte mais provável depois de
+  /// apagar por engano — o Leaf some sozinho ao perder o foco. Perdê-la na
+  /// reabertura transformava o `⌘Z` numa promessa que quase nunca dava tempo de
+  /// cobrar. Ver [LeafState.undoableDeletes].
   Future<void> prepareForOpen() async {
     final notes = _repository.loadAll();
 
-    state = LeafState(notes: notes, selectedSlot: _firstSlotOf(notes));
+    state = LeafState(
+      notes: notes,
+      selectedSlot: _firstSlotOf(notes),
+      undoableDeletes: state.undoableDeletes,
+    );
   }
 
   /// `⌘+`: abre um cartão em branco na primeira vaga livre.
@@ -150,6 +160,13 @@ class LeafViewModel extends Notifier<LeafState> {
     final note = state.undoableDelete;
     if (!state.canUndoDelete || note == null) return;
 
+    // O que sobra da pilha depois de tirar este — os enganos anteriores a ele
+    // continuam ao alcance de um `⌘Z` seguinte.
+    final rest = state.undoableDeletes.sublist(
+      0,
+      state.undoableDeletes.length - 1,
+    );
+
     // Nasce na primeira vaga livre porque a vaga é única no banco, e a de
     // origem está ocupada por quem subiu no lugar dele. O lugar certo vem da
     // renumeração, logo abaixo.
@@ -176,6 +193,7 @@ class LeafViewModel extends Notifier<LeafState> {
       notes: resettled,
       // A seleção vai para o cartão que acabou de voltar: é onde o olho está.
       selectedSlot: note.slot.clamp(1, resettled.length),
+      undoableDeletes: rest,
     );
   }
 
@@ -271,9 +289,23 @@ class LeafViewModel extends Notifier<LeafState> {
       selectedSlot: resettled.isEmpty
           ? null
           : note.slot.clamp(1, resettled.length + 1),
-      // O cartão fica ao alcance do `⌘Z` até o painel fechar.
-      undoableDelete: note,
+      // O cartão vai para o topo da pilha do `⌘Z`. Empilhar, e não substituir:
+      // apagar dois seguidos é justamente o caso que mais precisa de desfazer.
+      undoableDeletes: _pushed(state.undoableDeletes, note),
     );
+  }
+
+  /// A pilha do desfazer com mais um cartão em cima, no teto de vagas da parede.
+  ///
+  /// O mais antigo é quem cai: uma pilha cheia significa que a pessoa apagou
+  /// nove cartões desde que abriu o aplicativo, e o décimo `⌘Z` alcançaria algo
+  /// de que ela não lembra mais.
+  static List<LeafNote> _pushed(List<LeafNote> stack, LeafNote note) {
+    final next = [...stack, note];
+
+    return next.length <= LeafNote.maxNotes
+        ? next
+        : next.sublist(next.length - LeafNote.maxNotes);
   }
 
   static List<LeafNote> _sorted(List<LeafNote> notes) =>

@@ -7,6 +7,7 @@ import '../../data/nest_channel.dart';
 import '../../data/nest_file_service.dart';
 import '../../data/nest_settings_repository.dart';
 import '../../data/nest_transfer_repository.dart';
+import '../../data/nest_destinations.dart';
 import '../../models/nest_destination.dart';
 import '../../models/nest_item.dart';
 import '../../models/nest_transfer.dart';
@@ -72,9 +73,7 @@ class NestViewModel extends Notifier<NestState> {
   /// fechado — é o caminho principal do módulo, e um ouvinte que só existisse
   /// enquanto a tela está montada perderia justamente ele.
   void startListening() {
-    _drops ??= _channel.onDropped.listen(
-      (paths) => unawaited(addPaths(paths)),
-    );
+    _drops ??= _channel.onDropped.listen((paths) => unawaited(addPaths(paths)));
     _dragOver ??= _channel.onDragOver.listen(
       (isOver) => state = state.copyWith(isDragOver: isOver),
     );
@@ -92,10 +91,9 @@ class NestViewModel extends Notifier<NestState> {
     if (!state.canSend || _draggingOutAs != null) return;
 
     final mode = state.effectiveMode;
-    final started = await _channel.beginDragOut(
-      [for (final item in state.outgoing) item.path],
-      move: mode == NestTransferMode.move,
-    );
+    final started = await _channel.beginDragOut([
+      for (final item in state.outgoing) item.path,
+    ], move: mode == NestTransferMode.move);
 
     if (started) _draggingOutAs = mode;
   }
@@ -104,8 +102,8 @@ class NestViewModel extends Notifier<NestState> {
   /// como estava.
   ///
   /// Não há desfazer neste caminho, e é uma consequência, não um esquecimento:
-  /// quem copiou ou moveu foi o destino, e o Evergreen não fica sabendo para
-  /// onde os arquivos foram. Quem desfaz é o `⌘Z` do próprio Finder.
+  /// o destino é do sistema, e o Evergreen não guarda para onde os arquivos
+  /// foram. Na cópia, quem desfaz é o `⌘Z` do próprio Finder.
   void _finishDragOut(NestTransferMode? operation) {
     final mode = _draggingOutAs;
     _draggingOutAs = null;
@@ -118,7 +116,8 @@ class NestViewModel extends Notifier<NestState> {
       mode: operation,
       destinationPath: '',
       movements: [
-        for (final item in gone) NestMovement(source: item.path, destination: ''),
+        for (final item in gone)
+          NestMovement(source: item.path, destination: ''),
       ],
     );
 
@@ -148,7 +147,12 @@ class NestViewModel extends Notifier<NestState> {
     final settings = _settings.load();
 
     state = state.copyWith(
-      destinations: settings.destinations,
+      // Conferidas contra o disco: uma pasta favorita pode ter sido renomeada
+      // no Finder desde a última abertura, e é aqui que o painel descobre.
+      destinations: await NestDestinations.resolve(
+        settings.destinations,
+        _files,
+      ),
       defaultMode: settings.defaultMode,
       isDragOver: false,
       // A oferta de desfazer não atravessa uma abertura: ela existe para o
@@ -157,6 +161,31 @@ class NestViewModel extends Notifier<NestState> {
     );
 
     await _refreshItems();
+  }
+
+  /// `⇧⌫`: tira da prateleira tudo o que sumiu do disco.
+  ///
+  /// A prateleira guarda referências, não arquivos — quando o original é
+  /// apagado ou movido pelo Finder, a linha fica marcada e não serve mais para
+  /// nada: mandá-la para um destino falha, e arrastá-la para fora não leva
+  /// coisa alguma. Marcar era metade do trabalho; **isto é a outra metade**, e
+  /// numa prateleira que junta arquivos de várias pastas ao longo do dia é o
+  /// que evita ter de tirar sete linhas mortas uma a uma.
+  ///
+  /// Nenhum arquivo é tocado, porque não há arquivo: é uma limpeza de lista.
+  void removeMissing() {
+    final indexes = <int>{
+      for (var index = 0; index < state.items.length; index++)
+        if (state.items[index].isMissing) index,
+    };
+    if (indexes.isEmpty) return;
+
+    _removeAll(indexes);
+    state = state.copyWith(
+      notice: indexes.length == 1
+          ? '1 item que sumiu foi tirado da prateleira.'
+          : '${indexes.length} itens que sumiram foram tirados da prateleira.',
+    );
   }
 
   /// Acrescenta o que foi solto, na ordem em que veio.
@@ -209,9 +238,7 @@ class NestViewModel extends Notifier<NestState> {
       final low = from < index ? from : index;
       final high = from < index ? index : from;
 
-      state = state.copyWith(
-        selection: {for (var i = low; i <= high; i++) i},
-      );
+      state = state.copyWith(selection: {for (var i = low; i <= high; i++) i});
       return;
     }
 
@@ -230,7 +257,9 @@ class NestViewModel extends Notifier<NestState> {
     if (state.isEmpty) return;
 
     state = state.copyWith(
-      selection: {for (var index = 0; index < state.items.length; index++) index},
+      selection: {
+        for (var index = 0; index < state.items.length; index++) index,
+      },
     );
   }
 
@@ -274,10 +303,9 @@ class NestViewModel extends Notifier<NestState> {
     // O cursor fica onde estava o primeiro que saiu, e a escolha volta a ser
     // uma linha só: depois de tirar três itens do meio, manter três posições
     // escolhidas apontaria para arquivos que ninguém escolheu.
-    final cursor = indexes.reduce((a, b) => a < b ? a : b).clamp(
-      0,
-      items.length - 1,
-    );
+    final cursor = indexes
+        .reduce((a, b) => a < b ? a : b)
+        .clamp(0, items.length - 1);
 
     state = state.copyWith(items: items, selection: {cursor}, cursor: cursor);
   }
@@ -326,9 +354,7 @@ class NestViewModel extends Notifier<NestState> {
     // realmente chegou ao destino. Uma lista que se esvazia inteira depois de
     // uma falha esconde exatamente o arquivo que precisa de atenção.
     final failed = {for (final failure in transfer.failures) failure.path};
-    final sent = {
-      for (final movement in transfer.movements) movement.source,
-    };
+    final sent = {for (final movement in transfer.movements) movement.source};
     final kept = [
       for (final item in state.items)
         if (failed.contains(item.path))
@@ -444,9 +470,7 @@ class NestViewModel extends Notifier<NestState> {
       return 'Nada foi enviado: ${transfer.failures.first.reason}.';
     }
 
-    final verb = transfer.mode == NestTransferMode.move
-        ? 'movido'
-        : 'copiado';
+    final verb = transfer.mode == NestTransferMode.move ? 'movido' : 'copiado';
     final count = transfer.fileCount;
     final subject = count == 1 ? '1 arquivo $verb' : '$count arquivos ${verb}s';
     final where = destination == null ? '' : ' para ${destination.label}';

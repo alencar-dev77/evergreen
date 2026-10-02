@@ -7,12 +7,14 @@ Use este arquivo como checklist final antes de considerar qualquer tela, compone
 - ❌ **Não centralizar conteúdo de trabalho.** Listas, formulários, painéis de configuração e áreas de conteúdo principal nunca são centralizados na largura da janela — isso é vocabulário de site/documento, não de ferramenta desktop. Ver `spacing.md` para a exceção legítima (modais pequenos).
 - ❌ **Não criar layouts de landing page.** Nada de seção "hero", CTA gigante, texto de marketing ("Transforme sua produtividade!"), carrossel de destaques, ou qualquer estrutura pensada para "converter visitante", porque não existe visitante — existe usuário que já decidiu usar o app.
   **Exceção decidida em conversa (v0.8.3+): a apresentação de boas-vindas.** Na
-  primeira abertura depois da instalação — e só nela —, o Hub mostra os cinco
-  painéis, um por tela, com o print do painel de verdade, duas linhas e o
+  primeira abertura de cada build instalada — instalação ou atualização —, o
+  Hub mostra os seis painéis, um por tela, com o print do painel de verdade, duas linhas e o
   atalho. O argumento acima ("não existe visitante") vale para todo o resto do
   app justamente porque esta tela existe: é aqui que a pessoa deixa de ser
-  visitante. Ela roda **uma vez por instalação e nunca mais**, atualização
-  inclusive, e pular conta como visto — quem fechou respondeu, não adiou.
+  visitante. Ela roda **uma vez por build**, como a abertura animada — a
+  atualização pode trazer painel novo, e era uma vez na vida até o Nest
+  entrar nela sem alcançar quem já usava o app. Pular conta como visto até a
+  próxima build — quem fechou respondeu, não adiou.
   A alavanca `kAlwaysShowOnboarding` (em `onboarding_repository.dart`) força a
   apresentação em toda abertura para trabalhar nela; nasce `false` e um teste
   falha se alguém subir com `true`.

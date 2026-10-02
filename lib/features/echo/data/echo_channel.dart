@@ -254,6 +254,19 @@ class EchoChannel {
     return result ?? '';
   }
 
+  /// Quantos tokens cabem numa chamada ao modelo, ou `null` se não deu para
+  /// perguntar.
+  ///
+  /// `null` não é falha: quem corta os blocos cai no teto conservador de
+  /// sempre, que foi medido para a janela menor e continua cabendo nela.
+  Future<int?> summaryContextSize() async {
+    try {
+      return await _invoke<int>('summaryContextSize');
+    } on EchoException {
+      return null;
+    }
+  }
+
   /// Baixa o modelo de fala do idioma, se ele ainda não estiver na máquina.
   ///
   /// Devolve o idioma que o sistema vai usar de fato, que nem sempre é o

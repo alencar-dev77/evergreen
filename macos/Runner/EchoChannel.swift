@@ -24,7 +24,7 @@ enum EchoChannel {
   ///
   /// O Echo inteiro exige macOS 26 — é de lá que vêm o `SpeechAnalyzer` e o
   /// modelo do Apple Intelligence. Guardar o gravador como `Any?` é o preço de
-  /// o resto do Evergreen continuar rodando no macOS 10.15.
+  /// o resto do Evergreen continuar rodando no macOS 12.
   private static var storedRecorder: Any?
 
   @available(macOS 26.0, *)
@@ -112,6 +112,9 @@ enum EchoChannel {
         let text = arguments["text"] as? String ?? ""
         let instructions = arguments["instructions"] as? String
         Task { await EchoSummarizer.summarize(text: text, instructions: instructions, result: result) }
+
+      case "summaryContextSize":
+        result(EchoSummarizer.contextSize)
 
       case "installLocale":
         let locale = arguments["locale"] as? String ?? "pt-BR"
@@ -1563,6 +1566,16 @@ enum EchoSummarizer {
     Não invente nada que não esteja no texto.
     """
 
+  /// Quantos tokens cabem numa chamada — instrução, texto e resposta juntos.
+  ///
+  /// Quem corta os blocos é o Dart, e ele precisa saber o tamanho da janela de
+  /// verdade: ela dobrou no macOS 27 (de 4.096 para 8.192), e um teto escrito
+  /// à mão para a janela antiga deixaria metade dela vazia. A propriedade
+  /// existe desde o 26.0 (`@backDeployed`), então não há ramo por versão aqui.
+  static var contextSize: Int {
+    SystemLanguageModel.default.contextSize
+  }
+
   static func summarize(text: String, instructions: String?, result: @escaping FlutterResult) async {
     guard case .available = SystemLanguageModel.default.availability else {
       result(FlutterError(
@@ -1579,17 +1592,37 @@ enum EchoSummarizer {
     do {
       let response = try await session.respond(to: text)
       result(response.content)
-    } catch let error as LanguageModelSession.GenerationError {
+    } catch where isContextSizeExceeded(error) {
       // O estouro de janela é o único erro que o Dart sabe tratar sozinho:
       // ele reparte o bloco e tenta de novo.
-      if case .exceededContextWindowSize = error {
-        result(FlutterError(code: "context_window_exceeded", message: error.localizedDescription, details: nil))
-        return
-      }
-      result(FlutterError(code: "summary_failed", message: error.localizedDescription, details: nil))
+      result(FlutterError(code: "context_window_exceeded", message: error.localizedDescription, details: nil))
     } catch {
       result(FlutterError(code: "summary_failed", message: error.localizedDescription, details: nil))
     }
+  }
+
+  /// O estouro de janela, pelas duas portas por onde ele chega.
+  ///
+  /// No macOS 27 o erro mudou de tipo: o SDK aposenta o `GenerationError` e
+  /// manda usar `LanguageModelError.contextSizeExceeded`. Olhar só o antigo
+  /// faria o 27 cair em `summary_failed` — e o Dart, que reparte o
+  /// bloco ao meio quando recebe `context_window_exceeded`, desistia da reunião
+  /// inteira em vez de tentar de novo com metade.
+  private static func isContextSizeExceeded(_ error: Error) -> Bool {
+    if #available(macOS 27.0, *),
+      let error = error as? LanguageModelError,
+      case .contextSizeExceeded = error
+    {
+      return true
+    }
+
+    if let error = error as? LanguageModelSession.GenerationError,
+      case .exceededContextWindowSize = error
+    {
+      return true
+    }
+
+    return false
   }
 }
 

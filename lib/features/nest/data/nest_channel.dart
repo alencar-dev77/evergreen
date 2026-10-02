@@ -142,7 +142,8 @@ class NestChannel {
   ///
   /// Devolve `false` quando o lado nativo não conseguiu começar — sem o evento
   /// de mouse que originou o gesto não há sessão de arraste. O resultado chega
-  /// depois, por [onDragOutEnded]: quem copia ou move é o destino, não nós.
+  /// depois, por [onDragOutEnded]. Com [move], o arraste sai como promessa de
+  /// arquivo e quem move é o lado nativo — o destino só escolhe a pasta.
   Future<bool> beginDragOut(
     List<String> paths, {
     required bool move,

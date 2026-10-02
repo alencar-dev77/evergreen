@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'fake_echo_channel.dart';
+import 'fake_export_service.dart';
 
 /// O resumo que não pode morrer junto com a janela.
 ///
@@ -60,6 +61,7 @@ void main() {
         echoSummaryRunnerProvider.overrideWithValue(
           background.read(echoSummaryRunnerProvider),
         ),
+        exportServiceProvider.overrideWithValue(FakeExportService()),
       ],
     );
   }
@@ -198,7 +200,12 @@ void main() {
     await hub.read(echoLibraryViewModelProvider.notifier).summarize(meetingId);
     await pumpEventQueue();
 
-    expect(channel.summarizedInstructions, ['Um parágrafo só.']);
+    expect(
+      channel.summarizedInstructions.single,
+      startsWith('Um parágrafo só.'),
+    );
+    // Gravada é só a da pessoa: as regras do aplicativo vão ao modelo, mas a
+    // tela mostra esta para ser copiada de volta às preferências.
     expect(repository.findById(meetingId)!.summaryPrompt, 'Um parágrafo só.');
   });
 
@@ -216,9 +223,10 @@ void main() {
 
       // Explícita no caminho, e não "manda vazio e deixa o Swift escolher": só
       // assim dá para gravar a frase que o modelo de fato leu.
-      expect(channel.summarizedInstructions, [
-        EchoSettings.defaultInstructions,
-      ]);
+      expect(
+        channel.summarizedInstructions.single,
+        startsWith(EchoSettings.defaultInstructions),
+      );
       expect(
         repository.findById(meetingId)!.summaryPrompt,
         EchoSettings.defaultInstructions,
@@ -238,6 +246,55 @@ void main() {
     await pumpEventQueue();
 
     expect(channel.summarizedTexts, hasLength(1));
+  });
+
+  /// O tamanho do bloco vem da janela do modelo, não de um número escrito para
+  /// a janela antiga. No macOS 27 ela dobrou, e é isso que faz uma reunião
+  /// longa deixar de passar por um resumo de resumos.
+  group('o bloco segue a janela do modelo', () {
+    late int longMeetingId;
+
+    setUp(() {
+      // Uns 9 mil caracteres: passa do teto da janela de 4.096, cabe na de
+      // 8.192.
+      longMeetingId = repository
+          .insert(
+            Meeting(
+              title: 'Planejamento do trimestre',
+              startedAt: DateTime(2026, 9, 30, 10),
+              durationMs: const Duration(minutes: 40).inMilliseconds,
+              language: TranscriptionLanguage.ptBR,
+              segments: [
+                for (var i = 0; i < 120; i++)
+                  MeetingSegment(
+                    speaker: i.isEven ? Speaker.others : Speaker.me,
+                    startMs: i * 1000,
+                    endMs: i * 1000 + 900,
+                    text: 'Fala $i sobre o roadmap e as metas do trimestre.',
+                  ),
+              ],
+            ),
+          )
+          .id!;
+    });
+
+    test('sem saber a janela, a reunião longa vai em blocos', () async {
+      await background.read(echoSummaryRunnerProvider).start(longMeetingId);
+      await pumpEventQueue();
+
+      // Os blocos e mais o passo final que junta os resumos deles.
+      expect(channel.summarizedTexts.length, greaterThan(2));
+    });
+
+    test('com a janela do macOS 27, ela cabe de uma vez', () async {
+      channel.contextSizeValue = 8192;
+
+      await background.read(echoSummaryRunnerProvider).start(longMeetingId);
+      await pumpEventQueue();
+
+      expect(channel.summarizedTexts, hasLength(1));
+      expect(repository.findById(longMeetingId)!.hasSummary, isTrue);
+    });
   });
 
   test('a falha do modelo fica guardada até alguém abrir a janela', () async {
@@ -283,6 +340,70 @@ void main() {
       );
     });
 
+    test('quem não falou não é apresentado ao modelo', () async {
+      // O caso que pedia a regra: um vídeo assistido em silêncio. Só a faixa
+      // do computador tem fala, e apresentar o nome faria dele o dono de tudo.
+      await preferences.setString('app.user_name', 'Lucas');
+      final videoId = repository
+          .insert(
+            Meeting(
+              title: 'Entrevista no YouTube',
+              startedAt: DateTime(2026, 10, 1, 22, 26),
+              durationMs: const Duration(minutes: 3).inMilliseconds,
+              language: TranscriptionLanguage.ptBR,
+              segments: const [
+                MeetingSegment(
+                  speaker: Speaker.others,
+                  startMs: 0,
+                  endMs: 5000,
+                  text: 'Eu não conheço a Roberta.',
+                ),
+              ],
+            ),
+          )
+          .id!;
+
+      await background.read(echoSummaryRunnerProvider).start(videoId);
+      await pumpEventQueue();
+
+      final instructions = channel.summarizedInstructions.single;
+      expect(instructions, isNot(contains('Lucas')));
+      expect(instructions, contains('não as atribua a ninguém'));
+    });
+
+    test('a regra de quem disse o quê vai também nos blocos', () async {
+      // É no bloco que "Reunião: eu não conheço a Roberta" vira "fulano
+      // afirma…" — e o passo final só lê o que o bloco escreveu.
+      channel.contextSizeValue = null;
+      final longId = repository
+          .insert(
+            Meeting(
+              title: 'Longa',
+              startedAt: DateTime(2026, 10, 1, 9),
+              durationMs: const Duration(minutes: 40).inMilliseconds,
+              language: TranscriptionLanguage.ptBR,
+              segments: [
+                for (var i = 0; i < 120; i++)
+                  MeetingSegment(
+                    speaker: Speaker.others,
+                    startMs: i * 1000,
+                    endMs: i * 1000 + 900,
+                    text: 'Fala $i sobre o roadmap e as metas do trimestre.',
+                  ),
+              ],
+            ),
+          )
+          .id!;
+
+      await background.read(echoSummaryRunnerProvider).start(longId);
+      await pumpEventQueue();
+
+      expect(channel.summarizedInstructions.length, greaterThan(2));
+      for (final instructions in channel.summarizedInstructions) {
+        expect(instructions, contains('não as atribua a ninguém'));
+      }
+    });
+
     test('com nome, ele vai no rótulo e na instrução', () async {
       // Escrito na janela do Hub, lido no engine da janela 0: o runner relê o
       // disco antes de começar, senão o primeiro resumo depois de a pessoa se
@@ -294,7 +415,11 @@ void main() {
 
       expect(channel.summarizedTexts.single, contains('Lucas: Fechado'));
       expect(channel.summarizedTexts.single, isNot(contains('Você:')));
-      expect(channel.summarizedInstructions.single, contains('"Lucas"'));
+      expect(channel.summarizedInstructions.single, contains('"Lucas:"'));
+      expect(
+        channel.summarizedInstructions.single,
+        contains('só o que estiver nessas falas'),
+      );
       expect(
         channel.summarizedInstructions.single,
         contains('nunca de "você" nem de "a pessoa"'),

@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../data/nest_channel.dart';
+import '../../data/nest_destinations.dart';
+import '../../data/nest_file_service.dart';
 import '../../data/nest_settings_repository.dart';
 import '../../models/nest_destination.dart';
 import '../../models/nest_settings.dart';
@@ -19,13 +23,40 @@ final nestSettingsViewModelProvider =
 class NestSettingsViewModel extends Notifier<NestSettings> {
   late final NestSettingsRepository _repository;
   late final NestChannel _channel;
+  late final NestFileService _files;
 
   @override
   NestSettings build() {
     _repository = ref.watch(nestSettingsRepositoryProvider);
     _channel = ref.watch(nestChannelProvider);
+    _files = ref.watch(nestFileServiceProvider);
 
-    return _repository.load();
+    // A conferência é assíncrona e a tela não espera por ela: a lista aparece
+    // na hora, com os caminhos como foram gravados, e as pastas que sumiram se
+    // marcam um quadro depois. O contrário — segurar a tela até o disco
+    // responder — é a armadilha que o `NestFileService` existe para evitar.
+    //
+    // Os destinos vão por argumento, e não por `state`: aqui dentro do `build`
+    // o estado ainda não existe, e lê-lo é erro de provider não inicializado.
+    // O `Future` sem atraso é o que põe a conferência depois deste `build`.
+    final loaded = _repository.load();
+    unawaited(Future(() => _resolveDestinations(loaded.destinations)));
+
+    return loaded;
+  }
+
+  /// Marca os favoritos cuja pasta não está mais lá. Ver [NestDestinations].
+  Future<void> _resolveDestinations(List<NestDestination> destinations) async {
+    final resolved = await NestDestinations.resolve(destinations, _files);
+    if (identical(resolved, destinations)) return;
+
+    // A tela pode ter sido fechada enquanto o disco respondia, e escrever no
+    // estado de um provider já descartado é um erro, não um não-efeito.
+    if (!ref.mounted) return;
+
+    // Só o estado: `isMissing` é do disco, não do favorito, e regravar as
+    // preferências por causa dele escreveria no arquivo a cada abertura.
+    state = state.copyWith(destinations: resolved);
   }
 
   Future<void> setDefaultMode(NestTransferMode mode) async {
@@ -57,7 +88,10 @@ class NestSettingsViewModel extends Notifier<NestSettings> {
     }
 
     state = state.copyWith(
-      destinations: [...state.destinations, NestDestination(path: path)],
+      destinations: [
+        ...state.destinations,
+        NestDestination(path: path),
+      ],
     );
     await _repository.save(state);
 

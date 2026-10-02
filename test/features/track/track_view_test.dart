@@ -1,4 +1,5 @@
 import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_channel.dart';
@@ -20,6 +21,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../echo/fake_echo_channel.dart';
 import '../focus/fake_focus_session_repository.dart';
 import '../pin/fake_clipboard_repository.dart';
+import '../echo/fake_export_service.dart';
 
 /// A tela do Track dentro do Hub.
 ///
@@ -37,11 +39,11 @@ void main() {
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
-    // apresentação de boas-vindas (que espera cinco cliques em "Próximo") e a
+    // apresentação de boas-vindas (que espera seis cliques em "Próximo") e a
     // pergunta do nome (que leva o Hub para a tela do aplicativo). Aqui o app
-    // já foi apresentado e já sabe com quem fala.
+    // já foi apresentado nesta build e já sabe com quem fala.
     SharedPreferences.setMockInitialValues({
-      'app.onboarding_seen': true,
+      'app.onboarding_seen_build': AppInfo.readBuildStamp(),
       'app.user_name': 'Lucas',
     });
     preferences = await SharedPreferences.getInstance();
@@ -104,6 +106,7 @@ void main() {
           ),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
           trackRepositoryProvider.overrideWithValue(SqliteTrackRepository(db)),
           clockProvider.overrideWithValue(() => now),
         ],

@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'fake_echo_channel.dart';
+import 'fake_export_service.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -43,6 +44,7 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(preferences),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel ?? FakeEchoChannel()),
+          exportServiceProvider.overrideWithValue(FakeExportService()),
         ],
         child: MaterialApp(
           theme: AppTheme.build(),

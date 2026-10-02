@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../home/data/app_settings_repository.dart';
 import '../models/echo_summary_status.dart';
+import '../models/meeting.dart';
+import '../models/meeting_segment.dart';
 import '../models/summary_chunker.dart';
 import 'echo_channel.dart';
 import 'echo_repository.dart';
@@ -24,6 +26,18 @@ abstract interface class EchoSummaryRunner {
 
   /// O andamento agora.
   Future<EchoSummaryStatus> status();
+
+  /// Desiste do resumo em curso. Sem nada em curso, não faz nada.
+  ///
+  /// **Desistir é entre blocos, não no meio de um.** A chamada ao modelo é uma
+  /// só, do outro lado do canal, e o `FoundationModels` não a interrompe: o
+  /// bloco que já está com ele termina e é descartado. Numa reunião longa isso
+  /// é o que a pessoa quer de qualquer forma — ela desiste porque são doze
+  /// blocos pela frente, não porque o atual demora.
+  ///
+  /// Nada é gravado: a reunião fica exatamente como estava, com o resumo antigo
+  /// se havia um. Cancelar não é apagar.
+  Future<void> cancel();
 }
 
 /// O resumo acontecendo de verdade, no engine que o pediu.
@@ -56,16 +70,49 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
       'nomes próprios. Escreva em texto corrido, sem formatação. Não invente '
       'nada que não esteja no trecho.';
 
-  /// A frase que apresenta a pessoa ao modelo.
+  /// Quem disse o quê — a regra que vale para todo resumo, com ou sem nome.
+  ///
+  /// O Echo só sabe de qual faixa veio cada fala: o microfone é quem pediu, o
+  /// áudio do computador é "Reunião", e ali pode haver cinco pessoas ou um
+  /// vídeo do YouTube. Sem esta regra o modelo dá dono ao que não tem: num
+  /// vídeo assistido em silêncio, com 62 falas da "Reunião" e uma só do
+  /// microfone, o resumo saiu inteiro como "Lucas afirma…", "Lucas menciona…".
+  /// Por isso o resumo fala do assunto, e nome só entra quando a própria
+  /// conversa o diz.
+  ///
+  /// O "sem negrito" é porque o resumo é desenhado como texto puro: os `**`
+  /// que o modelo põe por hábito apareciam na tela como asteriscos.
+  static final attribution =
+      'Escreva sobre o que foi dito, não sobre quem disse. As falas marcadas '
+      '"${Speaker.others.label}:" vêm do áudio do computador e podem ser de várias pessoas '
+      'ou de um vídeo: não as atribua a ninguém. Só cite o nome de alguém '
+      'quando esse nome for dito na própria conversa. Não use negrito nem outra '
+      'marcação.';
+
+  /// A frase que apresenta a pessoa ao modelo — só quando ela falou.
   ///
   /// O rótulo da transcrição sozinho não basta: o modelo vê "Lucas: ..." e não
   /// tem como saber que Lucas é quem está pedindo o resumo — ele escreve sobre
   /// um participante qualquer, e volta a dizer "a pessoa" na hora de falar de
-  /// quem lê. Sem gênero de propósito: o Evergreen pede um nome, não um
-  /// cadastro.
+  /// quem lê. Mas apresentar alguém que não abriu a boca faz o contrário: o
+  /// único nome do texto vira o dono de todas as falas. Por isso a frase
+  /// também cerca o nome — ele só leva o que está nas falas marcadas com ele.
+  /// Sem gênero de propósito: o Evergreen pede um nome, não um cadastro.
   static String presentation(String userName) =>
-      'Quem aparece na transcrição como "$userName" é quem pediu este resumo. '
-      'Chame essa pessoa pelo nome, nunca de "você" nem de "a pessoa".';
+      'As falas marcadas "$userName:" são de quem pediu este resumo. Atribua a '
+      '$userName só o que estiver nessas falas, chamando pelo nome, nunca de '
+      '"você" nem de "a pessoa". Não escreva que $userName pediu o resumo.';
+
+  /// As regras que vão junto de qualquer instrução, para [meeting].
+  static String rulesFor(Meeting meeting, String userName) {
+    final spoke = meeting.segments.any(
+      (segment) => segment.speaker == Speaker.me,
+    );
+
+    return spoke && userName.isNotEmpty
+        ? '$attribution ${presentation(userName)}'
+        : attribution;
+  }
 
   final EchoRepository _repository;
   final EchoSettingsRepository _settings;
@@ -73,6 +120,15 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   final EchoChannel _channel;
 
   EchoSummaryStatus _status = const EchoSummaryStatus();
+
+  /// Qual resumo é o de agora.
+  ///
+  /// Cancelar não interrompe o `await` que está de pé — ele incrementa este
+  /// número, e o trabalho que voltar com um número velho se descobre demitido e
+  /// sai sem gravar nada. É mais simples e mais seguro que um sinalizador
+  /// booleano: entre o cancelamento e o retorno do bloco, a pessoa pode ter
+  /// pedido um resumo novo, e o antigo não pode confundir o dela com o seu.
+  int _generation = 0;
 
   /// A falha é **entregue uma vez** e some.
   ///
@@ -92,6 +148,17 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   }
 
   @override
+  Future<void> cancel() async {
+    if (!_status.isRunning) return;
+
+    _generation++;
+    // A tela precisa parar de mostrar "Resumindo…" agora, e não quando o bloco
+    // em curso voltar do modelo — que é o que a pessoa acabou de dizer que não
+    // quer mais esperar.
+    _status = const EchoSummaryStatus();
+  }
+
+  @override
   Future<void> start(int meetingId) async {
     if (_status.isRunning) return;
 
@@ -106,16 +173,26 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
 
     final userName = _appSettings.load().userName;
     final written = _settings.load().resolvedSummaryInstructions;
-    final instructions = userName.isEmpty
-        ? written
-        : '$written\n\n${presentation(userName)}';
+    final rules = rulesFor(meeting, userName);
+    final prompts = _Prompts(
+      written: written,
+      finalStep: '$written\n\n$rules',
+      block: '$blockInstructions $rules',
+    );
 
-    final chunks = SummaryChunker.chunk(meeting.plainText(userName: userName));
+    final contextTokens = await _channel.summaryContextSize();
+    final chunks = SummaryChunker.chunk(
+      meeting.plainText(userName: userName),
+      maxChars: SummaryChunker.maxCharsFor(contextTokens),
+    );
     if (chunks.isEmpty) return;
 
     _status = EchoSummaryStatus(meetingId: meetingId, total: chunks.length);
-    unawaited(_run(meetingId, chunks, instructions));
+    unawaited(_run(meetingId, chunks, prompts, ++_generation));
   }
+
+  /// Este trabalho ainda é o trabalho de agora?
+  bool _isCurrent(int generation) => generation == _generation;
 
   /// Em dois passos quando o texto não cabe de uma vez: cada bloco vira um
   /// resumo neutro, e o passo final junta os resumos aplicando a instrução que
@@ -123,62 +200,137 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   Future<void> _run(
     int meetingId,
     List<String> chunks,
-    String instructions,
+    _Prompts prompts,
+    int generation,
   ) async {
     try {
       final summary = chunks.length == 1
-          ? await _summarize(chunks.single, instructions)
-          : await _summarizeInBlocks(chunks, instructions);
+          ? await _summarize(
+              chunks.single,
+              prompts.finalStep,
+              prompts,
+              generation,
+            )
+          : await _summarizeInBlocks(chunks, prompts, generation);
 
-      _repository.setSummary(meetingId, summary, prompt: instructions);
+      // Grava a instrução que a pessoa escolheu, não as regras do aplicativo:
+      // a tela a mostra como "Instrução deste resumo" para ser copiada de
+      // volta às preferências, e as regras iriam junto, dobradas.
+      _repository.setSummary(meetingId, summary, prompt: prompts.written);
       _status = const EchoSummaryStatus();
+    } on _Cancelled {
+      // Nada a gravar e nada a dizer: o `cancel` já limpou o estado, e a pessoa
+      // sabe o que pediu. Um aviso de "cancelado" seria o aplicativo repetindo
+      // de volta o próprio clique dela.
+      return;
     } on EchoException catch (error) {
+      if (!_isCurrent(generation)) return;
       _status = EchoSummaryStatus(errorMessage: error.message);
     } catch (error) {
       // Nada aqui roda sob uma tela: uma exceção não prevista escapando de um
       // `unawaited` derrubaria o engine que segura a gravação, o cronômetro e
       // a captura do clipboard. O resumo é a única coisa que pode falhar.
+      if (!_isCurrent(generation)) return;
       _status = EchoSummaryStatus(errorMessage: 'O resumo falhou: $error');
     }
   }
 
   Future<String> _summarizeInBlocks(
     List<String> chunks,
-    String instructions,
+    _Prompts prompts,
+    int generation,
   ) async {
     final partials = <String>[];
 
     for (var index = 0; index < chunks.length; index++) {
+      // A checagem vem antes de anunciar o bloco: sem ela, um resumo cancelado
+      // continuaria escrevendo "bloco 4 de 12" por cima do estado limpo, e a
+      // tela voltaria a dizer que está resumindo.
+      if (!_isCurrent(generation)) throw const _Cancelled();
+
       _status = EchoSummaryStatus(
         meetingId: _status.meetingId,
         done: index + 1,
         total: chunks.length,
       );
-      partials.add(await _summarize(chunks[index], blockInstructions));
+      partials.add(
+        await _summarize(chunks[index], prompts.block, prompts, generation),
+      );
     }
 
-    return _summarize(partials.join('\n\n'), instructions);
+    return _summarize(
+      partials.join('\n\n'),
+      prompts.finalStep,
+      prompts,
+      generation,
+    );
   }
 
   /// Uma chamada ao modelo, com a saída para o texto que não coube.
   ///
   /// O estouro de janela é o único erro que dá para resolver aqui: repartir o
   /// bloco ao meio e resumir as metades chega no mesmo lugar, só mais devagar.
-  Future<String> _summarize(String text, String instructions) async {
+  Future<String> _summarize(
+    String text,
+    String instructions,
+    _Prompts prompts,
+    int generation,
+  ) async {
+    if (!_isCurrent(generation)) throw const _Cancelled();
+
+    final String answer;
     try {
-      return await _channel.summarize(text: text, instructions: instructions);
+      answer = await _channel.summarize(text: text, instructions: instructions);
     } on EchoException catch (error) {
       if (!error.isContextWindowExceeded || text.length < 500) rethrow;
 
       final halves = SummaryChunker.chunk(text, maxChars: text.length ~/ 2);
       final partials = <String>[];
       for (final half in halves) {
-        partials.add(await _summarize(half, blockInstructions));
+        partials.add(
+          await _summarize(half, prompts.block, prompts, generation),
+        );
       }
 
-      return _summarize(partials.join('\n\n'), instructions);
+      return _summarize(
+        partials.join('\n\n'),
+        instructions,
+        prompts,
+        generation,
+      );
     }
+
+    // De novo na volta: o bloco levou minutos com o modelo, e é justamente
+    // nesse intervalo que a desistência acontece.
+    if (!_isCurrent(generation)) throw const _Cancelled();
+
+    return answer;
   }
+}
+
+/// As instruções de um resumo: a que a pessoa escreveu, e as duas que vão de
+/// fato ao modelo — a do passo final e a dos blocos, ambas com as regras de
+/// quem disse o quê.
+class _Prompts {
+  const _Prompts({
+    required this.written,
+    required this.finalStep,
+    required this.block,
+  });
+
+  final String written;
+  final String finalStep;
+  final String block;
+}
+
+/// A desistência, subindo pela pilha do trabalho até quem sabe descartá-lo.
+///
+/// Privada e sem mensagem: ela nunca chega a uma tela — quem a captura é o
+/// [LocalEchoSummaryRunner._run], que sai calado. Não é um [EchoException]
+/// porque não é uma falha: a diferença entre "não deu" e "não quis" é toda a
+/// diferença para quem está olhando.
+class _Cancelled implements Exception {
+  const _Cancelled();
 }
 
 /// O mesmo pedido, feito de outra janela.
@@ -205,6 +357,9 @@ class WindowEchoSummaryRunner implements EchoSummaryRunner {
         ? const EchoSummaryStatus()
         : EchoSummaryStatus.fromMap(raw);
   }
+
+  @override
+  Future<void> cancel() async => _invoke<void>('cancel');
 
   /// Falha de canal vira [EchoException] porque é assim que o resto do Echo
   /// conta um problema, e a tela já sabe mostrar isso. Calar seria pior que o
@@ -248,6 +403,9 @@ abstract final class EchoSummaryHost {
             return null;
           case 'status':
             return (await runner.status()).toMap();
+          case 'cancel':
+            await runner.cancel();
+            return null;
           default:
             throw MissingPluginException('echo_summary: ${call.method}');
         }
