@@ -162,6 +162,13 @@ class OverlayWindow {
     await OverlayWindowChannel.show();
   }
 
+  /// Devolve o teclado ao painel que já está na tela, **sem reposicionar**.
+  ///
+  /// O [reassert] sem o [reposition]: para o evento que acontece *dentro* do
+  /// painel — um arquivo solto na prateleira —, onde o lugar da janela é o que a
+  /// pessoa escolheu ao arrastá-la, e não o de sempre.
+  Future<void> refocus() => OverlayWindowChannel.show();
+
   /// Esconde o overlay e devolve o foco ao app capturado em `show()`.
   ///
   /// Cobre todos os caminhos de fechamento — seleção de item, Esc, clique fora —
