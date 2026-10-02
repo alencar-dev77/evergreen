@@ -242,6 +242,55 @@ void main() {
     expect(channel.summarizedTexts, hasLength(1));
   });
 
+  /// O tamanho do bloco vem da janela do modelo, não de um número escrito para
+  /// a janela antiga. No macOS 27 ela dobrou, e é isso que faz uma reunião
+  /// longa deixar de passar por um resumo de resumos.
+  group('o bloco segue a janela do modelo', () {
+    late int longMeetingId;
+
+    setUp(() {
+      // Uns 9 mil caracteres: passa do teto da janela de 4.096, cabe na de
+      // 8.192.
+      longMeetingId = repository
+          .insert(
+            Meeting(
+              title: 'Planejamento do trimestre',
+              startedAt: DateTime(2026, 9, 30, 10),
+              durationMs: const Duration(minutes: 40).inMilliseconds,
+              language: TranscriptionLanguage.ptBR,
+              segments: [
+                for (var i = 0; i < 120; i++)
+                  MeetingSegment(
+                    speaker: i.isEven ? Speaker.others : Speaker.me,
+                    startMs: i * 1000,
+                    endMs: i * 1000 + 900,
+                    text: 'Fala $i sobre o roadmap e as metas do trimestre.',
+                  ),
+              ],
+            ),
+          )
+          .id!;
+    });
+
+    test('sem saber a janela, a reunião longa vai em blocos', () async {
+      await background.read(echoSummaryRunnerProvider).start(longMeetingId);
+      await pumpEventQueue();
+
+      // Os blocos e mais o passo final que junta os resumos deles.
+      expect(channel.summarizedTexts.length, greaterThan(2));
+    });
+
+    test('com a janela do macOS 27, ela cabe de uma vez', () async {
+      channel.contextSizeValue = 8192;
+
+      await background.read(echoSummaryRunnerProvider).start(longMeetingId);
+      await pumpEventQueue();
+
+      expect(channel.summarizedTexts, hasLength(1));
+      expect(repository.findById(longMeetingId)!.hasSummary, isTrue);
+    });
+  });
+
   test('a falha do modelo fica guardada até alguém abrir a janela', () async {
     channel.failWith = const EchoException(
       'summary_failed',

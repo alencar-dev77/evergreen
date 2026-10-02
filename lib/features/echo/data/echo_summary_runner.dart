@@ -142,7 +142,11 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
         ? written
         : '$written\n\n${presentation(userName)}';
 
-    final chunks = SummaryChunker.chunk(meeting.plainText(userName: userName));
+    final contextTokens = await _channel.summaryContextSize();
+    final chunks = SummaryChunker.chunk(
+      meeting.plainText(userName: userName),
+      maxChars: SummaryChunker.maxCharsFor(contextTokens),
+    );
     if (chunks.isEmpty) return;
 
     _status = EchoSummaryStatus(meetingId: meetingId, total: chunks.length);

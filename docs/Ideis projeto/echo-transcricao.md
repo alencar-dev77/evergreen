@@ -249,6 +249,19 @@ Quem corta em blocos é o Dart (`SummaryChunker`), porque é a única parte do
 resumo que é lógica pura — e lógica pura se testa sem microfone, sem reunião e
 sem modelo. O Swift resume um bloco por chamada.
 
+**O tamanho do bloco vem da janela do modelo, não de um número fixo.** O Dart
+pergunta o `contextSize` pelo canal (`summaryContextSize`) e o
+`SummaryChunker.maxCharsFor` converte: os 5 mil caracteres medidos para a
+janela de 4.096 tokens do macOS 26 continuam sendo o piso, e cada token a mais
+vira três caracteres de texto — a reserva para a instrução e a resposta não
+cresce com a janela. No macOS 27 a janela dobrou para 8.192, e o bloco passa de
+5 mil para uns 17 mil caracteres: a reunião de meia hora que dava quatro blocos
+e um resumo de resumos cabe numa chamada só. Quando o bloco estoura mesmo
+assim, o Dart reparte ao meio e tenta de novo; o Swift reconhece o estouro
+pelas duas formas que ele tem — `GenerationError.exceededContextWindowSize` até
+o 26, `LanguageModelError.contextSizeExceeded` a partir do 27, que aposentou a
+primeira.
+
 São dois passos, e a distinção entre eles importa:
 
 - **os blocos** usam uma instrução fixa e neutra ("preserve fatos, decisões,
