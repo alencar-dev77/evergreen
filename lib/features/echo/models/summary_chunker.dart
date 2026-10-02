@@ -16,6 +16,33 @@ abstract final class SummaryChunker {
   /// pessoa vê na tela.
   static const defaultMaxChars = 5000;
 
+  /// A janela para a qual o [defaultMaxChars] foi medido — a do macOS 26.
+  static const referenceContextTokens = 4096;
+
+  /// Caracteres por token, pelo lado de baixo da faixa do português.
+  static const _charsPerToken = 3;
+
+  /// O teto de caracteres para uma janela de [contextTokens].
+  ///
+  /// A reserva para a instrução e para a resposta já está paga dentro do
+  /// [defaultMaxChars], e ela não cresce com a janela: um resumo de bloco não
+  /// fica mais comprido porque o modelo enxerga mais. Então todo token além da
+  /// janela de referência é espaço para texto — no macOS 27, que dobrou a
+  /// janela, o bloco passa de 5 mil para uns 17 mil caracteres, e uma reunião
+  /// de meia hora que dava quatro blocos (e um resumo de resumos) cabe em um.
+  ///
+  /// Janela desconhecida ou menor que a de referência fica no teto de sempre:
+  /// o bloco que estoura ainda é repartido por quem chama, mas cada estouro é
+  /// uma chamada jogada fora.
+  static int maxCharsFor(int? contextTokens) {
+    if (contextTokens == null || contextTokens <= referenceContextTokens) {
+      return defaultMaxChars;
+    }
+
+    return defaultMaxChars +
+        (contextTokens - referenceContextTokens) * _charsPerToken;
+  }
+
   /// Divide [text] em blocos de no máximo [maxChars].
   ///
   /// O corte respeita as linhas, que aqui são as falas: partir uma fala no meio
