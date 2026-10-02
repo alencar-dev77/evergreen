@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../home/data/app_settings_repository.dart';
 import '../models/echo_summary_status.dart';
+import '../models/meeting.dart';
+import '../models/meeting_segment.dart';
 import '../models/summary_chunker.dart';
 import 'echo_channel.dart';
 import 'echo_repository.dart';
@@ -68,16 +70,49 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
       'nomes próprios. Escreva em texto corrido, sem formatação. Não invente '
       'nada que não esteja no trecho.';
 
-  /// A frase que apresenta a pessoa ao modelo.
+  /// Quem disse o quê — a regra que vale para todo resumo, com ou sem nome.
+  ///
+  /// O Echo só sabe de qual faixa veio cada fala: o microfone é quem pediu, o
+  /// áudio do computador é "Reunião", e ali pode haver cinco pessoas ou um
+  /// vídeo do YouTube. Sem esta regra o modelo dá dono ao que não tem: num
+  /// vídeo assistido em silêncio, com 62 falas da "Reunião" e uma só do
+  /// microfone, o resumo saiu inteiro como "Lucas afirma…", "Lucas menciona…".
+  /// Por isso o resumo fala do assunto, e nome só entra quando a própria
+  /// conversa o diz.
+  ///
+  /// O "sem negrito" é porque o resumo é desenhado como texto puro: os `**`
+  /// que o modelo põe por hábito apareciam na tela como asteriscos.
+  static final attribution =
+      'Escreva sobre o que foi dito, não sobre quem disse. As falas marcadas '
+      '"${Speaker.others.label}:" vêm do áudio do computador e podem ser de várias pessoas '
+      'ou de um vídeo: não as atribua a ninguém. Só cite o nome de alguém '
+      'quando esse nome for dito na própria conversa. Não use negrito nem outra '
+      'marcação.';
+
+  /// A frase que apresenta a pessoa ao modelo — só quando ela falou.
   ///
   /// O rótulo da transcrição sozinho não basta: o modelo vê "Lucas: ..." e não
   /// tem como saber que Lucas é quem está pedindo o resumo — ele escreve sobre
   /// um participante qualquer, e volta a dizer "a pessoa" na hora de falar de
-  /// quem lê. Sem gênero de propósito: o Evergreen pede um nome, não um
-  /// cadastro.
+  /// quem lê. Mas apresentar alguém que não abriu a boca faz o contrário: o
+  /// único nome do texto vira o dono de todas as falas. Por isso a frase
+  /// também cerca o nome — ele só leva o que está nas falas marcadas com ele.
+  /// Sem gênero de propósito: o Evergreen pede um nome, não um cadastro.
   static String presentation(String userName) =>
-      'Quem aparece na transcrição como "$userName" é quem pediu este resumo. '
-      'Chame essa pessoa pelo nome, nunca de "você" nem de "a pessoa".';
+      'As falas marcadas "$userName:" são de quem pediu este resumo. Atribua a '
+      '$userName só o que estiver nessas falas, chamando pelo nome, nunca de '
+      '"você" nem de "a pessoa". Não escreva que $userName pediu o resumo.';
+
+  /// As regras que vão junto de qualquer instrução, para [meeting].
+  static String rulesFor(Meeting meeting, String userName) {
+    final spoke = meeting.segments.any(
+      (segment) => segment.speaker == Speaker.me,
+    );
+
+    return spoke && userName.isNotEmpty
+        ? '$attribution ${presentation(userName)}'
+        : attribution;
+  }
 
   final EchoRepository _repository;
   final EchoSettingsRepository _settings;
@@ -138,9 +173,12 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
 
     final userName = _appSettings.load().userName;
     final written = _settings.load().resolvedSummaryInstructions;
-    final instructions = userName.isEmpty
-        ? written
-        : '$written\n\n${presentation(userName)}';
+    final rules = rulesFor(meeting, userName);
+    final prompts = _Prompts(
+      written: written,
+      finalStep: '$written\n\n$rules',
+      block: '$blockInstructions $rules',
+    );
 
     final contextTokens = await _channel.summaryContextSize();
     final chunks = SummaryChunker.chunk(
@@ -150,7 +188,7 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
     if (chunks.isEmpty) return;
 
     _status = EchoSummaryStatus(meetingId: meetingId, total: chunks.length);
-    unawaited(_run(meetingId, chunks, instructions, ++_generation));
+    unawaited(_run(meetingId, chunks, prompts, ++_generation));
   }
 
   /// Este trabalho ainda é o trabalho de agora?
@@ -162,15 +200,23 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   Future<void> _run(
     int meetingId,
     List<String> chunks,
-    String instructions,
+    _Prompts prompts,
     int generation,
   ) async {
     try {
       final summary = chunks.length == 1
-          ? await _summarize(chunks.single, instructions, generation)
-          : await _summarizeInBlocks(chunks, instructions, generation);
+          ? await _summarize(
+              chunks.single,
+              prompts.finalStep,
+              prompts,
+              generation,
+            )
+          : await _summarizeInBlocks(chunks, prompts, generation);
 
-      _repository.setSummary(meetingId, summary, prompt: instructions);
+      // Grava a instrução que a pessoa escolheu, não as regras do aplicativo:
+      // a tela a mostra como "Instrução deste resumo" para ser copiada de
+      // volta às preferências, e as regras iriam junto, dobradas.
+      _repository.setSummary(meetingId, summary, prompt: prompts.written);
       _status = const EchoSummaryStatus();
     } on _Cancelled {
       // Nada a gravar e nada a dizer: o `cancel` já limpou o estado, e a pessoa
@@ -191,7 +237,7 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
 
   Future<String> _summarizeInBlocks(
     List<String> chunks,
-    String instructions,
+    _Prompts prompts,
     int generation,
   ) async {
     final partials = <String>[];
@@ -208,11 +254,16 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
         total: chunks.length,
       );
       partials.add(
-        await _summarize(chunks[index], blockInstructions, generation),
+        await _summarize(chunks[index], prompts.block, prompts, generation),
       );
     }
 
-    return _summarize(partials.join('\n\n'), instructions, generation);
+    return _summarize(
+      partials.join('\n\n'),
+      prompts.finalStep,
+      prompts,
+      generation,
+    );
   }
 
   /// Uma chamada ao modelo, com a saída para o texto que não coube.
@@ -222,6 +273,7 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   Future<String> _summarize(
     String text,
     String instructions,
+    _Prompts prompts,
     int generation,
   ) async {
     if (!_isCurrent(generation)) throw const _Cancelled();
@@ -235,10 +287,17 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
       final halves = SummaryChunker.chunk(text, maxChars: text.length ~/ 2);
       final partials = <String>[];
       for (final half in halves) {
-        partials.add(await _summarize(half, blockInstructions, generation));
+        partials.add(
+          await _summarize(half, prompts.block, prompts, generation),
+        );
       }
 
-      return _summarize(partials.join('\n\n'), instructions, generation);
+      return _summarize(
+        partials.join('\n\n'),
+        instructions,
+        prompts,
+        generation,
+      );
     }
 
     // De novo na volta: o bloco levou minutos com o modelo, e é justamente
@@ -247,6 +306,21 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
 
     return answer;
   }
+}
+
+/// As instruções de um resumo: a que a pessoa escreveu, e as duas que vão de
+/// fato ao modelo — a do passo final e a dos blocos, ambas com as regras de
+/// quem disse o quê.
+class _Prompts {
+  const _Prompts({
+    required this.written,
+    required this.finalStep,
+    required this.block,
+  });
+
+  final String written;
+  final String finalStep;
+  final String block;
 }
 
 /// A desistência, subindo pela pilha do trabalho até quem sabe descartá-lo.
