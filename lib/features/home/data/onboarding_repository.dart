@@ -16,7 +16,7 @@ const bool kAlwaysShowOnboarding = false;
 ///
 /// Diferente da abertura animada do Hub, que roda a cada build nova: esta roda
 /// **uma vez por instalação e nunca mais**, atualização inclusive. Quem já
-/// conhece os cinco painéis não precisa ser reapresentado a eles porque uma
+/// conhece os seis painéis não precisa ser reapresentado a eles porque uma
 /// versão nova saiu.
 class OnboardingRepository {
   OnboardingRepository(this._prefs);

@@ -10,25 +10,23 @@ import 'package:flutter_test/flutter_test.dart';
 /// entra pelo mesmo motivo: sem uma mono de verdade os key-caps mediriam errado
 /// e esconderiam problemas de largura na barra de dicas.
 ///
+/// **As fontes são as que o app desenha de fato.** O Inter não vem empacotado,
+/// então no Mac quem responde é o SF do sistema (o fallback do tema) — e é ele
+/// que entra aqui no lugar do Inter. Era Arial, e os goldens mostravam um app
+/// que ninguém via. A `Apple Symbols` entra pelos nomes do fim de cada fallback
+/// porque nem o SF nem o SF Mono têm `⌘`, `⌥` e `⇧`: sem ela, toda tecla da
+/// barra de dicas virava um quadrado. Esses prints também são os da
+/// apresentação de boas-vindas (`assets/onboarding/`).
+///
 /// Compartilhada pelos arquivos de golden — duas cópias desta lista significam
 /// duas imagens desenhadas com fontes diferentes na primeira vez que uma delas
 /// mudar.
 Future<void> loadGoldenFonts() async {
   const faces = {
-    'Inter': [
-      '/System/Library/Fonts/Supplemental/Arial.ttf',
-      '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-    ],
-    'SF Mono': ['/System/Library/Fonts/Supplemental/Andale Mono.ttf'],
-    // O tema Apple pede a fonte do sistema (família nula, com estes nomes no
-    // fallback). Sob `flutter test` não existe fonte de sistema, e o texto sai
-    // como quadrados — registrar os mesmos arquivos sob os nomes que ele
-    // procura é o que faz as imagens dele conferirem alguma coisa. No app de
-    // verdade quem responde é o macOS.
-    'SF Pro Text': [
-      '/System/Library/Fonts/Supplemental/Arial.ttf',
-      '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-    ],
+    'Inter': ['/System/Library/Fonts/SFNS.ttf'],
+    'SF Mono': ['/System/Library/Fonts/SFNSMono.ttf'],
+    'Helvetica Neue': ['/System/Library/Fonts/Apple Symbols.ttf'],
+    'Menlo': ['/System/Library/Fonts/Apple Symbols.ttf'],
   };
 
   for (final entry in faces.entries) {

@@ -161,7 +161,7 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   entrega uma ruína. Teste de bandeira passa **nos dois estados** (`skip:
   !FeatureFlags.x` no que só existe de um lado); teste que só passa ligada
   obriga a mexer na suíte para desligar a funcionalidade, e aí ninguém desliga.
-  Hoje existem duas, as duas em `false`: `intro` (a abertura animada do Hub) e
+  Hoje existem duas, as duas em `true`: `intro` (a abertura animada do Hub) e
   `onboarding` (a apresentação de boas-vindas). Cada uma decide num ponto só —
   `HubIntroViewModel.build` e `OnboardingViewModel.build` —, e nenhuma grava o
   "já vi" quando desligada: religar apresenta quem nunca foi apresentado, em vez
