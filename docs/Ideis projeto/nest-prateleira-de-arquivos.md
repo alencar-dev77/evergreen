@@ -104,19 +104,22 @@ A prateleira entrega os arquivos por dois caminhos, e nenhum substitui o outro:
   linha leva a prateleira inteira, como o `⌘1`.
 
 O arraste para fora é uma `NSDraggingSession` começada pela view do Flutter
-(`NestChannel.beginDrag`), com um `file URL` por item. Três consequências que
-não são detalhe de implementação:
+(`NestChannel.beginDrag`). Copiar sai com um `file URL` por item; mover sai
+com uma **promessa de arquivo** por item (ver mais abaixo). Três consequências
+que não são detalhe de implementação:
 
-- **Quem copia ou move é o destino, não nós.** O Evergreen entrega a lista e a
-  operação declarada; o Finder faz o resto.
-- **Por isso não há desfazer neste caminho** — o Evergreen não fica sabendo para
-  onde os arquivos foram. Quem desfaz é o `⌘Z` do próprio Finder. O Track
-  continua contando, porque a linha dele nunca teve caminho nenhum.
-- **A operação é a do painel**, não a do sistema: `NestDragSource` declara `.copy`
-  ou `.move` conforme o que está escrito em cima da lista (a preferência,
-  invertida pelo `⌥`). Declarar `[.copy, .move]` devolveria a decisão à
-  modificadora do sistema, e aí o rótulo "COPIAR PARA" valeria para metade dos
-  caminhos do módulo.
+- **Quem copia é o destino; quem move somos nós.** Copiando, o Evergreen
+  entrega a lista e o Finder faz o resto. Movendo, o destino só diz para que
+  pasta quer o arquivo, e o `NestPromiseMover` o move para lá.
+- **Por isso não há desfazer neste caminho** — o Evergreen não guarda para onde
+  os arquivos foram. Na cópia, quem desfaz é o `⌘Z` do próprio Finder; no
+  mover, nem ele, porque o Finder não fez nada. O Track continua contando,
+  porque a linha dele nunca teve caminho nenhum.
+- **A operação é a do painel**, não a do sistema: o que está escrito em cima da
+  lista (a preferência, invertida pelo `⌥`) decide se o arraste é de cópia ou
+  de promessa. Declarar `[.copy, .move]` devolveria a decisão à modificadora do
+  sistema, e aí o rótulo "COPIAR PARA" valeria para metade dos caminhos do
+  módulo.
 
 E declarar uma operação só não bastou. A máscara declarada não é a última
 palavra: antes de consultar destino nenhum, o AppKit a cruza com o que a
@@ -128,8 +131,24 @@ cursor. O contrário passava por acidente — padrão mover, `⌥` declara `.cop
 que é o que o `⌥` já pedia —, e foi por isso que o defeito ficou meio escondido:
 metade dos caminhos funcionava.
 
-A saída é `ignoreModifierKeys(for:)` devolvendo `true`. Quando a sessão começa,
-a decisão já foi tomada no painel, e a tecla não tem mais nada a dizer.
+A primeira saída foi `ignoreModifierKeys(for:)` devolvendo `true`, e ela não
+bastou (#67): ela só cala a tecla **do nosso lado**. O destino lê as
+modificadoras por conta própria — o Finder, vendo o `⌥` ainda apertado, queria
+`.copy`, não achava `.copy` na máscara, e o proibido continuava lá.
+
+A saída que ficou é tirar o `.move` da conversa. Mover vira uma
+`NSFilePromiseProvider`: o destino aceita como se fosse uma cópia (é um arquivo
+novo para ele), pergunta onde escrever, e quem escreve somos nós, movendo
+(`FileManager.moveItem`, que atravessa volumes sozinho; nome livre no estilo do
+Finder em colisão). A máscara passa a ser **sempre `.copy`**, que é o que o `⌥`
+do sistema pede — e o `ignoreModifierKeys` fica, agora para o `⌘`, que
+esvaziaria a máscara do mesmo jeito. O fim da sessão traduz o `.copy` de uma
+promessa de volta para "mover" antes de avisar o Dart.
+
+Dois custos, aceitos: durante o arraste de mover o cursor mostra o "+" de
+cópia (é o macOS desenhando o `⌥`, não o que vai acontecer), e quem não aceita
+promessa de arquivo — o campo de upload de um navegador — não recebe arquivo
+movido. Copiar para lá continua funcionando.
 
 ### Soltar em cima da própria prateleira é desistir
 

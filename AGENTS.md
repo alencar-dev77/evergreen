@@ -84,7 +84,9 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   prateleira **para fora** é uma `NSDraggingSession` da view do Flutter —
   nenhum dos três tem equivalente em Flutter puro. A saída tem dois caminhos:
   as pastas favoritas (`⌘1..⌘9`, com desfazer, porque quem copia somos nós) e
-  o arraste para qualquer lugar (sem desfazer, porque quem copia é o destino).
+  o arraste para qualquer lugar (sem desfazer: copiando, quem copia é o
+  destino; movendo, o arraste é uma promessa de arquivo que nós cumprimos,
+  porque o destino lê o `⌥` sozinho e um `.move` declarado nascia proibido).
   O `NestDrop` recusa o arraste cuja origem é a própria prateleira — sem essa
   recusa o arquivo atravessaria o painel e cairia na janela atrás dele. A
   outra porta é **chacoalhar o arquivo** (`NestShakeMonitor`), e a regra dela
