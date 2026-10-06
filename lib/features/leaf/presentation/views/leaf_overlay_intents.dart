@@ -66,6 +66,11 @@ class LeafRemindIntent extends Intent {
   const LeafRemindIntent();
 }
 
+/// `⌘B`: põe o cartão selecionado sob o vidro fosco, ou o tira.
+class LeafToggleHiddenIntent extends Intent {
+  const LeafToggleHiddenIntent();
+}
+
 /// Enter no seletor: marca o horário que o campo entendeu.
 class LeafCommitReminderIntent extends Intent {
   const LeafCommitReminderIntent();
@@ -142,6 +147,9 @@ abstract final class LeafOverlayIntents {
     // `⌘Z`): as teclas soltas da parede são os números, e só eles.
     const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
         const LeafRemindIntent(),
+    // `B` de borrar. Não `⌘H`, que no macOS esconde o aplicativo inteiro.
+    const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
+        const LeafToggleHiddenIntent(),
     // **Sem modificadora**: a parede não tem campo de texto enquanto ninguém
     // está escrevendo, então o número está livre — e copiar é o que se vem
     // fazer aqui. Enquanto um cartão é escrito, este mapa inteiro sai de cena
@@ -184,6 +192,7 @@ abstract final class LeafOverlayIntents {
     required VoidCallback onRemind,
     required VoidCallback onCommitReminder,
     required VoidCallback onCancelReminder,
+    required VoidCallback onToggleHidden,
   }) {
     return <Type, Action<Intent>>{
       LeafNewNoteIntent: CallbackAction<LeafNewNoteIntent>(
@@ -231,6 +240,9 @@ abstract final class LeafOverlayIntents {
       ),
       LeafCancelReminderIntent: CallbackAction<LeafCancelReminderIntent>(
         onInvoke: (_) => onCancelReminder(),
+      ),
+      LeafToggleHiddenIntent: CallbackAction<LeafToggleHiddenIntent>(
+        onInvoke: (_) => onToggleHidden(),
       ),
     };
   }

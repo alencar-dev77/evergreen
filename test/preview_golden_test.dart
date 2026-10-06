@@ -323,8 +323,10 @@ void main() {
     LeafNote(
       id: 4,
       slot: 4,
-      content: 'renovar o domínio em novembro',
+      content: 'senha do wi-fi: verde-estufa-2026',
       createdAt: anchor.subtract(const Duration(minutes: 40)),
+      // O cartão sob o vidro fosco.
+      isHidden: true,
     ),
     LeafNote(
       id: 5,

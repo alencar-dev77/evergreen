@@ -30,6 +30,8 @@ class LeafGrid extends StatelessWidget {
     required this.onRemind,
     required this.onPickReminder,
     required this.onRemoveReminder,
+    required this.onToggleHidden,
+    this.peekSlot,
     this.now,
   });
 
@@ -52,6 +54,12 @@ class LeafGrid extends StatelessWidget {
 
   final ValueChanged<DateTime> onPickReminder;
   final VoidCallback onRemoveReminder;
+
+  /// O olho de uma vaga: põe o cartão sob o vidro, ou o tira.
+  final ValueChanged<int> onToggleHidden;
+
+  /// A vaga sendo espiada com o espaço apertado, se houver.
+  final int? peekSlot;
 
   final DateTime? now;
 
@@ -130,6 +138,8 @@ class LeafGrid extends StatelessWidget {
         onTap: () => onSelect(slot),
         onDelete: () => onDelete(slot),
         onRemind: () => onRemind(slot),
+        onToggleHidden: () => onToggleHidden(slot),
+        isPeeking: peekSlot == slot,
         now: now,
       );
     }

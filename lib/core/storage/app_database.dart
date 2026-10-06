@@ -198,6 +198,13 @@ class AppDatabase {
     'leaf-notes-remind-at': '''
     ALTER TABLE leaf_notes ADD COLUMN remind_at INTEGER;
     ''',
+    // O cartão que fica sob o vidro fosco — a senha do Wi-Fi no meio dos
+    // recados. É do cartão, e não do painel: o segredo raramente é a parede
+    // inteira, e esconder os nove tiraria da parede o "tudo à vista" que é a
+    // razão de ela existir.
+    'leaf-notes-hidden': '''
+    ALTER TABLE leaf_notes ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.
