@@ -189,6 +189,15 @@ class AppDatabase {
     CREATE INDEX IF NOT EXISTS idx_nest_transfers_recent
       ON nest_transfers (moved_at DESC);
     ''',
+    // Quando o cartão do Leaf pediu para ser lembrado.
+    //
+    // Nulo é "sem lembrete", que é o caso comum. Quem dispara é o macOS (a
+    // notificação é agendada no sistema), e a coluna é o que permite
+    // reagendar tudo numa abertura — depois de o Leaf ser religado, por
+    // exemplo — e mostrar a hora no cartão.
+    'leaf-notes-remind-at': '''
+    ALTER TABLE leaf_notes ADD COLUMN remind_at INTEGER;
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

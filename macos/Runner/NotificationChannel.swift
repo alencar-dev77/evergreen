@@ -39,6 +39,12 @@ final class NotificationChannel: NSObject, UNUserNotificationCenterDelegate {
       switch call.method {
       case "post":
         post(call.arguments as? [String: Any] ?? [:], result: result)
+      case "cancel":
+        let ids = call.arguments as? [String] ?? []
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+        center.removeDeliveredNotifications(withIdentifiers: ids)
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -112,9 +118,24 @@ final class NotificationChannel: NSObject, UNUserNotificationCenterDelegate {
       content.categoryIdentifier = categoryId
     }
 
+    // Com `at`, a notificação é **agendada no sistema** — o lembrete do Leaf.
+    // É o macOS quem dispara na hora, e não um `Timer` do Dart: o relógio do
+    // processo para quando o Mac dorme, e um lembrete das 15h que acordasse às
+    // 15h40 junto com a tampa não seria lembrete.
+    var trigger: UNNotificationTrigger?
+    if let at = args["at"] as? NSNumber {
+      let date = Date(timeIntervalSince1970: at.doubleValue / 1000)
+      let components = Calendar.current.dateComponents(
+        [.year, .month, .day, .hour, .minute, .second],
+        from: date
+      )
+      trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+    }
+
     // O identificador da notificação é o do assunto: um fim de sessão novo
-    // substitui o anterior em vez de empilhar avisos do mesmo cronômetro.
-    let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
+    // substitui o anterior em vez de empilhar avisos do mesmo cronômetro — e
+    // reagendar um lembrete troca o que estava marcado.
+    let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
     UNUserNotificationCenter.current().add(request) { error in
       DispatchQueue.main.async { result(error == nil) }
     }

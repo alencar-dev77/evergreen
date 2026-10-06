@@ -22,6 +22,7 @@ class FakeLeafRepository implements LeafRepository {
     required String content,
     required DateTime createdAt,
     DateTime? updatedAt,
+    DateTime? remindAt,
   }) {
     final note = LeafNote(
       id: _nextId++,
@@ -29,6 +30,7 @@ class FakeLeafRepository implements LeafRepository {
       content: content,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      remindAt: remindAt,
     );
 
     _notes.add(note);
@@ -41,6 +43,17 @@ class FakeLeafRepository implements LeafRepository {
     if (index < 0) return;
 
     _notes[index] = _notes[index].copyWith(content: content, updatedAt: at);
+  }
+
+  @override
+  void setReminder(int id, DateTime? at) {
+    final index = _notes.indexWhere((note) => note.id == id);
+    if (index < 0) return;
+
+    _notes[index] = _notes[index].copyWith(
+      remindAt: at,
+      clearReminder: at == null,
+    );
   }
 
   @override

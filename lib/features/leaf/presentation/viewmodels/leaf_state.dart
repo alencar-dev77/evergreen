@@ -8,6 +8,7 @@ class LeafState {
     this.selectedSlot,
     this.editingSlot,
     this.copiedSlot,
+    this.remindingSlot,
     this.undoableDeletes = const <LeafNote>[],
   });
 
@@ -27,6 +28,13 @@ class LeafState {
   /// dois seguidos —, e sem o painel sumindo não sobrava nenhum sinal de que a
   /// tecla funcionou. É o aviso no lugar do sumiço.
   final int? copiedSlot;
+
+  /// Vaga cujo cartão virou o seletor de lembrete.
+  ///
+  /// Como a edição, acontece **no lugar do cartão**: nada abre por cima da
+  /// parede e nada muda de tamanho. Uma vaga por vez, e nunca junto com a
+  /// edição — são dois usos diferentes do mesmo teclado.
+  final int? remindingSlot;
 
   /// Os cartões arrancados da parede, do mais antigo para o mais recente —
   /// `⌘Z` devolve sempre o último.
@@ -57,6 +65,8 @@ class LeafState {
   bool get isFull => notes.length >= LeafNote.maxNotes;
 
   bool get isEditing => editingSlot != null;
+
+  bool get isReminding => remindingSlot != null;
 
   /// A edição em curso é de uma anotação que ainda não existe no banco.
   bool get isDraft => editingSlot != null && noteAt(editingSlot!) == null;
@@ -112,10 +122,12 @@ class LeafState {
     int? selectedSlot,
     int? editingSlot,
     int? copiedSlot,
+    int? remindingSlot,
     List<LeafNote>? undoableDeletes,
     bool clearSelection = false,
     bool clearEditing = false,
     bool clearCopied = false,
+    bool clearReminding = false,
   }) {
     return LeafState(
       notes: notes ?? this.notes,
@@ -124,6 +136,9 @@ class LeafState {
       // O aviso morre no gesto seguinte: escrever, apagar ou reabrir o painel
       // apaga o "copiado" — ele conta o que **acabou** de acontecer.
       copiedSlot: clearCopied ? null : copiedSlot ?? this.copiedSlot,
+      remindingSlot: clearReminding
+          ? null
+          : remindingSlot ?? this.remindingSlot,
       undoableDeletes: undoableDeletes ?? this.undoableDeletes,
     );
   }

@@ -37,6 +37,9 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   final _editorController = TextEditingController();
   final _editorFocusNode = FocusNode(debugLabel: 'leaf-editor');
 
+  final _reminderController = TextEditingController();
+  final _reminderFocusNode = FocusNode(debugLabel: 'leaf-reminder');
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +53,8 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   @override
   void dispose() {
     _editorController.dispose();
+    _reminderController.dispose();
+    _reminderFocusNode.dispose();
     _editorFocusNode.removeListener(_onEditorFocusChanged);
     _editorFocusNode.dispose();
     _panelFocusNode.dispose();
@@ -77,7 +82,8 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   /// O foco volta ao painel a cada abertura — a menos que um cartão tenha
   /// ficado em edição, e nesse caso o cursor é dele.
   void _onShow() {
-    if (ref.read(leafViewModelProvider).isEditing) return;
+    final state = ref.read(leafViewModelProvider);
+    if (state.isEditing || state.isReminding) return;
     _panelFocusNode.requestFocus();
   }
 
@@ -145,17 +151,41 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
     });
   }
 
+  /// O mesmo acerto de foco da edição, para o seletor de lembrete: o campo
+  /// nasce vazio e com o cursor, e ao fechar o teclado volta à parede.
+  void _syncReminding(LeafState? previous, LeafState next) {
+    if (previous?.remindingSlot == next.remindingSlot) return;
+
+    _reminderController.clear();
+    if (next.remindingSlot == null) {
+      if (!next.isEditing) _panelFocusNode.requestFocus();
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reminderFocusNode.requestFocus();
+    });
+  }
+
+  void _commitReminder() =>
+      _viewModel.setReminderFromText(_reminderController.text);
+
+  Map<ShortcutActivator, Intent> _shortcutsFor(LeafState state) {
+    if (state.isEditing) return LeafOverlayIntents.editing;
+    if (state.isReminding) return LeafOverlayIntents.reminding;
+    return LeafOverlayIntents.browsing;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<LeafState>(leafViewModelProvider, _syncEditing);
+    ref.listen<LeafState>(leafViewModelProvider, _syncReminding);
     final state = ref.watch(leafViewModelProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Shortcuts(
-        shortcuts: state.isEditing
-            ? LeafOverlayIntents.editing
-            : LeafOverlayIntents.browsing,
+        shortcuts: _shortcutsFor(state),
         child: Actions(
           actions: LeafOverlayIntents.actions(
             onNewNote: _viewModel.startNote,
@@ -169,6 +199,9 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
             onCommitEdit: _commitPendingEdit,
             onCancelEdit: _viewModel.cancelEdit,
             onOpenSettings: _openSettings,
+            onRemind: _viewModel.remindSelected,
+            onCommitReminder: _commitReminder,
+            onCancelReminder: _viewModel.cancelReminder,
           ),
           // Para a parede, que muda de tamanho, a centralização da casca é
           // também o que a mantém no mesmo lugar da tela com uma ou com nove
@@ -217,8 +250,13 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
                   state: state,
                   editorController: _editorController,
                   editorFocusNode: _editorFocusNode,
+                  reminderController: _reminderController,
+                  reminderFocusNode: _reminderFocusNode,
                   onSelect: _viewModel.editSlot,
                   onDelete: _delete,
+                  onRemind: _viewModel.remindSlot,
+                  onPickReminder: _viewModel.setReminder,
+                  onRemoveReminder: _viewModel.removeReminder,
                 ),
               ),
             ),
@@ -279,6 +317,15 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
   }
 
   Widget _hintBar(LeafState state) {
+    if (state.isReminding) {
+      return const EgHintBar(
+        hints: [
+          EgHint(keys: ['enter'], label: 'marcar'),
+        ],
+        trailing: EgHint(keys: ['esc'], label: 'cancelar'),
+      );
+    }
+
     if (state.isEditing) {
       return const EgHintBar(
         hints: [
@@ -299,6 +346,10 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
         if (hasAny) const EgHint(keys: ['1–9'], label: 'copiar'),
         if (hasAny) const EgHint(keys: ['⌥1–9'], label: 'editar'),
         if (!hasAny) const EgHint(keys: ['enter'], label: 'anotar'),
+        // O lembrete cede a vez ao desfazer: a barra comporta quatro teclas,
+        // e o desfazer é a que só vale agora.
+        if (hasNote && !state.canUndoDelete)
+          const EgHint(keys: ['⌘L'], label: 'lembrete'),
         if (hasNote) const EgHint(keys: ['⌘⌫'], label: 'apagar'),
         // Só depois de apagar, e só enquanto o painel estiver aberto: a dica
         // aparece exatamente onde a dúvida nasce ("cadê o cartão que eu acabei
