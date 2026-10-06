@@ -47,25 +47,23 @@ class MeetingTurn {
   /// até o pedaço clicado, sem que a leitura mude uma letra.
   final List<TimedPiece> pieces;
 
-  /// O pedaço que está tocando em [positionMs], ou `null` entre as falas.
+  /// Quantos pedaços desta fala já foram ditos em [positionMs] — os que já
+  /// começaram.
   ///
-  /// O último que já começou, enquanto não passou muito do fim dele: entre
-  /// duas palavras a anterior continua acesa (o destaque piscando a cada
-  /// respiração cansaria), mas numa pausa longa ele se apaga.
-  int? activePieceAt(int positionMs) {
-    int? active;
+  /// A conta é cumulativa: tudo o que ficou para trás continua aceso, e não
+  /// só a palavra da vez. É o que mostra até onde a reunião já andou — e o
+  /// que faz o clique numa palavra lá na frente acender todas as anteriores,
+  /// porque o áudio saltou para depois delas.
+  int spokenCount(int positionMs) {
+    if (pieces.isEmpty || positionMs < pieces.first.startMs) return 0;
+    if (positionMs >= pieces.last.startMs) return pieces.length;
 
-    for (var index = 0; index < pieces.length; index++) {
-      if (pieces[index].startMs > positionMs) break;
-      active = index;
+    var count = 0;
+    while (count < pieces.length && pieces[count].startMs <= positionMs) {
+      count++;
     }
-
-    if (active == null) return null;
-    return positionMs <= pieces[active].endMs + _holdMs ? active : null;
+    return count;
   }
-
-  /// Quanto o destaque espera depois do fim de um pedaço antes de apagar.
-  static const _holdMs = 1200;
 
   /// Silêncio que encerra um turno mesmo sem trocar de pessoa.
   ///

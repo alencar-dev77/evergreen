@@ -7,9 +7,11 @@
 ## O que é
 
 Na leitura da reunião, um player preso no topo: voltar 10 s, tocar/pausar,
-avançar 10 s, o tempo e a barra. Enquanto o áudio toca, a palavra que está
-sendo dita acende na transcrição, e a leitura rola junto. Clicar numa palavra
-leva o áudio até ela. É o que o Notability fazia e o Echo não fazia.
+avançar 10 s, o tempo e a barra. Enquanto o áudio toca, tudo o que já foi
+dito fica aceso na transcrição — cumulativo, e não só a palavra da vez —, e a
+leitura rola junto. A fronteira entre o aceso e o apagado é onde a voz está.
+Clicar numa palavra leva o áudio até ela e acende todas as anteriores. É o que
+o Notability fazia e o Echo não fazia.
 
 Teclado: `espaço` toca e pausa, `←` `→` saltam 10 s — só com a leitura aberta
 e uma reunião com áudio. Ver `ux.md`.
