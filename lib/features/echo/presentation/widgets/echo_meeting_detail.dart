@@ -431,9 +431,9 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
                 : null,
             turn: turns[index],
             userName: widget.userName,
-            activePiece: index == active
-                ? turns[index].activePieceAt(position!)
-                : null,
+            spoken: position == null
+                ? 0
+                : turns[index].spokenCount(position),
             onSeek: isPlayable ? widget.onSeek : null,
           ),
           if (index != turns.length - 1) const SizedBox(height: AppSpacing.xl),
@@ -543,23 +543,25 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
 /// Sem balões de conversa: isso é vocabulário de aplicativo de mensagem, e o
 /// que está aqui é um documento para reler, não um bate-papo.
 ///
-/// Com áudio, o parágrafo é desenhado pedaço por pedaço: o que está tocando
-/// acende em verde (é algo ligado, que é o papel do verde no aplicativo), e
-/// clicar em qualquer pedaço leva o áudio até ele.
+/// Com áudio, o parágrafo é desenhado pedaço por pedaço: o que já foi dito
+/// fica em verde (é algo ligado, que é o papel do verde no aplicativo) e o
+/// resto no tom de leitura, então a fronteira entre os dois é onde a voz está.
+/// Clicar em qualquer pedaço leva o áudio até ele.
 class _TurnBlock extends StatefulWidget {
   const _TurnBlock({
     super.key,
     required this.turn,
     required this.userName,
-    this.activePiece,
+    this.spoken = 0,
     this.onSeek,
   });
 
   final MeetingTurn turn;
   final String userName;
 
-  /// O índice do pedaço que está tocando, se a voz está nesta fala.
-  final int? activePiece;
+  /// Quantos pedaços desta fala já foram ditos — de nenhum, numa fala que
+  /// ainda não chegou, a todos, numa que já passou.
+  final int spoken;
 
   /// `null` sem áudio: a fala fica como sempre foi, texto selecionável.
   final void Function(int positionMs)? onSeek;
@@ -654,7 +656,7 @@ class _TurnBlockState extends State<_TurnBlock> {
                     text: turn.pieces[index].text,
                     recognizer: _taps[index],
                     mouseCursor: SystemMouseCursors.click,
-                    style: index == widget.activePiece
+                    style: index < widget.spoken
                         ? TextStyle(color: context.eg.colors.accent)
                         : null,
                   ),

@@ -151,13 +151,20 @@ void main() {
       expect(turn.pieces.single.text, 'oi');
     });
 
-    test('o destaque acompanha a voz e se apaga numa pausa longa', () {
+    test('o que já foi dito fica aceso, cumulativo', () {
       final turn = MeetingTurn.from(const [withWords]).single;
 
-      expect(turn.activePieceAt(500), 1); // "fechar"
-      expect(turn.activePieceAt(920), 1); // entre palavras, a anterior fica
-      expect(turn.activePieceAt(1500), 3); // "escopo"
-      expect(turn.activePieceAt(9000), isNull);
+      expect(turn.spokenCount(0), 1); // "vamos" começou
+      expect(turn.spokenCount(500), 2); // até "fechar"
+      expect(turn.spokenCount(920), 2); // entre palavras, nada se apaga
+      expect(turn.spokenCount(1500), 4); // até "escopo"
+      expect(turn.spokenCount(9000), 4, reason: 'a fala que passou fica toda');
+    });
+
+    test('a fala que ainda não chegou fica apagada', () {
+      final turn = MeetingTurn.from(const [old]).single;
+
+      expect(turn.spokenCount(1000), 0);
     });
   });
 }

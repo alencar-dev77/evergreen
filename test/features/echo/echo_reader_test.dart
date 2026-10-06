@@ -323,14 +323,8 @@ void main() {
       expect(player.positionMs, 6300);
     });
 
-    testWidgets('a palavra que toca acende', (tester) async {
-      giveAudio();
-      await openTranscript(tester);
-
-      player.positionMs = 6500;
-      await tester.tap(find.byTooltip('Tocar (espaço)'));
-      await tester.pump(const Duration(milliseconds: 200));
-
+    /// O que está aceso na fala, pedaço por pedaço.
+    List<String> lit(WidgetTester tester) {
       final paragraph = tester.widget<RichText>(
         find.byWidgetPredicate(
           (widget) =>
@@ -339,13 +333,55 @@ void main() {
         ),
       );
       final spans = (paragraph.text as TextSpan).children!.first as TextSpan;
-      final lit = spans.children!.whereType<TextSpan>().where(
-        (span) => span.style?.color != null,
-      );
-      expect(lit.map((span) => span.text), [' escopo']);
+      return [
+        for (final span in spans.children!.whereType<TextSpan>())
+          if (span.style?.color != null) span.text!,
+      ];
+    }
+
+    testWidgets('tudo o que já foi dito fica aceso', (tester) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      player.positionMs = 6500;
+      await tester.tap(find.byTooltip('Tocar (espaço)'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(lit(tester), [
+        'Então,',
+        ' a',
+        ' ideia',
+        ' é',
+        ' fechar',
+        ' o',
+        ' escopo',
+      ]);
 
       await tester.tap(find.byTooltip('Pausar (espaço)'));
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('clicar lá na frente acende todas as anteriores', (
+      tester,
+    ) async {
+      giveAudio();
+      await openTranscript(tester);
+      expect(lit(tester), isEmpty);
+
+      await tester.tapOnText(
+        find.textRange.ofSubstring(
+          'hoj',
+          descendentOf: find.byWidgetPredicate(
+            (widget) =>
+                widget is RichText &&
+                widget.text.toPlainText().contains('escopo hoje'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(lit(tester), hasLength(8));
+      expect(lit(tester).last, ' hoje.');
     });
 
     testWidgets('espaço toca e pausa; as setas saltam 10 s', (tester) async {

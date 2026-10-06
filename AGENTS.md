@@ -83,7 +83,8 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   reunião por qualquer caminho não precisa lembrar do áudio. O player é
   `AVAudioPlayer` num canal próprio (`EchoPlayerChannel.swift`), um por engine:
   fechar o Hub para o áudio. A transcrição guarda o relógio de cada palavra
-  (`MeetingWord`), que é o que acende a palavra que toca. Ver
+  (`MeetingWord`): tudo o que já foi dito fica aceso, cumulativo, até a palavra
+  que toca. Ver
   [docs/Ideis projeto/echo-audio-da-reuniao.md](docs/Ideis%20projeto/echo-audio-da-reuniao.md).
 - **`QLThumbnailGenerator` + `NSOpenPanel` + destino de arraste** (nativo,
   canal `nest`) — o Nest. Quem recebe o arraste do Finder é o **delegate da
