@@ -85,15 +85,21 @@ nos testes é o relógio falso do binding do Flutter, avançado por
 
 ## 5. O histórico é da semana corrente
 
-O Focus guarda as sessões **da semana**, e a semana começa na segunda-feira à
-meia-noite. Tudo que é de antes disso é apagado — não escondido — na primeira
-leitura do histórico e na primeira sessão gravada depois da virada
-(`FocusSessionRepository.trimToCurrentWeek`).
+O Focus **mostra** as sessões da semana, e a semana começa na segunda-feira à
+meia-noite. O disco guarda um pouco mais: quatro semanas, contando a corrente
+(`FocusSessionRepository.keptWeeks`). O que passa disso é apagado — não
+escondido — na primeira leitura do histórico e na primeira sessão gravada depois
+da virada (`FocusSessionRepository.trimOldWeeks`).
 
 Por quê: o módulo responde "em que trabalhei nesta semana?". Um arquivo
 histórico permanente pediria busca, filtro por período e agregação por mês —
-exatamente o dashboard que este módulo recusa ser. E o que não é consultado não
-precisa ser guardado.
+exatamente o dashboard que este módulo recusa ser.
+
+Até a v0.23 o disco guardava só a semana corrente, porque o que não é
+consultado não precisa ser guardado. O Track mudou a premissa: ele lê esta
+tabela para reconstruir as semanas anteriores, e com o corte na segunda a
+semana passada aparecia lá com reuniões e zero foco. As três semanas a mais
+existem para ele; a tela do Focus continua sem saber delas.
 
 Consequência de coerência: o segundo número do resumo é **"Esta semana"**, e não
 uma janela deslizante de 7 dias — uma média móvel contaria tempo que já não está

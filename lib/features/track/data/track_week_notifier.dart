@@ -15,9 +15,9 @@ import 'track_week_chart.dart';
 /// o chama é uma verificação barata de tempos em tempos — a primeira que cair
 /// numa semana nova é a que avisa.
 ///
-/// **Cedo, e não às nove da manhã**: o histórico do Focus zera na primeira
-/// sessão da semana (`trimToCurrentWeek`), e um resumo montado depois disso
-/// diria que a semana passada não teve foco nenhum.
+/// O foco da semana passada continua no disco depois da virada (o Focus guarda
+/// `FocusSessionRepository.keptWeeks` semanas), então a hora do aviso não
+/// disputa corrida com a limpeza — a primeira verificação da semana basta.
 class TrackWeekNotifier {
   TrackWeekNotifier({
     required TrackRepository repository,
@@ -57,9 +57,10 @@ class TrackWeekNotifier {
     // avisar duas vezes.
     await _preferences.setString(_key, stamp);
 
-    // Primeira vez nesta instalação: a semana passada pode já ter perdido o
-    // foco para o `trimToCurrentWeek`, e um resumo pela metade é pior que
-    // nenhum. O primeiro aviso é o da próxima segunda.
+    // Primeira vez nesta instalação: o aviso de estreia não fala de uma semana
+    // em que o Evergreen talvez nem estivesse aberto — e quem atualizou de uma
+    // versão que guardava só a semana corrente já perdeu o foco dela. O
+    // primeiro aviso é o da próxima segunda.
     if (sent == null || !enabled) return;
 
     final lastWeek = DateTime(thisWeek.year, thisWeek.month, thisWeek.day - 7);

@@ -12,9 +12,9 @@ import '../../../../core/design/eg_tokens.dart';
 /// A faixa em si é a [EgDayBars] — o que este widget faz é a conta que só o
 /// Focus sabe fazer: somar as sessões dia a dia.
 ///
-/// A semana começa na segunda porque é onde o histórico do Focus vira
-/// (`trimToCurrentWeek`): uma faixa que mostrasse sete dias corridos exibiria
-/// tempo que a lista abaixo já não tem mais.
+/// A semana começa na segunda porque é onde a lista do Focus vira
+/// (`loadRecent`): uma faixa que mostrasse sete dias corridos exibiria tempo
+/// que a lista abaixo não mostra.
 class FocusWeekStrip extends StatelessWidget {
   const FocusWeekStrip({super.key, required this.sessions, this.now});
 

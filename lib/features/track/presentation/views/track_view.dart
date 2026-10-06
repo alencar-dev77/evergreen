@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
 import '../../../../core/design/app_metrics.dart';
+import '../../../../core/design/eg_tokens.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../../../shared/widgets/eg_empty_state.dart';
+import '../../../../shared/utils/day_label.dart';
+import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_card.dart';
@@ -52,45 +55,73 @@ class _TrackViewState extends ConsumerState<TrackView> {
     final now = ref.watch(clockProvider)();
 
     return EgSettingsPage(
-      banner: state.isEmpty
-          ? null
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // O recorte é da **tela**, não de um cartão: ele muda os três
-                // números, a faixa da semana e a lista de dias ao mesmo tempo.
-                // Morando no cartão, ele mudava de lugar duas vezes — trocava
-                // de cartão ao trocar de recorte (a faixa da semana não existe
-                // em "Hoje") e descia junto com a pilha ao abrir a região de
-                // leitura. Um controle que se procura na tela é um controle que
-                // não está fixo.
-                Row(
-                  children: [
-                    const Expanded(child: EgSectionLabel('Balanço')),
-                    EgSegmentedControl<TrackRange>(
-                      value: state.range,
-                      options: TrackRange.values,
-                      labelOf: (range) => range.label,
-                      onChanged: viewModel.setRange,
-                    ),
-                  ],
+      // O recorte é da **tela**, não de um cartão: ele muda os três números, a
+      // faixa da semana e a lista de dias ao mesmo tempo. Morando no cartão,
+      // ele mudava de lugar duas vezes — trocava de cartão ao trocar de recorte
+      // (a faixa da semana não existe em "Hoje") e descia junto com a pilha ao
+      // abrir a região de leitura. Um controle que se procura na tela é um
+      // controle que não está fixo.
+      //
+      // E ele fica na tela mesmo com o recorte vazio: segunda-feira às oito
+      // não tem nada nesta semana, e é justamente quando se quer voltar para a
+      // anterior. Escondê-lo junto com os números deixaria a pessoa presa num
+      // recorte vazio.
+      banner: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: EgSectionLabel('Balanço')),
+              if (state.range == TrackRange.week) ...[
+                _WeekStepper(
+                  label: state.weeksAgo == 0
+                      ? 'Esta semana'
+                      : DayLabel.week(state.weekStart(now)),
+                  onPrevious: state.canGoBack
+                      ? viewModel.showPreviousWeek
+                      : null,
+                  onNext: state.canGoForward ? viewModel.showNextWeek : null,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                _totals(state),
+                const SizedBox(width: AppSpacing.sm),
               ],
-            ),
+              EgSegmentedControl<TrackRange>(
+                value: state.range,
+                options: TrackRange.values,
+                labelOf: (range) => range.label,
+                onChanged: viewModel.setRange,
+              ),
+            ],
+          ),
+          if (!state.isEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _totals(state),
+          ],
+        ],
+      ),
       children: [
         if (state.isEmpty)
-          const EgSettingsCard(
-            title: 'Balanço',
+          // "Dias", e não "Balanço": o rótulo do balanço já está no topo, junto
+          // do recorte, e é a lista de dias que está vazia.
+          EgSettingsCard(
+            title: 'Dias',
             children: [
-              EgEmptyState(
-                icon: EgIconData.track,
-                title: 'Nada registrado ainda',
-                message:
-                    'O Track lê o que os outros módulos gravam. Foque uma '
-                    'sessão ou grave uma reunião.',
-              ),
+              state.isAtStart
+                  ? const EgEmptyState(
+                      icon: EgIconData.track,
+                      title: 'Nada registrado ainda',
+                      message:
+                          'O Track lê o que os outros módulos gravam. Foque '
+                          'uma sessão ou grave uma reunião.',
+                    )
+                  : EgEmptyState(
+                      icon: EgIconData.track,
+                      title: state.range == TrackRange.today
+                          ? 'Nada registrado hoje'
+                          : 'Nada registrado nesta semana',
+                      message:
+                          'Foco, reuniões, cópias e anotações do período '
+                          'aparecem aqui.',
+                    ),
             ],
           )
         else ...[
@@ -98,8 +129,14 @@ class _TrackViewState extends ConsumerState<TrackView> {
           // que não compara nada com nada.
           if (state.range == TrackRange.week)
             EgSettingsCard(
-              title: 'Últimos 7 dias',
-              children: [TrackWeekStrip(days: state.days, now: now)],
+              title: 'Por dia',
+              children: [
+                TrackWeekStrip(
+                  days: state.days,
+                  weekStart: state.weekStart(now),
+                  now: now,
+                ),
+              ],
             ),
           EgSettingsCard(
             title: 'Dias',
@@ -167,4 +204,53 @@ class _TrackViewState extends ConsumerState<TrackView> {
       ],
     );
   }
+}
+
+/// Anda de semana em semana dentro do recorte de semana.
+///
+/// Setas e o nome da semana, e não um calendário: o Track fecha semanas, não
+/// responde por datas soltas (ver `TrackRange`). Cada seta some do alcance —
+/// desabilitada, não escondida — na ponta dela: para a frente não há semana
+/// depois desta, e para trás o Focus já não guarda o foco.
+class _WeekStepper extends StatelessWidget {
+  const _WeekStepper({required this.label, this.onPrevious, this.onNext});
+
+  final String label;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        EgIconButton(
+          icon: EgIconData.chevronLeft,
+          tooltip: 'Semana anterior',
+          size: AppBadgeSizes.sm,
+          iconSize: AppIconSizes.sm,
+          onPressed: onPrevious,
+        ),
+        // Largura fixa: "Esta semana" e "29 set – 5 out" têm tamanhos
+        // diferentes, e as setas não podem fugir do cursor a cada clique.
+        SizedBox(
+          width: _labelWidth,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: context.eg.text.footnote,
+          ),
+        ),
+        EgIconButton(
+          icon: EgIconData.chevronRight,
+          tooltip: 'Próxima semana',
+          size: AppBadgeSizes.sm,
+          iconSize: AppIconSizes.sm,
+          onPressed: onNext,
+        ),
+      ],
+    );
+  }
+
+  static const _labelWidth = 104.0;
 }
