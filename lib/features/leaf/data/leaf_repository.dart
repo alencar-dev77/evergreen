@@ -19,7 +19,11 @@ abstract interface class LeafRepository {
     required String content,
     required DateTime createdAt,
     DateTime? updatedAt,
+    DateTime? remindAt,
   });
+
+  /// Marca (ou, com `null`, tira) o lembrete da anotação.
+  void setReminder(int id, DateTime? at);
 
   /// Reescreve o texto e marca a hora em que isso aconteceu.
   ///
@@ -48,7 +52,7 @@ class SqliteLeafRepository implements LeafRepository {
   @override
   List<LeafNote> loadAll() {
     final rows = _db.select('''
-      SELECT id, slot, content, created_at, updated_at
+      SELECT id, slot, content, created_at, updated_at, remind_at
         FROM leaf_notes
        ORDER BY slot ASC;
       ''');
@@ -62,17 +66,19 @@ class SqliteLeafRepository implements LeafRepository {
     required String content,
     required DateTime createdAt,
     DateTime? updatedAt,
+    DateTime? remindAt,
   }) {
     _db.execute(
       '''
-      INSERT INTO leaf_notes (slot, content, created_at, updated_at)
-      VALUES (?, ?, ?, ?);
+      INSERT INTO leaf_notes (slot, content, created_at, updated_at, remind_at)
+      VALUES (?, ?, ?, ?, ?);
       ''',
       [
         slot,
         content,
         createdAt.millisecondsSinceEpoch,
         updatedAt?.millisecondsSinceEpoch,
+        remindAt?.millisecondsSinceEpoch,
       ],
     );
 
@@ -82,7 +88,16 @@ class SqliteLeafRepository implements LeafRepository {
       content: content,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      remindAt: remindAt,
     );
+  }
+
+  @override
+  void setReminder(int id, DateTime? at) {
+    _db.execute('UPDATE leaf_notes SET remind_at = ? WHERE id = ?;', [
+      at?.millisecondsSinceEpoch,
+      id,
+    ]);
   }
 
   @override
@@ -134,6 +149,7 @@ class SqliteLeafRepository implements LeafRepository {
 
   LeafNote _fromRow(Row row) {
     final updatedAt = row['updated_at'] as int?;
+    final remindAt = row['remind_at'] as int?;
 
     return LeafNote(
       id: row['id'] as int,
@@ -143,6 +159,9 @@ class SqliteLeafRepository implements LeafRepository {
       updatedAt: updatedAt == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(updatedAt),
+      remindAt: remindAt == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(remindAt),
     );
   }
 }

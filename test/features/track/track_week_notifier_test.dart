@@ -1,4 +1,3 @@
-import 'package:evergreen/core/system/notification_service.dart';
 import 'package:evergreen/features/home/data/app_settings_repository.dart';
 import 'package:evergreen/features/track/data/track_week_notifier.dart';
 import 'package:evergreen/features/track/models/track_day.dart';
@@ -6,20 +5,8 @@ import 'package:evergreen/features/track/models/track_week_digest.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../shared/fake_notification_service.dart';
 import 'fake_track_repository.dart';
-
-class FakeNotificationService implements NotificationService {
-  final posted = <EgNotification>[];
-
-  @override
-  Future<bool> post(EgNotification notification) async {
-    posted.add(notification);
-    return true;
-  }
-
-  @override
-  Stream<EgNotificationResponse> get responses => const Stream.empty();
-}
 
 /// O resumo da semana: avisa uma vez por semana, sobre a semana que acabou, e
 /// só quando ela teve alguma coisa.

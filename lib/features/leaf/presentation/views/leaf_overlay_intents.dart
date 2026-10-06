@@ -61,6 +61,21 @@ class LeafCancelEditIntent extends Intent {
   const LeafCancelEditIntent();
 }
 
+/// `⌘L`: o cartão selecionado vira o seletor de lembrete.
+class LeafRemindIntent extends Intent {
+  const LeafRemindIntent();
+}
+
+/// Enter no seletor: marca o horário que o campo entendeu.
+class LeafCommitReminderIntent extends Intent {
+  const LeafCommitReminderIntent();
+}
+
+/// Esc no seletor: o cartão volta a ser cartão.
+class LeafCancelReminderIntent extends Intent {
+  const LeafCancelReminderIntent();
+}
+
 /// Abre as preferências (Hub) e fecha o painel.
 class LeafOpenSettingsIntent extends Intent {
   const LeafOpenSettingsIntent();
@@ -123,6 +138,10 @@ abstract final class LeafOverlayIntents {
         const LeafUndoDeleteIntent(),
     const SingleActivator(LogicalKeyboardKey.comma, meta: true):
         const LeafOpenSettingsIntent(),
+    // `L` de lembrete. Com `⌘`, como as outras ações sobre o cartão (`⌘⌫`,
+    // `⌘Z`): as teclas soltas da parede são os números, e só eles.
+    const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
+        const LeafRemindIntent(),
     // **Sem modificadora**: a parede não tem campo de texto enquanto ninguém
     // está escrevendo, então o número está livre — e copiar é o que se vem
     // fazer aqui. Enquanto um cartão é escrito, este mapa inteiro sai de cena
@@ -142,6 +161,14 @@ abstract final class LeafOverlayIntents {
     SingleActivator(LogicalKeyboardKey.escape): LeafCancelEditIntent(),
   };
 
+  /// Mapa enquanto um cartão é o seletor de lembrete — como o da edição, só
+  /// Enter e Esc: o resto do teclado é do campo.
+  static const reminding = <ShortcutActivator, Intent>{
+    SingleActivator(LogicalKeyboardKey.enter): LeafCommitReminderIntent(),
+    SingleActivator(LogicalKeyboardKey.numpadEnter): LeafCommitReminderIntent(),
+    SingleActivator(LogicalKeyboardKey.escape): LeafCancelReminderIntent(),
+  };
+
   static Map<Type, Action<Intent>> actions({
     required VoidCallback onNewNote,
     required VoidCallback onActivate,
@@ -154,6 +181,9 @@ abstract final class LeafOverlayIntents {
     required VoidCallback onCommitEdit,
     required VoidCallback onCancelEdit,
     required Future<void> Function() onOpenSettings,
+    required VoidCallback onRemind,
+    required VoidCallback onCommitReminder,
+    required VoidCallback onCancelReminder,
   }) {
     return <Type, Action<Intent>>{
       LeafNewNoteIntent: CallbackAction<LeafNewNoteIntent>(
@@ -192,6 +222,15 @@ abstract final class LeafOverlayIntents {
       ),
       LeafOpenSettingsIntent: CallbackAction<LeafOpenSettingsIntent>(
         onInvoke: (_) => onOpenSettings(),
+      ),
+      LeafRemindIntent: CallbackAction<LeafRemindIntent>(
+        onInvoke: (_) => onRemind(),
+      ),
+      LeafCommitReminderIntent: CallbackAction<LeafCommitReminderIntent>(
+        onInvoke: (_) => onCommitReminder(),
+      ),
+      LeafCancelReminderIntent: CallbackAction<LeafCancelReminderIntent>(
+        onInvoke: (_) => onCancelReminder(),
       ),
     };
   }

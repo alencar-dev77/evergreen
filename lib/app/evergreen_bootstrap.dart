@@ -27,6 +27,7 @@ import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import '../features/home/models/evergreen_module.dart';
 import '../features/home/models/module_settings.dart';
 import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
+import '../features/leaf/models/leaf_notifications.dart';
 import '../features/leaf/presentation/viewmodels/leaf_view_model.dart';
 import '../features/nest/presentation/viewmodels/nest_view_model.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
@@ -156,6 +157,12 @@ class EvergreenBootstrap {
   }
 
   Future<void> _handleNotification(EgNotificationResponse response) async {
+    final leafNote = LeafNotifications.noteIdOf(response.id);
+    if (leafNote != null) {
+      await _handleLeafReminder(leafNote, action: response.action);
+      return;
+    }
+
     final focus = _container.read(focusTimerViewModelProvider.notifier);
     final focusState = _container.read(focusTimerViewModelProvider);
     final awake = _container.read(awakeViewModelProvider.notifier);
@@ -314,8 +321,11 @@ class EvergreenBootstrap {
         _container.read(pinOverlayViewModelProvider.notifier).startWatching();
       case EvergreenModule.nest:
         await _applyNestSettings();
-      case EvergreenModule.focus:
       case EvergreenModule.leaf:
+        // Os lembretes da parede voltam ao sistema — inclusive os que o
+        // desligar tirou de lá.
+        _container.read(leafViewModelProvider.notifier).scheduleReminders();
+      case EvergreenModule.focus:
       case EvergreenModule.awake:
       case EvergreenModule.echo:
       case EvergreenModule.track:
@@ -344,6 +354,9 @@ class EvergreenBootstrap {
             .read(echoRecorderViewModelProvider.notifier)
             .stopAndTranscribe();
       case EvergreenModule.leaf:
+        // Desligado, o Leaf não lembra de nada. Os horários ficam guardados
+        // nos cartões e voltam com ele.
+        _container.read(leafViewModelProvider.notifier).unscheduleReminders();
       case EvergreenModule.track:
         break;
     }
@@ -416,6 +429,22 @@ class EvergreenBootstrap {
         );
       }
     }, fireImmediately: true);
+  }
+
+  /// O lembrete de um cartão: adiar, ou abrir a parede com ele escolhido.
+  ///
+  /// A seleção vem **depois** de o painel abrir: abrir relê a parede e põe a
+  /// seleção no primeiro cartão, e o cartão lembrado tem de ser o da vez.
+  Future<void> _handleLeafReminder(int noteId, {String? action}) async {
+    final leaf = _container.read(leafViewModelProvider.notifier);
+
+    if (action == LeafNotifications.snooze) {
+      leaf.snooze(noteId);
+      return;
+    }
+
+    await showOverlay(OverlayPanel.leaf);
+    leaf.selectNote(noteId);
   }
 
   /// Avisa o fim da fase — pela notificação, a menos que o painel do Focus já

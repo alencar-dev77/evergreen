@@ -67,6 +67,13 @@ abstract interface class NotificationService {
   /// `false` quando não foi mostrada — permissão negada, ou sem lado nativo.
   Future<bool> post(EgNotification notification);
 
+  /// Agenda [notification] no sistema para [at]. Mesmo id substitui o que
+  /// estava agendado — é assim que um lembrete muda de hora.
+  Future<bool> schedule(EgNotification notification, DateTime at);
+
+  /// Tira do sistema o que estava agendado ou já entregue com estes ids.
+  Future<void> cancel(List<String> ids);
+
   Stream<EgNotificationResponse> get responses;
 }
 
@@ -85,7 +92,28 @@ class ChannelNotificationService implements NotificationService {
   Stream<EgNotificationResponse> get responses => _responses.stream;
 
   @override
-  Future<bool> post(EgNotification notification) async {
+  Future<bool> post(EgNotification notification) => _post(notification);
+
+  @override
+  Future<bool> schedule(EgNotification notification, DateTime at) =>
+      _post(notification, at: at);
+
+  @override
+  Future<void> cancel(List<String> ids) async {
+    if (ids.isEmpty) return;
+
+    try {
+      await _channel.invokeMethod<void>('cancel', ids);
+    } on MissingPluginException {
+      // Sem lado nativo (teste, ou o Hub): não há o que cancelar.
+    } on PlatformException {
+      // O sistema recusou: o pior caso é um lembrete que já não vale tocar, e
+      // quem o recebe cai num cartão que não existe mais — o clique não faz
+      // nada.
+    }
+  }
+
+  Future<bool> _post(EgNotification notification, {DateTime? at}) async {
     try {
       final shown = await _channel.invokeMethod<bool>('post', {
         'id': notification.id,
@@ -95,6 +123,7 @@ class ChannelNotificationService implements NotificationService {
         'body': notification.body,
         'sound': notification.sound,
         'image': ?notification.imagePath,
+        'at': ?at?.millisecondsSinceEpoch,
         'actions': [
           for (final action in notification.actions)
             {'id': action.id, 'title': action.title},

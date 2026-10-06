@@ -65,6 +65,9 @@ enum EgIconData {
   /// Lixeira — ação destrutiva.
   trash,
 
+  /// Sino — lembrete marcado (o cartão do Leaf).
+  bell,
+
   /// Prancheta — identifica o módulo Pin.
   clipboard,
 
@@ -226,6 +229,7 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.close => _closePath(),
     EgIconData.gear => _gearPath(),
     EgIconData.trash => _trashPath(),
+    EgIconData.bell => _bellPath(),
     EgIconData.clipboard => _clipboardPath(),
     EgIconData.timer => _timerPath(),
     EgIconData.sun => _sunPath(),
@@ -426,6 +430,19 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(5.4, 13)
     ..lineTo(10.6, 13)
     ..lineTo(11.2, 4.5);
+
+  /// Sino de traço: a cúpula descendo em curva até a aba, e o badalo como um
+  /// arco curto embaixo. Sem o pino em cima — em 12px ele vira um ponto solto.
+  Path _bellPath() => Path()
+    ..moveTo(3.2, 11.5)
+    ..lineTo(12.8, 11.5)
+    ..moveTo(4.4, 11.5)
+    ..lineTo(4.4, 7.4)
+    ..cubicTo(4.4, 5.2, 6, 3.2, 8, 3.2)
+    ..cubicTo(10, 3.2, 11.6, 5.2, 11.6, 7.4)
+    ..lineTo(11.6, 11.5)
+    ..moveTo(6.6, 13.3)
+    ..quadraticBezierTo(8, 14.6, 9.4, 13.3);
 
   Path _clipboardPath() => Path()
     ..addRRect(

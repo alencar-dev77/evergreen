@@ -50,6 +50,7 @@ import 'features/awake/fake_sleep_assertion_service.dart';
 import 'features/echo/fake_echo_channel.dart';
 import 'features/focus/fake_focus_session_repository.dart';
 import 'features/leaf/fake_leaf_repository.dart';
+import 'shared/fake_notification_service.dart';
 import 'features/nest/fake_nest_channel.dart';
 import 'features/pin/fake_clipboard_repository.dart';
 import 'golden_fonts.dart';
@@ -315,6 +316,9 @@ void main() {
       slot: 3,
       content: 'perguntar do deploy de quinta',
       createdAt: anchor.subtract(const Duration(hours: 2)),
+      // Um cartão com lembrete marcado: o sino e a hora no pé. Hora fixa
+      // amanhã, para a imagem não mudar com o relógio de quem roda o teste.
+      remindAt: DateTime(anchor.year, anchor.month, anchor.day + 1, 15, 30),
     ),
     LeafNote(
       id: 4,
@@ -366,6 +370,9 @@ void main() {
             FakeAwakeSessionRepository(),
           ),
           leafRepositoryProvider.overrideWithValue(notes),
+          notificationServiceProvider.overrideWithValue(
+            FakeNotificationService(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
           echoRepositoryProvider.overrideWithValue(
             SqliteEchoRepository(echoDb),
@@ -574,6 +581,24 @@ void main() {
     await expectLater(
       find.byType(LeafOverlayView),
       matchesGoldenFile('goldens/leaf_overlay_editing.png'),
+    );
+  });
+
+  testWidgets('painel do Leaf — lembrete', (tester) async {
+    await pump(tester, const LeafOverlayView(), const Size(1800, 1600));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LeafOverlayView)),
+    );
+    container.read(leafViewModelProvider.notifier).remindSlot(3);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'sexta 14h');
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(LeafOverlayView),
+      matchesGoldenFile('goldens/leaf_overlay_reminder.png'),
     );
   });
 
