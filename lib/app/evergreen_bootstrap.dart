@@ -9,15 +9,19 @@ import '../core/system/global_shortcut_service.dart';
 import '../core/system/global_shortcut_slot.dart';
 import '../core/system/menu_bar_service.dart';
 import '../core/system/module_settings_host.dart';
+import '../core/system/notification_service.dart';
 import '../core/system/startup_service.dart';
+import '../core/window/hub_destination.dart';
 import '../core/window/hub_window.dart';
 import '../core/window/overlay_panel.dart';
 import '../core/window/overlay_window.dart';
+import '../features/awake/models/awake_notifications.dart';
 import '../features/awake/presentation/viewmodels/awake_state.dart';
 import '../features/awake/presentation/viewmodels/awake_view_model.dart';
 import '../features/echo/data/echo_summary_runner.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
+import '../features/focus/models/focus_notifications.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_state.dart';
 import '../features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import '../features/home/models/evergreen_module.dart';
@@ -26,6 +30,7 @@ import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
 import '../features/leaf/presentation/viewmodels/leaf_view_model.dart';
 import '../features/nest/presentation/viewmodels/nest_view_model.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
+import '../features/track/models/track_week_digest.dart';
 import 'providers.dart';
 
 /// Liga os serviços que rodam enquanto o Evergreen estiver aberto.
@@ -51,6 +56,12 @@ class EvergreenBootstrap {
   /// Assinatura do chacoalhar. Ver [_watchNestShake].
   StreamSubscription<void>? _nestShakes;
 
+  /// Assinatura dos cliques nas notificações. Ver [_watchNotifications].
+  StreamSubscription<EgNotificationResponse>? _notificationResponses;
+
+  /// Relógio do resumo da semana. Ver [_scheduleWeekDigest].
+  Timer? _weekTimer;
+
   /// As preferências de módulo em vigor.
   ///
   /// Guardadas aqui porque três caminhos precisam consultá-las fora da hora em
@@ -71,6 +82,11 @@ class EvergreenBootstrap {
     unawaited(
       EchoSummaryHost.register(_container.read(echoSummaryRunnerProvider)),
     );
+
+    _watchNotifications();
+    // Antes de recuperar a sessão interrompida: recuperá-la pode zerar a
+    // semana passada do Focus, e o resumo dela precisa ser lido antes.
+    await _checkWeekDigest();
 
     // Antes de qualquer coisa que possa iniciar uma sessão nova: se o
     // Evergreen morreu no meio de uma, o tempo focado até ali entra no
@@ -97,7 +113,75 @@ class EvergreenBootstrap {
     _watchAwake();
     _watchEcho();
     _scheduleBackups();
+    _scheduleWeekDigest();
     await _openHubIfRequested();
+  }
+
+  /// Verifica a virada da semana de dez em dez minutos.
+  ///
+  /// Curto de propósito, ao contrário do backup: o resumo precisa ser lido
+  /// antes de a primeira sessão de foco da semana nova terminar, porque é ela
+  /// que apaga a semana passada do histórico do Focus.
+  void _scheduleWeekDigest() {
+    _weekTimer = Timer.periodic(
+      const Duration(minutes: 10),
+      (_) => unawaited(_checkWeekDigest()),
+    );
+  }
+
+  Future<void> _checkWeekDigest() async {
+    try {
+      // O repositório, e não [_modules]: a primeira verificação acontece antes
+      // de as preferências de módulo serem aplicadas.
+      final modules = _container.read(moduleSettingsRepositoryProvider).load();
+      await _container
+          .read(trackWeekNotifierProvider)
+          .check(enabled: modules.isEnabled(EvergreenModule.track));
+    } catch (_) {
+      // Banco travado, imagem que não desenhou: o resumo é enfeite, e nada
+      // disso pode derrubar a abertura do aplicativo.
+    }
+  }
+
+  /// O que cada clique numa notificação faz.
+  ///
+  /// Os botões conferem o estado antes de agir: a notificação fica no Centro
+  /// de Notificações por horas, e "Começar pausa" clicado depois de a pessoa
+  /// já ter começado outra sessão não pode atropelar a que está correndo.
+  void _watchNotifications() {
+    _notificationResponses = _container
+        .read(notificationServiceProvider)
+        .responses
+        .listen((response) => unawaited(_handleNotification(response)));
+  }
+
+  Future<void> _handleNotification(EgNotificationResponse response) async {
+    final focus = _container.read(focusTimerViewModelProvider.notifier);
+    final focusState = _container.read(focusTimerViewModelProvider);
+    final awake = _container.read(awakeViewModelProvider.notifier);
+
+    switch ((response.id, response.action)) {
+      case (FocusNotifications.id, FocusNotifications.startRest):
+        if (focusState.isFinished && focusState.phase.isFocus) {
+          focus.startRest();
+        }
+      case (FocusNotifications.id, FocusNotifications.startFocus):
+        if (focusState.isFinished && !focusState.phase.isFocus) {
+          focus.start(activity: focusState.activity);
+        }
+      case (FocusNotifications.id, null):
+        await showOverlay(OverlayPanel.focus);
+      case (AwakeNotifications.id, AwakeNotifications.again):
+        if (_modules.isEnabled(EvergreenModule.awake) &&
+            !_container.read(awakeViewModelProvider).isOn) {
+          await awake.turnOn();
+        }
+      case (AwakeNotifications.id, null):
+        await showOverlay(OverlayPanel.awake);
+      case (TrackWeekDigest.id, null || TrackWeekDigest.openTrack):
+        await HubDestination.request(EvergreenModule.track.id);
+        await HubWindow.instance.open();
+    }
   }
 
   /// Liga o backup semanal.
@@ -313,13 +397,52 @@ class EvergreenBootstrap {
         unawaited(MenuBarService.instance.setSessionLabel(next.menuBarLabel));
       }
 
+      // Fim pelo prazo, e não pelo botão: só o prazo vencido chega a
+      // `finished` com o relógio zerado.
+      final timedOut =
+          previous != null &&
+          previous.isActive &&
+          next.isFinished &&
+          next.remaining == Duration.zero;
+
       // O contador de alertas só sobe quando uma fase termina sozinha e o
       // aviso na tela está ligado — comparar com o anterior evita reabrir o
       // painel a cada tique.
-      if (next.alerts > (previous?.alerts ?? 0)) {
-        unawaited(showOverlay(OverlayPanel.focus));
+      final bringForward = next.alerts > (previous?.alerts ?? 0);
+
+      if (timedOut || bringForward) {
+        unawaited(
+          _onFocusFinished(next, notify: timedOut, bringForward: bringForward),
+        );
       }
     }, fireImmediately: true);
+  }
+
+  /// Avisa o fim da fase — pela notificação, a menos que o painel do Focus já
+  /// esteja na frente de quem o usa, e trazendo o painel quando a preferência
+  /// pede.
+  ///
+  /// A visibilidade é lida **antes** de o painel ser trazido: depois, ele
+  /// estaria sempre à vista e a notificação nunca sairia.
+  Future<void> _onFocusFinished(
+    FocusTimerState state, {
+    required bool notify,
+    required bool bringForward,
+  }) async {
+    if (notify && !await _isOnScreen(OverlayPanel.focus)) {
+      await _container
+          .read(notificationServiceProvider)
+          .post(
+            FocusNotifications.finished(
+              phase: state.phase,
+              focused: state.focused,
+              activity: state.activity,
+              settings: state.settings,
+            ),
+          );
+    }
+
+    if (bringForward) await showOverlay(OverlayPanel.focus);
   }
 
   /// Mantém a barra de menus em dia com a trava do Awake.
@@ -329,6 +452,19 @@ class EvergreenBootstrap {
   /// outra coisa que observa esta ViewModel.
   void _watchAwake() {
     _container.listen<AwakeState>(awakeViewModelProvider, (previous, next) {
+      if (next.expirations > (previous?.expirations ?? 0)) {
+        unawaited(
+          _container
+              .read(notificationServiceProvider)
+              .post(
+                AwakeNotifications.expired(
+                  duration: next.duration,
+                  mode: next.mode,
+                ),
+              ),
+        );
+      }
+
       if (previous?.menuBarDetail == next.menuBarDetail) return;
 
       unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
@@ -362,9 +498,11 @@ class EvergreenBootstrap {
     await showOverlay(OverlayPanel.nest);
   }
 
-  Future<bool> _isNestOnScreen() async =>
+  Future<bool> _isNestOnScreen() => _isOnScreen(OverlayPanel.nest);
+
+  Future<bool> _isOnScreen(OverlayPanel panel) async =>
       await OverlayWindow.instance.isVisible() &&
-      _container.read(overlayPanelProvider) == OverlayPanel.nest;
+      _container.read(overlayPanelProvider) == panel;
 
   /// O módulo dono deste painel está ligado?
   ///
@@ -548,7 +686,9 @@ class EvergreenBootstrap {
 
   Future<void> _quit() async {
     _backupTimer?.cancel();
+    _weekTimer?.cancel();
     _suspensionGuard?.cancel();
+    await _notificationResponses?.cancel();
     await _nestDrops?.cancel();
     await _nestShakes?.cancel();
     // A trava seria solta pelo sistema de qualquer forma quando o processo

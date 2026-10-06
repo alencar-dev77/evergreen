@@ -78,6 +78,22 @@ void main() {
     expect(stateOf(container).remaining, isNull);
   });
 
+  testWidgets('só o prazo vencido conta como expiração', (tester) async {
+    final container = containerFor(tester);
+
+    await viewModelOf(container).selectDuration(AwakeDuration.minutes30);
+    await viewModelOf(container).turnOn();
+    await viewModelOf(container).turnOff();
+
+    // Desligar pelo painel não é o prazo vencendo: nada a notificar.
+    expect(stateOf(container).expirations, 0);
+
+    await viewModelOf(container).turnOn();
+    await tester.pump(const Duration(minutes: 30));
+
+    expect(stateOf(container).expirations, 1);
+  });
+
   testWidgets('sem limite não tem contagem nem fim', (tester) async {
     final container = containerFor(tester);
 

@@ -137,6 +137,12 @@ class AwakeViewModel extends Notifier<AwakeState> {
     );
   }
 
+  /// O prazo venceu: solta a trava e conta a vez, para a notificação.
+  Future<void> _expire() async {
+    await turnOff();
+    state = state.copyWith(expirations: state.expirations + 1);
+  }
+
   Future<void> _startDeadline() async {
     _stopTicker();
 
@@ -163,7 +169,7 @@ class AwakeViewModel extends Notifier<AwakeState> {
 
     final remaining = endsAt.difference(_now());
     if (remaining <= Duration.zero) {
-      unawaited(turnOff());
+      unawaited(_expire());
       return;
     }
 
