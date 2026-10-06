@@ -11,6 +11,7 @@ class AwakeState {
     required this.mode,
     this.isOn = false,
     this.remaining,
+    this.expirations = 0,
   });
 
   /// Estado de partida, com a duração e o modo que as preferências escolheram.
@@ -38,6 +39,11 @@ class AwakeState {
 
   /// Quanto falta para desligar sozinho. `null` sem prazo ou desligado.
   final Duration? remaining;
+
+  /// Quantas vezes o prazo venceu sozinho — o mesmo arranjo do `alerts` do
+  /// Focus: quem observa compara com o anterior e avisa só na subida, e é isso
+  /// que separa o prazo vencido do desligar pelo painel.
+  final int expirations;
 
   bool get hasDeadline => isOn && remaining != null;
 
@@ -99,6 +105,7 @@ class AwakeState {
     bool? isOn,
     Duration? remaining,
     bool clearRemaining = false,
+    int? expirations,
   }) {
     return AwakeState(
       settings: settings ?? this.settings,
@@ -106,6 +113,7 @@ class AwakeState {
       mode: mode ?? this.mode,
       isOn: isOn ?? this.isOn,
       remaining: clearRemaining ? null : remaining ?? this.remaining,
+      expirations: expirations ?? this.expirations,
     );
   }
 }
