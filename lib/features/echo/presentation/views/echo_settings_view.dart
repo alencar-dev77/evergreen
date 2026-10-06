@@ -239,8 +239,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               EgSettingsRow.field(
                 label: 'Palavras que costumam aparecer',
                 description:
-                    'Nomes, produtos, jargão — um por linha. É o que o '
-                    'reconhecimento mais erra.',
+                    'Nomes, produtos, jargão, separados por vírgula. É o '
+                    'que o reconhecimento mais erra.',
                 field: EgTextField(
                   controller: _vocabulary,
                   focusNode: _vocabularyFocus,
