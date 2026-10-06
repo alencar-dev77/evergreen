@@ -22,6 +22,7 @@ import '../echo/fake_echo_channel.dart';
 import '../focus/fake_focus_session_repository.dart';
 import '../pin/fake_clipboard_repository.dart';
 import '../echo/fake_export_service.dart';
+import '../echo/fake_echo_audio.dart';
 
 /// A tela do Track dentro do Hub.
 ///
@@ -104,6 +105,8 @@ void main() {
           focusSessionRepositoryProvider.overrideWithValue(
             FakeFocusSessionRepository(),
           ),
+          echoAudioStoreProvider.overrideWithValue(FakeEchoAudioStore()),
+          echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel),
           exportServiceProvider.overrideWithValue(FakeExportService()),
@@ -266,5 +269,61 @@ void main() {
 
     expect(find.text('Nada registrado ainda'), findsOneWidget);
     expect(find.byType(TrackDayList), findsNothing);
+  });
+
+  testWidgets('as setas andam de semana em semana', (tester) async {
+    insertFocus(at(0, 9, 0), const Duration(minutes: 25), 'Desta semana');
+    // Terça da semana passada.
+    insertFocus(at(8, 10, 0), const Duration(minutes: 40), 'Da passada');
+
+    await pumpTrack(tester);
+    expect(find.text('Esta semana'), findsOneWidget);
+    expect(inDayList('Hoje'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Semana anterior'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('10 ago – 16 ago'), findsOneWidget);
+    expect(inDayList('Hoje'), findsNothing);
+    expect(inDayList('11 ago'), findsOneWidget);
+    expect(find.byType(TrackWeekStrip), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Próxima semana'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Esta semana'), findsOneWidget);
+    expect(inDayList('Hoje'), findsOneWidget);
+  });
+
+  testWidgets('segunda de manhã, a semana vazia ainda deixa voltar', (
+    tester,
+  ) async {
+    // Só a semana passada tem registro — a segunda-feira em que se abre o
+    // Track para fechar a semana anterior.
+    insertFocus(at(8, 10, 0), const Duration(minutes: 40), 'Da passada');
+
+    await pumpTrack(tester);
+
+    // O recorte vazio não leva o controle junto.
+    expect(find.byTooltip('Semana anterior'), findsOneWidget);
+    expect(find.text('Hoje'), findsWidgets);
+
+    await tester.tap(find.byTooltip('Semana anterior'));
+    await tester.pumpAndSettle();
+
+    expect(inDayList('11 ago'), findsOneWidget);
+  });
+
+  testWidgets('a semana passada vazia diz que está vazia, não que é estreia', (
+    tester,
+  ) async {
+    insertFocus(at(0, 9, 0), const Duration(minutes: 25));
+
+    await pumpTrack(tester);
+    await tester.tap(find.byTooltip('Semana anterior'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nada registrado nesta semana'), findsOneWidget);
+    expect(find.text('Nada registrado ainda'), findsNothing);
   });
 }

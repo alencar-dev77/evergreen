@@ -107,4 +107,64 @@ void main() {
     });
   });
 
+  group('pedaços com relógio', () {
+    const withWords = MeetingSegment(
+      speaker: Speaker.others,
+      startMs: 0,
+      endMs: 2000,
+      text: ' vamos fechar o escopo',
+      words: [
+        MeetingWord(startMs: 0, endMs: 400, text: ' vamos'),
+        MeetingWord(startMs: 450, endMs: 900, text: ' fechar'),
+        MeetingWord(startMs: 950, endMs: 1100, text: ' o'),
+        MeetingWord(startMs: 1150, endMs: 2000, text: ' escopo'),
+      ],
+    );
+
+    const old = MeetingSegment(
+      speaker: Speaker.others,
+      startMs: 2100,
+      endMs: 3000,
+      text: ' hoje.',
+    );
+
+    test('os pedaços somam exatamente o texto da fala', () {
+      final turn = MeetingTurn.from(const [withWords, old]).single;
+
+      expect(turn.pieces.map((piece) => piece.text).join(), turn.text);
+      expect(turn.text, 'vamos fechar o escopo hoje.');
+      // Palavra por palavra onde há palavras; o trecho antigo, inteiro.
+      expect(turn.pieces, hasLength(5));
+      expect(turn.endMs, 3000);
+    });
+
+    test('palavras que não batem com o trecho caem para o trecho inteiro', () {
+      const mismatch = MeetingSegment(
+        speaker: Speaker.me,
+        startMs: 0,
+        endMs: 1000,
+        text: 'oi',
+        words: [MeetingWord(startMs: 0, endMs: 500, text: 'olá')],
+      );
+
+      final turn = MeetingTurn.from(const [mismatch]).single;
+      expect(turn.pieces.single.text, 'oi');
+    });
+
+    test('o que já foi dito fica aceso, cumulativo', () {
+      final turn = MeetingTurn.from(const [withWords]).single;
+
+      expect(turn.spokenCount(0), 1); // "vamos" começou
+      expect(turn.spokenCount(500), 2); // até "fechar"
+      expect(turn.spokenCount(920), 2); // entre palavras, nada se apaga
+      expect(turn.spokenCount(1500), 4); // até "escopo"
+      expect(turn.spokenCount(9000), 4, reason: 'a fala que passou fica toda');
+    });
+
+    test('a fala que ainda não chegou fica apagada', () {
+      final turn = MeetingTurn.from(const [old]).single;
+
+      expect(turn.spokenCount(1000), 0);
+    });
+  });
 }

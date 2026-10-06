@@ -96,11 +96,12 @@ class FocusHistoryViewModel extends Notifier<FocusHistoryState> {
     state = _read();
   }
 
-  /// Toda leitura começa apagando o que é de semanas anteriores — é aqui que a
-  /// virada de segunda-feira acontece, sem tarefa agendada nem serviço extra.
+  /// Toda leitura começa apagando o que passou das semanas guardadas — é aqui
+  /// que a virada acontece, sem tarefa agendada nem serviço extra. A lista e os
+  /// totais continuam sendo só da semana corrente.
   FocusHistoryState _read({int? selectedId}) {
     final now = _now();
-    _repository.trimToCurrentWeek(now: now);
+    _repository.trimOldWeeks(now: now);
 
     return FocusHistoryState(
       sessions: _repository.loadRecent(limit: _limit, now: now),

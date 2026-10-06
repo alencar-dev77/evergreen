@@ -15,6 +15,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'fake_echo_channel.dart';
 import 'fake_export_service.dart';
+import 'fake_echo_audio.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -42,6 +43,8 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
+          echoAudioStoreProvider.overrideWithValue(FakeEchoAudioStore()),
+          echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel ?? FakeEchoChannel()),
           exportServiceProvider.overrideWithValue(FakeExportService()),

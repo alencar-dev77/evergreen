@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/system/notification_service.dart';
 import '../../data/leaf_repository.dart';
 import '../../models/leaf_note.dart';
+import '../../models/leaf_notifications.dart';
+import '../../models/leaf_reminder.dart';
 import 'leaf_state.dart';
 
 final leafViewModelProvider = NotifierProvider<LeafViewModel, LeafState>(
@@ -24,8 +29,35 @@ class LeafViewModel extends Notifier<LeafState> {
     _repository = ref.watch(leafRepositoryProvider);
     _now = ref.watch(clockProvider);
 
-    final notes = _repository.loadAll();
+    final notes = _loadNotes();
     return LeafState(notes: notes, selectedSlot: _firstSlotOf(notes));
+  }
+
+  /// Lido na hora, e não no `build`: o Leaf só fala com o centro de
+  /// notificações quando alguém marca um lembrete.
+  NotificationService get _notifications =>
+      ref.read(notificationServiceProvider);
+
+  /// A parede como está no banco, sem os lembretes que já tocaram.
+  ///
+  /// Um lembrete que passou cumpriu o papel dele: deixá-lo no cartão faria o
+  /// rodapé mostrar uma hora que já foi, e a pessoa se perguntar se ele ainda
+  /// vai tocar.
+  List<LeafNote> _loadNotes() {
+    final now = _now();
+
+    return [
+      for (final note in _repository.loadAll())
+        if (note.remindAt != null && note.reminderAfter(now) == null)
+          _withoutReminder(note)
+        else
+          note,
+    ];
+  }
+
+  LeafNote _withoutReminder(LeafNote note) {
+    _repository.setReminder(note.id, null);
+    return note.copyWith(clearReminder: true);
   }
 
   /// Relê a parede antes de o painel aparecer.
@@ -40,7 +72,7 @@ class LeafViewModel extends Notifier<LeafState> {
   /// reabertura transformava o `⌘Z` numa promessa que quase nunca dava tempo de
   /// cobrar. Ver [LeafState.undoableDeletes].
   Future<void> prepareForOpen() async {
-    final notes = _repository.loadAll();
+    final notes = _loadNotes();
 
     state = LeafState(
       notes: notes,
@@ -57,7 +89,11 @@ class LeafViewModel extends Notifier<LeafState> {
     final slot = state.firstFreeSlot;
     if (slot == null) return;
 
-    state = state.copyWith(selectedSlot: slot, editingSlot: slot);
+    state = state.copyWith(
+      selectedSlot: slot,
+      editingSlot: slot,
+      clearReminding: true,
+    );
   }
 
   /// Enter sobre a seleção: edita a anotação, ou cria uma se a vaga é a vazia.
@@ -70,7 +106,7 @@ class LeafViewModel extends Notifier<LeafState> {
       return;
     }
 
-    state = state.copyWith(editingSlot: slot);
+    state = state.copyWith(editingSlot: slot, clearReminding: true);
   }
 
   void editSlot(int slot) {
@@ -89,7 +125,158 @@ class LeafViewModel extends Notifier<LeafState> {
       selectedSlot: slot,
       editingSlot: slot,
       clearCopied: true,
+      clearReminding: true,
     );
+  }
+
+  /// `⌘L`: o cartão selecionado vira o seletor de lembrete.
+  void remindSelected() {
+    final slot = state.selectedSlot;
+    if (slot != null) remindSlot(slot);
+  }
+
+  /// O sino do cartão: troca a face do cartão pelo seletor. Vaga vazia não
+  /// tem o que lembrar.
+  void remindSlot(int slot) {
+    if (state.noteAt(slot) == null || state.isEditing) return;
+
+    state = state.copyWith(
+      selectedSlot: slot,
+      remindingSlot: slot,
+      clearCopied: true,
+    );
+  }
+
+  /// `⌘B`: põe o cartão selecionado sob o vidro fosco, ou o tira de lá.
+  void toggleHiddenSelected() {
+    final slot = state.selectedSlot;
+    if (slot != null) toggleHidden(slot);
+  }
+
+  /// O olho do cartão.
+  ///
+  /// Um lembrete marcado é reagendado junto: o texto que a notificação mostra
+  /// depende de o cartão estar ou não sob o vidro.
+  void toggleHidden(int slot) {
+    final note = state.noteAt(slot);
+    if (note == null) return;
+
+    final hidden = !note.isHidden;
+    _repository.setHidden(note.id, hidden: hidden);
+
+    final updated = note.copyWith(isHidden: hidden);
+    final reminder = updated.reminderAfter(_now());
+    if (reminder != null) {
+      unawaited(
+        _notifications.schedule(LeafNotifications.of(updated), reminder),
+      );
+    }
+
+    state = state.copyWith(
+      selectedSlot: slot,
+      notes: [
+        for (final other in state.notes) other.id == note.id ? updated : other,
+      ],
+    );
+  }
+
+  /// Esc no seletor: o cartão volta a ser cartão, com o lembrete que já tinha.
+  void cancelReminder() => state = state.copyWith(clearReminding: true);
+
+  /// Marca o lembrete do cartão aberto no seletor e o agenda no sistema.
+  void setReminder(DateTime at) {
+    final note = state.noteAt(state.remindingSlot ?? -1);
+    if (note == null || !at.isAfter(_now())) return;
+
+    _applyReminder(note, at);
+    state = state.copyWith(clearReminding: true);
+  }
+
+  /// Enter no seletor: só confirma o que o campo entendeu. O que ele não
+  /// entendeu fica na tela, com a prévia dizendo isso — fechar em silêncio
+  /// faria a pessoa achar que marcou.
+  void setReminderFromText(String text) {
+    final at = LeafReminder.parse(text, _now());
+    if (at != null) setReminder(at);
+  }
+
+  /// Tira o lembrete do cartão aberto no seletor.
+  void removeReminder() {
+    final note = state.noteAt(state.remindingSlot ?? -1);
+    if (note == null) return;
+
+    _applyReminder(note, null);
+    state = state.copyWith(clearReminding: true);
+  }
+
+  /// "Adiar 30 min", da notificação.
+  void snooze(int noteId) {
+    final note = _noteById(noteId);
+    if (note == null) return;
+
+    _applyReminder(note, _now().add(LeafNotifications.snoozeBy));
+  }
+
+  /// O clique na notificação: o painel abre com o cartão lembrado escolhido.
+  void selectNote(int noteId) {
+    final note = _noteById(noteId);
+    if (note == null) return;
+
+    state = state.copyWith(selectedSlot: note.slot, clearCopied: true);
+  }
+
+  /// Põe no sistema todo lembrete que ainda vai tocar.
+  ///
+  /// Chamado na abertura do app e quando o Leaf é religado: agendar de novo o
+  /// que já está agendado é inofensivo (mesmo id substitui), e é o que traz de
+  /// volta os lembretes que o desligar do módulo tirou.
+  void scheduleReminders() {
+    final now = _now();
+    for (final note in state.notes) {
+      final at = note.reminderAfter(now);
+      if (at != null) {
+        unawaited(_notifications.schedule(LeafNotifications.of(note), at));
+      }
+    }
+  }
+
+  /// Tira do sistema os lembretes da parede, **sem esquecê-los**: é o Leaf
+  /// sendo desligado, e religá-lo devolve cada um ([scheduleReminders]).
+  void unscheduleReminders() {
+    unawaited(
+      _notifications.cancel([
+        for (final note in state.notes)
+          if (note.remindAt != null) LeafNotifications.idOf(note.id),
+      ]),
+    );
+  }
+
+  /// Grava, agenda (ou cancela) e põe na parede o lembrete de [note].
+  void _applyReminder(LeafNote note, DateTime? at) {
+    _repository.setReminder(note.id, at);
+
+    final updated = at == null
+        ? note.copyWith(clearReminder: true)
+        : note.copyWith(remindAt: at);
+
+    unawaited(
+      at == null
+          ? _notifications.cancel([LeafNotifications.idOf(note.id)])
+          : _notifications.schedule(LeafNotifications.of(updated), at),
+    );
+
+    state = state.copyWith(
+      notes: [
+        for (final other in state.notes) other.id == note.id ? updated : other,
+      ],
+    );
+  }
+
+  LeafNote? _noteById(int id) {
+    for (final note in state.notes) {
+      if (note.id == id) return note;
+    }
+    return null;
   }
 
   /// Guarda o que foi escrito e sai do campo.
@@ -139,6 +326,18 @@ class LeafViewModel extends Notifier<LeafState> {
     final at = _now();
     _repository.updateContent(existing.id, content, at: at);
 
+    // O lembrete leva o texto junto: reescrever o cartão e ser lembrado da
+    // versão antiga seria receber o recado errado na hora certa.
+    final reminder = existing.reminderAfter(at);
+    if (reminder != null) {
+      unawaited(
+        _notifications.schedule(
+          LeafNotifications.of(existing.copyWith(content: content)),
+          reminder,
+        ),
+      );
+    }
+
     state = state.copyWith(
       notes: _sorted([
         for (final note in state.notes)
@@ -178,7 +377,19 @@ class LeafViewModel extends Notifier<LeafState> {
       // novo, e apresentá-lo como "agora" apagaria a única pista de quando
       // aquele recado foi escrito.
       updatedAt: note.updatedAt,
+      // O lembrete também — se ainda não passou da hora dele.
+      remindAt: note.reminderAfter(_now()),
+      // E o vidro: devolver à parede um segredo à vista seria o desfazer
+      // criando um vazamento que o apagar não tinha.
+      isHidden: note.isHidden,
     );
+
+    final reminder = restored.remindAt;
+    if (reminder != null) {
+      unawaited(
+        _notifications.schedule(LeafNotifications.of(restored), reminder),
+      );
+    }
 
     final ordered = [...state.notes]
       ..insert((note.slot - 1).clamp(0, state.notes.length), restored);
@@ -268,6 +479,12 @@ class LeafViewModel extends Notifier<LeafState> {
   /// cartões, todos visíveis, é um preço barato.
   void _remove(LeafNote note) {
     _repository.delete(note.id);
+
+    // Cartão arrancado não lembra de nada. Se o `⌘Z` o devolver, o lembrete
+    // volta com ele.
+    if (note.remindAt != null) {
+      unawaited(_notifications.cancel([LeafNotifications.idOf(note.id)]));
+    }
 
     final remaining = [
       for (final other in state.notes)

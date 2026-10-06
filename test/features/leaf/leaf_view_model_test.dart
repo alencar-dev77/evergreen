@@ -6,22 +6,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../shared/fake_notification_service.dart';
 import 'fake_leaf_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late FakeLeafRepository repository;
+  late FakeNotificationService notifications;
 
   final clock = DateTime(2026, 8, 4, 10);
 
-  setUp(() => repository = FakeLeafRepository());
+  setUp(() {
+    repository = FakeLeafRepository();
+    notifications = FakeNotificationService();
+  });
 
   ProviderContainer containerFor() {
     final container = ProviderContainer(
       overrides: [
         leafRepositoryProvider.overrideWithValue(repository),
         clockProvider.overrideWithValue(() => clock),
+        notificationServiceProvider.overrideWithValue(notifications),
       ],
     );
 
@@ -485,5 +491,204 @@ void main() {
 
     expect(stateOf(container).isEditing, isFalse);
     expect(stateOf(container).notes, isEmpty);
+  });
+
+  group('lembrete', () {
+    test('o sino vira o seletor, e marcar agenda no sistema', () {
+      final container = containerFor();
+      fill(container, 2);
+      final note = stateOf(container).noteAt(2)!;
+
+      viewModelOf(container).remindSlot(2);
+      expect(stateOf(container).remindingSlot, 2);
+
+      final at = clock.add(const Duration(hours: 1));
+      viewModelOf(container).setReminder(at);
+
+      expect(stateOf(container).isReminding, isFalse);
+      expect(stateOf(container).noteAt(2)?.remindAt, at);
+      expect(repository.loadAll()[1].remindAt, at);
+
+      final (notification, scheduledAt) =
+          notifications.scheduled['leaf.${note.id}']!;
+      expect(scheduledAt, at);
+      expect(notification.body, 'anotação 2');
+    });
+
+    test('o campo só marca o que entendeu', () {
+      final container = containerFor();
+      fill(container, 1);
+
+      viewModelOf(container).remindSlot(1);
+      viewModelOf(container).setReminderFromText('quando der');
+      expect(stateOf(container).isReminding, isTrue);
+      expect(notifications.scheduled, isEmpty);
+
+      viewModelOf(container).setReminderFromText('em 45 min');
+      expect(
+        stateOf(container).noteAt(1)?.remindAt,
+        clock.add(const Duration(minutes: 45)),
+      );
+    });
+
+    test('remover tira do cartão e do sistema', () {
+      final container = containerFor();
+      fill(container, 1);
+      final id = stateOf(container).noteAt(1)!.id;
+
+      viewModelOf(container)
+        ..remindSlot(1)
+        ..setReminder(clock.add(const Duration(hours: 3)))
+        ..remindSlot(1)
+        ..removeReminder();
+
+      expect(stateOf(container).noteAt(1)?.remindAt, isNull);
+      expect(notifications.cancelled, ['leaf.$id']);
+    });
+
+    test('reescrever o cartão reagenda com o texto novo', () {
+      final container = containerFor();
+      fill(container, 1);
+      final id = stateOf(container).noteAt(1)!.id;
+
+      viewModelOf(container)
+        ..remindSlot(1)
+        ..setReminder(clock.add(const Duration(hours: 1)))
+        ..editSlot(1)
+        ..commitEdit('ligar pro Marcos\nantes das 15h');
+
+      final (notification, _) = notifications.scheduled['leaf.$id']!;
+      expect(notification.title, 'ligar pro Marcos');
+      expect(notification.body, 'antes das 15h');
+    });
+
+    test('apagar cancela; desfazer devolve o lembrete', () {
+      final container = containerFor();
+      fill(container, 1);
+      final at = clock.add(const Duration(hours: 1));
+
+      viewModelOf(container)
+        ..remindSlot(1)
+        ..setReminder(at)
+        ..deleteSelected();
+      expect(notifications.scheduled, isEmpty);
+
+      viewModelOf(container).undoDelete();
+
+      final restored = stateOf(container).noteAt(1)!;
+      expect(restored.remindAt, at);
+      expect(notifications.scheduled['leaf.${restored.id}']?.$2, at);
+    });
+
+    test('adiar empurra 30 min a partir de agora', () {
+      final container = containerFor();
+      fill(container, 1);
+      final id = stateOf(container).noteAt(1)!.id;
+
+      viewModelOf(container).snooze(id);
+
+      expect(
+        notifications.scheduled['leaf.$id']?.$2,
+        clock.add(const Duration(minutes: 30)),
+      );
+    });
+
+    test('lembrete que já tocou sai do cartão na releitura', () async {
+      repository = FakeLeafRepository([
+        LeafNote(
+          id: 1,
+          slot: 1,
+          content: 'já foi',
+          createdAt: clock,
+          remindAt: clock.subtract(const Duration(minutes: 5)),
+        ),
+      ]);
+      final container = containerFor();
+
+      expect(stateOf(container).noteAt(1)?.remindAt, isNull);
+      expect(repository.loadAll().single.remindAt, isNull);
+    });
+
+    test('desligar e religar o módulo tira e devolve os agendamentos', () {
+      final container = containerFor();
+      fill(container, 1);
+      final id = stateOf(container).noteAt(1)!.id;
+      final at = clock.add(const Duration(hours: 2));
+      viewModelOf(container)
+        ..remindSlot(1)
+        ..setReminder(at)
+        ..unscheduleReminders();
+
+      expect(notifications.scheduled, isEmpty);
+      expect(stateOf(container).noteAt(1)?.remindAt, at);
+
+      viewModelOf(container).scheduleReminders();
+      expect(notifications.scheduled['leaf.$id']?.$2, at);
+    });
+  });
+
+  group('vidro fosco', () {
+    test('⌘B põe e tira o cartão selecionado sob o vidro', () {
+      final container = containerFor();
+      fill(container, 2);
+      viewModelOf(container).selectSlot(2);
+
+      viewModelOf(container).toggleHiddenSelected();
+      expect(stateOf(container).noteAt(2)?.isHidden, isTrue);
+      expect(repository.loadAll()[1].isHidden, isTrue);
+      expect(stateOf(container).noteAt(1)?.isHidden, isFalse);
+
+      viewModelOf(container).toggleHiddenSelected();
+      expect(stateOf(container).noteAt(2)?.isHidden, isFalse);
+    });
+
+    test('o lembrete de um cartão oculto não mostra o texto', () {
+      final container = containerFor();
+      fill(container, 1);
+      final id = stateOf(container).noteAt(1)!.id;
+
+      viewModelOf(container)
+        ..remindSlot(1)
+        ..setReminder(clock.add(const Duration(hours: 1)))
+        ..toggleHidden(1);
+
+      final (notification, _) = notifications.scheduled['leaf.$id']!;
+      expect(notification.body, isNot(contains('anotação 1')));
+      expect(notification.title, 'Lembrete');
+    });
+
+    test('desfazer devolve o cartão ainda sob o vidro', () {
+      final container = containerFor();
+      fill(container, 1);
+
+      viewModelOf(container)
+        ..toggleHidden(1)
+        ..deleteSelected()
+        ..undoDelete();
+
+      expect(stateOf(container).noteAt(1)?.isHidden, isTrue);
+    });
+
+    test('copiar continua valendo sob o vidro', () async {
+      final container = containerFor();
+      fill(container, 1);
+      viewModelOf(container).toggleHidden(1);
+
+      String? copied;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      expect(await viewModelOf(container).copySlot(1), isTrue);
+      expect(copied, 'anotação 1');
+    });
   });
 }

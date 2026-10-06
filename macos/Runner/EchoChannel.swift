@@ -124,6 +124,24 @@ enum EchoChannel {
         let locales = arguments["locales"] as? [String] ?? []
         Task { result(await EchoSpeech.resolveLocales(locales)) }
 
+      case "archiveAudio":
+        // A reunião que fica para ouvir: as duas faixas numa só, comprimida.
+        // Fora da thread do canal — 40 minutos de áudio levam alguns segundos
+        // para codificar, e a thread do canal é a principal.
+        let micPath = arguments["micPath"] as? String
+        let systemPath = arguments["systemPath"] as? String
+        let destination = arguments["destination"] as? String ?? ""
+        Task.detached(priority: .utility) {
+          do {
+            let durationMs = try EchoAudioArchive.archive(
+              micPath: micPath, systemPath: systemPath, to: destination)
+            result(["durationMs": durationMs])
+          } catch {
+            result(FlutterError(
+              code: "archive_failed", message: error.localizedDescription, details: nil))
+          }
+        }
+
       case "deleteAudio":
         let paths = arguments["paths"] as? [String] ?? []
         for path in paths { try? FileManager.default.removeItem(atPath: path) }
@@ -1396,6 +1414,7 @@ enum EchoTranscriber {
           "startMs": Int(result.range.start.seconds * 1000),
           "endMs": Int(result.range.end.seconds * 1000),
           "text": text,
+          "words": words(of: result.text),
         ])
       }
       return collected
@@ -1405,6 +1424,40 @@ enum EchoTranscriber {
     try await analyzer.finalizeAndFinishThroughEndOfInput()
 
     return try await collector.value
+  }
+
+  /// O relógio de cada palavra do trecho, como `[início, fim, texto]`.
+  ///
+  /// É o que deixa o player destacar a palavra que está tocando e o clique
+  /// numa palavra levar o áudio até ela — o tempo do trecho inteiro só diria
+  /// em que frase se está. A concatenação dos textos devolve o trecho exato:
+  /// o que vem sem relógio (espaço, pontuação solta) cola na palavra anterior,
+  /// e nada se perde.
+  private static func words(of text: AttributedString) -> [[Any]] {
+    var words: [[Any]] = []
+    var pending = ""
+
+    for (timeRange, range) in text.runs[AttributeScopes.SpeechAttributes.TimeRangeAttribute.self] {
+      let piece = String(text[range].characters)
+
+      guard let timeRange = timeRange, timeRange.duration.seconds.isFinite else {
+        if words.isEmpty {
+          pending += piece
+        } else {
+          words[words.count - 1][2] = (words[words.count - 1][2] as? String ?? "") + piece
+        }
+        continue
+      }
+
+      words.append([
+        Int(timeRange.start.seconds * 1000),
+        Int(timeRange.end.seconds * 1000),
+        pending + piece,
+      ])
+      pending = ""
+    }
+
+    return words
   }
 
   /// Garante que o modelo daquele idioma está na máquina, baixando se faltar.
@@ -1445,6 +1498,105 @@ enum EchoTranscriber {
     } catch {
       result(FlutterError(code: "locale_install_failed", message: error.localizedDescription, details: nil))
     }
+  }
+}
+
+/// As duas faixas da reunião numa só, comprimida, para ouvir depois.
+///
+/// Uma faixa, e não duas: para ouvir, a conversa é uma só — a separação entre
+/// microfone e computador serve à transcrição, que já aconteceu. Mono, na taxa
+/// em que foi gravado, AAC a 32 kbps: fala humana termina abaixo dos 8 kHz e
+/// soa limpa nessa taxa, e cada minuto custa uns 240 KB em vez dos 3,8 MB das
+/// duas faixas cruas. A conta inteira está em
+/// `docs/Ideis projeto/echo-audio-da-reuniao.md`.
+///
+/// As faixas começam juntas e a pausa já foi descontada das duas (ver
+/// `EchoStreamOutput.isPaused`): somar amostra com amostra é o que mantém o
+/// relógio deste arquivo igual ao da transcrição.
+enum EchoAudioArchive {
+  static let bitRate = 32_000
+
+  /// Escreve o arquivo em [destination] e devolve a duração em milissegundos.
+  static func archive(micPath: String?, systemPath: String?, to destination: String) throws -> Int {
+    let sources = try [micPath, systemPath]
+      .compactMap { $0 }
+      .filter { FileManager.default.fileExists(atPath: $0) }
+      .map {
+        try AVAudioFile(
+          forReading: URL(fileURLWithPath: $0), commonFormat: .pcmFormatFloat32,
+          interleaved: false)
+      }
+
+    guard let first = sources.first else {
+      throw NSError(
+        domain: "EchoAudioArchive", code: 1,
+        userInfo: [NSLocalizedDescriptionKey: "Nenhuma faixa para guardar."])
+    }
+
+    let sampleRate = first.processingFormat.sampleRate
+    guard let mono = AVAudioFormat(
+      commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: 1, interleaved: false)
+    else {
+      throw NSError(
+        domain: "EchoAudioArchive", code: 2,
+        userInfo: [NSLocalizedDescriptionKey: "Formato de áudio inválido."])
+    }
+
+    let url = URL(fileURLWithPath: destination)
+    try FileManager.default.createDirectory(
+      at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try? FileManager.default.removeItem(at: url)
+
+    let output = try AVAudioFile(
+      forWriting: url,
+      settings: [
+        AVFormatIDKey: kAudioFormatMPEG4AAC,
+        AVSampleRateKey: sampleRate,
+        AVNumberOfChannelsKey: 1,
+        AVEncoderBitRateKey: bitRate,
+      ],
+      commonFormat: .pcmFormatFloat32,
+      interleaved: false)
+
+    let chunk: AVAudioFrameCount = 16_384
+    let length = sources.map { $0.length }.max() ?? 0
+    var written: AVAudioFramePosition = 0
+
+    guard let mix = AVAudioPCMBuffer(pcmFormat: mono, frameCapacity: chunk) else { return 0 }
+    let reads = sources.compactMap {
+      AVAudioPCMBuffer(pcmFormat: $0.processingFormat, frameCapacity: chunk)
+    }
+
+    while written < length {
+      let frames = AVAudioFrameCount(min(AVAudioFramePosition(chunk), length - written))
+      mix.frameLength = frames
+      let out = mix.floatChannelData![0]
+      for index in 0..<Int(frames) { out[index] = 0 }
+
+      for (source, buffer) in zip(sources, reads) where source.framePosition < source.length {
+        buffer.frameLength = 0
+        try source.read(into: buffer, frameCount: frames)
+
+        // Faixa com mais de um canal (não deveria, mas o formato é do sistema):
+        // a média dos canais, para não dobrar o volume dela.
+        let channels = Int(buffer.format.channelCount)
+        guard let data = buffer.floatChannelData else { continue }
+        for index in 0..<Int(buffer.frameLength) {
+          var sample: Float = 0
+          for channel in 0..<channels { sample += data[channel][index] }
+          out[index] += sample / Float(channels)
+        }
+      }
+
+      // Somar as duas vozes pode passar do teto quando as duas falam ao mesmo
+      // tempo; cortar ali é o que o ouvido menos percebe.
+      for index in 0..<Int(frames) { out[index] = max(-1, min(1, out[index])) }
+
+      try output.write(from: mix)
+      written += AVAudioFramePosition(frames)
+    }
+
+    return Int(Double(written) / sampleRate * 1000)
   }
 }
 

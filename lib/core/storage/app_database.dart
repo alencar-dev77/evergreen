@@ -189,6 +189,33 @@ class AppDatabase {
     CREATE INDEX IF NOT EXISTS idx_nest_transfers_recent
       ON nest_transfers (moved_at DESC);
     ''',
+    // Quando o cartão do Leaf pediu para ser lembrado.
+    //
+    // Nulo é "sem lembrete", que é o caso comum. Quem dispara é o macOS (a
+    // notificação é agendada no sistema), e a coluna é o que permite
+    // reagendar tudo numa abertura — depois de o Leaf ser religado, por
+    // exemplo — e mostrar a hora no cartão.
+    'leaf-notes-remind-at': '''
+    ALTER TABLE leaf_notes ADD COLUMN remind_at INTEGER;
+    ''',
+    // O cartão que fica sob o vidro fosco — a senha do Wi-Fi no meio dos
+    // recados. É do cartão, e não do painel: o segredo raramente é a parede
+    // inteira, e esconder os nove tiraria da parede o "tudo à vista" que é a
+    // razão de ela existir.
+    'leaf-notes-hidden': '''
+    ALTER TABLE leaf_notes ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;
+    ''',
+    // O nome do arquivo de áudio da reunião, na pasta `Reuniões` do aplicativo.
+    //
+    // Até aqui o áudio era apagado assim que a transcrição entrava (ver o
+    // comentário de `echo-meetings`, que fica como registro de quando era
+    // assim). Agora ele fica 14 dias, e mais se a reunião tiver estrela.
+    //
+    // O nome, e não o áudio: um BLOB de 10 MB por reunião incharia o banco e
+    // cada um dos backups, que copiam o banco inteiro. `NULL` é "sem áudio".
+    'echo-meetings-audio': '''
+    ALTER TABLE echo_meetings ADD COLUMN audio_file TEXT;
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

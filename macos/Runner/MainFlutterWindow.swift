@@ -121,9 +121,15 @@ class MainFlutterWindow: NSPanel {
     PasteboardWatcherChannel.register(with: controller.engine.binaryMessenger)
     SleepAssertionChannel.register(with: controller.engine.binaryMessenger)
     EchoChannel.register(with: controller.engine.binaryMessenger)
+    EchoPlayerChannel.register(with: controller.engine.binaryMessenger)
     // O `isOverlay` decide quem **recebe** os avisos de arraste: os dois
     // engines podem chamar o canal, mas quem guarda a prateleira é a janela 0.
     NestChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
+    // Só a janela 0: o centro de notificações tem um delegate por processo, e
+    // quem atende o clique são os serviços que vivem nela.
+    if isOverlay {
+      NotificationChannel.register(with: controller.engine.binaryMessenger)
+    }
   }
 
   /// Dá ao Hub um tamanho de janela de preferências.

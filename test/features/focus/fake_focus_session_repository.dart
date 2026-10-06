@@ -49,12 +49,10 @@ class FakeFocusSessionRepository implements FocusSessionRepository {
   void clearAll() => _sessions.clear();
 
   @override
-  void trimToCurrentWeek({DateTime? now}) {
-    final weekStart = SqliteFocusSessionRepository.startOfWeek(
-      now ?? DateTime.now(),
-    );
+  void trimOldWeeks({DateTime? now}) {
+    final keptSince = FocusSessionRepository.keptSince(now ?? DateTime.now());
 
-    _sessions.removeWhere((session) => session.startedAt.isBefore(weekStart));
+    _sessions.removeWhere((session) => session.startedAt.isBefore(keptSince));
   }
 
   @override

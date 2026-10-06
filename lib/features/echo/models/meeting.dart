@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'meeting_segment.dart';
 import 'transcription_language.dart';
 
-/// Uma reunião gravada: a transcrição, e o resumo quando existe.
+/// Uma reunião gravada: a transcrição, o resumo quando existe e, por um tempo,
+/// o áudio.
 ///
-/// O áudio não está aqui, e nunca esteve — ele vive num arquivo temporário
-/// entre gravar e transcrever, e é apagado assim que a transcrição entra no
-/// banco. O que sobra é texto, que é barato e é o que a pessoa vai reler.
+/// O áudio não mora no banco: é um `.m4a` na pasta `Reuniões` do aplicativo,
+/// e aqui fica só o nome dele ([audioFile]). Ele vence antes do texto — ver
+/// `EchoAudioRetention` — porque é 25 vezes mais pesado e vale menos com o
+/// tempo: semanas depois ninguém reouve a reunião, relê o resumo.
 class Meeting {
   const Meeting({
     this.id,
@@ -19,6 +21,7 @@ class Meeting {
     this.summary,
     this.summaryPrompt,
     this.isKept = false,
+    this.audioFile,
   });
 
   final int? id;
@@ -54,6 +57,17 @@ class Meeting {
   /// Mesma ideia do item fixado no Pin: o teto de reuniões só come o que é
   /// ordinário, e o que você marcou fica independente do número.
   final bool isKept;
+
+  /// O nome do arquivo de áudio na pasta `Reuniões`, ou `null` quando não há
+  /// áudio — reunião gravada antes de o Echo guardar áudio, áudio que venceu
+  /// ou que não sobreviveu a uma restauração de backup (o backup leva o banco,
+  /// não o áudio).
+  ///
+  /// Só o nome, e não o caminho: a pasta é do aplicativo e quem a resolve é o
+  /// `EchoAudioStore`.
+  final String? audioFile;
+
+  bool get hasAudio => audioFile != null;
 
   Duration get duration => Duration(milliseconds: durationMs);
 
@@ -100,6 +114,8 @@ class Meeting {
     String? summaryPrompt,
     bool? isKept,
     List<MeetingSegment>? segments,
+    String? audioFile,
+    bool clearAudio = false,
   }) {
     return Meeting(
       id: id ?? this.id,
@@ -111,6 +127,7 @@ class Meeting {
       summary: summary ?? this.summary,
       summaryPrompt: summaryPrompt ?? this.summaryPrompt,
       isKept: isKept ?? this.isKept,
+      audioFile: clearAudio ? null : audioFile ?? this.audioFile,
     );
   }
 

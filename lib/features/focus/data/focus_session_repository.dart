@@ -27,11 +27,24 @@ class FocusStats {
 
 /// Contrato de persistência do histórico do Focus.
 ///
-/// O histórico do Focus é **da semana corrente**: tudo que é de antes da
-/// segunda-feira sai do caminho (ver [trimToCurrentWeek]). O módulo responde
-/// "em que trabalhei nesta semana?", não é um arquivo histórico — e o que não
-/// é consultado não precisa ser guardado.
+/// A tela do Focus mostra **a semana corrente**: o módulo responde "em que
+/// trabalhei nesta semana?", não é um arquivo histórico. O disco guarda um
+/// pouco mais — [keptWeeks] semanas, contando a atual — porque o Track lê esta
+/// tabela para reconstruir as semanas anteriores, e uma semana passada com
+/// reuniões e zero foco seria uma semana mentindo. O que passa disso sai do
+/// caminho (ver [trimOldWeeks]).
 abstract interface class FocusSessionRepository {
+  /// Quantas semanas o disco guarda, contando a corrente.
+  ///
+  /// Um mês: o suficiente para o Track comparar a semana com as anteriores, e
+  /// pouco o bastante para o Focus continuar não sendo um arquivo. É também até
+  /// onde o Track deixa voltar — antes disso o foco já não existe.
+  static const keptWeeks = 4;
+
+  /// A segunda-feira mais antiga que o disco ainda guarda.
+  static DateTime keptSince(DateTime now) =>
+      DayBounds.startOfWeek(now, weeksAgo: keptWeeks - 1);
+
   /// Sessões desta semana, da mais recente para a mais antiga.
   List<FocusSession> loadRecent({int limit, DateTime? now});
 
@@ -49,8 +62,8 @@ abstract interface class FocusSessionRepository {
   /// Totais de hoje e da semana corrente, ancorados em [now].
   FocusStats stats({DateTime? now});
 
-  /// Apaga as sessões de semanas anteriores.
-  void trimToCurrentWeek({DateTime? now});
+  /// Apaga as sessões de antes das [keptWeeks] semanas guardadas.
+  void trimOldWeeks({DateTime? now});
 }
 
 /// Implementação sobre SQLite.
@@ -110,9 +123,11 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
   void clearAll() => _db.execute('DELETE FROM focus_sessions;');
 
   @override
-  void trimToCurrentWeek({DateTime? now}) {
+  void trimOldWeeks({DateTime? now}) {
     _db.execute('DELETE FROM focus_sessions WHERE started_at < ?;', [
-      startOfWeek(now ?? DateTime.now()).millisecondsSinceEpoch,
+      FocusSessionRepository.keptSince(
+        now ?? DateTime.now(),
+      ).millisecondsSinceEpoch,
     ]);
   }
 
@@ -145,7 +160,8 @@ class SqliteFocusSessionRepository implements FocusSessionRepository {
 
   static DateTime _startOfDay(DateTime moment) => DayBounds.startOfDay(moment);
 
-  /// Segunda-feira desta semana, à meia-noite — a fronteira do histórico.
+  /// Segunda-feira desta semana, à meia-noite — a fronteira do que a tela do
+  /// Focus mostra.
   ///
   /// Continua exposta aqui porque é o Focus quem define a fronteira; a conta
   /// mora em [DayBounds] desde que o Track passou a precisar do mesmo recorte.

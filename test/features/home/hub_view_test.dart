@@ -24,6 +24,7 @@ import '../pin/fake_clipboard_repository.dart';
 import 'backup_fixture.dart';
 import 'fake_module_settings_notifier.dart';
 import '../echo/fake_export_service.dart';
+import '../echo/fake_echo_audio.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -72,6 +73,8 @@ void main() {
           ),
           // O Echo lê as reuniões do banco e pergunta ao sistema o que a
           // máquina permite — nem um nem outro existem dentro de um teste.
+          echoAudioStoreProvider.overrideWithValue(FakeEchoAudioStore()),
+          echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
           exportServiceProvider.overrideWithValue(FakeExportService()),

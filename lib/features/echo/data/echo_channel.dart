@@ -300,6 +300,25 @@ class EchoChannel {
     };
   }
 
+  /// Junta as duas faixas num `.m4a` comprimido em [destination], para ouvir
+  /// depois, e devolve a duração dele em milissegundos.
+  ///
+  /// As faixas cruas continuam onde estavam: quem as apaga é [deleteAudio],
+  /// depois — o arquivo comprimido é uma cópia para ouvir, não a garantia de
+  /// que nada se perdeu.
+  Future<int?> archiveAudio({
+    required RecordingFiles files,
+    required String destination,
+  }) async {
+    final result = await _invoke<Map<Object?, Object?>>('archiveAudio', {
+      'micPath': files.micPath,
+      'systemPath': files.systemPath,
+      'destination': destination,
+    });
+
+    return (result?['durationMs'] as num?)?.toInt();
+  }
+
   /// Apaga o áudio. Chamado assim que a transcrição está salva — nunca antes.
   Future<void> deleteAudio(List<String> paths) =>
       _invoke<Object>('deleteAudio', {'paths': paths});

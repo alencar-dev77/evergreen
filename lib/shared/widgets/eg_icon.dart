@@ -59,11 +59,33 @@ enum EgIconData {
   /// Xis — fecha o que está aberto.
   close,
 
+  /// Chevron para a esquerda — voltar um passo num recorte (a semana anterior
+  /// no Track).
+  chevronLeft,
+
+  /// Chevron para a direita — o par do [chevronLeft].
+  chevronRight,
+
+  /// Seta em volta, no sentido anti-horário — voltar um trecho do áudio.
+  skipBack,
+
+  /// Seta em volta, no sentido horário — avançar um trecho do áudio.
+  skipForward,
+
   /// Engrenagem simplificada — configurações.
   gear,
 
   /// Lixeira — ação destrutiva.
   trash,
+
+  /// Sino — lembrete marcado (o cartão do Leaf).
+  bell,
+
+  /// Olho — mostrar o que está sob o vidro.
+  eye,
+
+  /// Olho riscado — cartão sob o vidro fosco.
+  eyeOff,
 
   /// Prancheta — identifica o módulo Pin.
   clipboard,
@@ -224,8 +246,18 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.pause => _pausePath(),
     EgIconData.play => _playPath(),
     EgIconData.close => _closePath(),
+    EgIconData.chevronLeft => _chevronPath(left: true),
+    EgIconData.chevronRight => _chevronPath(left: false),
+    EgIconData.skipBack => _skipPath(back: true),
+    EgIconData.skipForward => _skipPath(back: false),
     EgIconData.gear => _gearPath(),
     EgIconData.trash => _trashPath(),
+    EgIconData.bell => _bellPath(),
+    EgIconData.eye => _eyePath(),
+    EgIconData.eyeOff =>
+      _eyePath()
+        ..moveTo(3, 13)
+        ..lineTo(13, 3),
     EgIconData.clipboard => _clipboardPath(),
     EgIconData.timer => _timerPath(),
     EgIconData.sun => _sunPath(),
@@ -411,6 +443,32 @@ class _EgIconPainter extends CustomPainter {
     ..moveTo(11.4, 4.6)
     ..lineTo(4.6, 11.4);
 
+  /// Dois traços, sem haste: é o mesmo chevron da ponta da seta, sozinho.
+  Path _chevronPath({required bool left}) {
+    final tip = left ? 5.8 : 10.2;
+    final back = left ? 10.2 : 5.8;
+    return Path()
+      ..moveTo(back, 3.6)
+      ..lineTo(tip, 8)
+      ..lineTo(back, 12.4);
+  }
+
+  /// Três quartos de volta e a ponta no alto, apontando para onde o tempo
+  /// anda: para trás, a ponta olha para a esquerda; para a frente, à direita.
+  Path _skipPath({required bool back}) {
+    const center = Offset(8, 8.8);
+    const radius = 5.0;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final side = back ? 1.0 : -1.0;
+
+    return Path()
+      // Começa no alto e dá a volta pelo lado oposto ao da ponta.
+      ..addArc(rect, -math.pi / 2, side * math.pi * 1.5)
+      ..moveTo(8 + side * 1.8, 2.1)
+      ..lineTo(8, 3.8)
+      ..lineTo(8 + side * 1.8, 5.5);
+  }
+
   Path _gearPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(8, 8), radius: 2.2))
     ..addOval(Rect.fromCircle(center: const Offset(8, 8), radius: 5.4));
@@ -426,6 +484,29 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(5.4, 13)
     ..lineTo(10.6, 13)
     ..lineTo(11.2, 4.5);
+
+  /// Sino de traço: a cúpula descendo em curva até a aba, e o badalo como um
+  /// arco curto embaixo. Sem o pino em cima — em 12px ele vira um ponto solto.
+  Path _bellPath() => Path()
+    ..moveTo(3.2, 11.5)
+    ..lineTo(12.8, 11.5)
+    ..moveTo(4.4, 11.5)
+    ..lineTo(4.4, 7.4)
+    ..cubicTo(4.4, 5.2, 6, 3.2, 8, 3.2)
+    ..cubicTo(10, 3.2, 11.6, 5.2, 11.6, 7.4)
+    ..lineTo(11.6, 11.5)
+    ..moveTo(6.6, 13.3)
+    ..quadraticBezierTo(8, 14.6, 9.4, 13.3);
+
+  /// Olho de traço: a amêndoa em duas curvas e a pupila. O riscado
+  /// ([EgIconData.eyeOff]) é este com a diagonal por cima — os dois precisam
+  /// ter a mesma silhueta para a troca ler como o mesmo botão mudando de
+  /// estado.
+  Path _eyePath() => Path()
+    ..moveTo(1.8, 8)
+    ..quadraticBezierTo(8, 1.6, 14.2, 8)
+    ..quadraticBezierTo(8, 14.4, 1.8, 8)
+    ..addOval(Rect.fromCircle(center: const Offset(8, 8), radius: 2));
 
   Path _clipboardPath() => Path()
     ..addRRect(

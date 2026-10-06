@@ -115,7 +115,7 @@ class OnboardingStep {
       shortcut: '⌘⇧E',
       line:
           'Grava a reunião, separa a sua voz da dos outros e devolve em texto.\n'
-          'O resumo sai do modelo do próprio Mac.',
+          'Ouça de novo com cada palavra acesa; o resumo sai do próprio Mac.',
     ),
   ];
 }

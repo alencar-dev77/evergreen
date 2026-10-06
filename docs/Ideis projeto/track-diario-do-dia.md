@@ -131,6 +131,31 @@ O conteúdo copiado não sai do banco — não é uma escolha da tela, é a úni
 que o repositório sabe ler. O que segue para o modelo é o agregado, e o teste
 `o conteúdo copiado não sai do banco` é o que prende isso.
 
+## Semanas anteriores (v0.24)
+
+O recorte de semana ganhou setas: `‹ Esta semana ›` anda para a semana anterior
+e volta. **Não é um seletor de datas** — continua sendo o recorte de semana,
+só que de uma semana que já fechou, que é a pergunta de segunda-feira de manhã.
+
+- **O limite é o do Focus, não o dos outros módulos.** Pin, Echo e Awake guardam
+  mais que quatro semanas, mas antes disso o foco já não existe, e a semana
+  sairia desenhada como uma semana sem trabalho. Por isso o Focus passou a
+  guardar quatro semanas no disco (`FocusSessionRepository.keptWeeks`) e o
+  Track anda até três para trás (`TrackRange.maxWeeksAgo`), as duas contas
+  amarradas na mesma constante.
+- **O controle não some com o recorte vazio.** Antes o estado vazio levava o
+  seletor junto — e segunda às oito, quando a semana ainda não tem nada, é
+  exatamente quando se quer voltar para a anterior. O vazio da estreia ("Nada
+  registrado ainda") só aparece na tela de abertura; uma semana passada vazia
+  diz que está vazia.
+- **Numa semana que já passou, hoje não tem linha** e nenhuma barra se
+  destaca: o destaque e a linha obrigatória são de hoje.
+- **Trocar para "Hoje" e voltar leva para esta semana.** Quem sai de "Hoje"
+  quer o contexto de hoje, não a semana em que estava antes.
+- A faixa de barras passou a se chamar "Por dia": o título antigo, "Últimos 7
+  dias", já era impreciso (a faixa sempre foi de segunda a domingo), e com o
+  nome da semana ao lado das setas ele repetiria a informação.
+
 ## Onde o código está
 
 | Peça | Arquivo |

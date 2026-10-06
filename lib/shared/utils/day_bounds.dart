@@ -7,16 +7,21 @@
 /// anterior, e a linha do dia iria parar no grupo errado.
 ///
 /// A semana começa na segunda porque é onde o histórico do Focus vira
-/// (`FocusSessionRepository.trimToCurrentWeek`): qualquer recorte que
-/// discordasse disso mostraria tempo que a lista do Focus já não tem mais.
+/// (`FocusSessionRepository.trimOldWeeks`): qualquer recorte que discordasse
+/// disso cortaria uma semana guardada ao meio.
 abstract final class DayBounds {
   static DateTime startOfDay(DateTime moment) =>
       DateTime(moment.year, moment.month, moment.day);
 
-  /// Segunda-feira desta semana, à meia-noite.
-  static DateTime startOfWeek(DateTime moment) {
+  /// Segunda-feira desta semana, à meia-noite — ou a de [weeksAgo] semanas
+  /// atrás.
+  static DateTime startOfWeek(DateTime moment, {int weeksAgo = 0}) {
     final daysSinceMonday = moment.weekday - DateTime.monday;
-    return DateTime(moment.year, moment.month, moment.day - daysSinceMonday);
+    return DateTime(
+      moment.year,
+      moment.month,
+      moment.day - daysSinceMonday - 7 * weeksAgo,
+    );
   }
 
   /// Quantos dias separam dois momentos, contando por calendário.

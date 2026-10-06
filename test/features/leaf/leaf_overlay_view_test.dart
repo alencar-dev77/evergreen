@@ -360,4 +360,37 @@ void main() {
 
     expect(repository.loadAll().single.content, 'não pode sumir');
   });
+
+  testWidgets('o cartão oculto fica sob o vidro, e o espaço espia', (
+    tester,
+  ) async {
+    final container = await pumpPanel(tester);
+    viewModelOf(container)
+      ..startNote()
+      ..commitEdit('senha do wi-fi');
+    await tester.pumpAndSettle();
+
+    Finder glass() => find.descendant(
+      of: find.byType(LeafNoteCard),
+      matching: find.byType(ImageFiltered),
+    );
+    expect(glass(), findsNothing);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pumpAndSettle();
+
+    expect(stateOf(container).noteAt(1)?.isHidden, isTrue);
+    expect(glass(), findsOneWidget);
+    expect(find.bySemanticsLabel('Vaga 1, oculta'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(glass(), findsNothing);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(glass(), findsOneWidget);
+  });
 }

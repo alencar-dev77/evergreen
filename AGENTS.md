@@ -75,6 +75,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   na duração (o `stop` desconta o tempo pausado). Parar e recomeçar a
   `SCStream` criaria um segundo arquivo por faixa e faria a transcrição
   remontar duas gravações como se fossem uma.
+  **O áudio da reunião fica 14 dias**, numa cópia AAC mono de uma faixa só na
+  pasta `Reuniões` do aplicativo (`EchoAudioStore`), ou até a reunião sair pelo
+  teto — o que vier primeiro; a estrela guarda os dois. Fora do banco e, por
+  isso, **fora do backup**. Quem tira do disco é uma varredura só
+  (`EchoAudioJanitor`): arquivo que nenhuma linha quer é lixo, então apagar a
+  reunião por qualquer caminho não precisa lembrar do áudio. O player é
+  `AVAudioPlayer` num canal próprio (`EchoPlayerChannel.swift`), um por engine:
+  fechar o Hub para o áudio. A transcrição guarda o relógio de cada palavra
+  (`MeetingWord`): tudo o que já foi dito fica aceso, cumulativo, até a palavra
+  que toca. Ver
+  [docs/Ideis projeto/echo-audio-da-reuniao.md](docs/Ideis%20projeto/echo-audio-da-reuniao.md).
 - **`QLThumbnailGenerator` + `NSOpenPanel` + destino de arraste** (nativo,
   canal `nest`) — o Nest. Quem recebe o arraste do Finder é o **delegate da
   janela**, nunca a janela nem uma view invisível: `NSWindow` não implementa

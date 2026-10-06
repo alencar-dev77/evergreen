@@ -23,8 +23,15 @@ class LeafGrid extends StatelessWidget {
     required this.state,
     required this.editorController,
     required this.editorFocusNode,
+    required this.reminderController,
+    required this.reminderFocusNode,
     required this.onSelect,
     required this.onDelete,
+    required this.onRemind,
+    required this.onPickReminder,
+    required this.onRemoveReminder,
+    required this.onToggleHidden,
+    this.peekSlot,
     this.now,
   });
 
@@ -33,11 +40,26 @@ class LeafGrid extends StatelessWidget {
   final TextEditingController editorController;
   final FocusNode editorFocusNode;
 
+  final TextEditingController reminderController;
+  final FocusNode reminderFocusNode;
+
   /// Clique numa vaga: seleciona e abre (anotação existente entra em edição,
   /// vaga livre nasce em branco).
   final ValueChanged<int> onSelect;
 
   final ValueChanged<int> onDelete;
+
+  /// O sino de uma vaga: o cartão vira o seletor de lembrete.
+  final ValueChanged<int> onRemind;
+
+  final ValueChanged<DateTime> onPickReminder;
+  final VoidCallback onRemoveReminder;
+
+  /// O olho de uma vaga: põe o cartão sob o vidro, ou o tira.
+  final ValueChanged<int> onToggleHidden;
+
+  /// A vaga sendo espiada com o espaço apertado, se houver.
+  final int? peekSlot;
 
   final DateTime? now;
 
@@ -97,6 +119,17 @@ class LeafGrid extends StatelessWidget {
     }
 
     final note = state.noteAt(slot);
+    if (note != null && state.remindingSlot == slot) {
+      return LeafReminderPicker(
+        note: note,
+        controller: reminderController,
+        focusNode: reminderFocusNode,
+        onPick: onPickReminder,
+        onRemove: onRemoveReminder,
+        now: now,
+      );
+    }
+
     if (note != null) {
       return LeafNoteCard(
         note: note,
@@ -104,6 +137,9 @@ class LeafGrid extends StatelessWidget {
         isCopied: state.copiedSlot == slot,
         onTap: () => onSelect(slot),
         onDelete: () => onDelete(slot),
+        onRemind: () => onRemind(slot),
+        onToggleHidden: () => onToggleHidden(slot),
+        isPeeking: peekSlot == slot,
         now: now,
       );
     }

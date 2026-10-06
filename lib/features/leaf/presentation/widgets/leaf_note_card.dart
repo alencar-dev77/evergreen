@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/leaf_note.dart';
+import '../../models/leaf_reminder.dart';
 import '../../../../core/design/eg_tokens.dart';
 
 /// Medidas do cartão da parede.
@@ -55,6 +57,9 @@ class LeafNoteCard extends StatelessWidget {
     required this.isCopied,
     required this.onTap,
     required this.onDelete,
+    required this.onRemind,
+    required this.onToggleHidden,
+    this.isPeeking = false,
     this.now,
   });
 
@@ -67,17 +72,32 @@ class LeafNoteCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
+  /// O sino: o cartão vira o seletor de lembrete.
+  final VoidCallback onRemind;
+
+  /// O olho: põe o cartão sob o vidro fosco, ou o tira de lá.
+  final VoidCallback onToggleHidden;
+
+  /// O espaço está apertado sobre este cartão: o vidro sai enquanto durar.
+  final bool isPeeking;
+
   /// Injetável para o teste não depender do relógio real.
   final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
+    final reminder = note.reminderAfter(now ?? DateTime.now());
+
     return EgHoverable(
       onTap: onTap,
       // A vaga é o endereço do cartão na parede — é por ela que se fala dele
       // ("o três"), e ela está desenhada como um número solto no rodapé, que
       // lido cru sai como um algarismo sem assunto.
-      semanticLabel: 'Vaga ${note.slot}, ${note.content}',
+      // O cartão sob o vidro também não é lido em voz alta: o leitor de tela
+      // é outra forma de a tela mostrar o texto.
+      semanticLabel: note.isHidden
+          ? 'Vaga ${note.slot}, oculta'
+          : 'Vaga ${note.slot}, ${note.content}',
       selected: isSelected ? true : null,
       builder: (context, state) {
         return _LeafCardSurface(
@@ -89,24 +109,50 @@ class LeafNoteCard extends StatelessWidget {
               _header(context, state.isHovered),
               const SizedBox(height: AppSpacing.md),
               Expanded(
-                child: Text(
-                  note.content,
-                  maxLines: LeafCardMetrics.contentLines,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.eg.text.bodyCompact,
+                child: _FrostedGlass(
+                  // Espiar é sob o mouse ou com o espaço apertado, e só
+                  // enquanto durar: ler o segredo não pode exigir lembrar de
+                  // escondê-lo de novo.
+                  frosted: note.isHidden && !state.isHovered && !isPeeking,
+                  child: Text(
+                    note.content,
+                    maxLines: LeafCardMetrics.contentLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.eg.text.bodyCompact,
+                  ),
                 ),
               ),
               // A idade fica, e fica embaixo: ela é a única coisa que a parede
               // conta sobre o tempo, e é o que separa o recado de hoje do que
               // está colado ali há três semanas. No pé, no tom mais baixo da
               // escala, ela não disputa com o texto nem com o número.
-              Text(
-                // A idade do recado, não a do papel: uma anotação reescrita
-                // agora dizia "há 3 semanas" — ver [LeafNote.changedAt].
-                RelativeTime.format(note.changedAt, now: now),
-                style: context.eg.text.footnote.copyWith(
-                  color: context.eg.colors.textQuaternary,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      // A idade do recado, não a do papel: uma anotação
+                      // reescrita agora dizia "há 3 semanas" — ver
+                      // [LeafNote.changedAt].
+                      RelativeTime.format(note.changedAt, now: now),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.eg.text.footnote.copyWith(
+                        color: context.eg.colors.textQuaternary,
+                      ),
+                    ),
+                  ),
+                  // O lembrete marcado mora no pé, ao lado da idade: as duas
+                  // são o que o cartão diz sobre o tempo — de quando é e para
+                  // quando é.
+                  if (reminder != null)
+                    _ReminderTag(
+                      label: LeafReminder.label(
+                        reminder,
+                        now ?? DateTime.now(),
+                      ),
+                      onTap: onRemind,
+                    ),
+                ],
               ),
             ],
           ),
@@ -132,12 +178,35 @@ class LeafNoteCard extends StatelessWidget {
       children: [
         _SlotBadge(slot: note.slot, isCopied: isCopied),
         const Spacer(),
-        if (isHovered)
-          _DeleteAffordance(onTap: onDelete)
-        else if (isCopied)
+        if (isHovered) ...[
+          _IconAffordance(
+            icon: note.isHidden ? EgIconData.eyeOff : EgIconData.eye,
+            semanticLabel: note.isHidden ? 'Mostrar texto' : 'Ocultar texto',
+            // Riscado e verde quando o vidro está posto: é um estado
+            // **ligado** no cartão, como o sino do lembrete.
+            color: note.isHidden ? eg.colors.accentLight : null,
+            onTap: onToggleHidden,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _IconAffordance(
+            icon: EgIconData.bell,
+            semanticLabel: 'Lembrete',
+            onTap: onRemind,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _DeleteAffordance(onTap: onDelete),
+        ] else if (isCopied)
           Text(
             'copiado',
             style: eg.text.monoSmall.copyWith(color: eg.colors.textSecondary),
+          )
+        // Fora do mouse, o olho riscado fica no canto: sem ele, um cartão
+        // borrado parece um cartão com defeito, e não um cartão protegido.
+        else if (note.isHidden)
+          EgIcon(
+            EgIconData.eyeOff,
+            size: AppIconSizes.xs,
+            color: eg.colors.textTertiary,
           ),
       ],
     );
@@ -283,10 +352,7 @@ class _DashedBorder extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final outline = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          Radius.circular(radius),
-        ),
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
       );
 
     final paint = Paint()
@@ -360,6 +426,127 @@ class _LeafCardSurface extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       borderRadius: context.eg.shapes.cardAll,
       child: child,
+    );
+  }
+}
+
+/// O lembrete marcado, no pé do cartão: o sino e a hora.
+///
+/// O sino vem no verde claro: um lembrete marcado é algo **ligado** naquele
+/// cartão, e é isso que o verde quer dizer no resto do aplicativo. A hora fica
+/// neutra — o verde marca o estado, não o texto.
+class _ReminderTag extends StatelessWidget {
+  const _ReminderTag({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final eg = context.eg;
+
+    return EgHoverable(
+      onTap: onTap,
+      semanticLabel: 'Lembrete $label',
+      builder: (context, state) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          EgIcon(
+            EgIconData.bell,
+            size: AppIconSizes.xs,
+            color: eg.colors.accentLight,
+          ),
+          const SizedBox(width: AppSpacing.xxs),
+          Text(
+            label,
+            style: eg.text.monoSmall.copyWith(
+              color: state.isHovered
+                  ? eg.colors.textPrimary
+                  : eg.colors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Um ícone que só aparece sob o mouse e acende quando o mouse chega nele.
+class _IconAffordance extends StatelessWidget {
+  const _IconAffordance({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+    this.color,
+  });
+
+  final EgIconData icon;
+  final String semanticLabel;
+  final VoidCallback onTap;
+
+  /// Cor fixa, para quando o ícone mostra um estado ligado.
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return EgHoverable(
+      onTap: onTap,
+      semanticLabel: semanticLabel,
+      builder: (context, state) => EgIcon(
+        icon,
+        size: AppIconSizes.xs,
+        color:
+            color ??
+            (state.isHovered || state.isPressed
+                ? context.eg.colors.textPrimary
+                : context.eg.colors.textTertiary),
+      ),
+    );
+  }
+}
+
+/// O vidro fosco sobre o texto de um cartão oculto.
+///
+/// Um desfoque **do próprio texto**, e não um `BackdropFilter` por cima: o
+/// filtro de fundo recompõe tudo o que está atrás dele a cada quadro, e a
+/// parede pode ter nove destes. Desfocar o texto dá a mesma imagem — linhas
+/// que se sabe que existem e não se consegue ler — pelo custo de uma camada.
+///
+/// A entrada e a saída correm em [AppDurations.fast]: o bastante para o texto
+/// aparecer "se desembaçando" sob o mouse, e não piscar.
+class _FrostedGlass extends StatelessWidget {
+  const _FrostedGlass({required this.frosted, required this.child});
+
+  final bool frosted;
+  final Widget child;
+
+  /// Forte o bastante para uma senha de doze caracteres virar uma mancha, e
+  /// fraco o bastante para ainda se ver quantas linhas o cartão tem.
+  static const _sigma = 6.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: frosted ? 1 : 0),
+      duration: AppDurations.fast,
+      curve: AppDurations.curve,
+      child: child,
+      builder: (context, t, child) {
+        // Sem vidro, sem camada: o cartão comum não paga pelo recurso.
+        if (t == 0) return child!;
+
+        return ExcludeSemantics(
+          excluding: frosted,
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: _sigma * t,
+              sigmaY: _sigma * t,
+              tileMode: TileMode.decal,
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
@@ -481,6 +668,228 @@ class LeafNoteEditor extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// O cartão virado para marcar um lembrete.
+///
+/// Mesma silhueta, mesmo lugar, a mesma borda accent da edição — o teclado é
+/// deste cartão agora. Em cima, quatro respostas prontas que se resolvem num
+/// clique; embaixo, um campo para o resto ("16:30", "sexta 14h", "em 45
+/// min"), com a leitura dele ao vivo logo abaixo. A prévia é o que torna o
+/// campo confiável: ninguém confirma um horário sem ver o que foi entendido.
+class LeafReminderPicker extends StatelessWidget {
+  const LeafReminderPicker({
+    super.key,
+    required this.note,
+    required this.controller,
+    required this.focusNode,
+    required this.onPick,
+    required this.onRemove,
+    this.now,
+  });
+
+  final LeafNote note;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<DateTime> onPick;
+  final VoidCallback onRemove;
+
+  /// Injetável para o teste não depender do relógio real.
+  final DateTime? now;
+
+  DateTime get _now => now ?? DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final eg = context.eg;
+    final current = note.reminderAfter(_now);
+
+    return _LeafCardSurface(
+      isSelected: true,
+      isEditing: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _SlotBadge(slot: note.slot),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Lembrar',
+                style: eg.text.footnote.copyWith(
+                  color: eg.colors.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              // Só quando há o que tirar: um "remover" num cartão sem lembrete
+              // seria um botão que não faz nada.
+              if (current != null) _RemoveReminder(onTap: onRemove),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _presets(),
+          const Spacer(),
+          _field(context),
+          const SizedBox(height: AppSpacing.xxs),
+          _preview(context, current),
+        ],
+      ),
+    );
+  }
+
+  /// As quatro respostas prontas, em duas linhas de duas — a largura do
+  /// cartão não comporta quatro lado a lado sem cortar "Amanhã 9h".
+  Widget _presets() {
+    const presets = LeafReminderPreset.values;
+
+    Widget row(int first) => Row(
+      children: [
+        Expanded(child: _PresetButton(presets[first], onPick: _pick)),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(child: _PresetButton(presets[first + 1], onPick: _pick)),
+      ],
+    );
+
+    return Column(
+      children: [
+        row(0),
+        const SizedBox(height: AppSpacing.xs),
+        row(2),
+      ],
+    );
+  }
+
+  void _pick(LeafReminderPreset preset) => onPick(preset.at(_now));
+
+  Widget _field(BuildContext context) {
+    final eg = context.eg;
+
+    return Container(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+      decoration: BoxDecoration(border: Border(bottom: eg.hairline)),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        style: eg.text.bodyCompact,
+        cursorColor: eg.colors.accent,
+        cursorWidth: 1.5,
+        maxLines: 1,
+        // O Enter nunca chega aqui: o `Shortcuts` do painel o consome antes,
+        // para confirmar (ver `LeafOverlayIntents.reminding`).
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          hintText: 'ou digite: 16:30, sexta 14h',
+          hintStyle: eg.text.bodyCompact.copyWith(
+            color: eg.colors.textTertiary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// O que o campo entendeu — ou, com ele vazio, o que já está marcado.
+  Widget _preview(BuildContext context, DateTime? current) {
+    final eg = context.eg;
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final text = controller.text.trim();
+        final parsed = LeafReminder.parse(text, _now);
+
+        final (label, color) = switch ((text.isEmpty, parsed, current)) {
+          (true, _, final current?) => (
+            'Marcado: ${LeafReminder.preview(current, _now)}',
+            eg.colors.textTertiary,
+          ),
+          (true, _, null) => ('', eg.colors.textTertiary),
+          (false, final parsed?, _) => (
+            LeafReminder.preview(parsed, _now),
+            eg.colors.accentLight,
+          ),
+          (false, null, _) => (
+            'Não reconheci esse horário',
+            eg.colors.textTertiary,
+          ),
+        };
+
+        return Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: eg.text.footnote.copyWith(color: color),
+        );
+      },
+    );
+  }
+}
+
+/// Uma das respostas prontas do seletor.
+class _PresetButton extends StatelessWidget {
+  const _PresetButton(this.preset, {required this.onPick});
+
+  final LeafReminderPreset preset;
+  final ValueChanged<LeafReminderPreset> onPick;
+
+  static const _height = 28.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final eg = context.eg;
+
+    return EgInteractiveSurface(
+      onTap: () => onPick(preset),
+      // Fora da navegação por Tab: o teclado deste cartão é o campo, e
+      // tudo o que estes botões fazem também se digita nele ("30 min",
+      // "amanhã").
+      focusable: false,
+      height: _height,
+      alignment: Alignment.center,
+      borderRadius: eg.shapes.controlAll,
+      // Um degrau acima da superfície do cartão em repouso, para o botão
+      // existir sem o mouse; o resto da matriz é a do segmented control.
+      style: EgSurfaceStyle(
+        rest: eg.colors.control,
+        hover: eg.colors.hover,
+        pressed: eg.colors.raised,
+        foreground: eg.colors.textSecondary,
+        hoverForeground: eg.colors.textPrimary,
+      ),
+      builder: (context, state) => Text(
+        preset.label,
+        style: eg.text.bodyCompact.copyWith(
+          color: state.isHovered
+              ? eg.colors.textPrimary
+              : eg.colors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+/// "remover", no canto do seletor — vermelho só sob o mouse, como a lixeira.
+class _RemoveReminder extends StatelessWidget {
+  const _RemoveReminder({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final eg = context.eg;
+
+    return EgHoverable(
+      onTap: onTap,
+      semanticLabel: 'Remover lembrete',
+      builder: (context, state) => Text(
+        'remover',
+        style: eg.text.footnote.copyWith(
+          color: state.isHovered ? eg.colors.error : eg.colors.textTertiary,
+        ),
+      ),
     );
   }
 }

@@ -50,10 +50,12 @@ import 'features/awake/fake_sleep_assertion_service.dart';
 import 'features/echo/fake_echo_channel.dart';
 import 'features/focus/fake_focus_session_repository.dart';
 import 'features/leaf/fake_leaf_repository.dart';
+import 'shared/fake_notification_service.dart';
 import 'features/nest/fake_nest_channel.dart';
 import 'features/pin/fake_clipboard_repository.dart';
 import 'golden_fonts.dart';
 import 'features/echo/fake_export_service.dart';
+import 'features/echo/fake_echo_audio.dart';
 
 /// Goldens usados como conferência visual do design durante o desenvolvimento.
 ///
@@ -89,6 +91,7 @@ void main() {
   late SharedPreferences preferences;
   late Database echoDb;
   late FakeEchoChannel channel;
+  late FakeEchoPlayer echoPlayer;
   late BackupService backups;
   late FakeNestChannel nestChannel;
 
@@ -141,6 +144,8 @@ void main() {
       Meeting(
         title: 'Alinhamento de escopo',
         startedAt: DateTime(2026, 7, 23, 10, 30),
+        // Com áudio: é o que põe o player no topo da leitura.
+        audioFile: 'alinhamento.m4a',
         durationMs: const Duration(minutes: 32).inMilliseconds,
         language: TranscriptionLanguage.ptBR,
         summary:
@@ -160,6 +165,19 @@ void main() {
             startMs: 4000,
             endMs: 9000,
             text: 'Então, a ideia é fechar o escopo hoje ainda',
+            // Com o relógio de cada palavra, como a transcrição grava agora —
+            // é o que deixa a folha "tocando" acender uma palavra só.
+            words: [
+              MeetingWord(startMs: 4000, endMs: 4500, text: 'Então,'),
+              MeetingWord(startMs: 4600, endMs: 4700, text: ' a'),
+              MeetingWord(startMs: 4800, endMs: 5200, text: ' ideia'),
+              MeetingWord(startMs: 5300, endMs: 5400, text: ' é'),
+              MeetingWord(startMs: 5500, endMs: 6000, text: ' fechar'),
+              MeetingWord(startMs: 6100, endMs: 6200, text: ' o'),
+              MeetingWord(startMs: 6300, endMs: 7000, text: ' escopo'),
+              MeetingWord(startMs: 7100, endMs: 7600, text: ' hoje'),
+              MeetingWord(startMs: 7700, endMs: 9000, text: ' ainda'),
+            ],
           ),
           MeetingSegment(
             speaker: Speaker.others,
@@ -315,12 +333,17 @@ void main() {
       slot: 3,
       content: 'perguntar do deploy de quinta',
       createdAt: anchor.subtract(const Duration(hours: 2)),
+      // Um cartão com lembrete marcado: o sino e a hora no pé. Hora fixa
+      // amanhã, para a imagem não mudar com o relógio de quem roda o teste.
+      remindAt: DateTime(anchor.year, anchor.month, anchor.day + 1, 15, 30),
     ),
     LeafNote(
       id: 4,
       slot: 4,
-      content: 'renovar o domínio em novembro',
+      content: 'senha do wi-fi: verde-estufa-2026',
       createdAt: anchor.subtract(const Duration(minutes: 40)),
+      // O cartão sob o vidro fosco.
+      isHidden: true,
     ),
     LeafNote(
       id: 5,
@@ -366,7 +389,18 @@ void main() {
             FakeAwakeSessionRepository(),
           ),
           leafRepositoryProvider.overrideWithValue(notes),
+          notificationServiceProvider.overrideWithValue(
+            FakeNotificationService(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
+          echoAudioStoreProvider.overrideWithValue(
+            FakeEchoAudioStore(['alinhamento.m4a']),
+          ),
+          echoPlayerProvider.overrideWithValue(
+            echoPlayer = FakeEchoPlayer(
+              durationMs: const Duration(minutes: 32).inMilliseconds,
+            ),
+          ),
           echoRepositoryProvider.overrideWithValue(
             SqliteEchoRepository(echoDb),
           ),
@@ -577,6 +611,24 @@ void main() {
     );
   });
 
+  testWidgets('painel do Leaf — lembrete', (tester) async {
+    await pump(tester, const LeafOverlayView(), const Size(1800, 1600));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LeafOverlayView)),
+    );
+    container.read(leafViewModelProvider.notifier).remindSlot(3);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'sexta 14h');
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(LeafOverlayView),
+      matchesGoldenFile('goldens/leaf_overlay_reminder.png'),
+    );
+  });
+
   testWidgets('Hub — Leaf', (tester) async {
     await pump(tester, const HubView(), _hubWindow);
 
@@ -630,6 +682,25 @@ void main() {
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_echo_transcript.png'),
     );
+  });
+
+  testWidgets('Hub — Echo, a transcrição tocando', (tester) async {
+    await openReader(tester);
+    await tester.tap(find.text('Transcrição'));
+    await tester.pumpAndSettle();
+
+    // No meio de "escopo": o player anda, a palavra acende, a barra avança.
+    echoPlayer.positionMs = 6500;
+    await tester.tap(find.byTooltip('Tocar (espaço)'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo_playing.png'),
+    );
+
+    await tester.tap(find.byTooltip('Pausar (espaço)'));
+    await tester.pumpAndSettle();
   });
 
   /// A prateleira com o que se junta num dia de trabalho: uma pasta, um

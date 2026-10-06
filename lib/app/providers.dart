@@ -2,10 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:async';
 import 'dart:io';
 
 import '../core/storage/app_database.dart';
 import '../core/system/module_settings_host.dart';
+import '../core/system/notification_service.dart';
 import '../core/storage/backup_service.dart';
 import '../core/storage/export_service.dart';
 import '../core/window/overlay_panel.dart';
@@ -13,7 +15,9 @@ import '../core/window/window_kind.dart';
 import '../features/awake/data/awake_session_repository.dart';
 import '../features/awake/data/awake_settings_repository.dart';
 import '../features/awake/data/sleep_assertion_service.dart';
+import '../features/echo/data/echo_audio_store.dart';
 import '../features/echo/data/echo_channel.dart';
+import '../features/echo/data/echo_player.dart';
 import '../features/echo/data/echo_repository.dart';
 import '../features/echo/data/echo_settings_repository.dart';
 import '../features/echo/data/echo_summary_runner.dart';
@@ -36,6 +40,7 @@ import '../features/pin/data/pin_settings_repository.dart';
 import '../features/track/data/track_repository.dart';
 import '../features/track/data/track_summarizer.dart';
 import '../features/track/data/track_summary_cache.dart';
+import '../features/track/data/track_week_notifier.dart';
 
 /// Dependências resolvidas antes do `runApp` e injetadas via `overrides`.
 ///
@@ -202,6 +207,32 @@ final echoSettingsRepositoryProvider = Provider<EchoSettingsRepository>(
   (ref) => EchoSettingsRepository(ref.watch(sharedPreferencesProvider)),
 );
 
+/// A pasta `Reuniões` do aplicativo, onde mora o áudio das reuniões.
+///
+/// Ao lado de `Backups` e `Exportações`, e fora do banco: o backup copia o
+/// banco, e o áudio fica de fora dele.
+final echoAudioStoreProvider = Provider<EchoAudioStore>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return LocalEchoAudioStore(
+    Directory(p.join(database.directoryPath, 'Reuniões')),
+  );
+});
+
+final echoAudioJanitorProvider = Provider<EchoAudioJanitor>(
+  (ref) => EchoAudioJanitor(
+    repository: ref.watch(echoRepositoryProvider),
+    store: ref.watch(echoAudioStoreProvider),
+  ),
+);
+
+/// O player da reunião. Provider porque o teste troca pelo de mentira.
+final echoPlayerProvider = Provider<EchoPlayer>((ref) {
+  final player = ChannelEchoPlayer();
+  ref.onDispose(() => unawaited(player.unload()));
+  return player;
+});
+
 /// A conversa com o gravador, o transcritor e o modelo de resumo.
 ///
 /// Provider (e não instância global) porque é o que o teste substitui para
@@ -257,6 +288,27 @@ final trackSummarizerProvider = Provider<TrackSummarizer>(
 /// O parágrafo já escrito de cada dia, no plist — ver [TrackSummaryCache].
 final trackSummaryCacheProvider = Provider<TrackSummaryCache>(
   (ref) => TrackSummaryCache(ref.watch(sharedPreferencesProvider)),
+);
+
+/// As notificações locais — ver `NotificationChannel.swift`.
+///
+/// Provider para o teste poder trocar o canal por uma imitação. Só a janela 0
+/// tem o lado nativo; no Hub cada `post` responde `false`.
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  final service = ChannelNotificationService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// O resumo da semana passada, avisado na primeira verificação da segunda.
+final trackWeekNotifierProvider = Provider<TrackWeekNotifier>(
+  (ref) => TrackWeekNotifier(
+    repository: ref.watch(trackRepositoryProvider),
+    preferences: ref.watch(sharedPreferencesProvider),
+    appSettings: ref.watch(appSettingsRepositoryProvider),
+    notifications: ref.watch(notificationServiceProvider),
+    clock: ref.watch(clockProvider),
+  ),
 );
 
 /// A trava que impede o display de dormir.

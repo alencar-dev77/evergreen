@@ -175,7 +175,8 @@ class _BackupSection extends ConsumerWidget {
           label: 'Backup semanal automático',
           description:
               'Uma cópia por semana, nesta máquina. Ficam as '
-              '${BackupService.maxBackups} mais recentes.',
+              '${BackupService.maxBackups} mais recentes. O áudio das '
+              'reuniões não entra.',
           value: isAutomatic,
           onChanged: onAutomaticChanged,
         ),
