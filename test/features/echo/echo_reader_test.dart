@@ -21,6 +21,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'fake_echo_channel.dart';
 import 'fake_export_service.dart';
+import 'fake_echo_audio.dart';
 
 /// A região de leitura do Hub — a coluna que a janela cresce para mostrar.
 ///
@@ -32,6 +33,10 @@ void main() {
   late SharedPreferences preferences;
   late Database db;
   late FakeExportService exports;
+  late SqliteEchoRepository repository;
+  late FakeEchoAudioStore audio;
+  late FakeEchoPlayer player;
+  late int meetingId;
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
@@ -48,23 +53,39 @@ void main() {
     AppDatabase.migrate(db);
     exports = FakeExportService();
 
-    final repository = SqliteEchoRepository(db);
-    repository.insert(
-      Meeting(
-        title: 'Alinhamento de escopo',
-        startedAt: DateTime.now().subtract(const Duration(hours: 3)),
-        durationMs: const Duration(minutes: 32).inMilliseconds,
-        language: TranscriptionLanguage.ptBR,
-        segments: const [
-          MeetingSegment(
-            speaker: Speaker.others,
-            startMs: 4000,
-            endMs: 9000,
-            text: 'Então, a ideia é fechar o escopo hoje.',
-          ),
-        ],
-      ),
+    audio = FakeEchoAudioStore();
+    player = FakeEchoPlayer(
+      durationMs: const Duration(minutes: 32).inMilliseconds,
     );
+    repository = SqliteEchoRepository(db);
+    meetingId = repository
+        .insert(
+          Meeting(
+            title: 'Alinhamento de escopo',
+            startedAt: DateTime.now().subtract(const Duration(hours: 3)),
+            durationMs: const Duration(minutes: 32).inMilliseconds,
+            language: TranscriptionLanguage.ptBR,
+            segments: const [
+              MeetingSegment(
+                speaker: Speaker.others,
+                startMs: 4000,
+                endMs: 9000,
+                text: 'Então, a ideia é fechar o escopo hoje.',
+                words: [
+                  MeetingWord(startMs: 4000, endMs: 4400, text: 'Então,'),
+                  MeetingWord(startMs: 4500, endMs: 4700, text: ' a'),
+                  MeetingWord(startMs: 4800, endMs: 5200, text: ' ideia'),
+                  MeetingWord(startMs: 5300, endMs: 5400, text: ' é'),
+                  MeetingWord(startMs: 5500, endMs: 6000, text: ' fechar'),
+                  MeetingWord(startMs: 6100, endMs: 6200, text: ' o'),
+                  MeetingWord(startMs: 6300, endMs: 7000, text: ' escopo'),
+                  MeetingWord(startMs: 7100, endMs: 9000, text: ' hoje.'),
+                ],
+              ),
+            ],
+          ),
+        )
+        .id!;
   });
 
   tearDown(() => db.close());
@@ -84,6 +105,8 @@ void main() {
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository(),
           ),
+          echoAudioStoreProvider.overrideWithValue(audio),
+          echoPlayerProvider.overrideWithValue(player),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(FakeEchoChannel()),
           exportServiceProvider.overrideWithValue(exports),
@@ -244,5 +267,106 @@ void main() {
       isNull,
     );
     expect(exports.written, isEmpty);
+  });
+
+  group('áudio', () {
+    void giveAudio() {
+      audio.files.add('reuniao.m4a');
+      repository.setAudioFile(meetingId, 'reuniao.m4a');
+    }
+
+    Future<void> openTranscript(WidgetTester tester) async {
+      await pumpHub(tester);
+      await openMeeting(tester);
+      await tester.tap(find.text('Transcrição'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('reunião sem áudio não mostra player nenhum', (tester) async {
+      await openTranscript(tester);
+
+      expect(find.byTooltip('Tocar (espaço)'), findsNothing);
+    });
+
+    testWidgets('o player fica no topo e toca pelo botão', (tester) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      expect(find.text('32:00'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Tocar (espaço)'));
+      await tester.pump();
+      expect(player.isPlaying, isTrue);
+
+      await tester.tap(find.byTooltip('Pausar (espaço)'));
+      await tester.pumpAndSettle();
+      expect(player.isPlaying, isFalse);
+    });
+
+    testWidgets('clicar numa palavra leva o áudio até ela', (tester) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      // "escopo" também está no título; o que se clica é a fala.
+      await tester.tapOnText(
+        find.textRange.ofSubstring(
+          'scop',
+          descendentOf: find.byWidgetPredicate(
+            (widget) =>
+                widget is RichText &&
+                widget.text.toPlainText().contains('escopo hoje'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(player.positionMs, 6300);
+    });
+
+    testWidgets('a palavra que toca acende', (tester) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      player.positionMs = 6500;
+      await tester.tap(find.byTooltip('Tocar (espaço)'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final paragraph = tester.widget<RichText>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains('escopo hoje'),
+        ),
+      );
+      final spans = (paragraph.text as TextSpan).children!.first as TextSpan;
+      final lit = spans.children!.whereType<TextSpan>().where(
+        (span) => span.style?.color != null,
+      );
+      expect(lit.map((span) => span.text), [' escopo']);
+
+      await tester.tap(find.byTooltip('Pausar (espaço)'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('espaço toca e pausa; as setas saltam 10 s', (tester) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(player.isPlaying, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(player.positionMs, 10000);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(player.positionMs, 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(player.isPlaying, isFalse);
+    });
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:async';
 import 'dart:io';
 
 import '../core/storage/app_database.dart';
@@ -14,7 +15,9 @@ import '../core/window/window_kind.dart';
 import '../features/awake/data/awake_session_repository.dart';
 import '../features/awake/data/awake_settings_repository.dart';
 import '../features/awake/data/sleep_assertion_service.dart';
+import '../features/echo/data/echo_audio_store.dart';
 import '../features/echo/data/echo_channel.dart';
+import '../features/echo/data/echo_player.dart';
 import '../features/echo/data/echo_repository.dart';
 import '../features/echo/data/echo_settings_repository.dart';
 import '../features/echo/data/echo_summary_runner.dart';
@@ -203,6 +206,32 @@ final echoRepositoryProvider = Provider<EchoRepository>(
 final echoSettingsRepositoryProvider = Provider<EchoSettingsRepository>(
   (ref) => EchoSettingsRepository(ref.watch(sharedPreferencesProvider)),
 );
+
+/// A pasta `Reuniões` do aplicativo, onde mora o áudio das reuniões.
+///
+/// Ao lado de `Backups` e `Exportações`, e fora do banco: o backup copia o
+/// banco, e o áudio fica de fora dele.
+final echoAudioStoreProvider = Provider<EchoAudioStore>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return LocalEchoAudioStore(
+    Directory(p.join(database.directoryPath, 'Reuniões')),
+  );
+});
+
+final echoAudioJanitorProvider = Provider<EchoAudioJanitor>(
+  (ref) => EchoAudioJanitor(
+    repository: ref.watch(echoRepositoryProvider),
+    store: ref.watch(echoAudioStoreProvider),
+  ),
+);
+
+/// O player da reunião. Provider porque o teste troca pelo de mentira.
+final echoPlayerProvider = Provider<EchoPlayer>((ref) {
+  final player = ChannelEchoPlayer();
+  ref.onDispose(() => unawaited(player.unload()));
+  return player;
+});
 
 /// A conversa com o gravador, o transcritor e o modelo de resumo.
 ///

@@ -58,7 +58,8 @@ enum EvergreenModule {
     tagline: 'Transcrição de reuniões',
     description:
         'Grava a reunião, separa a sua voz da dos outros e devolve em '
-        'texto. O resumo sai do modelo do próprio Mac.',
+        'texto. Ouça de novo com cada palavra acesa; o resumo sai do '
+        'modelo do próprio Mac.',
     icon: EgIconData.microphone,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.echo,

@@ -205,6 +205,17 @@ class AppDatabase {
     'leaf-notes-hidden': '''
     ALTER TABLE leaf_notes ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;
     ''',
+    // O nome do arquivo de áudio da reunião, na pasta `Reuniões` do aplicativo.
+    //
+    // Até aqui o áudio era apagado assim que a transcrição entrava (ver o
+    // comentário de `echo-meetings`, que fica como registro de quando era
+    // assim). Agora ele fica 14 dias, e mais se a reunião tiver estrela.
+    //
+    // O nome, e não o áudio: um BLOB de 10 MB por reunião incharia o banco e
+    // cada um dos backups, que copiam o banco inteiro. `NULL` é "sem áudio".
+    'echo-meetings-audio': '''
+    ALTER TABLE echo_meetings ADD COLUMN audio_file TEXT;
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

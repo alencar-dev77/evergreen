@@ -223,6 +223,12 @@ participante; nós estaríamos tentando desfazer uma mistura.
 
 ## O áudio é andaime
 
+> **Desde a v0.25 o áudio da reunião fica por 14 dias** numa cópia comprimida,
+> para o player da leitura. As faixas cruas descritas abaixo continuam sendo
+> andaime e continuam sendo apagadas. Ver
+> [echo-audio-da-reuniao.md](echo-audio-da-reuniao.md), que responde ao
+> argumento de privacidade do último parágrafo.
+
 Grava em `Caches/com.alencardev.evergreen/echo`, não junto do banco: é
 temporário, e o macOS sabe limpar o que ficar para trás. Uma varredura no início
 do app pega o que uma queda no meio de uma reunião deixou.

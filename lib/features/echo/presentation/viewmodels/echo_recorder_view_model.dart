@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../data/echo_audio_store.dart';
 import '../../data/echo_channel.dart';
 import '../../data/echo_repository.dart';
 import '../../data/echo_settings_repository.dart';
@@ -27,6 +29,8 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   late final EchoChannel _channel;
   late final EchoRepository _repository;
   late final EchoSettingsRepository _settings;
+  late final EchoAudioStore _audio;
+  late final EchoAudioJanitor _janitor;
   late final DateTime Function() _now;
 
   Timer? _ticker;
@@ -44,6 +48,8 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
     _channel = ref.watch(echoChannelProvider);
     _repository = ref.watch(echoRepositoryProvider);
     _settings = ref.watch(echoSettingsRepositoryProvider);
+    _audio = ref.watch(echoAudioStoreProvider);
+    _janitor = ref.watch(echoAudioJanitorProvider);
     _now = ref.watch(clockProvider);
 
     ref.onDispose(() {
@@ -55,12 +61,17 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
     return const EchoRecorderState();
   }
 
-  /// Limpa áudio órfão de uma queda anterior e liga a escuta do ao vivo.
-  /// Chamado uma vez, na inicialização do app.
+  /// Limpa áudio órfão de uma queda anterior, apaga o áudio de reunião que
+  /// venceu e liga a escuta do ao vivo. Chamado uma vez, na inicialização do
+  /// app.
   Future<void> initialize() async {
     _channel.listen();
     _liveSubscription ??= _channel.onLiveSegment.listen(_onLiveSegment);
     _levelSubscription ??= _channel.onLevels.listen(_onSpectrum);
+
+    // Aqui, e não num relógio de fundo: o Evergreen abre todo dia, e um áudio
+    // que vence às três da tarde pode muito bem sair na abertura seguinte.
+    _sweepAudio();
 
     try {
       await _channel.cleanOrphanAudio();
@@ -251,14 +262,23 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
 
       _repository.trimHistory(settings.historyLimit);
 
-      // Só agora: o texto está salvo, o áudio virou andaime.
+      // Só agora: o texto está salvo, e as faixas cruas viram andaime — o que
+      // fica para ouvir é a cópia comprimida, com 1/15 do tamanho.
       //
       // Menos quando não saiu texto nenhum. Transcrição vazia é falha na
       // prática — apagar o áudio ali seria jogar fora a única cópia do que foi
       // dito, por causa de um problema que pode ser de permissão, de saída de
       // som ou do próprio reconhecimento. Fica em disco, e a varredura do
       // próximo início limpa se a pessoa não fizer nada.
-      if (segments.isNotEmpty) await _channel.deleteAudio(files.paths);
+      var saved = meeting;
+      if (segments.isNotEmpty) {
+        saved = await _archive(meeting, files, startedAt);
+        await _channel.deleteAudio(files.paths);
+      }
+
+      // A limpeza do teto pode ter levado uma reunião antiga, e o áudio dela
+      // ficou sem dono.
+      _sweepAudio();
 
       _startedAt = null;
 
@@ -274,7 +294,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
 
       state = state.copyWith(
         phase: explanation == null ? EchoPhase.done : EchoPhase.failed,
-        lastMeeting: meeting,
+        lastMeeting: saved,
         // `clearError`, e não `errorMessage: null`: o `copyWith` trata `null`
         // como "não mexe", então a explicação da reunião anterior sobreviveria
         // a uma gravação que deu certo.
@@ -296,6 +316,42 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
             ? error.message
             : '${error.message} O áudio foi preservado em disco.',
       );
+    }
+  }
+
+  /// Guarda a cópia para ouvir e liga a reunião a ela.
+  ///
+  /// Falhar aqui não é falhar a reunião: o texto já está salvo, e uma reunião
+  /// sem player é o que todas eram até esta versão. A tela só não oferece o
+  /// play.
+  Future<Meeting> _archive(
+    Meeting meeting,
+    RecordingFiles files,
+    DateTime startedAt,
+  ) async {
+    final fileName = 'reuniao-${startedAt.millisecondsSinceEpoch}.m4a';
+
+    try {
+      final durationMs = await _channel.archiveAudio(
+        files: files,
+        destination: _audio.pathOf(fileName),
+      );
+      if (durationMs == null) return meeting;
+    } on EchoException {
+      return meeting;
+    }
+
+    _repository.setAudioFile(meeting.id!, fileName);
+    return meeting.copyWith(audioFile: fileName);
+  }
+
+  /// O disco é enfeite aqui também: uma varredura que falha não pode derrubar
+  /// a abertura do app nem a reunião que acabou de ser salva.
+  void _sweepAudio() {
+    try {
+      _janitor.sweep(_now());
+    } on FileSystemException {
+      // Tenta de novo na próxima.
     }
   }
 

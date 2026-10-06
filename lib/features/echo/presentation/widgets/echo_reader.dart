@@ -10,7 +10,9 @@ import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../../home/presentation/widgets/hub_detail_region.dart';
 import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
 import '../viewmodels/echo_library_view_model.dart';
+import '../viewmodels/echo_playback_view_model.dart';
 import 'echo_meeting_detail.dart';
+import 'echo_player_bar.dart';
 import '../../../../core/design/eg_tokens.dart';
 
 /// A reunião aberta, na região dedicada do Hub.
@@ -38,6 +40,12 @@ class EchoReader extends ConsumerWidget {
 
     final viewModel = ref.read(echoLibraryViewModelProvider.notifier);
 
+    // Assistir o player é o que o mantém vivo: ele segue a seleção sozinho, e
+    // só existe enquanto a leitura está na tela.
+    final playback = ref.watch(echoPlaybackViewModelProvider);
+    final player = ref.read(echoPlaybackViewModelProvider.notifier);
+    final isPlayable = playback.meetingId == meeting.id;
+
     return HubDetailRegion(
       width: width,
       onClose: () => ref.read(hubDetailProvider.notifier).close(),
@@ -64,9 +72,23 @@ class EchoReader extends ConsumerWidget {
             ].join(' · '),
             style: context.eg.text.footnote,
           ),
+          // Sem áudio (reunião antiga, áudio vencido) a linha não existe — nem
+          // um player desabilitado, que prometeria algo que não vai acontecer.
+          if (isPlayable) ...[
+            const SizedBox(height: AppSpacing.md),
+            EchoPlayerBar(
+              state: playback,
+              onToggle: () => unawaited(player.toggle()),
+              onSkip: (offset) => unawaited(player.skipBy(offset)),
+              onSeek: (ms) => unawaited(player.seekTo(ms)),
+            ),
+          ],
         ],
       ),
       child: EchoMeetingDetail(
+        playback: isPlayable ? playback : null,
+        onSeek: (ms) => unawaited(player.seekTo(ms)),
+        onUserScroll: player.stopFollowing,
         meeting: meeting,
         userName: ref.watch(
           appSettingsViewModelProvider.select((settings) => settings.userName),
