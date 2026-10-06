@@ -22,6 +22,7 @@ import '../echo/fake_echo_channel.dart';
 import '../focus/fake_focus_session_repository.dart';
 import '../pin/fake_clipboard_repository.dart';
 import '../echo/fake_export_service.dart';
+import '../echo/fake_echo_audio.dart';
 
 /// A tela do Track dentro do Hub.
 ///
@@ -104,6 +105,8 @@ void main() {
           focusSessionRepositoryProvider.overrideWithValue(
             FakeFocusSessionRepository(),
           ),
+          echoAudioStoreProvider.overrideWithValue(FakeEchoAudioStore()),
+          echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
           echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
           echoChannelProvider.overrideWithValue(channel),
           exportServiceProvider.overrideWithValue(FakeExportService()),

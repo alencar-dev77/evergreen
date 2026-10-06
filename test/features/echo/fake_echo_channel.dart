@@ -179,6 +179,27 @@ class FakeEchoChannel implements EchoChannel {
   Future<Map<String, String>> resolveLocales(List<String> locales) async =>
       resolvedLocales;
 
+  /// Para onde a cópia para ouvir foi pedida, e se ela deve falhar.
+  String? archivedTo;
+  bool failArchive = false;
+
+  /// O que o nativo faz de verdade: escrever o arquivo. Sem isto, a varredura
+  /// que roda logo depois acharia a linha apontando para o nada.
+  void Function(String destination)? onArchive;
+
+  @override
+  Future<int?> archiveAudio({
+    required RecordingFiles files,
+    required String destination,
+  }) async {
+    if (failArchive) {
+      throw const EchoException('archive_failed', 'falhou');
+    }
+    archivedTo = destination;
+    onArchive?.call(destination);
+    return files.durationMs;
+  }
+
   @override
   Future<void> deleteAudio(List<String> paths) async => deletedAudio = paths;
 

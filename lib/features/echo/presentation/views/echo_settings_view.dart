@@ -10,6 +10,7 @@ import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
+import '../../models/echo_audio_retention.dart';
 import '../../models/echo_settings.dart';
 import '../../models/echo_capabilities.dart';
 import '../../../home/models/evergreen_module.dart';
@@ -170,9 +171,13 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
             children: [
               EgSettingsRow(
                 label: 'Reuniões guardadas',
+                // O áudio é dito aqui, junto do teto, porque é o teto que pode
+                // levá-lo antes dos 14 dias: com 25 reuniões e seis por dia,
+                // a reunião — e a voz dela — sai no quinto.
                 description:
-                    'A mais antiga sai para a nova entrar. Reunião marcada '
-                    'com "guardar" não conta.',
+                    'A mais antiga sai para a nova entrar, com o áudio junto. '
+                    'O áudio fica ${EchoAudioRetention.days} dias. Reunião '
+                    'marcada com "guardar" não conta e guarda o áudio.',
                 trailing: EgSegmentedControl<int>(
                   value: settings.historyLimit,
                   options: EchoSettings.historyLimitOptions,

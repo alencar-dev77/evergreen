@@ -61,6 +61,8 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Enter` | Echo | a ação daquele estado: gravar, parar e transcrever, abrir no Hub |
 | `⌘.` | Echo | descarta a gravação em curso e joga o áudio fora |
 | `Esc` | Echo | fecha o painel; a gravação **continua** |
+| `space` | Hub, leitura do Echo | toca e pausa o áudio da reunião — só com a leitura aberta e a reunião com áudio; num campo de texto, espaço continua sendo espaço |
+| `←` `→` | Hub, leitura do Echo | volta e avança 10 s no áudio da reunião |
 | `Enter` | Focus | executa a ação principal daquele estado (iniciar, iniciar a pausa, voltar ao foco); durante a sessão, anota a observação digitada |
 | `space` | Focus | pausa/retoma — desligado enquanto o campo de anotação tem o foco (espaço volta a ser espaço) |
 | `⌘.` | Focus | encerra a fase em andamento |

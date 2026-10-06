@@ -10,6 +10,7 @@ import '../../../../core/window/hub_window_channel.dart';
 import '../../../../shared/widgets/eg_background.dart';
 import '../../../awake/presentation/views/awake_settings_view.dart';
 import '../../../echo/presentation/views/echo_settings_view.dart';
+import '../../../echo/presentation/viewmodels/echo_playback_view_model.dart';
 import '../../../echo/presentation/widgets/echo_reader.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../focus/presentation/widgets/focus_reader.dart';
@@ -221,6 +222,7 @@ class _HubViewState extends ConsumerState<HubView> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
+        if (isDetailOpen) ..._regionBindings(detail),
       },
       // O escopo é o chão do teclado do Hub: no macOS o campo de texto de uma
       // tela de preferências larga o foco a cada clique fora dele, e sem um
@@ -277,6 +279,29 @@ class _HubViewState extends ConsumerState<HubView> {
   double _regionWidth(double available) {
     final free = available - ModuleSidebar.width - _contentFloor;
     return free.clamp(0.0, HubDetailRegion.preferredWidth);
+  }
+
+  /// As teclas da região aberta, quando ela tem alguma.
+  ///
+  /// No mapa do Hub, e não num `Shortcuts` dentro da região: o foco do Hub
+  /// mora acima dela, e um mapa lá dentro nunca seria consultado. Um campo de
+  /// texto com o foco continua recebendo o espaço e as setas — o mapa de
+  /// edição dele para a tecla antes de ela subir até aqui.
+  Map<ShortcutActivator, VoidCallback> _regionBindings(EvergreenModule module) {
+    if (module != EvergreenModule.echo) return const {};
+    if (!ref.watch(echoPlaybackViewModelProvider).isReady) return const {};
+
+    final player = ref.read(echoPlaybackViewModelProvider.notifier);
+    const skip = EchoPlaybackViewModel.skip;
+
+    return {
+      const SingleActivator(LogicalKeyboardKey.space): () =>
+          unawaited(player.toggle()),
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+          unawaited(player.skipBy(-skip)),
+      const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+          unawaited(player.skipBy(skip)),
+    };
   }
 
   /// A região dedicada do módulo que a abriu.

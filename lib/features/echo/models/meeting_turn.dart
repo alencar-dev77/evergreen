@@ -25,6 +25,8 @@ class MeetingTurn {
     required this.speaker,
     required this.startMs,
     required this.text,
+    this.endMs = 0,
+    this.pieces = const [],
   });
 
   final Speaker speaker;
@@ -32,7 +34,38 @@ class MeetingTurn {
   /// Quando a fala começou — o horário do primeiro pedaço.
   final int startMs;
 
+  /// Quando ela terminou — o fim do último pedaço.
+  final int endMs;
+
   final String text;
+
+  /// O mesmo [text], em pedaços com relógio — palavras, quando a transcrição
+  /// as trouxe; trechos inteiros, quando é de antes disso.
+  ///
+  /// Juntos, eles dão exatamente o [text]: é o que deixa a tela desenhar o
+  /// parágrafo pedaço por pedaço, destacando o que toca e levando o áudio
+  /// até o pedaço clicado, sem que a leitura mude uma letra.
+  final List<TimedPiece> pieces;
+
+  /// O pedaço que está tocando em [positionMs], ou `null` entre as falas.
+  ///
+  /// O último que já começou, enquanto não passou muito do fim dele: entre
+  /// duas palavras a anterior continua acesa (o destaque piscando a cada
+  /// respiração cansaria), mas numa pausa longa ele se apaga.
+  int? activePieceAt(int positionMs) {
+    int? active;
+
+    for (var index = 0; index < pieces.length; index++) {
+      if (pieces[index].startMs > positionMs) break;
+      active = index;
+    }
+
+    if (active == null) return null;
+    return positionMs <= pieces[active].endMs + _holdMs ? active : null;
+  }
+
+  /// Quanto o destaque espera depois do fim de um pedaço antes de apagar.
+  static const _holdMs = 1200;
 
   /// Silêncio que encerra um turno mesmo sem trocar de pessoa.
   ///
@@ -59,15 +92,23 @@ class MeetingTurn {
     var startMs = 0;
     var endMs = 0;
     final buffer = <String>[];
+    final pieces = <TimedPiece>[];
 
     void flush() {
       final atual = speaker;
       if (atual == null || buffer.isEmpty) return;
 
       turns.add(
-        MeetingTurn(speaker: atual, startMs: startMs, text: _join(buffer)),
+        MeetingTurn(
+          speaker: atual,
+          startMs: startMs,
+          endMs: endMs,
+          text: _join(buffer),
+          pieces: List.unmodifiable(pieces),
+        ),
       );
       buffer.clear();
+      pieces.clear();
     }
 
     for (final segment in segments) {
@@ -83,7 +124,15 @@ class MeetingTurn {
         startMs = segment.startMs;
       }
 
+      // O espaço entre dois trechos vai no fim do pedaço anterior — a mesma
+      // regra do `_join`, para os pedaços somarem o mesmo texto.
+      if (buffer.isNotEmpty && !_startsWithPunctuation(text)) {
+        final last = pieces.removeLast();
+        pieces.add(last.withText('${last.text} '));
+      }
+
       buffer.add(text);
+      pieces.addAll(_piecesOf(segment, text));
       endMs = segment.endMs;
     }
 
@@ -112,4 +161,52 @@ class MeetingTurn {
 
   static bool _startsWithPunctuation(String text) =>
       text.isNotEmpty && ',.;:!?)]}'.contains(text[0]);
+
+  /// Os pedaços de um trecho, já aparados como o [trimmed] dele.
+  ///
+  /// Palavras quando elas somam o trecho exato; o trecho inteiro, num pedaço
+  /// só, quando não há palavras ou quando elas não batem — o destaque fica
+  /// menos fino, mas o texto nunca sai diferente do que se lia antes.
+  static List<TimedPiece> _piecesOf(MeetingSegment segment, String trimmed) {
+    final whole = [
+      TimedPiece(text: trimmed, startMs: segment.startMs, endMs: segment.endMs),
+    ];
+
+    final words = segment.words;
+    if (words.isEmpty ||
+        words.map((word) => word.text).join().trim() != trimmed) {
+      return whole;
+    }
+
+    final pieces = [
+      for (final word in words)
+        TimedPiece(text: word.text, startMs: word.startMs, endMs: word.endMs),
+    ];
+
+    // Apara a ponta de fora: o espaço antes da primeira palavra e depois da
+    // última. Uma palavra que vira vazio (só o espaço) sai da lista.
+    pieces[0] = pieces[0].withText(pieces[0].text.trimLeft());
+    pieces[pieces.length - 1] = pieces.last.withText(
+      pieces.last.text.trimRight(),
+    );
+
+    final kept = pieces.where((piece) => piece.text.isNotEmpty).toList();
+    return kept.isEmpty ? whole : kept;
+  }
+}
+
+/// Um pedaço de fala com o relógio dele.
+class TimedPiece {
+  const TimedPiece({
+    required this.text,
+    required this.startMs,
+    required this.endMs,
+  });
+
+  final String text;
+  final int startMs;
+  final int endMs;
+
+  TimedPiece withText(String text) =>
+      TimedPiece(text: text, startMs: startMs, endMs: endMs);
 }

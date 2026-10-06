@@ -12,12 +12,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'fake_echo_channel.dart';
+import 'fake_echo_audio.dart';
 
 void main() {
   late Database db;
   late FakeEchoChannel channel;
   late SharedPreferences preferences;
   late ProviderContainer container;
+  late FakeEchoAudioStore audio;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -47,6 +49,8 @@ void main() {
       overrides: [
         echoChannelProvider.overrideWithValue(channel),
         sharedPreferencesProvider.overrideWithValue(preferences),
+        echoAudioStoreProvider.overrideWithValue(audio = FakeEchoAudioStore()),
+        echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
         echoRepositoryProvider.overrideWithValue(SqliteEchoRepository(db)),
         clockProvider.overrideWithValue(DateTime.now),
       ],
@@ -271,6 +275,50 @@ void main() {
 
       expect(channel.didPause, isFalse);
       expect(state().isPaused, isFalse);
+    });
+  });
+
+  group('áudio para ouvir', () {
+    test(
+      'a reunião guarda a cópia comprimida e solta as faixas cruas',
+      () async {
+        channel.onArchive = (destination) =>
+            audio.files.add(destination.split('/').last);
+
+        await viewModel().start();
+        await viewModel().stopAndTranscribe();
+
+        final meeting = state().lastMeeting!;
+        expect(meeting.audioFile, startsWith('reuniao-'));
+        expect(meeting.audioFile, endsWith('.m4a'));
+        expect(channel.archivedTo, audio.pathOf(meeting.audioFile!));
+        expect(channel.deletedAudio, ['/tmp/mic.caf', '/tmp/sistema.caf']);
+
+        // E o nome foi para o banco, não só para o estado.
+        final stored = SqliteEchoRepository(db).findById(meeting.id!);
+        expect(stored!.audioFile, meeting.audioFile);
+      },
+    );
+
+    test('a cópia que falha não derruba a reunião', () async {
+      channel.failArchive = true;
+
+      await viewModel().start();
+      await viewModel().stopAndTranscribe();
+
+      expect(state().phase, EchoPhase.done);
+      expect(state().lastMeeting!.hasAudio, isFalse);
+      expect(channel.deletedAudio, isNotEmpty);
+    });
+
+    test('sem fala reconhecida, nada é guardado para ouvir', () async {
+      channel.segments = const [];
+
+      await viewModel().start();
+      await viewModel().stopAndTranscribe();
+
+      expect(channel.archivedTo, isNull);
+      expect(channel.deletedAudio, isEmpty);
     });
   });
 }

@@ -1,5 +1,6 @@
 import 'package:sqlite3/sqlite3.dart';
 
+import '../models/echo_audio_retention.dart';
 import '../models/meeting.dart';
 import '../models/transcription_language.dart';
 
@@ -30,6 +31,13 @@ abstract interface class EchoRepository {
 
   /// Apaga as reuniões não guardadas que excedam [maxMeetings].
   void trimHistory(int maxMeetings);
+
+  /// Liga (ou solta, com `null`) o arquivo de áudio da reunião.
+  void setAudioFile(int id, String? fileName);
+
+  /// As reuniões que dizem ter áudio — só o necessário para decidir se ele
+  /// vence, sem trazer a transcrição junto.
+  List<EchoAudioRef> audioRefs();
 }
 
 /// Implementação sobre SQLite.
@@ -40,7 +48,7 @@ class SqliteEchoRepository implements EchoRepository {
 
   static const _columns =
       'id, title, started_at, duration_ms, language, transcript, summary, '
-      'summary_prompt, is_kept';
+      'summary_prompt, is_kept, audio_file';
 
   @override
   List<Meeting> loadAll({int limit = 200}) {
@@ -68,8 +76,8 @@ class SqliteEchoRepository implements EchoRepository {
       '''
       INSERT INTO echo_meetings
         (title, started_at, duration_ms, language, transcript, summary,
-         summary_prompt, is_kept)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+         summary_prompt, is_kept, audio_file)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
       ''',
       [
         meeting.title,
@@ -80,6 +88,7 @@ class SqliteEchoRepository implements EchoRepository {
         meeting.summary,
         meeting.summaryPrompt,
         meeting.isKept ? 1 : 0,
+        meeting.audioFile,
       ],
     );
 
@@ -140,6 +149,34 @@ class SqliteEchoRepository implements EchoRepository {
     );
   }
 
+  @override
+  void setAudioFile(int id, String? fileName) {
+    _db.execute('UPDATE echo_meetings SET audio_file = ? WHERE id = ?;', [
+      fileName,
+      id,
+    ]);
+  }
+
+  @override
+  List<EchoAudioRef> audioRefs() {
+    final rows = _db.select(
+      'SELECT id, started_at, is_kept, audio_file FROM echo_meetings '
+      'WHERE audio_file IS NOT NULL;',
+    );
+
+    return [
+      for (final row in rows)
+        EchoAudioRef(
+          meetingId: row['id'] as int,
+          fileName: row['audio_file'] as String,
+          startedAt: DateTime.fromMillisecondsSinceEpoch(
+            row['started_at'] as int,
+          ),
+          isKept: (row['is_kept'] as int? ?? 0) == 1,
+        ),
+    ];
+  }
+
   Meeting _fromRow(Row row) => Meeting(
     id: row['id'] as int,
     title: row['title'] as String,
@@ -152,5 +189,6 @@ class SqliteEchoRepository implements EchoRepository {
     summary: row['summary'] as String?,
     summaryPrompt: row['summary_prompt'] as String?,
     isKept: (row['is_kept'] as int? ?? 0) == 1,
+    audioFile: row['audio_file'] as String?,
   );
 }

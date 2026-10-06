@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/widgets/eg_button.dart';
@@ -11,6 +13,7 @@ import '../../models/meeting.dart';
 import '../../models/meeting_document.dart';
 import '../../models/meeting_segment.dart';
 import '../../models/meeting_turn.dart';
+import '../viewmodels/echo_playback_view_model.dart';
 import '../../../../core/design/eg_tokens.dart';
 
 /// O corpo da região de leitura: o resumo ou a transcrição da reunião aberta.
@@ -40,9 +43,22 @@ class EchoMeetingDetail extends StatefulWidget {
     required this.onCopy,
     required this.onExport,
     required this.onDelete,
+    this.playback,
+    this.onSeek,
+    this.onUserScroll,
   });
 
   final Meeting meeting;
+
+  /// O player desta reunião, quando ela tem áudio carregado. `null` desenha a
+  /// transcrição como sempre foi: texto selecionável, sem relógio.
+  final EchoPlaybackState? playback;
+
+  /// O clique numa palavra da transcrição.
+  final void Function(int positionMs)? onSeek;
+
+  /// A pessoa rolou a leitura à mão — a transcrição para de seguir a fala.
+  final VoidCallback? onUserScroll;
 
   /// Como chamar quem falou pelo microfone. Vazio, o rótulo é "Você".
   final String userName;
@@ -97,13 +113,24 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
   /// de sair da tela, como todo botão de trabalho demorado do aplicativo.
   var _isExporting = false;
 
+  /// Uma chave por fala, para a rolagem achar a que está tocando.
+  final _turnKeys = <int, GlobalKey>{};
+
+  /// A fala que a rolagem foi buscar por último — rolar de novo só quando a
+  /// voz passa para a próxima, e não a cada pergunta ao player.
+  int? _followedTurn;
+
   @override
   void didUpdateWidget(EchoMeetingDetail oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     // Trocar de reunião apaga a confirmação: "Resumo copiado" sobre a reunião
     // seguinte diria que o resumo *dela* foi copiado, e não foi.
-    if (oldWidget.meeting.id != widget.meeting.id) _clearNote();
+    if (oldWidget.meeting.id != widget.meeting.id) {
+      _clearNote();
+      _turnKeys.clear();
+      _followedTurn = null;
+    }
   }
 
   @override
@@ -126,9 +153,19 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         // A leitura rola dentro do painel, não na página: é o que mantém a
         // lista ao lado sempre à vista.
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(right: AppSpacing.sm),
-            child: _body(),
+          // Só a rolagem da pessoa conta: a que a leitura faz sozinha para
+          // seguir a fala não tem direção de usuário, e não desliga nada.
+          child: NotificationListener<UserScrollNotification>(
+            onNotification: (notification) {
+              if (notification.direction != ScrollDirection.idle) {
+                widget.onUserScroll?.call();
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
+              child: _body(),
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -376,16 +413,70 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
 
   Widget _transcript() {
     final turns = MeetingTurn.from(widget.meeting.segments);
+    final playback = widget.playback;
+    final isPlayable =
+        playback != null && playback.meetingId == widget.meeting.id;
+    final position = isPlayable ? playback.positionMs : null;
 
-    return Column(
+    final active = position == null ? null : _activeTurn(turns, position);
+    if (isPlayable && playback.isFollowing) _follow(active);
+
+    final column = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final turn in turns) ...[
-          _TurnBlock(turn: turn, userName: widget.userName),
-          if (turn != turns.last) const SizedBox(height: AppSpacing.xl),
+        for (var index = 0; index < turns.length; index++) ...[
+          _TurnBlock(
+            key: isPlayable
+                ? _turnKeys.putIfAbsent(index, GlobalKey.new)
+                : null,
+            turn: turns[index],
+            userName: widget.userName,
+            activePiece: index == active
+                ? turns[index].activePieceAt(position!)
+                : null,
+            onSeek: isPlayable ? widget.onSeek : null,
+          ),
+          if (index != turns.length - 1) const SizedBox(height: AppSpacing.xl),
         ],
       ],
     );
+
+    // Com áudio, cada fala é desenhada em pedaços clicáveis, e a seleção de
+    // texto passa a ser da coluna inteira — o `SelectableText` de cada fala
+    // não aceita pedaços com clique.
+    return isPlayable ? SelectionArea(child: column) : column;
+  }
+
+  /// A fala em que a voz está agora: a última que já começou.
+  static int? _activeTurn(List<MeetingTurn> turns, int positionMs) {
+    int? active;
+    for (var index = 0; index < turns.length; index++) {
+      if (turns[index].startMs > positionMs) break;
+      active = index;
+    }
+    return active;
+  }
+
+  /// Rola até a fala que está tocando, uma vez por fala.
+  ///
+  /// Depois do quadro: a fala precisa estar desenhada para ter onde rolar.
+  /// Um terço abaixo do topo, e não colada nele — o que acabou de ser dito
+  /// continua à vista acima.
+  void _follow(int? turn) {
+    if (turn == null || turn == _followedTurn) return;
+    _followedTurn = turn;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = _turnKeys[turn]?.currentContext;
+      if (context == null || !context.mounted) return;
+
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.3,
+        duration: AppDurations.medium,
+        curve: AppDurations.curve,
+      );
+    });
   }
 
   /// A ação da aba aberta à esquerda; apagar sempre à direita, longe dela.
@@ -451,14 +542,83 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
 ///
 /// Sem balões de conversa: isso é vocabulário de aplicativo de mensagem, e o
 /// que está aqui é um documento para reler, não um bate-papo.
-class _TurnBlock extends StatelessWidget {
-  const _TurnBlock({required this.turn, required this.userName});
+///
+/// Com áudio, o parágrafo é desenhado pedaço por pedaço: o que está tocando
+/// acende em verde (é algo ligado, que é o papel do verde no aplicativo), e
+/// clicar em qualquer pedaço leva o áudio até ele.
+class _TurnBlock extends StatefulWidget {
+  const _TurnBlock({
+    super.key,
+    required this.turn,
+    required this.userName,
+    this.activePiece,
+    this.onSeek,
+  });
 
   final MeetingTurn turn;
   final String userName;
 
+  /// O índice do pedaço que está tocando, se a voz está nesta fala.
+  final int? activePiece;
+
+  /// `null` sem áudio: a fala fica como sempre foi, texto selecionável.
+  final void Function(int positionMs)? onSeek;
+
+  @override
+  State<_TurnBlock> createState() => _TurnBlockState();
+}
+
+class _TurnBlockState extends State<_TurnBlock> {
+  /// Um reconhecedor por pedaço, criado uma vez — recriá-los a cada pergunta
+  /// ao player seria jogar fora centenas de objetos dez vezes por segundo.
+  List<TapGestureRecognizer> _taps = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _buildTaps();
+  }
+
+  @override
+  void didUpdateWidget(_TurnBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.turn.pieces, widget.turn.pieces) ||
+        (oldWidget.onSeek == null) != (widget.onSeek == null)) {
+      _disposeTaps();
+      _buildTaps();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposeTaps();
+    super.dispose();
+  }
+
+  void _buildTaps() {
+    if (widget.onSeek == null) {
+      _taps = const [];
+      return;
+    }
+
+    _taps = [
+      for (final piece in widget.turn.pieces)
+        TapGestureRecognizer()
+          ..onTap = () => widget.onSeek?.call(piece.startMs),
+    ];
+  }
+
+  void _disposeTaps() {
+    for (final tap in _taps) {
+      tap.dispose();
+    }
+    _taps = const [];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final turn = widget.turn;
+    final userName = widget.userName;
     final isMe = turn.speaker == Speaker.me;
 
     return Column(
@@ -482,7 +642,25 @@ class _TurnBlock extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
-        SelectableText(turn.text, style: context.eg.text.reading),
+        if (_taps.isEmpty || _taps.length != turn.pieces.length)
+          SelectableText(turn.text, style: context.eg.text.reading)
+        else
+          Text.rich(
+            TextSpan(
+              style: context.eg.text.reading,
+              children: [
+                for (var index = 0; index < turn.pieces.length; index++)
+                  TextSpan(
+                    text: turn.pieces[index].text,
+                    recognizer: _taps[index],
+                    mouseCursor: SystemMouseCursors.click,
+                    style: index == widget.activePiece
+                        ? TextStyle(color: context.eg.colors.accent)
+                        : null,
+                  ),
+              ],
+            ),
+          ),
       ],
     );
   }

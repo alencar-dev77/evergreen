@@ -66,6 +66,12 @@ enum EgIconData {
   /// Chevron para a direita — o par do [chevronLeft].
   chevronRight,
 
+  /// Seta em volta, no sentido anti-horário — voltar um trecho do áudio.
+  skipBack,
+
+  /// Seta em volta, no sentido horário — avançar um trecho do áudio.
+  skipForward,
+
   /// Engrenagem simplificada — configurações.
   gear,
 
@@ -242,6 +248,8 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.close => _closePath(),
     EgIconData.chevronLeft => _chevronPath(left: true),
     EgIconData.chevronRight => _chevronPath(left: false),
+    EgIconData.skipBack => _skipPath(back: true),
+    EgIconData.skipForward => _skipPath(back: false),
     EgIconData.gear => _gearPath(),
     EgIconData.trash => _trashPath(),
     EgIconData.bell => _bellPath(),
@@ -443,6 +451,22 @@ class _EgIconPainter extends CustomPainter {
       ..moveTo(back, 3.6)
       ..lineTo(tip, 8)
       ..lineTo(back, 12.4);
+  }
+
+  /// Três quartos de volta e a ponta no alto, apontando para onde o tempo
+  /// anda: para trás, a ponta olha para a esquerda; para a frente, à direita.
+  Path _skipPath({required bool back}) {
+    const center = Offset(8, 8.8);
+    const radius = 5.0;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final side = back ? 1.0 : -1.0;
+
+    return Path()
+      // Começa no alto e dá a volta pelo lado oposto ao da ponta.
+      ..addArc(rect, -math.pi / 2, side * math.pi * 1.5)
+      ..moveTo(8 + side * 1.8, 2.1)
+      ..lineTo(8, 3.8)
+      ..lineTo(8 + side * 1.8, 5.5);
   }
 
   Path _gearPath() => Path()
