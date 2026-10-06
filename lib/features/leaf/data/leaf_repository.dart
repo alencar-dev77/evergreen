@@ -20,10 +20,14 @@ abstract interface class LeafRepository {
     required DateTime createdAt,
     DateTime? updatedAt,
     DateTime? remindAt,
+    bool isHidden = false,
   });
 
   /// Marca (ou, com `null`, tira) o lembrete da anotação.
   void setReminder(int id, DateTime? at);
+
+  /// Põe (ou tira) o cartão sob o vidro fosco.
+  void setHidden(int id, {required bool hidden});
 
   /// Reescreve o texto e marca a hora em que isso aconteceu.
   ///
@@ -52,7 +56,7 @@ class SqliteLeafRepository implements LeafRepository {
   @override
   List<LeafNote> loadAll() {
     final rows = _db.select('''
-      SELECT id, slot, content, created_at, updated_at, remind_at
+      SELECT id, slot, content, created_at, updated_at, remind_at, is_hidden
         FROM leaf_notes
        ORDER BY slot ASC;
       ''');
@@ -67,11 +71,13 @@ class SqliteLeafRepository implements LeafRepository {
     required DateTime createdAt,
     DateTime? updatedAt,
     DateTime? remindAt,
+    bool isHidden = false,
   }) {
     _db.execute(
       '''
-      INSERT INTO leaf_notes (slot, content, created_at, updated_at, remind_at)
-      VALUES (?, ?, ?, ?, ?);
+      INSERT INTO leaf_notes
+        (slot, content, created_at, updated_at, remind_at, is_hidden)
+      VALUES (?, ?, ?, ?, ?, ?);
       ''',
       [
         slot,
@@ -79,6 +85,7 @@ class SqliteLeafRepository implements LeafRepository {
         createdAt.millisecondsSinceEpoch,
         updatedAt?.millisecondsSinceEpoch,
         remindAt?.millisecondsSinceEpoch,
+        isHidden ? 1 : 0,
       ],
     );
 
@@ -89,7 +96,16 @@ class SqliteLeafRepository implements LeafRepository {
       createdAt: createdAt,
       updatedAt: updatedAt,
       remindAt: remindAt,
+      isHidden: isHidden,
     );
+  }
+
+  @override
+  void setHidden(int id, {required bool hidden}) {
+    _db.execute('UPDATE leaf_notes SET is_hidden = ? WHERE id = ?;', [
+      hidden ? 1 : 0,
+      id,
+    ]);
   }
 
   @override
@@ -162,6 +178,7 @@ class SqliteLeafRepository implements LeafRepository {
       remindAt: remindAt == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(remindAt),
+      isHidden: row['is_hidden'] == 1,
     );
   }
 }

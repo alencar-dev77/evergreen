@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,6 +58,8 @@ class LeafNoteCard extends StatelessWidget {
     required this.onTap,
     required this.onDelete,
     required this.onRemind,
+    required this.onToggleHidden,
+    this.isPeeking = false,
     this.now,
   });
 
@@ -72,6 +75,12 @@ class LeafNoteCard extends StatelessWidget {
   /// O sino: o cartão vira o seletor de lembrete.
   final VoidCallback onRemind;
 
+  /// O olho: põe o cartão sob o vidro fosco, ou o tira de lá.
+  final VoidCallback onToggleHidden;
+
+  /// O espaço está apertado sobre este cartão: o vidro sai enquanto durar.
+  final bool isPeeking;
+
   /// Injetável para o teste não depender do relógio real.
   final DateTime? now;
 
@@ -84,7 +93,11 @@ class LeafNoteCard extends StatelessWidget {
       // A vaga é o endereço do cartão na parede — é por ela que se fala dele
       // ("o três"), e ela está desenhada como um número solto no rodapé, que
       // lido cru sai como um algarismo sem assunto.
-      semanticLabel: 'Vaga ${note.slot}, ${note.content}',
+      // O cartão sob o vidro também não é lido em voz alta: o leitor de tela
+      // é outra forma de a tela mostrar o texto.
+      semanticLabel: note.isHidden
+          ? 'Vaga ${note.slot}, oculta'
+          : 'Vaga ${note.slot}, ${note.content}',
       selected: isSelected ? true : null,
       builder: (context, state) {
         return _LeafCardSurface(
@@ -96,11 +109,17 @@ class LeafNoteCard extends StatelessWidget {
               _header(context, state.isHovered),
               const SizedBox(height: AppSpacing.md),
               Expanded(
-                child: Text(
-                  note.content,
-                  maxLines: LeafCardMetrics.contentLines,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.eg.text.bodyCompact,
+                child: _FrostedGlass(
+                  // Espiar é sob o mouse ou com o espaço apertado, e só
+                  // enquanto durar: ler o segredo não pode exigir lembrar de
+                  // escondê-lo de novo.
+                  frosted: note.isHidden && !state.isHovered && !isPeeking,
+                  child: Text(
+                    note.content,
+                    maxLines: LeafCardMetrics.contentLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.eg.text.bodyCompact,
+                  ),
                 ),
               ),
               // A idade fica, e fica embaixo: ela é a única coisa que a parede
@@ -161,6 +180,15 @@ class LeafNoteCard extends StatelessWidget {
         const Spacer(),
         if (isHovered) ...[
           _IconAffordance(
+            icon: note.isHidden ? EgIconData.eyeOff : EgIconData.eye,
+            semanticLabel: note.isHidden ? 'Mostrar texto' : 'Ocultar texto',
+            // Riscado e verde quando o vidro está posto: é um estado
+            // **ligado** no cartão, como o sino do lembrete.
+            color: note.isHidden ? eg.colors.accentLight : null,
+            onTap: onToggleHidden,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _IconAffordance(
             icon: EgIconData.bell,
             semanticLabel: 'Lembrete',
             onTap: onRemind,
@@ -171,6 +199,14 @@ class LeafNoteCard extends StatelessWidget {
           Text(
             'copiado',
             style: eg.text.monoSmall.copyWith(color: eg.colors.textSecondary),
+          )
+        // Fora do mouse, o olho riscado fica no canto: sem ele, um cartão
+        // borrado parece um cartão com defeito, e não um cartão protegido.
+        else if (note.isHidden)
+          EgIcon(
+            EgIconData.eyeOff,
+            size: AppIconSizes.xs,
+            color: eg.colors.textTertiary,
           ),
       ],
     );
@@ -441,11 +477,15 @@ class _IconAffordance extends StatelessWidget {
     required this.icon,
     required this.semanticLabel,
     required this.onTap,
+    this.color,
   });
 
   final EgIconData icon;
   final String semanticLabel;
   final VoidCallback onTap;
+
+  /// Cor fixa, para quando o ícone mostra um estado ligado.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -455,10 +495,58 @@ class _IconAffordance extends StatelessWidget {
       builder: (context, state) => EgIcon(
         icon,
         size: AppIconSizes.xs,
-        color: state.isHovered || state.isPressed
-            ? context.eg.colors.textPrimary
-            : context.eg.colors.textTertiary,
+        color:
+            color ??
+            (state.isHovered || state.isPressed
+                ? context.eg.colors.textPrimary
+                : context.eg.colors.textTertiary),
       ),
+    );
+  }
+}
+
+/// O vidro fosco sobre o texto de um cartão oculto.
+///
+/// Um desfoque **do próprio texto**, e não um `BackdropFilter` por cima: o
+/// filtro de fundo recompõe tudo o que está atrás dele a cada quadro, e a
+/// parede pode ter nove destes. Desfocar o texto dá a mesma imagem — linhas
+/// que se sabe que existem e não se consegue ler — pelo custo de uma camada.
+///
+/// A entrada e a saída correm em [AppDurations.fast]: o bastante para o texto
+/// aparecer "se desembaçando" sob o mouse, e não piscar.
+class _FrostedGlass extends StatelessWidget {
+  const _FrostedGlass({required this.frosted, required this.child});
+
+  final bool frosted;
+  final Widget child;
+
+  /// Forte o bastante para uma senha de doze caracteres virar uma mancha, e
+  /// fraco o bastante para ainda se ver quantas linhas o cartão tem.
+  static const _sigma = 6.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: frosted ? 1 : 0),
+      duration: AppDurations.fast,
+      curve: AppDurations.curve,
+      child: child,
+      builder: (context, t, child) {
+        // Sem vidro, sem camada: o cartão comum não paga pelo recurso.
+        if (t == 0) return child!;
+
+        return ExcludeSemantics(
+          excluding: frosted,
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: _sigma * t,
+              sigmaY: _sigma * t,
+              tileMode: TileMode.decal,
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }

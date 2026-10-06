@@ -626,4 +626,69 @@ void main() {
       expect(notifications.scheduled['leaf.$id']?.$2, at);
     });
   });
+
+  group('vidro fosco', () {
+    test('⌘B põe e tira o cartão selecionado sob o vidro', () {
+      final container = containerFor();
+      fill(container, 2);
+      viewModelOf(container).selectSlot(2);
+
+      viewModelOf(container).toggleHiddenSelected();
+      expect(stateOf(container).noteAt(2)?.isHidden, isTrue);
+      expect(repository.loadAll()[1].isHidden, isTrue);
+      expect(stateOf(container).noteAt(1)?.isHidden, isFalse);
+
+      viewModelOf(container).toggleHiddenSelected();
+      expect(stateOf(container).noteAt(2)?.isHidden, isFalse);
+    });
+
+    test('o lembrete de um cartão oculto não mostra o texto', () {
+      final container = containerFor();
+      fill(container, 1);
+      final id = stateOf(container).noteAt(1)!.id;
+
+      viewModelOf(container)
+        ..remindSlot(1)
+        ..setReminder(clock.add(const Duration(hours: 1)))
+        ..toggleHidden(1);
+
+      final (notification, _) = notifications.scheduled['leaf.$id']!;
+      expect(notification.body, isNot(contains('anotação 1')));
+      expect(notification.title, 'Lembrete');
+    });
+
+    test('desfazer devolve o cartão ainda sob o vidro', () {
+      final container = containerFor();
+      fill(container, 1);
+
+      viewModelOf(container)
+        ..toggleHidden(1)
+        ..deleteSelected()
+        ..undoDelete();
+
+      expect(stateOf(container).noteAt(1)?.isHidden, isTrue);
+    });
+
+    test('copiar continua valendo sob o vidro', () async {
+      final container = containerFor();
+      fill(container, 1);
+      viewModelOf(container).toggleHidden(1);
+
+      String? copied;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      expect(await viewModelOf(container).copySlot(1), isTrue);
+      expect(copied, 'anotação 1');
+    });
+  });
 }

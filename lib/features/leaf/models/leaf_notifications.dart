@@ -24,7 +24,22 @@ abstract final class LeafNotifications {
   /// O texto inteiro no corpo: é ele o lembrete. A primeira linha vira título
   /// quando o cartão tem mais de uma — "Ligar pro Marcos" lido de relance no
   /// canto da tela, o resto embaixo.
+  ///
+  /// **Cartão sob o vidro não mostra o texto.** A notificação aparece no canto
+  /// da tela de quem estiver olhando, e é justamente o que o vidro existe para
+  /// evitar — o lembrete diz só que há um lembrete, e o clique abre a parede.
   static EgNotification of(LeafNote note) {
+    if (note.isHidden) {
+      return EgNotification(
+        id: idOf(note.id),
+        thread: 'leaf',
+        title: 'Lembrete',
+        body: 'Cartão oculto do Leaf — abra para ver.',
+        sound: true,
+        actions: const [EgNotificationAction(snooze, 'Adiar 30 min')],
+      );
+    }
+
     final lines = note.content.split('\n');
     final hasTitle = lines.length > 1;
 

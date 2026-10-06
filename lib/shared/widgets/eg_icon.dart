@@ -68,6 +68,12 @@ enum EgIconData {
   /// Sino — lembrete marcado (o cartão do Leaf).
   bell,
 
+  /// Olho — mostrar o que está sob o vidro.
+  eye,
+
+  /// Olho riscado — cartão sob o vidro fosco.
+  eyeOff,
+
   /// Prancheta — identifica o módulo Pin.
   clipboard,
 
@@ -230,6 +236,11 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.gear => _gearPath(),
     EgIconData.trash => _trashPath(),
     EgIconData.bell => _bellPath(),
+    EgIconData.eye => _eyePath(),
+    EgIconData.eyeOff =>
+      _eyePath()
+        ..moveTo(3, 13)
+        ..lineTo(13, 3),
     EgIconData.clipboard => _clipboardPath(),
     EgIconData.timer => _timerPath(),
     EgIconData.sun => _sunPath(),
@@ -443,6 +454,16 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(11.6, 11.5)
     ..moveTo(6.6, 13.3)
     ..quadraticBezierTo(8, 14.6, 9.4, 13.3);
+
+  /// Olho de traço: a amêndoa em duas curvas e a pupila. O riscado
+  /// ([EgIconData.eyeOff]) é este com a diagonal por cima — os dois precisam
+  /// ter a mesma silhueta para a troca ler como o mesmo botão mudando de
+  /// estado.
+  Path _eyePath() => Path()
+    ..moveTo(1.8, 8)
+    ..quadraticBezierTo(8, 1.6, 14.2, 8)
+    ..quadraticBezierTo(8, 14.4, 1.8, 8)
+    ..addOval(Rect.fromCircle(center: const Offset(8, 8), radius: 2));
 
   Path _clipboardPath() => Path()
     ..addRRect(

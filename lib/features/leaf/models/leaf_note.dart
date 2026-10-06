@@ -11,6 +11,7 @@ class LeafNote {
     required this.createdAt,
     this.updatedAt,
     this.remindAt,
+    this.isHidden = false,
   });
 
   final int id;
@@ -50,6 +51,14 @@ class LeafNote {
   /// Uma data que já passou é um lembrete que já tocou: o cartão não a mostra
   /// (ver [reminderAfter]), e a próxima releitura da parede a apaga.
   final DateTime? remindAt;
+
+  /// O texto fica sob o vidro fosco até alguém espiar.
+  ///
+  /// Esconde só o **texto**: a vaga, a idade e o lembrete continuam à vista,
+  /// porque é por eles que se sabe qual cartão é sem precisar lê-lo. Copiar
+  /// pelo número continua valendo — é o melhor caso do recurso: colar a senha
+  /// sem ela passar pela tela.
+  final bool isHidden;
 
   /// O lembrete que ainda vai tocar, visto de [now].
   DateTime? reminderAfter(DateTime now) {
@@ -106,6 +115,7 @@ class LeafNote {
     DateTime? updatedAt,
     DateTime? remindAt,
     bool clearReminder = false,
+    bool? isHidden,
   }) => LeafNote(
     id: id,
     slot: slot ?? this.slot,
@@ -113,5 +123,6 @@ class LeafNote {
     createdAt: createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     remindAt: clearReminder ? null : remindAt ?? this.remindAt,
+    isHidden: isHidden ?? this.isHidden,
   );
 }

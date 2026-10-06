@@ -44,6 +44,8 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `←` `→` `↑` `↓` | Leaf | move a seleção pela grade, parando na última vaga que tem o que fazer (as vazias de trás são endereço, não destino) |
 | `⌘⌫` | Leaf | tira o cartão selecionado; os seguintes sobem uma vaga e a parede encolhe |
 | `⌘Z` | Leaf | devolve o último cartão apagado à vaga em que ele estava — enquanto o painel estiver aberto e houver vaga |
+| `⌘B` | Leaf | põe o cartão selecionado sob o vidro fosco, ou o tira (o olho do cartão, sob o mouse, faz o mesmo). Não `⌘H`, que esconde o aplicativo inteiro |
+| `espaço` (segurado) | Leaf | espia o cartão selecionado sob o vidro; soltar devolve o vidro — passar o mouse espia do mesmo jeito. Copiar pelo número vale sem espiar |
 | `⌘L` | Leaf | o cartão selecionado vira o seletor de lembrete (o sino do cartão, sob o mouse, faz o mesmo) |
 | `Enter` | seletor de lembrete | marca o horário que o campo entendeu — e só ele: o que não foi entendido fica na tela, com a prévia dizendo isso |
 | `Esc` | seletor de lembrete | o cartão volta a ser cartão, com o lembrete que já tinha |

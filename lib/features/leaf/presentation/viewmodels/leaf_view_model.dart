@@ -147,6 +147,39 @@ class LeafViewModel extends Notifier<LeafState> {
     );
   }
 
+  /// `⌘B`: põe o cartão selecionado sob o vidro fosco, ou o tira de lá.
+  void toggleHiddenSelected() {
+    final slot = state.selectedSlot;
+    if (slot != null) toggleHidden(slot);
+  }
+
+  /// O olho do cartão.
+  ///
+  /// Um lembrete marcado é reagendado junto: o texto que a notificação mostra
+  /// depende de o cartão estar ou não sob o vidro.
+  void toggleHidden(int slot) {
+    final note = state.noteAt(slot);
+    if (note == null) return;
+
+    final hidden = !note.isHidden;
+    _repository.setHidden(note.id, hidden: hidden);
+
+    final updated = note.copyWith(isHidden: hidden);
+    final reminder = updated.reminderAfter(_now());
+    if (reminder != null) {
+      unawaited(
+        _notifications.schedule(LeafNotifications.of(updated), reminder),
+      );
+    }
+
+    state = state.copyWith(
+      selectedSlot: slot,
+      notes: [
+        for (final other in state.notes) other.id == note.id ? updated : other,
+      ],
+    );
+  }
+
   /// Esc no seletor: o cartão volta a ser cartão, com o lembrete que já tinha.
   void cancelReminder() => state = state.copyWith(clearReminding: true);
 
@@ -346,6 +379,9 @@ class LeafViewModel extends Notifier<LeafState> {
       updatedAt: note.updatedAt,
       // O lembrete também — se ainda não passou da hora dele.
       remindAt: note.reminderAfter(_now()),
+      // E o vidro: devolver à parede um segredo à vista seria o desfazer
+      // criando um vazamento que o apagar não tinha.
+      isHidden: note.isHidden,
     );
 
     final reminder = restored.remindAt;
