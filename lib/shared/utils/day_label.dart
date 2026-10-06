@@ -50,6 +50,10 @@ abstract final class DayLabel {
   static String dayMonth(DateTime moment) =>
       '${moment.day} ${_months[moment.month - 1]}';
 
+  /// A semana que começa em [monday], de segunda a domingo: "29 set – 5 out".
+  static String week(DateTime monday) => '${dayMonth(monday)} – '
+      '${dayMonth(DateTime(monday.year, monday.month, monday.day + 6))}';
+
   /// Horário no formato de 24h (`09:12`), como o resto do sistema em pt-BR.
   static String time(DateTime moment) =>
       '${_pad(moment.hour)}:${_pad(moment.minute)}';

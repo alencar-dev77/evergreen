@@ -59,6 +59,13 @@ enum EgIconData {
   /// Xis — fecha o que está aberto.
   close,
 
+  /// Chevron para a esquerda — voltar um passo num recorte (a semana anterior
+  /// no Track).
+  chevronLeft,
+
+  /// Chevron para a direita — o par do [chevronLeft].
+  chevronRight,
+
   /// Engrenagem simplificada — configurações.
   gear,
 
@@ -233,6 +240,8 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.pause => _pausePath(),
     EgIconData.play => _playPath(),
     EgIconData.close => _closePath(),
+    EgIconData.chevronLeft => _chevronPath(left: true),
+    EgIconData.chevronRight => _chevronPath(left: false),
     EgIconData.gear => _gearPath(),
     EgIconData.trash => _trashPath(),
     EgIconData.bell => _bellPath(),
@@ -425,6 +434,16 @@ class _EgIconPainter extends CustomPainter {
     ..lineTo(11.4, 11.4)
     ..moveTo(11.4, 4.6)
     ..lineTo(4.6, 11.4);
+
+  /// Dois traços, sem haste: é o mesmo chevron da ponta da seta, sozinho.
+  Path _chevronPath({required bool left}) {
+    final tip = left ? 5.8 : 10.2;
+    final back = left ? 10.2 : 5.8;
+    return Path()
+      ..moveTo(back, 3.6)
+      ..lineTo(tip, 8)
+      ..lineTo(back, 12.4);
+  }
 
   Path _gearPath() => Path()
     ..addOval(Rect.fromCircle(center: const Offset(8, 8), radius: 2.2))

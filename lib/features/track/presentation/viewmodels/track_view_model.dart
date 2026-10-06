@@ -46,11 +46,31 @@ class TrackState {
   const TrackState({
     required this.range,
     required this.days,
+    this.weeksAgo = 0,
     this.selectedDate,
     this.summaries = const {},
   });
 
   final TrackRange range;
+
+  /// Quantas semanas para trás o recorte de semana está — `0` é esta semana.
+  /// No recorte de hoje é sempre `0`.
+  final int weeksAgo;
+
+  /// A semana que a tela mostra começa nesta segunda-feira.
+  DateTime weekStart(DateTime now) =>
+      DayBounds.startOfWeek(now, weeksAgo: weeksAgo);
+
+  bool get canGoBack =>
+      range == TrackRange.week && weeksAgo < TrackRange.maxWeeksAgo;
+
+  bool get canGoForward => range == TrackRange.week && weeksAgo > 0;
+
+  /// A tela é a de abertura: esta semana, sem ninguém ter mexido no recorte.
+  /// Só nela o vazio vira o estado vazio do módulo — numa semana passada sem
+  /// nada, ou em "Hoje" às oito da manhã, o controle que leva de volta
+  /// precisa continuar na tela.
+  bool get isAtStart => range == TrackRange.week && weeksAgo == 0;
 
   /// Os dias do recorte, do mais recente para o mais antigo.
   final List<TrackDay> days;
@@ -95,6 +115,7 @@ class TrackState {
     return TrackState(
       range: range ?? this.range,
       days: days ?? this.days,
+      weeksAgo: weeksAgo,
       selectedDate: clearSelection ? null : selectedDate ?? this.selectedDate,
       summaries: summaries ?? this.summaries,
     );
@@ -131,6 +152,7 @@ class TrackViewModel extends Notifier<TrackState> {
 
   void refresh() => state = _read(
     state.range,
+    weeksAgo: state.weeksAgo,
     selectedDate: state.selectedDate,
     summaries: state.summaries,
   );
@@ -140,13 +162,35 @@ class TrackViewModel extends Notifier<TrackState> {
 
     // A seleção sobrevive à troca de recorte quando o dia continua na lista —
     // trocar para "Hoje" com o dia de hoje aberto ao lado não pode fechar a
-    // região que a pessoa acabou de abrir.
+    // região que a pessoa acabou de abrir. Voltar para "Semana" volta para
+    // esta semana: quem sai de "Hoje" quer o contexto de hoje.
     state = _read(
       range,
       selectedDate: state.selectedDate,
       summaries: state.summaries,
     );
   }
+
+  /// Anda uma semana para trás, até o que o Focus ainda guarda.
+  void showPreviousWeek() {
+    if (!state.canGoBack) return;
+    _showWeek(state.weeksAgo + 1);
+  }
+
+  /// Anda uma semana para a frente, até esta.
+  void showNextWeek() {
+    if (!state.canGoForward) return;
+    _showWeek(state.weeksAgo - 1);
+  }
+
+  /// Os parágrafos ficam (são por data, e o cache os reencontraria de todo
+  /// jeito); a seleção cai sozinha quando o dia sai da lista.
+  void _showWeek(int weeksAgo) => state = _read(
+    TrackRange.week,
+    weeksAgo: weeksAgo,
+    selectedDate: state.selectedDate,
+    summaries: state.summaries,
+  );
 
   /// Escolhe o dia que a região de leitura mostra, e manda escrever o
   /// parágrafo dele se ainda não houver um.
@@ -195,23 +239,30 @@ class TrackViewModel extends Notifier<TrackState> {
 
   TrackState _read(
     TrackRange range, {
+    int weeksAgo = 0,
     DateTime? selectedDate,
     Map<DateTime, TrackSummary> summaries = const {},
   }) {
     final now = _now();
     final today = DayBounds.startOfDay(now);
-    final days = _repository.loadDays(since: range.since(now));
+    final until = range.until(now, weeksAgo: weeksAgo);
+    final days = _repository
+        .loadDays(since: range.since(now, weeksAgo: weeksAgo))
+        .where((day) => until == null || day.date.isBefore(until))
+        .toList();
 
     // Hoje entra sempre, mesmo sem nada registrado: é a linha que a pessoa vem
     // procurar, e uma lista que começa em "Ontem" às dez da manhã parece um
     // módulo quebrado. Os outros dias vazios ficam de fora — uma quarta-feira
-    // de folga não precisa de linha para dizer que foi folga.
-    if (days.every((day) => day.date != today)) {
+    // de folga não precisa de linha para dizer que foi folga. Numa semana que
+    // já passou, hoje não é dela.
+    if (until == null && days.every((day) => day.date != today)) {
       days.insert(0, TrackDay(date: today));
     }
 
     return TrackState(
       range: range,
+      weeksAgo: range == TrackRange.week ? weeksAgo : 0,
       days: List.unmodifiable(days),
       selectedDate: days.any((day) => day.date == selectedDate)
           ? selectedDate

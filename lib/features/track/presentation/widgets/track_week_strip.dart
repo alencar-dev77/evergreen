@@ -12,9 +12,18 @@ import '../../models/track_day.dart';
 /// Track — uma manhã inteira de reunião é uma manhã de trabalho, e uma semana
 /// que só mostrasse foco a contaria como vazia.
 class TrackWeekStrip extends StatelessWidget {
-  const TrackWeekStrip({super.key, required this.days, this.now});
+  const TrackWeekStrip({
+    super.key,
+    required this.days,
+    this.weekStart,
+    this.now,
+  });
 
   final List<TrackDay> days;
+
+  /// A segunda-feira da semana desenhada; `null` é a semana de [now]. Numa
+  /// semana que já passou nenhuma barra se destaca — o destaque é o de hoje.
+  final DateTime? weekStart;
 
   /// Injetável para o teste e para os goldens não dependerem do relógio real.
   final DateTime? now;
@@ -22,7 +31,8 @@ class TrackWeekStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = now ?? DateTime.now();
-    final monday = DayBounds.startOfWeek(today);
+    final monday = weekStart ?? DayBounds.startOfWeek(today);
+    final todayIndex = DayBounds.daysBetween(monday, today);
     final totals = List.filled(DayLabel.weekdays.length, Duration.zero);
 
     for (final day in days) {
@@ -35,7 +45,9 @@ class TrackWeekStrip extends StatelessWidget {
     return EgDayBars(
       values: totals,
       labels: DayLabel.weekdays,
-      highlight: today.weekday - 1,
+      highlight: todayIndex >= 0 && todayIndex < totals.length
+          ? todayIndex
+          : null,
     );
   }
 }

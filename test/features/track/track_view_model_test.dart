@@ -238,4 +238,75 @@ void main() {
     expect(totals.focus, const Duration(minutes: 75));
     expect(totals.focusSessions, 2);
   });
+
+  group('semanas anteriores', () {
+    test('voltar lê só a semana anterior, sem a linha de hoje', () {
+      // Hoje, ontem e uma terça da semana passada.
+      repository.days = [withFocus(0, 25), withFocus(1, 50), withFocus(8, 40)];
+
+      final container = containerWith();
+      container.read(trackViewModelProvider.notifier).showPreviousWeek();
+      final state = container.read(trackViewModelProvider);
+
+      expect(state.weeksAgo, 1);
+      expect(repository.loadedSince, DateTime(2026, 8, 10));
+      expect(state.days.map((day) => day.date), [day(8)]);
+      expect(state.totals.focus, const Duration(minutes: 40));
+      expect(state.weekStart(now), DateTime(2026, 8, 10));
+    });
+
+    test('para atrás, para no que o Focus guarda; para a frente, nesta', () {
+      final container = containerWith();
+      final viewModel = container.read(trackViewModelProvider.notifier);
+
+      expect(container.read(trackViewModelProvider).canGoForward, isFalse);
+      viewModel.showNextWeek();
+      expect(container.read(trackViewModelProvider).weeksAgo, 0);
+
+      for (var i = 0; i < TrackRange.maxWeeksAgo + 2; i++) {
+        viewModel.showPreviousWeek();
+      }
+
+      final state = container.read(trackViewModelProvider);
+      expect(state.weeksAgo, TrackRange.maxWeeksAgo);
+      expect(state.canGoBack, isFalse);
+      expect(state.canGoForward, isTrue);
+    });
+
+    test('a semana passada vazia não esconde o caminho de volta', () {
+      final container = containerWith();
+      container.read(trackViewModelProvider.notifier).showPreviousWeek();
+      final state = container.read(trackViewModelProvider);
+
+      expect(state.isEmpty, isTrue);
+      expect(state.isAtStart, isFalse);
+      expect(state.canGoForward, isTrue);
+    });
+
+    test('ir para "Hoje" e voltar para "Semana" volta para esta semana', () {
+      final container = containerWith();
+      final viewModel = container.read(trackViewModelProvider.notifier);
+
+      viewModel.showPreviousWeek();
+      viewModel.setRange(TrackRange.today);
+      expect(container.read(trackViewModelProvider).weeksAgo, 0);
+      expect(container.read(trackViewModelProvider).canGoBack, isFalse);
+
+      viewModel.setRange(TrackRange.week);
+      expect(container.read(trackViewModelProvider).weeksAgo, 0);
+    });
+
+    test('a semana passada continua na semana passada ao reler', () {
+      repository.days = [withFocus(0, 25), withFocus(8, 40)];
+
+      final container = containerWith();
+      final viewModel = container.read(trackViewModelProvider.notifier);
+      viewModel.showPreviousWeek();
+      viewModel.refresh();
+
+      final state = container.read(trackViewModelProvider);
+      expect(state.weeksAgo, 1);
+      expect(state.days.map((day) => day.date), [day(8)]);
+    });
+  });
 }

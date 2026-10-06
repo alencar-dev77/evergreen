@@ -120,7 +120,7 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
     await _runs.clear();
     if (run.focused < _minimumRecorded) return;
 
-    _sessions.trimToCurrentWeek(now: run.startedAt);
+    _sessions.trimOldWeeks(now: run.startedAt);
     _sessions.insert(
       FocusSession(
         startedAt: run.startedAt,
@@ -323,9 +323,9 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
 
     if (focused < _minimumRecorded) return null;
 
-    // A semana anterior sai de cena na primeira sessão da semana nova — o
-    // histórico do Focus guarda só a semana corrente.
-    _sessions.trimToCurrentWeek(now: startedAt);
+    // O que passou das semanas guardadas sai de cena na primeira sessão da
+    // semana nova.
+    _sessions.trimOldWeeks(now: startedAt);
 
     return _sessions.insert(
       FocusSession(

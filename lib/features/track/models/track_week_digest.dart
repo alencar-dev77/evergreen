@@ -93,8 +93,7 @@ class TrackWeekDigest {
       DateTime(weekStart.year, weekStart.month, weekStart.day + 6);
 
   /// "29 set – 5 out".
-  String get rangeLabel =>
-      '${DayLabel.dayMonth(weekStart)} – ${DayLabel.dayMonth(weekEnd)}';
+  String get rangeLabel => DayLabel.week(weekStart);
 
   /// O dia com mais tempo registrado, ou `null` numa semana sem tempo.
   int? get bestDay {
