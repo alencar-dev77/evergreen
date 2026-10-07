@@ -74,7 +74,7 @@ class OnboardingStep {
       imageHeight: 410,
       shortcut: '⌘⇧F',
       line:
-          'Um cronômetro que pergunta no que você vai trabalhar e guarda\n'
+          'Um timer Pomodoro que pergunta no que você vai trabalhar e guarda\n'
           'a resposta. No fim do dia, o Track junta tudo.',
     ),
     OnboardingStep(

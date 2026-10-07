@@ -22,7 +22,7 @@ enum EvergreenModule {
   ),
   focus(
     name: 'Focus',
-    tagline: 'Cronômetro de foco',
+    tagline: 'Timer de foco',
     description:
         'Ciclos de foco e pausa, com o registro do que foi feito em cada '
         'sessão.',
