@@ -120,6 +120,19 @@ void main() {
     expect(titles, hasLength(3));
   });
 
+  test('apagar tudo leva as ordinárias e poupa a guardada', () {
+    repository.insert(meetingAt(1, title: 'Planejamento', isKept: true));
+    for (var day = 2; day <= 4; day++) {
+      repository.insert(meetingAt(day));
+    }
+
+    repository.clearAll();
+
+    expect(repository.loadAll().map((meeting) => meeting.title), [
+      'Planejamento',
+    ]);
+  });
+
   test('guardar e desguardar alterna', () {
     final saved = repository.insert(meetingAt(1));
 

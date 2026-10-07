@@ -29,6 +29,10 @@ abstract interface class EchoRepository {
 
   void delete(int id);
 
+  /// Apaga todas as reuniões não guardadas — a guardada fica, como o item
+  /// fixado no "Apagar histórico" do Pin.
+  void clearAll();
+
   /// Apaga as reuniões não guardadas que excedam [maxMeetings].
   void trimHistory(int maxMeetings);
 
@@ -125,6 +129,11 @@ class SqliteEchoRepository implements EchoRepository {
   @override
   void delete(int id) {
     _db.execute('DELETE FROM echo_meetings WHERE id = ?;', [id]);
+  }
+
+  @override
+  void clearAll() {
+    _db.execute('DELETE FROM echo_meetings WHERE is_kept = 0;');
   }
 
   /// A limpeza nunca alcança reunião guardada — nem para contar.
