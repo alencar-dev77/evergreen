@@ -21,6 +21,7 @@ abstract final class AwakeNotifications {
       id: id,
       thread: 'awake',
       title: 'Awake desligado',
+      sound: true,
       subtitle: total == null
           ? ''
           : '${DurationFormat.compact(total)} acordado',
