@@ -39,8 +39,9 @@ class EgNotification {
   final String subtitle;
   final String body;
 
-  /// Som do sistema. Desligado por padrão: o Focus já toca o alerta dele, e um
-  /// segundo som no mesmo instante seria eco.
+  /// O som de notificação do sistema — o mesmo que o Ajustes do macOS liga e
+  /// desliga em "Reproduzir som para notificação". Desligado por padrão: quem
+  /// avisa de algo que a pessoa não pediu (o resumo da semana) decide ligar.
   final bool sound;
 
   /// PNG mostrado ao lado do texto — e grande, quando a pessoa expande.

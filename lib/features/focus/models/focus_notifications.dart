@@ -6,8 +6,10 @@ import 'focus_settings.dart';
 /// O aviso de fim de fase do Focus — só quando o tempo acaba sozinho.
 ///
 /// Encerrar pelo botão não avisa: quem encerrou está olhando para o painel.
-/// E o aviso não toca som: o Focus já tem o alerta dele (`playSound`), e dois
-/// sons no mesmo instante seriam eco.
+/// O som é o da própria notificação, quando `playSound` está ligado — era um
+/// `NSBeep` à parte, e o aviso chegava mudo: o beep sai pelo dispositivo e pelo
+/// volume de *alerta*, que nem sempre é por onde se está ouvindo. O beep só
+/// sobrou para quando a notificação não sai (ver `_onFocusFinished`).
 abstract final class FocusNotifications {
   /// Um id só para as duas fases: o fim da pausa substitui o aviso do fim do
   /// foco, que a essa altura já não diz nada.
@@ -30,6 +32,7 @@ abstract final class FocusNotifications {
         thread: 'focus',
         title: 'Sessão concluída',
         subtitle: subject,
+        sound: settings.playSound,
         body:
             '${DurationFormat.compact(focused)} de foco. '
             'Hora de levantar — a pausa é de ${settings.breakMinutes} min.',
@@ -42,6 +45,7 @@ abstract final class FocusNotifications {
       thread: 'focus',
       title: 'Fim da pausa',
       subtitle: subject,
+      sound: settings.playSound,
       body: subject.isEmpty
           ? 'Pronto para mais ${settings.focusMinutes} min de foco?'
           : 'Pronto para mais ${settings.focusMinutes} min em $subject?',

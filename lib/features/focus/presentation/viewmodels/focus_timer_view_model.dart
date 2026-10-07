@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
@@ -286,7 +285,6 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
 
     // O que foi focado sai daqui, antes de o estado mudar.
     final session = state.phase.isFocus ? _record(focused) : null;
-    if (alert && state.settings.playSound) _playAlertSound();
 
     state = FocusTimerState(
       settings: state.settings,
@@ -346,11 +344,6 @@ class FocusTimerViewModel extends Notifier<FocusTimerState> {
 
     _sessions.setSummary(id, text);
   }
-
-  /// Som de alerta do próprio sistema, pelo canal de plataforma do Flutter —
-  /// nenhum pacote de áudio, nenhum arquivo empacotado. Se o macOS estiver com
-  /// os alertas silenciados, o aviso visual continua valendo.
-  void _playAlertSound() => unawaited(SystemSound.play(SystemSoundType.alert));
 
   void _startTicker() {
     _ticker?.cancel();
