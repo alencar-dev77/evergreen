@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../shared/utils/day_label.dart';
 import '../../../../shared/utils/duration_format.dart';
+import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../home/presentation/viewmodels/hub_detail_view_model.dart';
 import '../../../home/presentation/widgets/hub_detail_region.dart';
 import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
@@ -100,7 +101,19 @@ class EchoReader extends ConsumerWidget {
         onCancelSummary: () => unawaited(viewModel.cancelSummary()),
         onCopy: (kind) => viewModel.copy(meeting.id!, kind),
         onExport: (kind) => viewModel.export(meeting.id!, kind),
-        onDelete: () {
+        onDelete: () async {
+          // Apagar é irreversível — pede confirmação, como o "Apagar tudo" e
+          // como a sessão do Focus.
+          final confirmed = await EgConfirmDialog.show(
+            context,
+            title: 'Apagar reunião?',
+            message:
+                'A reunião, a transcrição, o resumo e o áudio serão '
+                'removidos. Não dá para desfazer.',
+            confirmLabel: 'Apagar',
+          );
+          if (!confirmed) return;
+
           viewModel.delete(meeting.id!);
           // Apagar a última reunião esvazia a biblioteca: a região se fecha
           // junto, e a janela volta ao tamanho de antes. Sem isto sobraria uma
