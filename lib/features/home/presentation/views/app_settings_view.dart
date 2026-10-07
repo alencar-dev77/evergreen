@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/storage/backup_service.dart';
+import '../../../../core/storage/disk_usage_service.dart';
 import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../../shared/utils/byte_size.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_confirm_dialog.dart';
@@ -20,6 +22,7 @@ import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 import '../widgets/global_shortcut_section.dart';
 import '../viewmodels/backup_view_model.dart';
+import '../viewmodels/disk_usage_view_model.dart';
 import '../widgets/backup_list.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -118,6 +121,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           ],
         ),
         const _ShortcutMapCard(),
+        const _DiskUsageSection(),
         _BackupSection(
           isAutomatic: settings.automaticBackup,
           onAutomaticChanged: viewModel.setAutomaticBackup,
@@ -145,6 +149,60 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
         hintText: 'Seu primeiro nome',
       ),
     );
+  }
+}
+
+/// Quanto o Evergreen ocupa no disco, e onde.
+///
+/// Logo acima do backup porque é ele, junto com o áudio das reuniões, que faz
+/// o número crescer — e é ali embaixo que se decide quantos backups ficam.
+class _DiskUsageSection extends ConsumerWidget {
+  const _DiskUsageSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usage = ref.watch(diskUsageViewModelProvider);
+    final viewModel = ref.read(diskUsageViewModelProvider.notifier);
+
+    return EgSettingsCard(
+      title: 'Espaço em disco',
+      children: [
+        EgSettingsRow(
+          label: 'Ocupado pelo Evergreen',
+          description: usage == null ? 'Medindo…' : _breakdown(usage),
+          trailing: Text(
+            usage == null ? '—' : ByteSize.compact(usage.total),
+            style: context.eg.text.bodyStrong,
+          ),
+        ),
+        EgSettingsRow(
+          label: 'Pasta do aplicativo',
+          description: viewModel.directoryLabel,
+          trailing: EgButton.secondary(
+            label: 'Mostrar no Finder',
+            onPressed: () => unawaited(viewModel.reveal()),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// As partes que existem, na ordem de quem costuma pesar mais. Parte vazia
+  /// some: "Exportações 0 B" responde uma pergunta que ninguém fez.
+  static String _breakdown(DiskUsage usage) {
+    final parts = [
+      ('Banco', usage.database),
+      ('Áudio das reuniões', usage.meetings),
+      ('Backups', usage.backups),
+      ('Exportações', usage.exports),
+    ];
+
+    final present = [
+      for (final (label, bytes) in parts)
+        if (bytes > 0) '$label ${ByteSize.compact(bytes)}',
+    ];
+
+    return present.isEmpty ? 'Nada guardado ainda.' : present.join(' · ');
   }
 }
 
