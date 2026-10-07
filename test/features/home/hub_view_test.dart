@@ -22,6 +22,7 @@ import '../focus/fake_focus_session_repository.dart';
 import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
 import 'backup_fixture.dart';
+import 'fake_disk_usage_service.dart';
 import 'fake_module_settings_notifier.dart';
 import '../echo/fake_export_service.dart';
 import '../echo/fake_echo_audio.dart';
@@ -87,6 +88,7 @@ void main() {
           backupServiceProvider.overrideWithValue(
             temporaryBackupService(database: db),
           ),
+          diskUsageServiceProvider.overrideWithValue(FakeDiskUsageService()),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
