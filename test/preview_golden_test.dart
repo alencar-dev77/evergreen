@@ -5,6 +5,7 @@ import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
+import 'package:evergreen/core/storage/disk_usage_service.dart';
 import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/design/eg_tokens.dart';
@@ -56,6 +57,7 @@ import 'features/pin/fake_clipboard_repository.dart';
 import 'golden_fonts.dart';
 import 'features/echo/fake_export_service.dart';
 import 'features/echo/fake_echo_audio.dart';
+import 'features/home/fake_disk_usage_service.dart';
 
 /// Goldens usados como conferência visual do design durante o desenvolvimento.
 ///
@@ -415,6 +417,15 @@ void main() {
             SqliteTrackRepository(echoDb),
           ),
           backupServiceProvider.overrideWithValue(backups),
+          diskUsageServiceProvider.overrideWithValue(
+            FakeDiskUsageService(
+              const DiskUsage(
+                database: 7340032,
+                meetings: 8283750,
+                backups: 5872025,
+              ),
+            ),
+          ),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now())
           else if (now != null)

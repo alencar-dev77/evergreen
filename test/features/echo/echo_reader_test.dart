@@ -13,6 +13,7 @@ import 'package:evergreen/shared/widgets/eg_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../pin/fake_clipboard_repository.dart';
@@ -205,15 +206,71 @@ void main() {
     }
   });
 
-  testWidgets('apagar a última reunião fecha a região', (tester) async {
+  testWidgets('apagar a reunião pergunta antes, e cancelar não apaga', (
+    tester,
+  ) async {
     await pumpHub(tester);
     await openMeeting(tester);
 
     await tester.tap(find.text('Apagar'));
     await tester.pumpAndSettle();
 
+    expect(find.byType(EgConfirmDialog), findsOneWidget);
+    expect(repository.loadAll(), hasLength(1), reason: 'só abriu o aviso');
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(repository.loadAll(), hasLength(1));
+    expect(find.byType(HubDetailRegion), findsOneWidget);
+  });
+
+  testWidgets('apagar a última reunião fecha a região', (tester) async {
+    await pumpHub(tester);
+    await openMeeting(tester);
+
+    // O rótulo "Apagar" existe no botão da região e no do aviso; o do aviso é
+    // o último a entrar na árvore.
+    await tester.tap(find.text('Apagar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apagar').last);
+    await tester.pumpAndSettle();
+
     expect(find.byType(HubDetailRegion), findsNothing);
     expect(find.text('Nenhuma reunião gravada'), findsOneWidget);
+  });
+
+  testWidgets('apagar tudo pergunta antes e poupa a reunião guardada', (
+    tester,
+  ) async {
+    repository.insert(
+      Meeting(
+        title: 'Planejamento',
+        startedAt: DateTime.now().subtract(const Duration(days: 1)),
+        durationMs: const Duration(minutes: 10).inMilliseconds,
+        language: TranscriptionLanguage.ptBR,
+        isKept: true,
+        segments: const [],
+      ),
+    );
+    await pumpHub(tester);
+    await openMeeting(tester);
+
+    await tester.tap(find.text('Apagar tudo'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EgConfirmDialog), findsOneWidget);
+    expect(repository.loadAll(), hasLength(2), reason: 'só abriu o aviso');
+
+    await tester.tap(find.text('Apagar').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.loadAll().map((meeting) => meeting.title), [
+      'Planejamento',
+    ]);
+    // A reunião aberta foi junto: a região se fecha. E sem nada para apagar,
+    // o cartão some.
+    expect(find.byType(HubDetailRegion), findsNothing);
+    expect(find.text('Apagar tudo'), findsNothing);
   });
 
   /// O caminho inteiro de "Exportar": o botão, a ViewModel, o texto montado e

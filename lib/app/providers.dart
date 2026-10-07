@@ -9,6 +9,7 @@ import '../core/storage/app_database.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
 import '../core/storage/backup_service.dart';
+import '../core/storage/disk_usage_service.dart';
 import '../core/storage/export_service.dart';
 import '../core/window/overlay_panel.dart';
 import '../core/window/window_kind.dart';
@@ -93,6 +94,13 @@ final exportServiceProvider = Provider<ExportService>((ref) {
     directory: Directory(p.join(database.directoryPath, 'Exportações')),
   );
 });
+
+/// Quanto a pasta do aplicativo ocupa — o banco e as subpastas ao lado dele.
+final diskUsageServiceProvider = Provider<DiskUsageService>(
+  (ref) => LocalDiskUsageService(
+    directory: Directory(ref.watch(appDatabaseProvider).directoryPath),
+  ),
+);
 
 final appSettingsRepositoryProvider = Provider<AppSettingsRepository>(
   (ref) => AppSettingsRepository(ref.watch(sharedPreferencesProvider)),

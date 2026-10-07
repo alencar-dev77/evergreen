@@ -168,6 +168,19 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     );
   }
 
+  /// Apaga tudo o que não está guardado. O áudio sai na varredura seguinte do
+  /// `EchoAudioJanitor`, como em qualquer outro jeito de apagar a reunião.
+  void clear() {
+    _repository.clearAll();
+
+    final meetings = _repository.loadAll();
+    final stillThere = meetings.any(
+      (meeting) => meeting.id == state.selectedId,
+    );
+
+    state = state.copyWith(meetings: meetings, clearSelection: !stillThere);
+  }
+
   /// Põe na área de transferência a face aberta da reunião.
   ///
   /// Devolve a frase de confirmação que a tela mostra por um instante, ou
@@ -199,11 +212,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     final meeting = _meetingById(id);
     if (meeting == null) return null;
 
-    final content = MeetingDocument.file(
-      meeting,
-      kind,
-      userName: _userName,
-    );
+    final content = MeetingDocument.file(meeting, kind, userName: _userName);
     if (content == null) return null;
 
     try {
@@ -216,9 +225,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
 
       return kind.exportedLabel;
     } on Object catch (error) {
-      state = state.copyWith(
-        errorMessage: 'Não foi possível exportar: $error',
-      );
+      state = state.copyWith(errorMessage: 'Não foi possível exportar: $error');
       return null;
     }
   }

@@ -1,6 +1,7 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
+import 'package:evergreen/core/storage/disk_usage_service.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/app_settings_view.dart';
@@ -17,11 +18,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../focus/fake_focus_session_repository.dart';
 import 'backup_fixture.dart';
+import 'fake_disk_usage_service.dart';
 import '../pin/fake_clipboard_repository.dart';
 
 void main() {
   late SharedPreferences preferences;
   late BackupService backup;
+  late FakeDiskUsageService disk;
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
@@ -44,6 +47,7 @@ void main() {
     );
     await AppInfo.load();
     backup = temporaryBackupService();
+    disk = FakeDiskUsageService();
   });
 
   Future<void> pumpHub(WidgetTester tester) async {
@@ -67,6 +71,7 @@ void main() {
           // A seção de backup lê a pasta dela ao montar —
           // em teste as duas são temporárias.
           backupServiceProvider.overrideWithValue(backup),
+          diskUsageServiceProvider.overrideWithValue(disk),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -179,6 +184,58 @@ void main() {
 
   /// O backup é do banco inteiro, e por isso mora aqui e não na tela de módulo
   /// nenhum — a mesma razão pela qual "iniciar com o macOS" saiu do Pin.
+  group('espaço em disco', () {
+    Future<void> openSettings(WidgetTester tester) async {
+      await pumpHub(tester);
+      await tester.tap(find.text('Aplicativo'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('mostra o total e as partes que existem', (tester) async {
+      disk.usage = const DiskUsage(
+        database: 3 * 1024 * 1024,
+        meetings: 8 * 1024 * 1024,
+      );
+      await openSettings(tester);
+
+      expect(find.text('ESPAÇO EM DISCO'), findsOneWidget);
+      expect(find.text('11,0 MB'), findsOneWidget);
+      // Backups e exportações vazios não viram "0 B".
+      expect(
+        find.text('Banco 3,0 MB · Áudio das reuniões 8,0 MB'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('pasta vazia diz que não há nada guardado', (tester) async {
+      await openSettings(tester);
+
+      expect(find.text('Nada guardado ainda.'), findsOneWidget);
+      expect(find.text('0 B'), findsOneWidget);
+    });
+
+    testWidgets('um backup novo mede o disco de novo', (tester) async {
+      await openSettings(tester);
+      expect(find.text('0 B'), findsOneWidget);
+
+      disk.usage = const DiskUsage(backups: 2048);
+      await tester.tap(find.text('Fazer backup'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 KB'), findsOneWidget);
+    });
+
+    testWidgets('mostra a pasta do aplicativo no Finder', (tester) async {
+      await openSettings(tester);
+
+      expect(find.text(disk.directoryLabel), findsOneWidget);
+      await tester.tap(find.text('Mostrar no Finder').first);
+      await tester.pumpAndSettle();
+
+      expect(disk.reveals, 1);
+    });
+  });
+
   group('backup', () {
     Future<void> openSettings(WidgetTester tester) async {
       await pumpHub(tester);

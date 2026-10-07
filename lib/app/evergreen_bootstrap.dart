@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/painting.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 
@@ -453,22 +453,32 @@ class EvergreenBootstrap {
   ///
   /// A visibilidade é lida **antes** de o painel ser trazido: depois, ele
   /// estaria sempre à vista e a notificação nunca sairia.
+  ///
+  /// O som vai dentro da notificação. O alerta do sistema (`NSBeep`) só toca
+  /// quando ela não sai — painel à vista, ou permissão negada —, senão seriam
+  /// dois sons no mesmo instante.
   Future<void> _onFocusFinished(
     FocusTimerState state, {
     required bool notify,
     required bool bringForward,
   }) async {
-    if (notify && !await _isOnScreen(OverlayPanel.focus)) {
-      await _container
-          .read(notificationServiceProvider)
-          .post(
-            FocusNotifications.finished(
-              phase: state.phase,
-              focused: state.focused,
-              activity: state.activity,
-              settings: state.settings,
-            ),
-          );
+    if (notify) {
+      final shown =
+          !await _isOnScreen(OverlayPanel.focus) &&
+          await _container
+              .read(notificationServiceProvider)
+              .post(
+                FocusNotifications.finished(
+                  phase: state.phase,
+                  focused: state.focused,
+                  activity: state.activity,
+                  settings: state.settings,
+                ),
+              );
+
+      if (!shown && state.settings.playSound) {
+        unawaited(SystemSound.play(SystemSoundType.alert));
+      }
     }
 
     if (bringForward) await showOverlay(OverlayPanel.focus);

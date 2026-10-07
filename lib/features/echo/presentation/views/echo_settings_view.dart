@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_metrics.dart';
+import '../../../../shared/widgets/eg_button.dart';
+import '../../../../shared/widgets/eg_confirm_dialog.dart';
 import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_card.dart';
@@ -160,6 +162,27 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                     style: context.eg.text.caption,
                   ),
                 ),
+            ],
+          ),
+        // Cartão próprio, como no Focus: encostada na lista, a linha de apagar
+        // pareceria mais uma reunião. Só aparece quando há o que apagar —
+        // reunião guardada não conta, porque ela fica.
+        if (showLibrary && library.meetings.any((meeting) => !meeting.isKept))
+          EgSettingsCard(
+            title: 'Sem volta',
+            tone: EgCardTone.destructive,
+            children: [
+              EgSettingsRow(
+                label: 'Apagar as reuniões',
+                description:
+                    'Remove todas as reuniões não guardadas, com o áudio junto.',
+                // "Apagar tudo", e não "Apagar": a região de leitura ao lado tem
+                // um "Apagar" que leva **uma** reunião.
+                trailing: EgButton.destructive(
+                  label: 'Apagar tudo',
+                  onPressed: () => unawaited(_clearMeetings(context)),
+                ),
+              ),
             ],
           ),
         if (showSettings) ...[
@@ -332,5 +355,26 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
         ],
       ],
     );
+  }
+
+  /// Apagar as reuniões é irreversível — mesma barra do Pin e do Focus:
+  /// confirmação antes.
+  Future<void> _clearMeetings(BuildContext context) async {
+    final confirmed = await EgConfirmDialog.show(
+      context,
+      title: 'Apagar as reuniões?',
+      message:
+          'Todas as reuniões não guardadas serão removidas, com a transcrição, '
+          'o resumo e o áudio. Não dá para desfazer.',
+      confirmLabel: 'Apagar',
+    );
+    if (!confirmed) return;
+
+    ref.read(echoLibraryViewModelProvider.notifier).clear();
+    // A reunião aberta foi junto: a região se fecha, e a janela volta ao
+    // tamanho de antes.
+    if (ref.read(echoLibraryViewModelProvider).selected == null) {
+      ref.read(hubDetailProvider.notifier).close();
+    }
   }
 }

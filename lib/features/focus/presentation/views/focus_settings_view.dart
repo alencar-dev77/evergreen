@@ -120,7 +120,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
               EgSettingsRow.toggle(
                 label: 'Utilizar apenas Pomodoro',
                 description:
-                    'Só o cronômetro: sem atividade nem resumo. O histórico '
+                    'Só o timer: sem atividade nem resumo. O histórico '
                     'registra as sessões mesmo assim.',
                 value: settings.pomodoroOnly,
                 onChanged: viewModel.setPomodoroOnly,
@@ -151,7 +151,7 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
               ),
               EgSettingsRow.toggle(
                 label: 'Tocar som ao finalizar',
-                description: 'O som de alerta do próprio macOS.',
+                description: 'Vai junto com a notificação de fim de fase.',
                 value: settings.playSound,
                 onChanged: viewModel.setPlaySound,
               ),
