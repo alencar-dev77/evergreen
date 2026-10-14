@@ -4,12 +4,14 @@ import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/features/echo/models/meeting.dart';
+import 'package:evergreen/features/echo/models/echo_settings.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
 import 'package:evergreen/features/echo/models/transcription_language.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/hub_detail_region.dart';
 import 'package:evergreen/shared/widgets/eg_button.dart';
+import 'package:evergreen/shared/widgets/eg_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -424,6 +426,41 @@ void main() {
 
       await tester.tap(find.byTooltip('Pausar (espaço)'));
       await tester.pumpAndSettle();
+    });
+
+    /// Com uma reunião aberta, o espaço e o S são do player — menos dentro de
+    /// um campo de texto, onde são texto. Consumidos pelo Hub, eles nunca
+    /// chegavam ao vocabulário nem à instrução do resumo.
+    testWidgets('num campo de texto, o espaço e o S são texto, não player', (
+      tester,
+    ) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      await tester.tap(find.text('Ajustes'));
+      await tester.pumpAndSettle();
+
+      for (final hint in [
+        EchoSettings.vocabularyHint,
+        EchoSettings.defaultInstructionsHint,
+      ]) {
+        final field = find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) => widget is EgTextField && widget.hintText == hint,
+          ),
+          matching: find.byType(EditableText),
+        );
+        await tester.ensureVisible(field);
+        await tester.tap(field);
+        await tester.pump();
+
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.space), isFalse);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyS), isFalse);
+        await tester.pump();
+
+        expect(player.isPlaying, isFalse);
+        expect(player.rate, 1.0);
+      }
     });
 
     /// O que está aceso na fala, pedaço por pedaço.

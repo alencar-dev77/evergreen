@@ -268,7 +268,8 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 label: 'Palavras que costumam aparecer',
                 description:
                     'Nomes, produtos, jargão, separados por vírgula. É o '
-                    'que o reconhecimento mais erra.',
+                    'que o reconhecimento mais erra. Se uma palavra sai '
+                    'sempre trocada, ensine a troca: a zap -> ASAP.',
                 field: EgTextField(
                   controller: _vocabulary,
                   focusNode: _vocabularyFocus,
