@@ -12,6 +12,7 @@ import '../../models/cross_talk_filter.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/echo_spectrum.dart';
 import '../../models/meeting.dart';
+import '../../models/vocabulary_correction.dart';
 import 'echo_recorder_state.dart';
 
 final echoRecorderViewModelProvider =
@@ -241,12 +242,19 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       // Com a reunião saindo por alto-falante, o microfone escuta de volta o
       // que o computador toca, e a mesma fala aparece nas duas faixas. O filtro
       // devolve a separação de quem falou, que é a razão de existir do módulo.
-      final segments = CrossTalkFilter.clean(
-        await _channel.transcribe(
-          files: files,
-          locale: settings.language.locale,
-          vocabulary: settings.vocabularyTerms,
+      //
+      // As trocas do vocabulário vêm depois do filtro: ele compara o texto
+      // das duas faixas como o modelo o ouviu, e uma troca aplicada só de um
+      // lado esconderia o eco dele.
+      final segments = VocabularyCorrection.apply(
+        CrossTalkFilter.clean(
+          await _channel.transcribe(
+            files: files,
+            locale: settings.language.locale,
+            vocabulary: settings.vocabularyTerms,
+          ),
         ),
+        settings.vocabularyCorrections,
       );
 
       final startedAt = _startedAt ?? _now();
