@@ -11,6 +11,7 @@ import '../../../../shared/widgets/eg_background.dart';
 import '../../../awake/presentation/views/awake_settings_view.dart';
 import '../../../echo/presentation/views/echo_settings_view.dart';
 import '../../../echo/presentation/viewmodels/echo_playback_view_model.dart';
+import '../../../echo/presentation/viewmodels/echo_search_focus.dart';
 import '../../../echo/presentation/widgets/echo_reader.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../focus/presentation/widgets/focus_reader.dart';
@@ -124,6 +125,23 @@ class _HubViewState extends ConsumerState<HubView> {
     setState(() => _selected = module);
   }
 
+  /// `⌘F` no Echo: leva o teclado à busca das reuniões, de qualquer aba.
+  ///
+  /// Da aba de ajustes, troca para a das reuniões antes — e o pedido de foco
+  /// vai depois do quadro, quando o campo já nasceu e está escutando.
+  ///
+  /// O campo que estava sendo editado sai do foco **antes** de a aba trocar:
+  /// trocada a aba, ele sai da árvore com o foco na mão, e o "perder o foco"
+  /// que guarda a preferência nunca aconteceria — o vocabulário digitado
+  /// sumiria sem aviso.
+  void _focusEchoSearch() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _tabs[EvergreenModule.echo] = 'Reuniões');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(echoSearchFocusProvider.notifier).request();
+    });
+  }
+
   /// O Esc do Hub, do mais interno para o mais externo: sai do campo de texto,
   /// fecha a região de leitura e, sem nada disso aberto, esconde a janela.
   ///
@@ -222,6 +240,14 @@ class _HubViewState extends ConsumerState<HubView> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
+        // Só com o Echo ligado: desligado, a tela dele não recebe foco, e o
+        // atalho trocaria de aba sem levar o cursor a lugar nenhum.
+        if (_selected == EvergreenModule.echo &&
+            ref
+                .watch(moduleSettingsViewModelProvider)
+                .isEnabled(EvergreenModule.echo))
+          const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+              _focusEchoSearch,
       },
       // As teclas da região num mapa à parte, porque elas **cedem a quem
       // digita**: espaço e letra são texto. Um `CallbackShortcuts` consome

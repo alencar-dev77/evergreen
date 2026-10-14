@@ -120,6 +120,27 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
       ),
     );
 
+    // O salto da busca para o áudio no trecho, parado: quem abriu um
+    // resultado quer ouvir *dali*, e o espaço seguinte toca dali. Tocar
+    // sozinho seria áudio começando sem ninguém pedir.
+    ref.listen<EchoJump?>(
+      echoLibraryViewModelProvider.select((library) => library.jump),
+      (_, jump) {
+        // Um pedido novo substitui o anterior, mesmo quando não tem ponto no
+        // áudio (um trecho do resumo) ou é o esquecimento de [select]: sem
+        // isso, o salto de uma reunião que não chegou a carregar ficava à
+        // espera e disparava na próxima vez que ela abrisse pela lista.
+        _pendingJump = jump?.atMs == null ? null : jump;
+        unawaited(_applyJump());
+      },
+    );
+
+    // O player nasce com a leitura, e a leitura nasce *por causa* do salto:
+    // quando a busca abre a região, o pedido já está no estado antes de este
+    // `build` rodar, e o `listen` acima não o veria passar.
+    final standing = ref.read(echoLibraryViewModelProvider).jump;
+    if (standing?.atMs != null) _pendingJump = standing;
+
     ref.listen<EvergreenModule?>(hubDetailProvider, (_, module) {
       if (module != EvergreenModule.echo && state.isPlaying) unawaited(pause());
     });
@@ -157,6 +178,24 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
       durationMs: durationMs,
       rate: rate,
     );
+
+    // O salto pode ter chegado antes do áudio — a busca escolhe a reunião e
+    // pede o trecho no mesmo gesto, e o arquivo ainda estava carregando.
+    await _applyJump();
+  }
+
+  /// O salto que ainda não foi aplicado, à espera do áudio da reunião dele.
+  EchoJump? _pendingJump;
+
+  Future<void> _applyJump() async {
+    final jump = _pendingJump;
+    final atMs = jump?.atMs;
+    if (jump == null || atMs == null) return;
+    if (!state.isReady || state.meetingId != jump.meetingId) return;
+
+    _pendingJump = null;
+    if (state.isPlaying) await pause();
+    await seekTo(atMs);
   }
 
   Future<void> toggle() => state.isPlaying ? pause() : play();

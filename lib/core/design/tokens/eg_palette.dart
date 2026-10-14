@@ -49,6 +49,7 @@ class EgPalette {
     required this.textQuaternary,
     required this.textDisabled,
     required this.textSelection,
+    required this.findMark,
     required this.error,
     required this.warning,
     required this.shadow,
@@ -147,6 +148,15 @@ class EgPalette {
   final Color textDisabled;
   final Color textSelection;
 
+  /// O fundo do termo buscado, dentro de um texto que se lê — a leitura da
+  /// reunião enquanto a busca do Echo está de pé.
+  ///
+  /// Fundo, e não a cor da letra como o grifo das listas: na transcrição o
+  /// verde da letra já quer dizer "isto já foi dito", e as duas marcas
+  /// precisam caber na mesma palavra. Neutro, e não âmbar como o "buscar" do
+  /// macOS: o âmbar daqui é [ember], que é trabalho em curso.
+  final Color findMark;
+
   final Color error;
   final Color warning;
 
@@ -185,6 +195,7 @@ class EgPalette {
     textQuaternary: Color.lerp(a.textQuaternary, b.textQuaternary, t)!,
     textDisabled: Color.lerp(a.textDisabled, b.textDisabled, t)!,
     textSelection: Color.lerp(a.textSelection, b.textSelection, t)!,
+    findMark: Color.lerp(a.findMark, b.findMark, t)!,
     error: Color.lerp(a.error, b.error, t)!,
     warning: Color.lerp(a.warning, b.warning, t)!,
     shadow: Color.lerp(a.shadow, b.shadow, t)!,

@@ -1,4 +1,5 @@
 import '../../../shared/utils/duration_format.dart';
+import '../../../shared/utils/text_fold.dart';
 import 'meeting.dart';
 import 'meeting_turn.dart';
 
@@ -159,8 +160,8 @@ abstract final class MeetingDocument {
   static String _slug(String title) {
     final buffer = StringBuffer();
 
-    for (final rune in title.toLowerCase().runes) {
-      final char = _unaccent(String.fromCharCode(rune));
+    for (final rune in title.runes) {
+      final char = TextFold.foldChar(String.fromCharCode(rune));
       buffer.write(RegExp(r'^[a-z0-9]+$').hasMatch(char) ? char : '-');
     }
 
@@ -176,14 +177,6 @@ abstract final class MeetingDocument {
     return slug.length <= 48
         ? slug
         : slug.substring(0, 48).replaceAll(RegExp(r'-$'), '');
-  }
-
-  static const _accented = 'áàâãäéèêëíìîïóòôõöúùûüçñ';
-  static const _plain = 'aaaaaeeeeiiiiooooouuuucn';
-
-  static String _unaccent(String char) {
-    final index = _accented.indexOf(char);
-    return index < 0 ? char : _plain[index];
   }
 
   static String? _blankToNull(String? text) {

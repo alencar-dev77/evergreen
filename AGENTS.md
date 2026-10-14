@@ -313,6 +313,17 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   **subsequência não é solta sobre o conteúdo inteiro** — só sobre o apelido e a
   linha exibida. Solta, ela devolve o histórico inteiro para qualquer coisa
   digitada; o casamento literal é que continua alcançando o conteúdo todo.
+- **A busca do Echo é de todas as reuniões, e mora em `MeetingSearch`** —
+  domínio, como o `PinSearch`, testada sem tela. Quatro regras: ignora acento
+  e maiúscula (`TextFold`, que dobra **sem mudar o comprimento**, para a
+  posição achada no texto dobrado grifar o original); casa pelo **começo** da
+  palavra ("orcam" acha "orçamento", "custo" não acha "acusto"); **todas** as
+  palavras precisam estar na reunião, em qualquer lugar dela; e o índice
+  dobra o texto uma vez por lista de reuniões, nunca a cada tecla. Abrir um
+  resultado é um `EchoJump` — a face, a fala e o ponto do áudio — que a
+  leitura e o player obedecem **uma vez por pedido**, e que `select` esquece.
+  `⌘F` leva até ela de qualquer aba do Echo. Ver
+  [docs/Ideis projeto/echo-busca.md](docs/Ideis%20projeto/echo-busca.md).
 - **O Pin escreve num lugar só: o gerador de CPF e CNPJ.** Ele é uma linha no
   topo da lista dentro do filtro daquele documento, e paga três exceções às
   regras daqui — as pílulas de CPF e CNPJ estão sempre na fila (senão o gerador

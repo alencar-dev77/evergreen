@@ -22,6 +22,8 @@ import '../viewmodels/echo_library_view_model.dart';
 import '../viewmodels/echo_recorder_view_model.dart';
 import '../viewmodels/echo_settings_view_model.dart';
 import '../widgets/echo_library.dart';
+import '../widgets/echo_search_box.dart';
+import '../widgets/echo_search_results.dart';
 import '../widgets/echo_permission_row.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -142,18 +144,31 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
           EgSettingsCard(
             title: 'Reuniões',
             children: [
-              EchoLibrary(
-                state: library,
-                onOpen: (id) {
-                  libraryViewModel.select(id);
-                  // Escolher e abrir são o mesmo gesto: quem clica numa reunião
-                  // quer lê-la, e a região ao lado é onde ela se lê.
-                  ref
-                      .read(hubDetailProvider.notifier)
-                      .open(EvergreenModule.echo);
-                },
-                onToggleKept: libraryViewModel.toggleKept,
-              ),
+              // A busca é de todas as reuniões, e por isso mora acima da lista
+              // e não dentro da leitura de uma: quase nunca se sabe em qual
+              // reunião algo foi dito. Sem reunião nenhuma ela não aparece —
+              // um campo que não tem onde procurar é uma promessa vazia.
+              if (!library.isEmpty) EchoSearchBox(onOpened: _openReader),
+              if (library.isSearching)
+                EchoSearchResults(
+                  query: library.query,
+                  results: library.results,
+                  activeEntry: library.activeEntry,
+                  onOpen: (entry) {
+                    if (libraryViewModel.openEntry(entry)) _openReader();
+                  },
+                )
+              else
+                EchoLibrary(
+                  state: library,
+                  onOpen: (id) {
+                    libraryViewModel.select(id);
+                    // Escolher e abrir são o mesmo gesto: quem clica numa
+                    // reunião quer lê-la, e a região ao lado é onde ela se lê.
+                    _openReader();
+                  },
+                  onToggleKept: libraryViewModel.toggleKept,
+                ),
               if (library.errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.md),
@@ -167,7 +182,11 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
         // Cartão próprio, como no Focus: encostada na lista, a linha de apagar
         // pareceria mais uma reunião. Só aparece quando há o que apagar —
         // reunião guardada não conta, porque ela fica.
-        if (showLibrary && library.meetings.any((meeting) => !meeting.isKept))
+        // Nem durante a busca: logo abaixo de uma lista filtrada, "Apagar
+        // tudo" se leria como "apagar estes resultados".
+        if (showLibrary &&
+            !library.isSearching &&
+            library.meetings.any((meeting) => !meeting.isKept))
           EgSettingsCard(
             title: 'Sem volta',
             tone: EgCardTone.destructive,
@@ -360,6 +379,11 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
       ],
     );
   }
+
+  /// Abre a região de leitura do Echo ao lado — a reunião escolhida, seja
+  /// pela lista ou pela busca, é a que ela mostra.
+  void _openReader() =>
+      ref.read(hubDetailProvider.notifier).open(EvergreenModule.echo);
 
   /// Apagar as reuniões é irreversível — mesma barra do Pin e do Focus:
   /// confirmação antes.
