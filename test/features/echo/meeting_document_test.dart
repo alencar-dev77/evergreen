@@ -91,6 +91,36 @@ void main() {
       expect(text, isNot(contains('Você')));
     });
 
+    test('as vozes do outro lado saem numeradas, cada uma no seu turno', () {
+      final text = MeetingDocument.body(
+        meetingWith(
+          segments: const [
+            MeetingSegment(
+              speaker: Speaker.others,
+              startMs: 0,
+              endMs: 2000,
+              text: 'Pode ser sexta?',
+              voice: 1,
+            ),
+            MeetingSegment(
+              speaker: Speaker.others,
+              startMs: 2000,
+              endMs: 4000,
+              text: 'Sexta eu consigo.',
+              voice: 2,
+            ),
+          ],
+        ),
+        MeetingDocumentKind.transcript,
+      );
+
+      expect(
+        text,
+        'Pessoa 1 · 00:00\nPode ser sexta?\n\n'
+        'Pessoa 2 · 00:02\nSexta eu consigo.',
+      );
+    });
+
     test('reunião sem fala nenhuma não tem transcrição', () {
       final text = MeetingDocument.body(
         meetingWith(segments: const []),

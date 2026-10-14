@@ -4,6 +4,7 @@ import 'package:evergreen/features/echo/data/echo_channel.dart';
 import 'package:evergreen/features/echo/models/echo_capabilities.dart';
 import 'package:evergreen/features/echo/models/echo_spectrum.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
+import 'package:evergreen/features/echo/models/voice_separation.dart';
 
 /// Um Echo sem microfone, sem reunião e sem modelo.
 ///
@@ -141,6 +142,26 @@ class FakeEchoChannel implements EchoChannel {
     if (failWith != null) throw failWith!;
     transcribedWithVocabulary = vocabulary;
     return segments;
+  }
+
+  /// O que a diarização responde — vazio é "não achou vozes".
+  List<VoiceTurn> voiceTurns = const [];
+
+  /// Faz só a diarização falhar, com a transcrição de pé.
+  EchoException? diarizeFailWith;
+
+  /// O caminho que pediram para diarizar, ou `null` se ninguém pediu.
+  String? diarizedPath;
+
+  /// Segura a diarização até o teste soltar — para olhar o painel durante.
+  Completer<void>? diarizeGate;
+
+  @override
+  Future<List<VoiceTurn>> diarize(String path) async {
+    diarizedPath = path;
+    await diarizeGate?.future;
+    if (diarizeFailWith != null) throw diarizeFailWith!;
+    return voiceTurns;
   }
 
   /// Segura a resposta do modelo até o teste soltar.

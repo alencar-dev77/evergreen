@@ -148,7 +148,7 @@ abstract final class MeetingDocument {
     return turns
         .map(
           (turn) =>
-              '${turn.speaker.labelFor(userName)} · ${turn.timestamp}\n'
+              '${turn.labelFor(userName)} · ${turn.timestamp}\n'
               '${turn.text}',
         )
         .join('\n\n');

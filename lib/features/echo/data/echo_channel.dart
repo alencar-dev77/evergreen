@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../models/echo_capabilities.dart';
 import '../models/echo_spectrum.dart';
 import '../models/meeting_segment.dart';
+import '../models/voice_separation.dart';
 
 /// O que sobrou da gravação: os arquivos de áudio, quanto tempo durou e como
 /// cada faixa se saiu.
@@ -239,6 +240,21 @@ class EchoChannel {
         .whereType<Map<Object?, Object?>>()
         .map(MeetingSegment.fromMap)
         .toList(growable: false);
+  }
+
+  /// Quem falou de quando a quando na faixa do computador.
+  ///
+  /// Só o relógio de cada voz — casar com as palavras é o `VoiceSeparation`.
+  /// A primeira chamada baixa o modelo e pode demorar: sem rede ela falha em
+  /// segundos, e com rede lenta pode levar minutos — quem chama põe o teto.
+  /// Falhar aqui nunca é falhar a reunião.
+  Future<List<VoiceTurn>> diarize(String path) async {
+    final result = await _invoke<List<Object?>>('diarize', {'path': path});
+
+    return [
+      for (final raw in result ?? const [])
+        if (raw is Map<Object?, Object?>) ?VoiceTurn.fromMap(raw),
+    ];
   }
 
   /// Resume **um** bloco de texto. Quem corta em blocos é o Dart.

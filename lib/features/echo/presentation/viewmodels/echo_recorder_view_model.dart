@@ -12,7 +12,9 @@ import '../../models/cross_talk_filter.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/echo_spectrum.dart';
 import '../../models/meeting.dart';
+import '../../models/meeting_segment.dart';
 import '../../models/vocabulary_correction.dart';
+import '../../models/voice_separation.dart';
 import 'echo_recorder_state.dart';
 
 final echoRecorderViewModelProvider =
@@ -246,14 +248,20 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       // As trocas do vocabulário vêm depois do filtro: ele compara o texto
       // das duas faixas como o modelo o ouviu, e uma troca aplicada só de um
       // lado esconderia o eco dele.
-      final segments = VocabularyCorrection.apply(
-        CrossTalkFilter.clean(
-          await _channel.transcribe(
-            files: files,
-            locale: settings.language.locale,
-            vocabulary: settings.vocabularyTerms,
-          ),
+      //
+      // As vozes entram entre os dois: depois do filtro, para não pintar um
+      // eco que vai sair; antes do vocabulário, porque partir um trecho no
+      // meio de uma troca de pessoa é decisão do relógio das palavras, e a
+      // troca do vocabulário pode fundir duas delas numa.
+      final transcribed = CrossTalkFilter.clean(
+        await _channel.transcribe(
+          files: files,
+          locale: settings.language.locale,
+          vocabulary: settings.vocabularyTerms,
         ),
+      );
+      final segments = VocabularyCorrection.apply(
+        await _separateVoices(transcribed, files),
         settings.vocabularyCorrections,
       );
 
@@ -324,6 +332,49 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
             ? error.message
             : '${error.message} O áudio foi preservado em disco.',
       );
+    }
+  }
+
+  /// As vozes do outro lado, separadas — ou a transcrição como veio.
+  ///
+  /// Separar é enfeite sobre um texto que já está pronto, e por isso nunca
+  /// derruba a reunião: sem rede para baixar o modelo na primeira vez, ou com
+  /// o modelo falhando, a transcrição é guardada exatamente como era antes de
+  /// o Echo separar vozes, com o outro lado inteiro em "Reunião". Não há aviso
+  /// — a reunião deu certo, e um erro de um detalhe dela não é notícia.
+  ///
+  /// Não pergunta quando não há o que separar: sem faixa do computador, ou
+  /// sem fala nela.
+  ///
+  /// E não espera para sempre. Sem rede, o download do modelo desiste em
+  /// segundos; com uma rede que responde devagar, ele pode ficar minutos
+  /// tentando, e a reunião não pode ficar presa em "Transcrevendo" por isso.
+  /// Passado o [_voicesTimeout], a reunião sai sem vozes. O lado nativo
+  /// continua baixando, e a próxima reunião já encontra o modelo pronto.
+  static const _voicesTimeout = Duration(minutes: 3);
+
+  Future<List<MeetingSegment>> _separateVoices(
+    List<MeetingSegment> segments,
+    RecordingFiles files,
+  ) async {
+    final systemPath = files.systemPath;
+    final hasOthers = segments.any(
+      (segment) => segment.speaker == Speaker.others,
+    );
+    if (systemPath == null || !hasOthers) return segments;
+
+    state = state.copyWith(isSeparatingVoices: true);
+    try {
+      return VoiceSeparation.apply(
+        segments,
+        await _channel.diarize(systemPath).timeout(_voicesTimeout),
+      );
+    } on EchoException {
+      return segments;
+    } on TimeoutException {
+      return segments;
+    } finally {
+      state = state.copyWith(isSeparatingVoices: false);
     }
   }
 

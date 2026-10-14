@@ -640,10 +640,13 @@ class _TurnBlockState extends State<_TurnBlock> {
         Row(
           children: [
             Text(
-              turn.speaker.labelFor(userName),
+              turn.labelFor(userName),
               // Verde para você, neutro para a reunião: é a única cor da tela e
               // carrega significado. Quem não distingue a cor lê o nome, que
-              // está escrito do lado.
+              // está escrito do lado. As vozes do outro lado ficam todas no
+              // neutro — "Pessoa 1" e "Pessoa 2" se distinguem pelo nome, e
+              // uma cor por pessoa gastaria o verde, que é "ligado" ou "ação
+              // primária", em quem nem clicável é.
               style: context.eg.text.overline.copyWith(
                 color: isMe
                     ? context.eg.colors.accent

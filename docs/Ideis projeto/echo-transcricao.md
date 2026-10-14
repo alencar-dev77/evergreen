@@ -202,7 +202,7 @@ escreveu nas preferências.
 
 ---
 
-## Quem falou, sem modelo de diarização
+## Quem falou: a faixa decide o lado, o modelo separa as vozes
 
 O Echo rotula "Você" e "Reunião" **sem nenhum reconhecimento de voz**, e por
 isso não tem como errar: o rótulo vem de *qual faixa* o trecho veio. Microfone
@@ -213,11 +213,14 @@ no fim. Numa conversa de duas pessoas isso é diarização completa. Numa reuni�
 de seis, dá "eu" e "os outros" — que é a divisão que mais importa quando se
 relê depois.
 
-Separar pessoa A de pessoa B **dentro** do áudio do sistema exigiria embedding
-de voz e clusterização (pyannote, sherpa-onnx), dependência pesada e nenhuma
-delas nativa. E é difícil por um motivo de fundo: o que chega no alto-falante já
-veio misturado. O Meet consegue rotular porque tem o stream separado de cada
-participante; nós estaríamos tentando desfazer uma mistura.
+Separar pessoa A de pessoa B **dentro** do áudio do sistema exige embedding
+de voz e clusterização, e é difícil por um motivo de fundo: o que chega no
+alto-falante já veio misturado. O Meet consegue rotular porque tem o stream
+separado de cada participante; nós desfazemos uma mistura. Por isso foi
+recusado aqui por muito tempo. Desde 14/10/2026 é feito pelo FluidAudio
+(pyannote + WeSpeaker + VBx em CoreML), **por cima** da divisão por faixa, e
+nunca no lugar dela. O lado continua sendo certeza, e "Pessoa 1", "Pessoa 2"
+são palpite, em campos diferentes. Ver `echo-separacao-de-vozes.md`.
 
 ---
 
@@ -316,7 +319,8 @@ Três consequências que a interface precisa tratar, e trata:
 
 ## O que ficou de fora
 
-- **Separar pessoa A de pessoa B** dentro do áudio do sistema (ver acima).
+- **Separar pessoa A de pessoa B ao vivo.** Depois da reunião, sim (ver
+  acima). Durante, não: ver `echo-separacao-de-vozes.md`.
 - **Ignorar conteúdo sigiloso**: não se aplica aqui, mas vale para o Pin.
 - **Transcrever durante a reunião como caminho principal.** A transcrição ao
   vivo existe e é uma preferência, mas é enfeite por construção: o áudio vai

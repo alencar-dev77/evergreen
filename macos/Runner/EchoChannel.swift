@@ -2,6 +2,7 @@ import AVFoundation
 import Accelerate
 import CoreGraphics
 import FlutterMacOS
+import FluidAudio
 import Foundation
 import FoundationModels
 import ScreenCaptureKit
@@ -24,7 +25,7 @@ enum EchoChannel {
   ///
   /// O Echo inteiro exige macOS 26 — é de lá que vêm o `SpeechAnalyzer` e o
   /// modelo do Apple Intelligence. Guardar o gravador como `Any?` é o preço de
-  /// o resto do Evergreen continuar rodando no macOS 12.
+  /// o resto do Evergreen continuar rodando no macOS 14.
   private static var storedRecorder: Any?
 
   @available(macOS 26.0, *)
@@ -106,6 +107,16 @@ enum EchoChannel {
           await EchoTranscriber.transcribe(
             micPath: micPath, systemPath: systemPath, locale: locale,
             vocabulary: vocabulary, result: result)
+        }
+
+      case "diarize":
+        // Em separado da transcrição, e não dentro dela: separar as vozes é
+        // enfeite sobre um texto que já existe. Se falhar — sem rede para
+        // baixar o modelo na primeira vez, por exemplo —, o Dart guarda a
+        // transcrição como sempre foi, com o outro lado inteiro em "Reunião".
+        let path = arguments["path"] as? String ?? ""
+        Task.detached(priority: .utility) {
+          await EchoDiarizer.diarize(path: path, result: result)
         }
 
       case "summarize":
@@ -1497,6 +1508,53 @@ enum EchoTranscriber {
       result(["locale": resolved.identifier(.bcp47)])
     } catch {
       result(FlutterError(code: "locale_install_failed", message: error.localizedDescription, details: nil))
+    }
+  }
+}
+
+/// Separa as vozes da faixa do computador: quem falou, de quando a quando.
+///
+/// Só a faixa do computador, nunca o microfone. O microfone é sempre quem
+/// grava, e por isso não há o que separar ali — e manter as duas fora da
+/// mesma conta é o que garante que a sua voz nunca vire "Pessoa 2".
+///
+/// Quem separa é o FluidAudio (pyannote + WeSpeaker + VBx, em CoreML): o
+/// `Speech` não tem diarização, e não há equivalente em Flutter puro. A
+/// resposta é só o relógio de cada voz, com um identificador que não quer
+/// dizer nada fora desta reunião; casar isso com as palavras da transcrição é
+/// assunto do Dart (`VoiceSeparation`), onde dá para testar.
+///
+/// O modelo é baixado do Hugging Face na primeira vez e fica na pasta do
+/// FluidAudio em Application Support; daí em diante tudo roda na máquina.
+/// O gerenciador nasce e morre a cada chamada — os modelos ocupam dezenas de
+/// MB, e a janela 0 vive o dia inteiro para usá-los alguns minutos.
+///
+/// Só macOS 26, como o resto do Echo — o que de quebra passa longe do bug do
+/// BNNS que o FluidAudio documenta no macOS 14 e que derrubaria o processo
+/// inteiro, não só a reunião.
+@available(macOS 26.0, *)
+enum EchoDiarizer {
+  static func diarize(path: String, result: @escaping FlutterResult) async {
+    guard FileManager.default.fileExists(atPath: path) else {
+      result([])
+      return
+    }
+
+    do {
+      let manager = OfflineDiarizerManager()
+      try await manager.prepareModels()
+      let diarization = try await manager.process(URL(fileURLWithPath: path))
+
+      result(diarization.segments.map { segment in
+        [
+          "voice": segment.speakerId,
+          "startMs": Int(Double(segment.startTimeSeconds) * 1000),
+          "endMs": Int(Double(segment.endTimeSeconds) * 1000),
+        ] as [String: Any]
+      })
+    } catch {
+      result(FlutterError(
+        code: "diarization_failed", message: error.localizedDescription, details: nil))
     }
   }
 }

@@ -409,6 +409,97 @@ void main() {
       }
     });
 
+    test(
+      'as vozes separadas chegam numeradas, e a regra diz o que são',
+      () async {
+        final voicesId = repository
+            .insert(
+              Meeting(
+                title: 'Planejamento',
+                startedAt: DateTime(2026, 10, 2, 14),
+                durationMs: const Duration(minutes: 5).inMilliseconds,
+                language: TranscriptionLanguage.ptBR,
+                segments: const [
+                  MeetingSegment(
+                    speaker: Speaker.others,
+                    startMs: 0,
+                    endMs: 3000,
+                    text: 'Quem fica com o relatório?',
+                    voice: 1,
+                  ),
+                  MeetingSegment(
+                    speaker: Speaker.others,
+                    startMs: 3000,
+                    endMs: 6000,
+                    text: 'Eu fico.',
+                    voice: 2,
+                  ),
+                ],
+              ),
+            )
+            .id!;
+
+        await background.read(echoSummaryRunnerProvider).start(voicesId);
+        await pumpEventQueue();
+
+        expect(
+          channel.summarizedTexts.single,
+          'Pessoa 1: Quem fica com o relatório?\nPessoa 2: Eu fico.',
+        );
+        final instructions = channel.summarizedInstructions.single;
+        expect(instructions, contains('são 2 vozes diferentes'));
+        expect(instructions, contains('O número não é nome'));
+        // No lugar da regra sem vozes, e não ao lado: as duas se contradiziam.
+        expect(instructions, isNot(contains('não as atribua a ninguém')));
+      },
+    );
+
+    test('as vozes chegam a cada bloco, numeradas da mesma forma', () async {
+      // O bloco é onde "Pessoa 2 fica com o relatório" vira "alguém fica com
+      // o relatório" — o passo final só lê o que o bloco escreveu.
+      channel.contextSizeValue = null;
+      final longId = repository
+          .insert(
+            Meeting(
+              title: 'Longa com vozes',
+              startedAt: DateTime(2026, 10, 2, 9),
+              durationMs: const Duration(minutes: 40).inMilliseconds,
+              language: TranscriptionLanguage.ptBR,
+              segments: [
+                for (var i = 0; i < 120; i++)
+                  MeetingSegment(
+                    speaker: Speaker.others,
+                    startMs: i * 1000,
+                    endMs: i * 1000 + 900,
+                    text: 'Fala $i sobre o roadmap e as metas do trimestre.',
+                    voice: i % 3 + 1,
+                  ),
+              ],
+            ),
+          )
+          .id!;
+
+      await background.read(echoSummaryRunnerProvider).start(longId);
+      await pumpEventQueue();
+
+      expect(channel.summarizedInstructions.length, greaterThan(2));
+      for (final instructions in channel.summarizedInstructions) {
+        expect(instructions, contains('são 3 vozes diferentes'));
+        expect(instructions, contains('mantenha o rótulo ao lado'));
+      }
+      expect(channel.summarizedTexts.first, contains('Pessoa 3: Fala 2'));
+    });
+
+    test('sem vozes separadas, a regra das vozes não vai', () async {
+      await background.read(echoSummaryRunnerProvider).start(meetingId);
+      await pumpEventQueue();
+
+      expect(
+        channel.summarizedInstructions.single,
+        isNot(contains('vozes diferentes')),
+      );
+    });
+
     test('com nome, ele vai no rótulo e na instrução', () async {
       // Escrito na janela do Hub, lido no engine da janela 0: o runner relê o
       // disco antes de começar, senão o primeiro resumo depois de a pessoa se

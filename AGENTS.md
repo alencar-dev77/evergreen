@@ -17,13 +17,14 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 # Stack
 
 - **Flutter** (Dart SDK ^3.11.5) — app desktop nativo, sem backend.
-- **O piso é macOS 12, e quem o escolheu foi a ferramenta.** Era 10.15, e o
-  `macos_deployment_target_migration` do Flutter reescreve `10.11`, `10.13`,
-  `10.14`, `10.15` e `11.0` para `12.0` no primeiro build — no `project.pbxproj`
-  e no `Podfile` juntos, porque os dois precisam concordar. Reverter à mão não
-  para de pé: o build seguinte reescreve de novo. Fica registrado aqui porque a
-  linha antiga dizia 10.15 e ninguém tinha decidido trocá-la; o custo real é
-  pequeno, já que o macOS 11 é de 2020 e o Echo já exigia o 26.
+- **O piso é macOS 14, e foi o FluidAudio que o pediu.** O Xcode não linka um
+  pacote cujo piso é maior que o do alvo, e o pacote que separa as vozes do
+  Echo declara 14. Antes era 12, e esse quem escolheu foi a ferramenta: o
+  `macos_deployment_target_migration` do Flutter reescreve tudo abaixo de
+  `12.0` no primeiro build. O 14 fica de pé porque está acima do que ela
+  reescreve. Trocar o piso é sempre no `project.pbxproj` (as três
+  configurações) e no `Podfile` juntos, porque os dois precisam concordar. O
+  custo é pequeno: o macOS 14 é de 2023, e o Echo já exigia o 26.
 - **A build é híbrida, SPM mais CocoaPods — e falta um só para deixar de ser.**
   Seis dos sete plugins nativos vêm pelo Swift Package Manager; o
   `hotkey_manager_macos` é o último de CocoaPods, e é ele que segura o
@@ -31,6 +32,14 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   `Package.swift` **dentro do plugin**, e a 0.2.0 dele — a última — só traz
   `.podspec`. Enquanto isso o Flutter avisa a cada build, e promete transformar
   o aviso em erro; no dia em que transformar, o que para é todo atalho global.
+  Fora dos plugins, há **um pacote SPM nosso**: o FluidAudio, referenciado
+  direto no `project.pbxproj` do `Runner` (`XCRemoteSwiftPackageReference`,
+  versão exata), ao lado do `FlutterGeneratedPluginSwiftPackage`. Pacote novo
+  entra do mesmo jeito, em seis lugares: a `XCRemoteSwiftPackageReference`, o
+  `XCSwiftPackageProductDependency`, o `PBXBuildFile`, a fase `Frameworks`, o
+  `packageProductDependencies` do alvo `Runner` e o `packageReferences` do
+  projeto. A versão travada vai no `Package.resolved` do `Runner.xcworkspace`,
+  que é o que o `flutter build` lê.
   A saída, se a hora chegar antes do autor, é vendorizar o plugin com um
   `Package.swift` nosso. O `desktop_multi_window` era o outro da lista e saiu
   dela na 0.3.1, cujo changelog é exatamente essa uma linha — vale reconferir
@@ -64,7 +73,16 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   equivalente em Flutter puro; o porquê de cada um está em
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Exige macOS 26 e é o único módulo com piso de sistema próprio — o canal
-  responde `unsupported_os` abaixo disso, e o resto do app segue no 12.0.
+  responde `unsupported_os` abaixo disso, e o resto do app segue no 14.0.
+  **As vozes do outro lado são separadas pelo FluidAudio** (`EchoDiarizer`,
+  pyannote + WeSpeaker + VBx em CoreML), só na faixa do computador e depois da
+  reunião. Quem casa as vozes com as palavras é o `VoiceSeparation`, em Dart.
+  A faixa diz o lado, e isso é certeza; a voz (`MeetingSegment.voice`, que vira
+  "Pessoa 1", "Pessoa 2") é palpite, e por isso mora num campo à parte. É
+  enfeite: falhou, a reunião sai com o outro lado em "Reunião", sem aviso. O
+  modelo é baixado do Hugging Face uma vez, e é a única conexão que o
+  Evergreen abre. Ao vivo não separa. Ver
+  [docs/Ideis projeto/echo-separacao-de-vozes.md](docs/Ideis%20projeto/echo-separacao-de-vozes.md).
   Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
   texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro
   de cada faixa dez vezes por segundo: uma FFT (`Accelerate`/`vDSP`) sobre os
