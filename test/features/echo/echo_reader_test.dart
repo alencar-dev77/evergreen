@@ -380,6 +380,52 @@ void main() {
       expect(player.positionMs, 6300);
     });
 
+    /// Tocando, o player pergunta a posição de 80 em 80 ms e a fala é
+    /// redesenhada a cada resposta. Um clique que atravessa uma dessas
+    /// respostas — apertar antes, soltar depois — precisa saltar do mesmo
+    /// jeito: era o que falhava "às vezes".
+    testWidgets('clicar numa palavra com o áudio tocando salta mesmo '
+        'quando a posição muda no meio do clique', (tester) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      await tester.tap(find.byTooltip('Tocar (espaço)'));
+      await tester.pump();
+
+      final word = find.textRange
+          .ofSubstring(
+            'scop',
+            descendentOf: find.byWidgetPredicate(
+              (widget) =>
+                  widget is RichText &&
+                  widget.text.toPlainText().contains('escopo hoje'),
+            ),
+          )
+          .evaluate()
+          .single;
+      final box = word.renderObject
+          .getBoxesForSelection(
+            TextSelection(
+              baseOffset: word.textRange.start,
+              extentOffset: word.textRange.end,
+            ),
+          )
+          .first
+          .toRect();
+      final at = word.renderObject.localToGlobal(box.center);
+
+      final gesture = await tester.startGesture(at);
+      player.positionMs = 1200;
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pump();
+
+      expect(player.positionMs, 6300);
+
+      await tester.tap(find.byTooltip('Pausar (espaço)'));
+      await tester.pumpAndSettle();
+    });
+
     /// O que está aceso na fala, pedaço por pedaço.
     List<String> lit(WidgetTester tester) {
       final paragraph = tester.widget<RichText>(

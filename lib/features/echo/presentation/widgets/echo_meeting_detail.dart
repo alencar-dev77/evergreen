@@ -573,6 +573,13 @@ class _TurnBlock extends StatefulWidget {
 class _TurnBlockState extends State<_TurnBlock> {
   /// Um reconhecedor por pedaço, criado uma vez — recriá-los a cada pergunta
   /// ao player seria jogar fora centenas de objetos dez vezes por segundo.
+  ///
+  /// E não é só desperdício: o clique que atravessa uma pergunta (apertar
+  /// antes, soltar depois) chega ao reconhecedor descartado e some — era o
+  /// clique na palavra que "às vezes" não saltava. Por isso a comparação é
+  /// pela quantidade de pedaços, não pela identidade da lista: a transcrição
+  /// é remontada a cada quadro, e uma lista nova com as mesmas palavras não
+  /// pede reconhecedores novos.
   List<TapGestureRecognizer> _taps = const [];
 
   @override
@@ -584,7 +591,7 @@ class _TurnBlockState extends State<_TurnBlock> {
   @override
   void didUpdateWidget(_TurnBlock oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.turn.pieces, widget.turn.pieces) ||
+    if (oldWidget.turn.pieces.length != widget.turn.pieces.length ||
         (oldWidget.onSeek == null) != (widget.onSeek == null)) {
       _disposeTaps();
       _buildTaps();
@@ -603,10 +610,14 @@ class _TurnBlockState extends State<_TurnBlock> {
       return;
     }
 
+    // O pedaço é lido na hora do clique, pelo índice, e não guardado na
+    // criação: o reconhecedor sobrevive à troca do widget, e o tempo certo é
+    // o da fala que está desenhada agora.
     _taps = [
-      for (final piece in widget.turn.pieces)
+      for (var index = 0; index < widget.turn.pieces.length; index++)
         TapGestureRecognizer()
-          ..onTap = () => widget.onSeek?.call(piece.startMs),
+          ..onTap = () =>
+              widget.onSeek?.call(widget.turn.pieces[index].startMs),
     ];
   }
 
