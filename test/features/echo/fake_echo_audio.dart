@@ -28,6 +28,7 @@ class FakeEchoPlayer implements EchoPlayer {
   String? loaded;
   int positionMs = 0;
   bool isPlaying = false;
+  double rate = 1;
   final calls = <String>[];
 
   @override
@@ -55,6 +56,12 @@ class FakeEchoPlayer implements EchoPlayer {
   Future<void> seek(int positionMs) async {
     calls.add('seek $positionMs');
     this.positionMs = positionMs;
+  }
+
+  @override
+  Future<void> setRate(double rate) async {
+    calls.add('rate $rate');
+    this.rate = rate;
   }
 
   @override

@@ -20,6 +20,7 @@ class EchoPlaybackState {
     this.positionMs = 0,
     this.isPlaying = false,
     this.isFollowing = true,
+    this.rate = 1,
   });
 
   /// A reunião cujo áudio está carregado; `null` quando não há o que tocar.
@@ -35,12 +36,19 @@ class EchoPlaybackState {
   /// brigar com ela. Volta a valer no play e no clique numa palavra.
   final bool isFollowing;
 
+  /// A velocidade da fala, um dos degraus de [EchoPlaybackViewModel.rates].
+  ///
+  /// Da sessão, não da reunião: quem ouve a 1,5× ouve a próxima também, e
+  /// trocar de reunião não volta ao normal. Fechar o Hub volta.
+  final double rate;
+
   bool get isReady => meetingId != null;
 
   EchoPlaybackState copyWith({
     int? positionMs,
     bool? isPlaying,
     bool? isFollowing,
+    double? rate,
   }) {
     return EchoPlaybackState(
       meetingId: meetingId,
@@ -48,6 +56,7 @@ class EchoPlaybackState {
       positionMs: positionMs ?? this.positionMs,
       isPlaying: isPlaying ?? this.isPlaying,
       isFollowing: isFollowing ?? this.isFollowing,
+      rate: rate ?? this.rate,
     );
   }
 }
@@ -65,6 +74,9 @@ final echoPlaybackViewModelProvider =
 class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
   /// O passo dos botões e das setas.
   static const skip = Duration(seconds: 10);
+
+  /// Os degraus da velocidade, na ordem em que o clique os percorre.
+  static const rates = [1.0, 1.25, 1.5, 2.0];
 
   /// De quanto em quanto tempo se pergunta ao player onde ele está.
   ///
@@ -123,7 +135,8 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
     if (state.isReady) await _player.unload();
     if (generation != _generation || !ref.mounted) return;
 
-    state = const EchoPlaybackState();
+    final rate = state.rate;
+    state = EchoPlaybackState(rate: rate);
 
     final fileName = meeting?.audioFile;
     if (meeting == null || fileName == null || !_store.exists(fileName)) {
@@ -135,7 +148,15 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
       return;
     }
 
-    state = EchoPlaybackState(meetingId: meeting.id, durationMs: durationMs);
+    // O arquivo novo nasce na velocidade normal; a da sessão vai junto.
+    if (rate != 1) await _player.setRate(rate);
+    if (generation != _generation || !ref.mounted) return;
+
+    state = EchoPlaybackState(
+      meetingId: meeting.id,
+      durationMs: durationMs,
+      rate: rate,
+    );
   }
 
   Future<void> toggle() => state.isPlaying ? pause() : play();
@@ -182,6 +203,17 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
     if (!ref.mounted) return;
 
     state = state.copyWith(positionMs: clamped, isFollowing: true);
+  }
+
+  /// Passa ao degrau seguinte de [rates]; do último, volta ao normal.
+  Future<void> cycleRate() async {
+    if (!state.isReady) return;
+
+    final index = rates.indexOf(state.rate);
+    final next = rates[(index + 1) % rates.length];
+    state = state.copyWith(rate: next);
+
+    await _player.setRate(next);
   }
 
   void stopFollowing() {

@@ -82,6 +82,7 @@ class EchoReader extends ConsumerWidget {
               onToggle: () => unawaited(player.toggle()),
               onSkip: (offset) => unawaited(player.skipBy(offset)),
               onSeek: (ms) => unawaited(player.seekTo(ms)),
+              onCycleRate: () => unawaited(player.cycleRate()),
             ),
           ],
         ],

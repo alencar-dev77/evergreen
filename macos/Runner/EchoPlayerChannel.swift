@@ -39,6 +39,8 @@ final class EchoPlayerChannel {
       let path = arguments["path"] as? String ?? ""
       do {
         let loaded = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path))
+        // Antes do `prepareToPlay`: ligado depois, o `rate` é ignorado calado.
+        loaded.enableRate = true
         loaded.prepareToPlay()
         player = loaded
         result(["durationMs": Int(loaded.duration * 1000)])
@@ -60,6 +62,11 @@ final class EchoPlayerChannel {
         let ms = (arguments["positionMs"] as? NSNumber)?.doubleValue ?? 0
         player.currentTime = max(0, min(player.duration, ms / 1000))
       }
+      result(nil)
+
+    case "rate":
+      let rate = (arguments["rate"] as? NSNumber)?.floatValue ?? 1
+      player?.rate = max(0.5, min(2, rate))
       result(nil)
 
     case "status":

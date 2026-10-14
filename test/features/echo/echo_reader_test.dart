@@ -507,5 +507,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(player.isPlaying, isFalse);
     });
+
+    testWidgets('a velocidade gira pelo clique e pelo S, e volta ao normal', (
+      tester,
+    ) async {
+      giveAudio();
+      await openTranscript(tester);
+
+      expect(find.text('1×'), findsOneWidget);
+
+      await tester.tap(find.text('1×'));
+      await tester.pump();
+      expect(player.rate, 1.25);
+      expect(find.text('1,25×'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await tester.pump();
+      expect(find.text('1,5×'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await tester.pump();
+      expect(player.rate, 2.0);
+      expect(find.text('2×'), findsOneWidget);
+
+      await tester.tap(find.text('2×'));
+      await tester.pump();
+      expect(player.rate, 1.0);
+      expect(find.text('1×'), findsOneWidget);
+    });
   });
 }
