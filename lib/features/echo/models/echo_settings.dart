@@ -112,8 +112,11 @@ class EchoSettings {
       'Escreva em tópicos curtos. Registre decisões, pendências e quem ficou '
       'responsável por cada coisa.';
 
-  /// O exemplo apagado do campo de vocabulário — nomes, não frases.
-  static const vocabularyHint = 'Evergreen, Riverpod, Diletta, a zap -> ASAP';
+  /// O exemplo apagado do campo de vocabulário — nomes, não frases, e uma
+  /// troca. Palavras que qualquer um reconhece: o exemplo ensina o formato, e
+  /// um jargão que a pessoa não conhece faz ela parar para entender a palavra
+  /// em vez do formato.
+  static const vocabularyHint = 'Ana Souza, Kubernetes, sprint, gira -> Jira';
 
   EchoSettings copyWith({
     bool? liveTranscription,

@@ -267,9 +267,10 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               EgSettingsRow.field(
                 label: 'Palavras que costumam aparecer',
                 description:
-                    'Nomes, produtos, jargão, separados por vírgula. É o '
-                    'que o reconhecimento mais erra. Se uma palavra sai '
-                    'sempre trocada, ensine a troca: a zap -> ASAP.',
+                    'Nomes, produtos e termos do seu trabalho, separados '
+                    'por vírgula. Se uma palavra sai sempre errada, escreva '
+                    'como ela saiu, uma seta e como deveria ser: '
+                    'gira -> Jira.',
                 field: EgTextField(
                   controller: _vocabulary,
                   focusNode: _vocabularyFocus,
@@ -286,9 +287,11 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
               EgSettingsRow.field(
                 label: 'Como você quer o resumo',
                 description:
-                    'Vale para todas as reuniões, ao apertar Resumir. Curta '
-                    'funciona melhor: o modelo é local e ignora instrução '
-                    'longa.',
+                    'Vale para todas as reuniões, ao apertar Resumir. '
+                    'Escreva como pediria a uma pessoa, em uma ou duas '
+                    'frases — por exemplo: "Destaque os prazos e o que '
+                    'ficou para a próxima reunião." Curta funciona melhor: '
+                    'o modelo é local e ignora instrução longa.',
                 field: EgTextField(
                   controller: _instructions,
                   focusNode: _instructionsFocus,
