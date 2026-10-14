@@ -301,6 +301,8 @@ class _HubViewState extends ConsumerState<HubView> {
           unawaited(player.skipBy(-skip)),
       const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
           unawaited(player.skipBy(skip)),
+      const SingleActivator(LogicalKeyboardKey.keyS): () =>
+          unawaited(player.cycleRate()),
     };
   }
 

@@ -152,6 +152,33 @@ void main() {
     expect(state().isFollowing, isTrue);
   });
 
+  test('a velocidade gira e acompanha a troca de reunião', () async {
+    store.files.add('outra.m4a');
+    final first = insert('primeira', audio: 'com-audio.m4a', minutesAgo: 5);
+    final second = insert('segunda', audio: 'outra.m4a');
+
+    await open(select: first.id);
+    expect(state().rate, 1.0);
+
+    await viewModel().cycleRate();
+    await viewModel().cycleRate();
+    expect(state().rate, 1.5);
+    expect(player.rate, 1.5);
+
+    // O arquivo novo nasce no normal: a velocidade da sessão vai junto.
+    player.rate = 1;
+    container.read(echoLibraryViewModelProvider.notifier).select(second.id!);
+    await pumpEventQueue();
+
+    expect(state().meetingId, second.id);
+    expect(state().rate, 1.5);
+    expect(player.rate, 1.5);
+
+    await viewModel().cycleRate();
+    await viewModel().cycleRate();
+    expect(state().rate, 1.0);
+  });
+
   test('fechar a leitura pausa o áudio', () async {
     insert('com áudio', audio: 'com-audio.m4a');
     await open();
