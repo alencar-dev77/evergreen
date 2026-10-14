@@ -87,10 +87,18 @@ Os papéis abstratos acima já têm nome e valor no produto. Use o token, nunca 
 | Dado: tempo em curso | `ember` | `#E8B24A` | reunião, "processando", a barra do dia |
 | Dado: arquivo/sistema | `tide` | `#5B9CF6` | informação neutra que ainda precisa de cor |
 | Anel de foco | `focusRing` | branco a 34% | **branco, não verde** |
+| Achado | `findMark` | branco a 16% | fundo do termo buscado **dentro da leitura** — neutro, porque ali o verde da letra já é "já foi dito" |
 | Texto | `textPrimary` … `textQuaternary` | `#EDF2F0` … `#4C5457` | quatro degraus |
 | Erro | `error` | `#EF4444` | superfície a 6%, borda a 22% no cartão destrutivo |
 
 ### As três regras que sustentam a paleta
+
+> **Exceção registrada: o grifo da busca em lista.** No Pin e nos resultados da
+> busca do Echo, o trecho que casou é a letra em accent — e só a letra, sem
+> peso nem fundo. Não é estado nem ação: é a resposta a "por que esta linha
+> está aqui", e ela aparece em muitas linhas ao mesmo tempo, onde um fundo por
+> linha viraria um mosaico. Fora de lista — dentro de um texto que se lê —,
+> o grifo é o fundo `findMark`, neutro.
 
 **1. O verde tem dois papéis, e só dois: ligado e ação primária.** Seleção,
 foco, rótulo selecionado e aresta deixaram de ser verdes de propósito. Quando

@@ -95,6 +95,8 @@ class EchoReader extends ConsumerWidget {
         onSeek: (ms) => unawaited(player.seekTo(ms)),
         onUserScroll: player.stopFollowing,
         meeting: meeting,
+        query: library.query,
+        jump: library.jump,
         userName: ref.watch(
           appSettingsViewModelProvider.select((settings) => settings.userName),
         ),

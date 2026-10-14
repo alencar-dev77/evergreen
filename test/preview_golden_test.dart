@@ -39,6 +39,7 @@ import 'package:evergreen/features/track/presentation/widgets/track_day_list.dar
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:evergreen/shared/widgets/eg_search_field.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -718,6 +719,56 @@ void main() {
 
     await tester.tap(find.byTooltip('Pausar (espaço)'));
     await tester.pumpAndSettle();
+  });
+
+  /// A busca de todas as reuniões, no lugar da lista.
+  Future<void> searchMeetings(
+    WidgetTester tester,
+    String query, {
+    Size window = _hubWindow,
+  }) async {
+    await pump(tester, const HubView(), window);
+
+    await tester.tap(find.text(EvergreenModule.echo.name));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reuniões'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(EgSearchField),
+        matching: find.byType(TextField),
+      ),
+      query,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('Hub — Echo, buscando', (tester) async {
+    // A proposta está no resumo e na fala: a folha mostra os dois tipos de
+    // trecho, cada um com o grifo e quem o disse.
+    await searchMeetings(tester, 'proposta');
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo_search.png'),
+    );
+  });
+
+  testWidgets('Hub — Echo, o trecho achado', (tester) async {
+    await searchMeetings(tester, 'proposta', window: _hubWindowWithRegion);
+
+    // Do resumo para a fala, e Enter: a leitura abre na transcrição, com o
+    // termo marcado sobre o fundo de "achado".
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_echo_search_open.png'),
+    );
   });
 
   /// A prateleira com o que se junta num dia de trabalho: uma pasta, um

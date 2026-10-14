@@ -179,7 +179,11 @@ O campo de busca é provavelmente o componente mais importante do Evergreen dado
 - Ícone de lupa à esquerda, discreto (cor `text/tertiary`), nunca colorido.
 - Placeholder claro e específico ao contexto (nunca genérico tipo "Buscar...", prefira algo como "Buscar tarefas, projetos ou tags"), sempre em `text/tertiary`.
 - Resultado aparece **enquanto a pessoa digita** (busca instantânea, sem botão "buscar" separado) sempre que tecnicamente viável — essa é uma expectativa herdada diretamente do Raycast e do Spotlight do próprio macOS.
-- Atalho de teclado para focar a busca deve estar sempre disponível e, quando fizer sentido, exibido discretamente dentro do próprio campo (ex: um badge pequeno de atalho alinhado à direita, tipo "⌘K"), seguindo o padrão de `ux.md`.
+- Atalho de teclado para focar a busca deve estar sempre disponível e, quando fizer sentido, exibido discretamente dentro do próprio campo (ex: um badge pequeno de atalho alinhado à direita, tipo "⌘K"), seguindo o padrão de `ux.md`. No `EgSearchField` é o `shortcut:`, e ele só aparece com o campo **vazio e sem foco** — com o cursor dentro o atalho já foi usado, e com texto o espaço é do que se digitou.
+- Fora do painel flutuante (`bare: false`) o campo é o poço do `EgTextField` (`canvasDeep`), com a aresta neutra em repouso e o verde **só com o foco**. Era verde o tempo todo, o que dizia "estou com o teclado" sem estar.
+- **Busca que atravessa itens mora acima deles, nunca dentro de um.** A do Echo procura em todas as reuniões de uma vez, no topo do cartão "Reuniões": quase nunca se sabe *em qual* reunião algo foi dito. Os resultados substituem a lista enquanto há texto — a reunião numa linha, os trechos dela embaixo, com quem falou e o minuto numa coluna fixa —, e o que não coube é contado ("mais 4 trechos, grifados na leitura"), nunca escondido.
+- **Dois grifos, e cada um tem o seu lugar.** Em lista o grifo é a cor da letra (accent), como no Pin: ele aparece em muitas linhas, e um fundo em cada uma viraria um mosaico. Dentro de um texto que se lê, é o fundo `findMark`: na transcrição a cor da letra já é do áudio, e as duas marcas precisam caber na mesma palavra.
+- Abrir um resultado leva **ao trecho**, não à reunião: a face certa, a fala à vista, o áudio parado onde a palavra soa (sem tocar — tocar sozinho seria áudio começando sem ninguém pedir). O pedido é de um gesto só: escolher a reunião pela lista depois esquece o trecho da busca.
 
 ## Sidebars
 

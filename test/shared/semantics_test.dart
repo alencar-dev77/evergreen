@@ -1,4 +1,9 @@
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/features/echo/models/meeting.dart';
+import 'package:evergreen/features/echo/models/meeting_search.dart';
+import 'package:evergreen/features/echo/models/meeting_segment.dart';
+import 'package:evergreen/features/echo/models/transcription_language.dart';
+import 'package:evergreen/features/echo/presentation/widgets/echo_search_results.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
 import 'package:evergreen/features/pin/models/pin_quick_shortcut.dart';
 import 'package:evergreen/features/nest/models/nest_item.dart';
@@ -294,6 +299,68 @@ void main() {
       expect(
         tester.getSemantics(find.byType(EgIcon)),
         isSemantics(label: 'Guardada', isImage: true),
+      );
+
+      handle.dispose();
+    });
+  });
+
+  group('busca do Echo', () {
+    testWidgets('cada trecho se lê numa frase: quem, quando e o quê', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final results = MeetingSearch.index([
+        Meeting(
+          id: 1,
+          title: 'Planejamento',
+          startedAt: DateTime(2026, 10, 1, 10),
+          durationMs: 60000,
+          language: TranscriptionLanguage.ptBR,
+          segments: const [
+            MeetingSegment(
+              speaker: Speaker.others,
+              startMs: 62000,
+              endMs: 66000,
+              text: 'O orçamento ainda está aberto.',
+              voice: 2,
+            ),
+            MeetingSegment(
+              speaker: Speaker.others,
+              startMs: 0,
+              endMs: 1000,
+              text: 'Começamos.',
+              voice: 1,
+            ),
+          ],
+        ),
+      ]).search('orçamento');
+
+      await pump(
+        tester,
+        SizedBox(
+          width: 600,
+          child: EchoSearchResults(
+            query: 'orçamento',
+            results: results,
+            activeEntry: 0,
+            onOpen: (_) {},
+            now: DateTime(2026, 10, 1, 12),
+          ),
+        ),
+      );
+
+      // Os pedaços grifados não podem virar palavras soltas para o leitor —
+      // a linha é uma coisa só, e clicável.
+      expect(
+        find.bySemanticsLabel(
+          'Pessoa 2, 01:02, O orçamento ainda está aberto.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Reunião Planejamento, Hoje às 10:00, 1 trecho'),
+        findsOneWidget,
       );
 
       handle.dispose();

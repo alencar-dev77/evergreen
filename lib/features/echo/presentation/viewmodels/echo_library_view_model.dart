@@ -13,11 +13,54 @@ import '../../models/echo_capabilities.dart';
 import '../../models/echo_summary_status.dart';
 import '../../models/meeting.dart';
 import '../../models/meeting_document.dart';
+import '../../models/meeting_search.dart';
 
 final echoLibraryViewModelProvider =
     NotifierProvider<EchoLibraryViewModel, EchoLibraryState>(
       EchoLibraryViewModel.new,
     );
+
+/// Um pedido para a leitura ir até um trecho — o Enter num resultado da busca.
+///
+/// Carrega um número de série, e não só o destino: abrir o mesmo trecho duas
+/// vezes seguidas (a pessoa rolou para longe e quer voltar) precisa ser um
+/// pedido novo, e um destino igual ao anterior não mudaria nada para quem
+/// compara.
+class EchoJump {
+  const EchoJump({
+    required this.serial,
+    required this.meetingId,
+    this.kind,
+    this.atMs,
+    this.turnStartMs,
+  });
+
+  final int serial;
+  final int meetingId;
+
+  /// Que face abrir. `null` quando a reunião casou só pelo título — aí a
+  /// leitura fica na aba em que estava.
+  final MeetingHitKind? kind;
+
+  /// Onde o áudio para, pronto para tocar dali. `null` no resumo.
+  final int? atMs;
+
+  /// A fala que a leitura vai buscar.
+  final int? turnStartMs;
+}
+
+/// Uma linha da lista de resultados: a reunião, ou um trecho dela.
+///
+/// É a unidade em que o teclado anda — `↑↓` passam pela reunião e pelos
+/// trechos dela na ordem em que estão desenhados.
+class EchoSearchEntry {
+  const EchoSearchEntry(this.result, [this.hit]);
+
+  final MeetingSearchResult result;
+
+  /// `null` na linha da própria reunião.
+  final MeetingHit? hit;
+}
 
 class EchoLibraryState {
   const EchoLibraryState({
@@ -27,6 +70,10 @@ class EchoLibraryState {
     this.summarizingId,
     this.progress,
     this.errorMessage,
+    this.query = '',
+    this.results = const [],
+    this.activeEntry,
+    this.jump,
   });
 
   final List<Meeting> meetings;
@@ -41,6 +88,35 @@ class EchoLibraryState {
   final (int, int)? progress;
 
   final String? errorMessage;
+
+  /// O que está escrito na busca. Vazio, a lista é a de sempre.
+  final String query;
+
+  /// As reuniões que casaram com [query], da melhor para a pior.
+  final List<MeetingSearchResult> results;
+
+  /// Qual das [entries] o teclado está apontando.
+  final int? activeEntry;
+
+  /// O último pedido de ir até um trecho — ver [EchoJump].
+  final EchoJump? jump;
+
+  /// A busca está de pé: a tela mostra resultados no lugar da lista, e a
+  /// leitura grifa o que foi buscado.
+  ///
+  /// Pelo que a busca entende, e não pelo que está escrito: uma letra solta
+  /// ainda não é busca (ver [MeetingQuery.parse]), e a lista de sempre fica
+  /// até a segunda.
+  bool get isSearching => !MeetingQuery.parse(query).isEmpty;
+
+  /// Os resultados como o teclado os percorre: cada reunião, seguida dos
+  /// trechos dela.
+  List<EchoSearchEntry> get entries => [
+    for (final result in results) ...[
+      EchoSearchEntry(result),
+      for (final hit in result.hits) EchoSearchEntry(result, hit),
+    ],
+  ];
 
   Meeting? get selected {
     final id = selectedId;
@@ -61,9 +137,15 @@ class EchoLibraryState {
     int? summarizingId,
     (int, int)? progress,
     String? errorMessage,
+    String? query,
+    List<MeetingSearchResult>? results,
+    int? activeEntry,
+    EchoJump? jump,
     bool clearSelection = false,
     bool clearSummarizing = false,
     bool clearError = false,
+    bool clearActiveEntry = false,
+    bool clearJump = false,
   }) {
     return EchoLibraryState(
       meetings: meetings ?? this.meetings,
@@ -74,6 +156,10 @@ class EchoLibraryState {
           : (summarizingId ?? this.summarizingId),
       progress: clearSummarizing ? null : (progress ?? this.progress),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      query: query ?? this.query,
+      results: results ?? this.results,
+      activeEntry: clearActiveEntry ? null : (activeEntry ?? this.activeEntry),
+      jump: clearJump ? null : (jump ?? this.jump),
     );
   }
 }
@@ -103,6 +189,17 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
 
   Timer? _poll;
 
+  /// O índice da busca e as reuniões de que ele foi feito.
+  ///
+  /// Refeito só quando a lista muda de verdade — renomear, apagar, um resumo
+  /// novo —, nunca a cada tecla: dobrar horas de conversa a cada letra
+  /// digitada é o que faria a busca engasgar.
+  MeetingSearch? _index;
+  List<Meeting>? _indexedMeetings;
+  String? _indexedUserName;
+
+  var _jumpSerial = 0;
+
   @override
   EchoLibraryState build() {
     _repository = ref.watch(echoRepositoryProvider);
@@ -131,6 +228,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
       selectedId: state.selectedId ?? meetings.firstOrNull?.id,
       clearError: true,
     );
+    _refreshSearch();
 
     // Pode haver um resumo correndo desde antes desta janela abrir — pedido e
     // deixado para trás. É aqui que a tela o reencontra, com a contagem de
@@ -138,11 +236,114 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     await _syncSummary();
   }
 
-  void select(int id) => state = state.copyWith(selectedId: id);
+  /// Escolhe a reunião pela lista — e esquece o último salto da busca.
+  ///
+  /// O salto é de um gesto só. Sobrando no estado, abrir a mesma reunião pela
+  /// lista depois levaria a leitura de volta ao trecho de uma busca que a
+  /// pessoa já largou.
+  void select(int id) =>
+      state = state.copyWith(selectedId: id, clearJump: true);
+
+  /// Busca em todas as reuniões de uma vez, a cada tecla.
+  ///
+  /// O primeiro resultado já nasce apontado: o Enter logo depois de digitar
+  /// abre a melhor resposta, como no Spotlight.
+  void search(String query) {
+    final results = MeetingQuery.parse(query).isEmpty
+        ? const <MeetingSearchResult>[]
+        : _searchIndex().search(query);
+
+    state = state.copyWith(
+      query: query,
+      results: results,
+      activeEntry: results.isEmpty ? null : 0,
+      clearActiveEntry: results.isEmpty,
+    );
+  }
+
+  void clearSearch() => search('');
+
+  /// Anda [delta] linhas pelos resultados, sem dar a volta: a lista tem fim,
+  /// e a seta que pula do último para o primeiro faz perder o lugar.
+  void moveActive(int delta) {
+    final count = state.entries.length;
+    if (count == 0) return;
+
+    final current = state.activeEntry ?? 0;
+    state = state.copyWith(activeEntry: (current + delta).clamp(0, count - 1));
+  }
+
+  /// Abre o resultado [index] — ou o apontado, sem índice.
+  ///
+  /// Abrir é escolher a reunião **e** pedir à leitura que vá até o trecho:
+  /// a face certa, a fala certa, o áudio parado no ponto em que a palavra
+  /// soa. A linha da própria reunião leva ao melhor trecho dela. Devolve se
+  /// havia o que abrir — quem chama abre a região só nesse caso.
+  bool openEntry([int? index]) {
+    final entries = state.entries;
+    final at = index ?? state.activeEntry;
+    if (at == null || at < 0 || at >= entries.length) return false;
+
+    final entry = entries[at];
+    final id = entry.result.meeting.id;
+    if (id == null) return false;
+
+    final hit = entry.hit ?? entry.result.hits.firstOrNull;
+
+    state = state.copyWith(
+      selectedId: id,
+      activeEntry: at,
+      jump: EchoJump(
+        serial: ++_jumpSerial,
+        meetingId: id,
+        kind: hit?.kind,
+        atMs: hit?.atMs,
+        turnStartMs: hit?.turnStartMs,
+      ),
+    );
+    return true;
+  }
+
+  MeetingSearch _searchIndex() {
+    final meetings = state.meetings;
+    final userName = _userName;
+
+    if (_index == null ||
+        !identical(_indexedMeetings, meetings) ||
+        _indexedUserName != userName) {
+      _index = MeetingSearch.index(meetings, userName: userName);
+      _indexedMeetings = meetings;
+      _indexedUserName = userName;
+    }
+
+    return _index!;
+  }
+
+  /// Refaz a busca de pé sobre a lista nova — a reunião renomeada, apagada ou
+  /// recém-resumida muda o que casa, e um resultado apontando para uma
+  /// reunião que já não existe abriria o nada.
+  void _refreshSearch() {
+    if (!state.isSearching) return;
+
+    final results = _searchIndex().search(state.query);
+    final count = [
+      for (final result in results) 1 + result.hits.length,
+    ].fold(0, (sum, rows) => sum + rows);
+    final active = state.activeEntry;
+
+    state = state.copyWith(
+      results: results,
+      activeEntry: active == null || count == 0
+          ? null
+          : active.clamp(0, count - 1),
+      clearActiveEntry: active == null || count == 0,
+    );
+  }
 
   void rename(int id, String title) {
     _repository.setTitle(id, title);
     state = state.copyWith(meetings: _repository.loadAll());
+    _refreshSearch();
   }
 
   void toggleKept(int id) {
@@ -151,6 +352,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
 
     _repository.setKept(id, isKept: !meeting.isKept);
     state = state.copyWith(meetings: _repository.loadAll());
+    _refreshSearch();
   }
 
   void delete(int id) {
@@ -166,6 +368,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
       selectedId: stillThere ? state.selectedId : meetings.firstOrNull?.id,
       clearSelection: !stillThere && meetings.isEmpty,
     );
+    _refreshSearch();
   }
 
   /// Apaga tudo o que não está guardado. O áudio sai na varredura seguinte do
@@ -179,6 +382,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     );
 
     state = state.copyWith(meetings: meetings, clearSelection: !stillThere);
+    _refreshSearch();
   }
 
   /// Põe na área de transferência a face aberta da reunião.
@@ -306,6 +510,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
         errorMessage: wasRunning ? error.message : null,
         clearError: !wasRunning,
       );
+      _refreshSearch();
       return;
     }
 
@@ -320,6 +525,7 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
       errorMessage: status.errorMessage,
       clearError: status.errorMessage == null,
     );
+    if (wasRunning && !status.isRunning) _refreshSearch();
 
     if (status.isRunning) {
       _poll ??= Timer.periodic(_pollInterval, (_) => _syncSummary());

@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../core/design/app_metrics.dart';
 import 'eg_icon.dart';
+import 'eg_key_cap.dart';
 import '../../core/design/eg_tokens.dart';
 
 /// Campo de busca do design system: lupa + input, borda verde quando focado.
 ///
 /// Em [bare] o campo perde fundo e borda próprios, virando apenas a linha de
 /// busca do topo do overlay (onde a separação é feita pela borda do painel).
-class EgSearchField extends StatelessWidget {
+///
+/// Fora dele o campo mora numa tela do Hub, ao lado de outros controles, e
+/// segue a regra do `components.md`: borda neutra em repouso, verde só com o
+/// foco. Era verde o tempo todo — o que dizia "estou com o teclado" sem estar.
+class EgSearchField extends StatefulWidget {
   const EgSearchField({
     super.key,
     required this.controller,
@@ -18,6 +23,7 @@ class EgSearchField extends StatelessWidget {
     this.bare = false,
     this.autofocus = false,
     this.holdsFocus = false,
+    this.shortcut,
   });
 
   final TextEditingController controller;
@@ -37,8 +43,72 @@ class EgSearchField extends StatelessWidget {
   /// clique na lista.
   final bool holdsFocus;
 
+  /// O atalho que traz o teclado até aqui (`['⌘', 'F']`), desenhado à direita.
+  ///
+  /// Só com o campo vazio e sem foco: é a única hora em que ele ensina alguma
+  /// coisa. Com o cursor dentro, o atalho já foi usado; com texto, o espaço é
+  /// do que se digitou.
+  final List<String>? shortcut;
+
+  @override
+  State<EgSearchField> createState() => _EgSearchFieldState();
+}
+
+class _EgSearchFieldState extends State<EgSearchField> {
+  FocusNode? _ownFocusNode;
+
+  FocusNode get _focusNode =>
+      widget.focusNode ?? (_ownFocusNode ??= FocusNode());
+
+  /// O texto só importa para o desenho quando há atalho para esconder: sem
+  /// ele, redesenhar o campo a cada tecla — o Pin, que não tem — seria
+  /// trabalho à toa.
+  bool get _watchesText => widget.shortcut != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_rebuild);
+    if (_watchesText) widget.controller.addListener(_rebuild);
+  }
+
+  @override
+  void didUpdateWidget(EgSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.focusNode != widget.focusNode) {
+      (oldWidget.focusNode ?? _ownFocusNode)?.removeListener(_rebuild);
+      if (widget.focusNode != null) {
+        _ownFocusNode?.dispose();
+        _ownFocusNode = null;
+      }
+      _focusNode.addListener(_rebuild);
+    }
+
+    oldWidget.controller.removeListener(_rebuild);
+    if (_watchesText) widget.controller.addListener(_rebuild);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_rebuild);
+    widget.controller.removeListener(_rebuild);
+    _ownFocusNode?.dispose();
+    super.dispose();
+  }
+
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
+    final shortcut = widget.shortcut;
+    final showsShortcut =
+        shortcut != null &&
+        !_focusNode.hasFocus &&
+        widget.controller.text.isEmpty;
+
     final field = Row(
       children: [
         const EgIcon(
@@ -49,13 +119,13 @@ class EgSearchField extends StatelessWidget {
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            autofocus: autofocus,
-            onChanged: onChanged,
+            controller: widget.controller,
+            focusNode: _focusNode,
+            autofocus: widget.autofocus,
+            onChanged: widget.onChanged,
             // Sem `onTapOutside` o campo se desfoca sozinho ao primeiro clique
             // em qualquer outro lugar — ver [holdsFocus].
-            onTapOutside: holdsFocus ? (_) {} : null,
+            onTapOutside: widget.holdsFocus ? (_) {} : null,
             cursorColor: context.eg.colors.accent,
             cursorWidth: 1.5,
             cursorHeight: 16,
@@ -64,7 +134,7 @@ class EgSearchField extends StatelessWidget {
               isDense: true,
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,
-              hintText: hintText,
+              hintText: widget.hintText,
               // Placeholder é texto de terceiro nível: precisa ser legível sem
               // competir com o que a pessoa digita.
               hintStyle: context.eg.text.body.copyWith(
@@ -73,10 +143,14 @@ class EgSearchField extends StatelessWidget {
             ),
           ),
         ),
+        if (showsShortcut) ...[
+          const SizedBox(width: AppSpacing.sm),
+          ExcludeSemantics(child: EgShortcutDisplay(keys: shortcut)),
+        ],
       ],
     );
 
-    if (bare) {
+    if (widget.bare) {
       return Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xl,
@@ -92,9 +166,16 @@ class EgSearchField extends StatelessWidget {
         vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: context.eg.colors.surface,
+        // O poço, como o `EgTextField`: escrito é conteúdo que entra na
+        // superfície do cartão, não uma peça apoiada sobre ela — e um degrau
+        // abaixo dela é o que separa o campo do cartão sem uma moldura.
+        color: context.eg.colors.canvasDeep,
         borderRadius: context.eg.shapes.controlAll,
-        border: Border.all(color: context.eg.colors.accent),
+        border: Border.all(
+          color: _focusNode.hasFocus
+              ? context.eg.colors.accent
+              : context.eg.colors.edge,
+        ),
       ),
       child: field,
     );

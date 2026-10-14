@@ -74,6 +74,9 @@ abstract final class EvergreenTokens {
     textQuaternary: Color(0xFF4C5457),
     textDisabled: Color(0xFF454E51),
     textSelection: Color(0x4022C55E),
+    // Branco a 16%: um degrau acima de qualquer superfície da leitura, sem
+    // cor própria — o termo se acende sem dizer nada além de "está aqui".
+    findMark: Color(0x29FFFFFF),
 
     error: Color(0xFFEF4444),
     warning: Color(0xFFE8B24A),

@@ -63,6 +63,10 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Esc` | Echo | fecha o painel; a gravação **continua** |
 | `space` | Hub, leitura do Echo | toca e pausa o áudio da reunião — só com a leitura aberta e a reunião com áudio; num campo de texto, espaço continua sendo espaço |
 | `←` `→` | Hub, leitura do Echo | volta e avança 10 s no áudio da reunião |
+| `⌘F` | Hub, Echo | leva o teclado à busca de todas as reuniões — da aba de ajustes também, trocando para a das reuniões |
+| `↑` `↓` | Hub, busca do Echo | andam pelos resultados com o cursor no campo, sem dar a volta no fim da lista |
+| `Enter` | Hub, busca do Echo | abre o resultado apontado — a reunião na face do trecho, a fala dele à vista, o áudio parado onde a palavra soa — e tira o cursor da busca: o espaço seguinte toca dali |
+| `Esc` | Hub, busca do Echo | com texto, apaga a busca e devolve a lista; vazio, sobe para o `Esc` do Hub |
 | `Enter` | Focus | executa a ação principal daquele estado (iniciar, iniciar a pausa, voltar ao foco); durante a sessão, anota a observação digitada |
 | `space` | Focus | pausa/retoma — desligado enquanto o campo de anotação tem o foco (espaço volta a ser espaço) |
 | `⌘.` | Focus | encerra a fase em andamento |

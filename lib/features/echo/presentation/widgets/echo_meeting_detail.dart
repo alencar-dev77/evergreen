@@ -11,8 +11,10 @@ import '../../../../shared/widgets/eg_segmented_control.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/meeting.dart';
 import '../../models/meeting_document.dart';
+import '../../models/meeting_search.dart';
 import '../../models/meeting_segment.dart';
 import '../../models/meeting_turn.dart';
+import '../viewmodels/echo_library_view_model.dart';
 import '../viewmodels/echo_playback_view_model.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -46,9 +48,19 @@ class EchoMeetingDetail extends StatefulWidget {
     this.playback,
     this.onSeek,
     this.onUserScroll,
+    this.query = '',
+    this.jump,
   });
 
   final Meeting meeting;
+
+  /// A busca de pé no Echo. Enquanto ela existe, o que casou fica marcado no
+  /// resumo e na transcrição — é o "buscar na página" da leitura.
+  final String query;
+
+  /// O último pedido de ir até um trecho. A leitura obedece uma vez a cada
+  /// pedido novo, e só quando ele é desta reunião.
+  final EchoJump? jump;
 
   /// O player desta reunião, quando ela tem áudio carregado. `null` desenha a
   /// transcrição como sempre foi: texto selecionável, sem relógio.
@@ -120,6 +132,42 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
   /// voz passa para a próxima, e não a cada pergunta ao player.
   int? _followedTurn;
 
+  /// O pedido de salto já atendido — ver [EchoMeetingDetail.jump].
+  int? _handledJump;
+
+  final _scroll = ScrollController();
+
+  /// A segunda pontaria do salto — ver [_obeyJump].
+  Timer? _realign;
+
+  /// As marcas da busca por fala, guardadas por reunião e busca.
+  ///
+  /// Com o áudio tocando a transcrição é redesenhada dez vezes por segundo,
+  /// e dobrar todas as falas a cada quadro para achar o mesmo termo seria
+  /// trabalho jogado fora. Muda a reunião ou a busca, o cache se refaz.
+  final _marks = <int, List<MatchRange>>{};
+  (int?, String)? _marksKey;
+
+  List<MatchRange> _marksOf(int index, String text) {
+    final key = (widget.meeting.id, widget.query);
+    if (key != _marksKey) {
+      _marks.clear();
+      _marksKey = key;
+    }
+    if (widget.query.trim().isEmpty) return const [];
+
+    return _marks.putIfAbsent(
+      index,
+      () => MeetingSearch.marksIn(text, widget.query),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _obeyJump();
+  }
+
   @override
   void didUpdateWidget(EchoMeetingDetail oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -131,12 +179,87 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       _turnKeys.clear();
       _followedTurn = null;
     }
+
+    _obeyJump();
   }
 
   @override
   void dispose() {
     _noteTimer?.cancel();
+    _realign?.cancel();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  /// Vai até o trecho que a busca pediu: a face dele e, na transcrição, a
+  /// fala dele, um terço abaixo do topo — como a leitura que segue o áudio.
+  ///
+  /// Uma vez por pedido. Sem isso, cada quadro que chegasse com o mesmo
+  /// pedido arrancaria a leitura de onde a pessoa rolou.
+  void _obeyJump() {
+    final jump = widget.jump;
+    if (jump == null ||
+        jump.serial == _handledJump ||
+        jump.meetingId != widget.meeting.id) {
+      return;
+    }
+    _handledJump = jump.serial;
+
+    final kind = switch (jump.kind) {
+      MeetingHitKind.summary => MeetingDocumentKind.summary,
+      MeetingHitKind.transcript => MeetingDocumentKind.transcript,
+      null => _tab,
+    };
+    if (kind != _tab) {
+      _clearNote();
+      _tab = kind;
+    }
+
+    void aim({required bool animate}) {
+      if (!mounted) return;
+
+      final turn = kind == MeetingDocumentKind.transcript
+          ? _turnAt(jump)
+          : null;
+      final context = turn == null ? null : _turnKeys[turn]?.currentContext;
+
+      if (context != null && context.mounted) {
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.3,
+          duration: !animate || MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : AppDurations.medium,
+          curve: AppDurations.curve,
+        );
+      } else if (_scroll.hasClients) {
+        // O resumo é curto, e o trecho dele está marcado: do topo, ele se lê.
+        _scroll.jumpTo(0);
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => aim(animate: true));
+
+    // Mira de novo quando a janela termina de crescer. Aberta pela busca, a
+    // região nasce estreita e alarga junto com a janela (220 ms, do lado
+    // nativo): a primeira mira mede as falas quebradas na largura apertada,
+    // e com o texto se acomodando na largura final ela passaria do ponto.
+    _realign?.cancel();
+    _realign = Timer(_settleDelay, () => aim(animate: false));
+  }
+
+  /// O tempo de a janela terminar de crescer, com folga de um quadro.
+  static const _settleDelay = Duration(milliseconds: 280);
+
+  /// A fala do pedido: a que começa onde o trecho começa, ou — se a
+  /// transcrição mudou desde a busca — a última que já tinha começado.
+  int? _turnAt(EchoJump jump) {
+    final turns = MeetingTurn.from(widget.meeting.segments);
+    final at = jump.turnStartMs ?? jump.atMs;
+    if (at == null) return null;
+
+    final exact = turns.indexWhere((turn) => turn.startMs == at);
+    return exact >= 0 ? exact : _activeTurn(turns, at);
   }
 
   @override
@@ -163,6 +286,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
               return false;
             },
             child: SingleChildScrollView(
+              controller: _scroll,
               padding: const EdgeInsets.only(right: AppSpacing.sm),
               child: _body(),
             ),
@@ -349,7 +473,16 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
             Text(_summarizingLabel(), style: context.eg.text.caption),
             const SizedBox(height: AppSpacing.md),
           ],
-          SelectableText(meeting.summary!, style: context.eg.text.reading),
+          SelectableText.rich(
+            TextSpan(
+              style: context.eg.text.reading,
+              children: findMarked(
+                context,
+                meeting.summary!,
+                _marksOf(-1, meeting.summary!),
+              ),
+            ),
+          ),
         ],
       );
     }
@@ -426,10 +559,11 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       children: [
         for (var index = 0; index < turns.length; index++) ...[
           _TurnBlock(
-            key: isPlayable
-                ? _turnKeys.putIfAbsent(index, GlobalKey.new)
-                : null,
+            // Sempre com chave: a leitura que segue o áudio e o salto da busca
+            // precisam achar a fala, e a busca alcança reunião sem áudio.
+            key: _turnKeys.putIfAbsent(index, GlobalKey.new),
             turn: turns[index],
+            marks: _marksOf(index, turns[index].text),
             userName: widget.userName,
             spoken: position == null
                 ? 0
@@ -554,6 +688,7 @@ class _TurnBlock extends StatefulWidget {
     required this.userName,
     this.spoken = 0,
     this.onSeek,
+    this.marks = const [],
   });
 
   final MeetingTurn turn;
@@ -566,11 +701,71 @@ class _TurnBlock extends StatefulWidget {
   /// `null` sem áudio: a fala fica como sempre foi, texto selecionável.
   final void Function(int positionMs)? onSeek;
 
+  /// O que a busca casou nesta fala, em posições do [MeetingTurn.text].
+  final List<MatchRange> marks;
+
   @override
   State<_TurnBlock> createState() => _TurnBlockState();
 }
 
 class _TurnBlockState extends State<_TurnBlock> {
+  /// Os pedaços clicáveis, cada um partido onde a busca marcou.
+  ///
+  /// O grifo pode começar no meio de um pedaço ("orç" dentro de
+  /// "orçamento"), então cada pedaço vira até três: antes, dentro e depois da
+  /// marca. Os três levam o mesmo reconhecedor — o clique vale para a palavra
+  /// inteira, onde quer que ele caia nela.
+  List<InlineSpan> _pieces(BuildContext context) {
+    final turn = widget.turn;
+    final marks = widget.marks;
+    final spoken = TextStyle(color: context.eg.colors.accent);
+    final mark = TextStyle(backgroundColor: context.eg.colors.findMark);
+
+    final spans = <InlineSpan>[];
+    var offset = 0;
+
+    for (var index = 0; index < turn.pieces.length; index++) {
+      final text = turn.pieces[index].text;
+      final base = index < widget.spoken ? spoken : null;
+      final start = offset;
+      final end = offset + text.length;
+      offset = end;
+
+      var cursor = start;
+      for (final range in marks) {
+        if (range.end <= cursor || range.start >= end) continue;
+
+        final from = range.start < cursor ? cursor : range.start;
+        final to = range.end > end ? end : range.end;
+        if (from > cursor) {
+          spans.add(
+            _piece(text.substring(cursor - start, from - start), index, base),
+          );
+        }
+        spans.add(
+          _piece(
+            text.substring(from - start, to - start),
+            index,
+            base?.merge(mark) ?? mark,
+          ),
+        );
+        cursor = to;
+      }
+      if (cursor < end) {
+        spans.add(_piece(text.substring(cursor - start), index, base));
+      }
+    }
+
+    return spans;
+  }
+
+  TextSpan _piece(String text, int index, TextStyle? style) => TextSpan(
+    text: text,
+    recognizer: _taps[index],
+    mouseCursor: SystemMouseCursors.click,
+    style: style,
+  );
+
   /// Um reconhecedor por pedaço, criado uma vez — recriá-los a cada pergunta
   /// ao player seria jogar fora centenas de objetos dez vezes por segundo.
   ///
@@ -659,25 +854,50 @@ class _TurnBlockState extends State<_TurnBlock> {
         ),
         const SizedBox(height: AppSpacing.xs),
         if (_taps.isEmpty || _taps.length != turn.pieces.length)
-          SelectableText(turn.text, style: context.eg.text.reading)
+          SelectableText.rich(
+            TextSpan(
+              style: context.eg.text.reading,
+              children: findMarked(context, turn.text, widget.marks),
+            ),
+          )
         else
           Text.rich(
             TextSpan(
               style: context.eg.text.reading,
-              children: [
-                for (var index = 0; index < turn.pieces.length; index++)
-                  TextSpan(
-                    text: turn.pieces[index].text,
-                    recognizer: _taps[index],
-                    mouseCursor: SystemMouseCursors.click,
-                    style: index < widget.spoken
-                        ? TextStyle(color: context.eg.colors.accent)
-                        : null,
-                  ),
-              ],
+              children: _pieces(context),
             ),
           ),
       ],
     );
   }
+}
+
+/// [text] em pedaços, com o que a busca casou sobre o fundo de "achado".
+///
+/// Fundo, e não cor da letra: na leitura a cor da letra já é do áudio (verde
+/// é o que já foi dito). Ver `EgPalette.findMark`.
+List<InlineSpan> findMarked(
+  BuildContext context,
+  String text,
+  List<MatchRange> marks,
+) {
+  if (marks.isEmpty) return [TextSpan(text: text)];
+
+  final mark = TextStyle(backgroundColor: context.eg.colors.findMark);
+  final spans = <InlineSpan>[];
+  var cursor = 0;
+
+  for (final range in marks) {
+    if (range.start < cursor || range.end > text.length) continue;
+    if (range.start > cursor) {
+      spans.add(TextSpan(text: text.substring(cursor, range.start)));
+    }
+    spans.add(
+      TextSpan(text: text.substring(range.start, range.end), style: mark),
+    );
+    cursor = range.end;
+  }
+
+  if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
+  return spans;
 }
