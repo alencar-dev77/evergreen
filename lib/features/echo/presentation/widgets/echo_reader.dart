@@ -65,9 +65,12 @@ class EchoReader extends ConsumerWidget {
               DayLabel.of(meeting.startedAt),
               DayLabel.time(meeting.startedAt),
               DurationFormat.compact(meeting.duration),
-              // O que a gravação pegou. Não é "quantas vozes": o Echo separa
-              // faixas, não pessoas, e dizer "3 vozes" prometeria um
-              // reconhecimento que ele não faz — ver `Speaker`.
+              // O que a gravação pegou. Não é "quantas vozes": as faixas são
+              // certeza, e as vozes do outro lado são palpite de timbre —
+              // "3 vozes" aqui seria afirmar o palpite como fato, e erraria
+              // na primeira reunião em que duas pessoas soam parecido. A
+              // transcrição mostra "Pessoa 1", "Pessoa 2" ao lado do que cada
+              // uma disse, que é onde o palpite pode ser conferido.
               if (!meeting.isEmpty)
                 meeting.hasMyVoice ? 'sua voz e a reunião' : 'só a reunião',
             ].join(' · '),

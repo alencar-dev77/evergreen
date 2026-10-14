@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/window/overlay_window.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
+import 'package:evergreen/features/echo/models/meeting_segment.dart';
+import 'package:evergreen/features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import 'package:evergreen/features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
 import 'package:evergreen/features/echo/presentation/views/echo_overlay_view.dart';
 import 'package:flutter/material.dart';
@@ -30,11 +34,14 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> pumpPanel(WidgetTester tester) async {
+  Future<void> pumpPanel(
+    WidgetTester tester, {
+    FakeEchoChannel? channel,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          echoChannelProvider.overrideWithValue(FakeEchoChannel()),
+          echoChannelProvider.overrideWithValue(channel ?? FakeEchoChannel()),
           exportServiceProvider.overrideWithValue(FakeExportService()),
           echoAudioStoreProvider.overrideWithValue(FakeEchoAudioStore()),
           echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
@@ -115,6 +122,48 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
+
+  testWidgets('separando as vozes, o painel diz o que está fazendo', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final channel = FakeEchoChannel(
+      segments: const [
+        MeetingSegment(
+          speaker: Speaker.others,
+          startMs: 0,
+          endMs: 2000,
+          text: 'quem fica com a proposta?',
+        ),
+      ],
+    )..diarizeGate = gate;
+    await pumpPanel(tester, channel: channel);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(EchoOverlayView)),
+    );
+    final viewModel = container.read(echoRecorderViewModelProvider.notifier);
+    await viewModel.prepareForOpen();
+    await viewModel.start();
+    unawaited(viewModel.stopAndTranscribe());
+    await tester.pump();
+    await tester.pump();
+
+    expect(container.read(echoRecorderViewModelProvider).isBusy, isTrue);
+    expect(
+      find.text('Separando as vozes — da primeira vez, demora mais'),
+      findsOneWidget,
+    );
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Separando as vozes'), findsNothing);
+    expect(
+      container.read(echoRecorderViewModelProvider).phase,
+      EchoPhase.done,
+    );
+  });
 
   /// O painel do Echo é o único que fica na frente de uma reunião em curso, e
   /// por isso é o único que não some quando a pessoa clica de volta nela.

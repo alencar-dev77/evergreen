@@ -28,6 +28,7 @@ class EchoRecorderState {
     this.liveText = const [],
     this.spectrum,
     this.isPaused = false,
+    this.isSeparatingVoices = false,
     this.lastMeeting,
     this.errorMessage,
   });
@@ -53,6 +54,13 @@ class EchoRecorderState {
   /// A gravação está de pé, porém suspensa: nada entra no arquivo enquanto
   /// isto valer, e o relógio não anda.
   final bool isPaused;
+
+  /// A transcrição saiu, e agora é a vez de separar as vozes do outro lado.
+  ///
+  /// É a etapa que pode surpreender: na primeira reunião ela baixa o modelo,
+  /// e o painel parado em "Transcrevendo" por um minuto a mais pareceria
+  /// travado. Dizer o que está acontecendo é o que faz a espera ser espera.
+  final bool isSeparatingVoices;
 
   /// A reunião recém-transcrita, para o painel oferecer o caminho até ela.
   final Meeting? lastMeeting;
@@ -85,6 +93,7 @@ class EchoRecorderState {
     List<String>? liveText,
     EchoSpectrum? spectrum,
     bool? isPaused,
+    bool? isSeparatingVoices,
     bool clearSpectrum = false,
     Meeting? lastMeeting,
     String? errorMessage,
@@ -98,6 +107,7 @@ class EchoRecorderState {
       liveText: liveText ?? this.liveText,
       spectrum: clearSpectrum ? null : (spectrum ?? this.spectrum),
       isPaused: isPaused ?? this.isPaused,
+      isSeparatingVoices: isSeparatingVoices ?? this.isSeparatingVoices,
       lastMeeting: clearMeeting ? null : (lastMeeting ?? this.lastMeeting),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );

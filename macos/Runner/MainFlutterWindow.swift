@@ -585,7 +585,6 @@ enum LaunchAtLoginChannel {
   }
 
   private static func isEnabled() -> Bool {
-    guard #available(macOS 13.0, *) else { return false }
     return SMAppService.mainApp.status == .enabled
   }
 
@@ -596,8 +595,6 @@ enum LaunchAtLoginChannel {
   /// `/Applications` depois de o item ter sido ligado a partir de outro lugar.
   /// Ver [installPrefix] para o porquê da regra.
   static func adoptInstalledBundle() {
-    guard #available(macOS 13.0, *) else { return }
-
     let path = Bundle.main.bundleURL.path
     guard path.hasPrefix(installPrefix) else { return }
     guard SMAppService.mainApp.status == .enabled else { return }
@@ -631,15 +628,6 @@ enum LaunchAtLoginChannel {
   }
 
   private static func setEnabled(_ enabled: Bool, result: @escaping FlutterResult) {
-    guard #available(macOS 13.0, *) else {
-      result(
-        FlutterError(
-          code: "unsupported_os",
-          message: "Iniciar com o macOS requer macOS 13 ou superior.",
-          details: nil))
-      return
-    }
-
     do {
       if enabled {
         try SMAppService.mainApp.register()
@@ -1032,9 +1020,7 @@ enum PreviousAppFocusChannel {
   /// frente sozinho. `yieldActivation` é o lado certo dessa conversa — somos
   /// nós que estamos entregando o turno, e é isso que o sistema espera ouvir.
   private static func activate(_ app: NSRunningApplication) {
-    if #available(macOS 14.0, *) {
-      NSApp.yieldActivation(to: app)
-    }
+    NSApp.yieldActivation(to: app)
 
     app.activate(options: [])
   }

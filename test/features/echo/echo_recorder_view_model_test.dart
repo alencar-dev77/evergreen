@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_channel.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/features/echo/models/echo_capabilities.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
+import 'package:evergreen/features/echo/models/voice_separation.dart';
 import 'package:evergreen/features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import 'package:evergreen/features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -226,6 +230,154 @@ void main() {
     // instantes seria a fita passando que o equalizador substituiu.
     expect(state().spectrum?.mic, const [0.7, 0.8]);
     expect(state().spectrum?.system, const [0.9, 1.0]);
+  });
+
+  group('vozes da reunião', () {
+    const conversa = [
+      MeetingSegment(
+        speaker: Speaker.others,
+        startMs: 0,
+        endMs: 2000,
+        text: 'quem fica com a proposta?',
+      ),
+      MeetingSegment(
+        speaker: Speaker.me,
+        startMs: 2500,
+        endMs: 3500,
+        text: 'eu posso',
+      ),
+      MeetingSegment(
+        speaker: Speaker.others,
+        startMs: 4000,
+        endMs: 6000,
+        text: 'então até sexta',
+      ),
+    ];
+
+    const duasVozes = [
+      VoiceTurn(voice: 'S1', startMs: 0, endMs: 2000),
+      VoiceTurn(voice: 'S2', startMs: 4000, endMs: 6000),
+    ];
+
+    test('separa o outro lado e guarda a voz no banco', () async {
+      channel
+        ..segments = conversa
+        ..voiceTurns = duasVozes;
+
+      await viewModel().start();
+      await viewModel().stopAndTranscribe();
+
+      // Só a faixa do computador vai para a diarização.
+      expect(channel.diarizedPath, '/tmp/sistema.caf');
+
+      final stored = SqliteEchoRepository(
+        db,
+      ).findById(state().lastMeeting!.id!)!;
+      expect(stored.segments.map((segment) => segment.voice), [1, null, 2]);
+      expect(stored.segments.map((segment) => segment.labelFor('Lucas')), [
+        'Pessoa 1',
+        'Lucas',
+        'Pessoa 2',
+      ]);
+      expect(state().isSeparatingVoices, isFalse);
+    });
+
+    test('o painel diz que está separando, e só enquanto separa', () async {
+      // Na primeira reunião a etapa baixa o modelo: sem dizer o que está
+      // acontecendo, o "Transcrevendo" parado um minuto a mais parece travado.
+      final gate = Completer<void>();
+      channel
+        ..segments = conversa
+        ..voiceTurns = duasVozes
+        ..diarizeGate = gate;
+
+      await viewModel().start();
+      final stopping = viewModel().stopAndTranscribe();
+      await pumpEventQueue();
+
+      expect(state().phase, EchoPhase.transcribing);
+      expect(state().isSeparatingVoices, isTrue);
+
+      gate.complete();
+      await stopping;
+
+      expect(state().phase, EchoPhase.done);
+      expect(state().isSeparatingVoices, isFalse);
+    });
+
+    test('a separação que falha não derruba a reunião nem avisa', () async {
+      // Sem rede na primeira vez, o modelo não baixa — e a reunião é
+      // guardada como sempre foi, com o outro lado inteiro em "Reunião".
+      channel
+        ..segments = conversa
+        ..diarizeFailWith = const EchoException(
+          'diarization_failed',
+          'Sem rede.',
+        );
+
+      await viewModel().start();
+      await viewModel().stopAndTranscribe();
+
+      expect(state().phase, EchoPhase.done);
+      expect(state().errorMessage, isNull);
+      expect(state().isSeparatingVoices, isFalse);
+      expect(state().lastMeeting!.segments, hasLength(3));
+      expect(state().lastMeeting!.voiceCount, 0);
+      expect(channel.deletedAudio, isNotEmpty);
+    });
+
+    test('a separação que não responde não prende a reunião', () {
+      // Rede lenta no primeiro download: o modelo pode levar minutos, e a
+      // reunião sai sem vozes em vez de ficar em "Transcrevendo".
+      fakeAsync((async) {
+        channel
+          ..segments = conversa
+          ..voiceTurns = duasVozes
+          ..diarizeGate = Completer<void>();
+
+        viewModel().start();
+        async.flushMicrotasks();
+        viewModel().stopAndTranscribe();
+        async.elapse(const Duration(minutes: 2));
+        expect(state().phase, EchoPhase.transcribing);
+
+        async.elapse(const Duration(minutes: 2));
+        expect(state().phase, EchoPhase.done);
+        expect(state().isSeparatingVoices, isFalse);
+        expect(state().lastMeeting!.voiceCount, 0);
+      });
+    });
+
+    test('sem fala do outro lado, nem pergunta', () async {
+      channel.segments = const [
+        MeetingSegment(
+          speaker: Speaker.me,
+          startMs: 0,
+          endMs: 1000,
+          text: 'anotação sozinho',
+        ),
+      ];
+
+      await viewModel().start();
+      await viewModel().stopAndTranscribe();
+
+      expect(channel.diarizedPath, isNull);
+    });
+
+    test('o vocabulário corrige depois de a voz ser decidida', () async {
+      // A troca reescreve o trecho inteiro — e não pode levar a voz junto.
+      await preferences.setString('echo.vocabulary', 'proposta -> Proposta');
+      channel
+        ..segments = conversa
+        ..voiceTurns = duasVozes;
+
+      await viewModel().start();
+      await viewModel().stopAndTranscribe();
+
+      final first = state().lastMeeting!.segments.first;
+      expect(first.text, 'quem fica com a Proposta?');
+      expect(first.voice, 1);
+    });
   });
 
   group('pausar', () {

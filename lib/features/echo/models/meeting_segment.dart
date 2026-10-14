@@ -1,9 +1,14 @@
-/// Quem falou num trecho da reunião.
+/// De qual faixa veio um trecho da reunião.
 ///
-/// São só dois, e é de propósito: o Echo não separa voz por voz. Ele grava duas
-/// faixas — o microfone, que é você, e o áudio do computador, que é todo mundo
-/// menos você — e o rótulo sai de qual faixa o trecho veio. Não há modelo de
-/// reconhecimento de voz envolvido, e por isso não há como errar.
+/// São só dois, e é de propósito: o Echo grava duas faixas — o microfone, que é
+/// você, e o áudio do computador, que é todo mundo menos você — e o lado sai de
+/// qual faixa o trecho veio. Essa separação não tem modelo envolvido, e por isso
+/// não tem como errar.
+///
+/// Dentro do lado [others] pode haver mais de uma pessoa, e quem as distingue é
+/// a [MeetingSegment.voice] — essa sim saída de um modelo, que separa pelo
+/// timbre e pode errar. Por isso as duas coisas moram em campos diferentes: a
+/// certeza não se mistura com o palpite.
 enum Speaker {
   me('Você'),
   others('Reunião');
@@ -18,10 +23,19 @@ enum Speaker {
   /// Vale para a tela e para o texto que vai ao modelo, e é de propósito que
   /// sejam o mesmo: é do rótulo que o resumo tira como chamar quem falou, e uma
   /// transcrição que mostra "Lucas" enquanto manda "Você" para o modelo produz
-  /// um resumo que fala de um estranho. Só [Speaker.me] tem nome — do outro
-  /// lado pode haver cinco pessoas, e o Echo não separa voz por voz.
-  String labelFor(String userName) =>
-      this == Speaker.me && userName.isNotEmpty ? userName : label;
+  /// um resumo que fala de um estranho.
+  ///
+  /// Só [Speaker.me] tem nome. Do outro lado, a [voice] vira "Pessoa 2" — um
+  /// número, nunca um nome: o Echo sabe que eram vozes diferentes, não de
+  /// quem eram.
+  String labelFor(String userName, {int? voice}) => switch (this) {
+    Speaker.me when userName.isNotEmpty => userName,
+    Speaker.others when voice != null => voiceLabel(voice),
+    _ => label,
+  };
+
+  /// "Pessoa 2" — o rótulo de uma voz separada do outro lado.
+  static String voiceLabel(int voice) => 'Pessoa $voice';
 
   static Speaker fromName(String name) => values.firstWhere(
     (speaker) => speaker.name == name,
@@ -70,9 +84,19 @@ class MeetingSegment {
     required this.endMs,
     required this.text,
     this.words = const [],
+    this.voice,
   });
 
   final Speaker speaker;
+
+  /// Qual das vozes do outro lado falou este trecho, contando de 1 na ordem
+  /// em que cada uma apareceu na reunião.
+  ///
+  /// `null` no microfone, que é sempre você; em reunião com uma voz só do
+  /// outro lado, onde numerar não diria nada; quando a separação falhou; e em
+  /// toda reunião gravada antes de o Echo separar vozes. Em todos esses casos
+  /// o rótulo continua "Reunião", como sempre foi.
+  final int? voice;
 
   /// Milissegundos desde o começo da gravação.
   ///
@@ -95,6 +119,7 @@ class MeetingSegment {
     startMs: (map['startMs'] as num?)?.toInt() ?? 0,
     endMs: (map['endMs'] as num?)?.toInt() ?? 0,
     text: map['text'] as String? ?? '',
+    voice: (map['voice'] as num?)?.toInt(),
     words: [
       for (final raw in (map['words'] as List<Object?>?) ?? const [])
         ?MeetingWord.fromJson(raw),
@@ -107,7 +132,21 @@ class MeetingSegment {
     'endMs': endMs,
     'text': text,
     if (words.isNotEmpty) 'words': [for (final word in words) word.toJson()],
+    'voice': ?voice,
   };
+
+  /// O rótulo de quem falou, como a tela e o modelo o leem.
+  String labelFor(String userName) => speaker.labelFor(userName, voice: voice);
+
+  /// O mesmo trecho com outra voz — ou sem nenhuma, com `null`.
+  MeetingSegment withVoice(int? voice) => MeetingSegment(
+    speaker: speaker,
+    startMs: startMs,
+    endMs: endMs,
+    text: text,
+    words: words,
+    voice: voice,
+  );
 
   /// `12:03` — o relógio do trecho dentro da reunião.
   String get timestamp {

@@ -72,9 +72,10 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
 
   /// Quem disse o quê — a regra que vale para todo resumo, com ou sem nome.
   ///
-  /// O Echo só sabe de qual faixa veio cada fala: o microfone é quem pediu, o
-  /// áudio do computador é "Reunião", e ali pode haver cinco pessoas ou um
-  /// vídeo do YouTube. Sem esta regra o modelo dá dono ao que não tem: num
+  /// Sem vozes separadas, o Echo só sabe de qual faixa veio cada fala: o
+  /// microfone é quem pediu, o áudio do computador é "Reunião", e ali pode
+  /// haver cinco pessoas ou um vídeo do YouTube. Sem esta regra o modelo dá
+  /// dono ao que não tem: num
   /// vídeo assistido em silêncio, com 62 falas da "Reunião" e uma só do
   /// microfone, o resumo saiu inteiro como "Lucas afirma…", "Lucas menciona…".
   /// Por isso o resumo fala do assunto, e nome só entra quando a própria
@@ -103,15 +104,44 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
       '$userName só o que estiver nessas falas, chamando pelo nome, nunca de '
       '"você" nem de "a pessoa". Não escreva que $userName pediu o resumo.';
 
+  /// A [attribution] de quando a reunião separou vozes — e é no lugar dela,
+  /// não ao lado.
+  ///
+  /// Ao lado, as duas brigavam: uma dizia "não atribua o áudio do computador
+  /// a ninguém", a outra deixava atribuir a "Pessoa 2" — e um modelo pequeno,
+  /// diante de uma proibição seguida de uma exceção, escolhe um lado ao acaso.
+  /// Com vozes separadas não sobra nenhuma fala "Reunião:" para a proibição
+  /// alcançar, então quem fala do áudio do computador é só esta.
+  ///
+  /// Sem a frase do número, o modelo lê o rótulo como nome próprio e escreve
+  /// "Pessoa 2 é a gerente do projeto", ou casa o número com um nome dito na
+  /// conversa. Os números são palpite de timbre, e por isso entram só onde
+  /// distinguir pessoas é o conteúdo — quem ficou com a tarefa, quem
+  /// discordou de quem. O "mantenha ao lado" é para os resumos de bloco: eles
+  /// preservam "nomes próprios", e "Pessoa 2" não é um, então sem o pedido o
+  /// rótulo sumia no bloco e o passo final não tinha mais de onde tirá-lo.
+  static String voicesAttribution(int count) =>
+      'Escreva sobre o que foi dito, não sobre quem disse. As falas marcadas '
+      '"${Speaker.voiceLabel(1)}:", "${Speaker.voiceLabel(2)}:" e assim por '
+      'diante são $count vozes diferentes do áudio do computador, separadas '
+      'pelo timbre. O número não é nome: não tente descobrir quem são. Só '
+      'escreva "${Speaker.voiceLabel(1)}" ou "${Speaker.voiceLabel(2)}" quando '
+      'for preciso distinguir quem ficou com uma tarefa ou quem discordou de '
+      'quem, e mantenha o rótulo ao lado dessa tarefa ou dessa discordância. '
+      'Só cite o nome de alguém quando esse nome for dito na própria conversa. '
+      'Não use negrito nem outra marcação.';
+
   /// As regras que vão junto de qualquer instrução, para [meeting].
   static String rulesFor(Meeting meeting, String userName) {
     final spoke = meeting.segments.any(
       (segment) => segment.speaker == Speaker.me,
     );
+    final voiceCount = meeting.voiceCount;
 
-    return spoke && userName.isNotEmpty
-        ? '$attribution ${presentation(userName)}'
-        : attribution;
+    return [
+      voiceCount >= 2 ? voicesAttribution(voiceCount) : attribution,
+      if (spoke && userName.isNotEmpty) presentation(userName),
+    ].join(' ');
   }
 
   final EchoRepository _repository;

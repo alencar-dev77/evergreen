@@ -91,6 +91,7 @@ class VocabularyCorrection {
         endMs: segment.endMs,
         text: text,
         words: segment.words,
+        voice: segment.voice,
       );
     }
 
@@ -106,6 +107,7 @@ class VocabularyCorrection {
       endMs: segment.endMs,
       text: words.map((word) => word.text).join(),
       words: words,
+      voice: segment.voice,
     );
   }
 

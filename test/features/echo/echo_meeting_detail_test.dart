@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/features/echo/models/echo_capabilities.dart';
 import 'package:evergreen/features/echo/models/meeting.dart';
 import 'package:evergreen/features/echo/models/meeting_document.dart';
@@ -455,6 +456,65 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('exportad'), findsNothing);
+    });
+  });
+
+  group('vozes do outro lado', () {
+    testWidgets('cada voz é um turno com o número dela, no neutro', (
+      tester,
+    ) async {
+      final meeting = Meeting(
+        id: 2,
+        title: 'Planejamento',
+        startedAt: DateTime(2026, 10, 2, 14),
+        durationMs: const Duration(minutes: 5).inMilliseconds,
+        language: TranscriptionLanguage.ptBR,
+        segments: const [
+          MeetingSegment(
+            speaker: Speaker.others,
+            startMs: 0,
+            endMs: 2000,
+            text: 'Pode ser sexta?',
+            voice: 1,
+          ),
+          MeetingSegment(
+            speaker: Speaker.me,
+            startMs: 2500,
+            endMs: 3500,
+            text: 'Por mim tudo bem.',
+          ),
+          MeetingSegment(
+            speaker: Speaker.others,
+            startMs: 4000,
+            endMs: 6000,
+            text: 'Sexta eu consigo.',
+            voice: 2,
+          ),
+        ],
+      );
+
+      await pumpDetail(
+        tester,
+        meeting: meeting,
+        isSummarizing: false,
+        userName: 'Lucas',
+      );
+      await tester.tap(find.text('Transcrição'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Pessoa 1'), findsOneWidget);
+      expect(find.text('Pessoa 2'), findsOneWidget);
+      expect(find.text('Lucas'), findsOneWidget);
+      expect(find.text('Reunião'), findsNothing);
+
+      // O verde é seu. As vozes do outro lado se distinguem pelo nome escrito,
+      // e todas no mesmo tom.
+      final context = tester.element(find.text('Pessoa 1'));
+      final neutral = context.eg.colors.textSecondary;
+      for (final label in ['Pessoa 1', 'Pessoa 2']) {
+        expect(tester.widget<Text>(find.text(label)).style?.color, neutral);
+      }
     });
   });
 }

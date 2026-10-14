@@ -85,10 +85,17 @@ class Meeting {
   /// O Echo grava duas faixas — o microfone, que é você, e o áudio do Mac, que
   /// é todo mundo menos você — e uma delas pode vir vazia: reunião em que você
   /// só ouviu, ou microfone sem permissão. É a única coisa que se pode dizer
-  /// com honestidade sobre "vozes" nesta gravação; **quantas** pessoas falaram
-  /// do outro lado o Echo não sabe, e nunca soube.
+  /// com certeza sobre "vozes" nesta gravação. **Quantas** pessoas falaram do
+  /// outro lado é palpite do modelo de diarização — ver [voiceCount].
   bool get hasMyVoice =>
       segments.any((segment) => segment.speaker == Speaker.me);
+
+  /// Quantas vozes o Echo separou do outro lado, ou zero quando não separou.
+  ///
+  /// Zero não quer dizer "ninguém falou": quer dizer que a reunião ficou com o
+  /// outro lado inteiro em "Reunião" — uma voz só, a separação que falhou, ou
+  /// reunião de antes de o Echo separar vozes.
+  int get voiceCount => {for (final segment in segments) ?segment.voice}.length;
 
   /// A transcrição inteira como texto corrido, que é o que vai para o resumo.
   ///
@@ -102,9 +109,7 @@ class Meeting {
   /// este rótulo é a única coisa que o faz escrever "Lucas ficou de revisar" em
   /// vez de "a pessoa ficou de revisar".
   String plainText({String userName = ''}) => segments
-      .map(
-        (segment) => '${segment.speaker.labelFor(userName)}: ${segment.text}',
-      )
+      .map((segment) => '${segment.labelFor(userName)}: ${segment.text}')
       .join('\n');
 
   Meeting copyWith({

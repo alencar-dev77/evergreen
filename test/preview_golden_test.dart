@@ -167,6 +167,10 @@ void main() {
             startMs: 4000,
             endMs: 9000,
             text: 'Então, a ideia é fechar o escopo hoje ainda',
+            // Duas vozes do outro lado, como a separação grava agora — é o
+            // que põe "Pessoa 1" e "Pessoa 2" na folha, cada uma no seu turno
+            // e as duas no mesmo tom neutro.
+            voice: 1,
             // Com o relógio de cada palavra, como a transcrição grava agora —
             // é o que deixa a folha "tocando" acender uma palavra só.
             words: [
@@ -186,6 +190,7 @@ void main() {
             startMs: 9000,
             endMs: 12000,
             text: ', se todo mundo concordar.',
+            voice: 1,
           ),
           MeetingSegment(
             speaker: Speaker.me,
@@ -204,6 +209,7 @@ void main() {
             startMs: 22000,
             endMs: 31000,
             text: 'Perfeito. Falta só decidir quem apresenta na terça.',
+            voice: 2,
           ),
         ],
       ),
