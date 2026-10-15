@@ -324,6 +324,20 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   leitura e o player obedecem **uma vez por pedido**, e que `select` esquece.
   `⌘F` leva até ela de qualquer aba do Echo. Ver
   [docs/Ideis projeto/echo-busca.md](docs/Ideis%20projeto/echo-busca.md).
+- **O Pin guarda imagem — e a imagem não mora no banco.** É um arquivo na
+  pasta `Pin/Imagens` do aplicativo (`PinImageStore`), com o nome tirado do
+  hash do conteúdo; a linha guarda só o que se sabe dela, em JSON na coluna
+  `image` (`PinImage`). A coluna única `content` vira a chave
+  `imagem:<hash>.<ext>`, e é ela que faz a mesma imagem copiada de novo subir
+  em vez de duplicar — por isso **a busca lê `searchableContent`**, nunca o
+  `content` de uma imagem. Fica fora do backup, como o áudio do Echo, e sai
+  pela mesma regra: **arquivo que nenhuma linha quer é lixo**
+  (`PinImageJanitor`). Quem decide se a cópia é imagem ou texto é o nativo
+  (`PinImageCapture`), e **texto ganha de imagem** — copiar um parágrafo do
+  Pages traz uma imagem dele junto, e quem copiou queria o parágrafo. Colar
+  devolve a imagem em si (`writeImage`), nunca o caminho. A reclassificação
+  do histórico pula as imagens: o classificador lê texto, e a chave não é. Ver
+  [docs/Ideis projeto/pin-imagens.md](docs/Ideis%20projeto/pin-imagens.md).
 - **O Pin escreve num lugar só: o gerador de CPF e CNPJ.** Ele é uma linha no
   topo da lista dentro do filtro daquele documento, e paga três exceções às
   regras daqui — as pílulas de CPF e CNPJ estão sempre na fila (senão o gerador

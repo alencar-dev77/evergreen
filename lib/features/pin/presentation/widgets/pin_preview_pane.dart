@@ -7,6 +7,9 @@ import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_panel.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../../models/clipboard_item.dart';
+import '../../models/pin_image.dart';
+import '../../../../shared/utils/byte_size.dart';
+import 'pin_image_view.dart';
 import '../../../../core/design/eg_tokens.dart';
 
 /// Coluna de preview do item selecionado.
@@ -24,7 +27,13 @@ class PinPreviewPane extends StatelessWidget {
     required this.onCopy,
     required this.onTogglePin,
     required this.onDelete,
+    this.canCopy = true,
   });
+
+  /// Há o que copiar — `false` numa imagem cujo arquivo não está mais no
+  /// disco. O botão verde que não entrega seria uma promessa vazia; excluir
+  /// continua valendo.
+  final bool canCopy;
 
   final ClipboardItem item;
 
@@ -84,7 +93,8 @@ class PinPreviewPane extends StatelessWidget {
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
-            '${item.type.label} · copiado ${RelativeTime.format(item.copiedAt)}',
+            '${item.type.label} · ${item.type.copied} '
+            '${RelativeTime.format(item.copiedAt)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: context.eg.text.overline,
@@ -107,6 +117,9 @@ class PinPreviewPane extends StatelessWidget {
   }
 
   Widget _contentCard(BuildContext context) {
+    final image = item.image;
+    if (image != null) return _imageCard(context, image);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -124,11 +137,56 @@ class PinPreviewPane extends StatelessWidget {
     );
   }
 
+  /// A imagem no lugar do texto, cabendo no cartão, e embaixo de onde ela
+  /// veio: o caminho, quando foi do Finder; o site, quando o navegador o
+  /// informou; e sempre o tamanho dela.
+  ///
+  /// A origem é selecionável, como o texto de um item: o caminho é o que se
+  /// cola no Terminal ou no "Ir para a pasta" do Finder.
+  Widget _imageCard(BuildContext context, PinImage image) {
+    final meta = context.eg.text.footnote.copyWith(
+      color: context.eg.colors.textTertiary,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: Container(
+            // O mesmo respiro do cartão de texto: andar pelos itens com o
+            // `Tab` aberto não pode fazer a borda de dentro pular.
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            decoration: BoxDecoration(
+              color: context.eg.colors.surface,
+              borderRadius: context.eg.shapes.controlAll,
+              border: context.eg.borderAll,
+            ),
+            child: PinImageView.full(image: image),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        // Sem teto de linhas: o `SelectableText` não põe reticências, ele
+        // rola por dentro — e o fim do caminho, que é o nome do arquivo,
+        // sumiria sem aviso. A imagem, que é `Expanded`, cede a altura.
+        if (image.path != null) SelectableText(image.path!, style: meta),
+        if (image.source != null) SelectableText(image.source!, style: meta),
+        Text(
+          '${image.dimensions} · ${ByteSize.compact(image.byteSize)}',
+          style: meta,
+        ),
+      ],
+    );
+  }
+
   Widget _actions() {
     return Row(
       children: [
         Expanded(
-          child: EgButton(label: 'Copiar', onPressed: onCopy, expand: true),
+          child: EgButton(
+            label: 'Copiar',
+            onPressed: canCopy ? onCopy : null,
+            expand: true,
+          ),
         ),
         const SizedBox(width: AppSpacing.md),
         EgButton.destructive(label: 'Excluir', onPressed: onDelete),

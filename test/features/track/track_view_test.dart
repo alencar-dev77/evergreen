@@ -23,6 +23,7 @@ import '../focus/fake_focus_session_repository.dart';
 import '../pin/fake_clipboard_repository.dart';
 import '../echo/fake_export_service.dart';
 import '../echo/fake_echo_audio.dart';
+import '../pin/fake_pin_image_store.dart';
 
 /// A tela do Track dentro do Hub.
 ///
@@ -99,6 +100,7 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
+          pinImageStoreProvider.overrideWithValue(FakePinImageStore()),
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository([]),
           ),

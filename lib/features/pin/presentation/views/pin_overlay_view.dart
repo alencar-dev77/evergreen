@@ -111,8 +111,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   }
 
   Future<void> _activate(ClipboardItem item) async {
-    await _viewModel.copyItem(item);
-    await _closeAfterCopy();
+    if (await _viewModel.copyItem(item)) await _closeAfterCopy();
   }
 
   /// Clique na linha do gerador: copia o CPF sorteado e fecha.
@@ -412,6 +411,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
             aliasFocusNode: _aliasFocusNode,
             onAliasSubmitted: (_) => _finishAliasEdit(),
             onCopy: () => _activate(selected),
+            canCopy: _viewModel.canCopy(selected),
             onTogglePin: () => _viewModel.togglePin(selected),
             onDelete: () => _viewModel.delete(selected),
           ),

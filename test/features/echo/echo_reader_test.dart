@@ -25,6 +25,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'fake_echo_channel.dart';
 import 'fake_export_service.dart';
 import 'fake_echo_audio.dart';
+import '../pin/fake_pin_image_store.dart';
 
 /// A região de leitura do Hub — a coluna que a janela cresce para mostrar.
 ///
@@ -105,6 +106,7 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
           // O Hub abre no Pin, e a tela dele conta os itens por tipo.
+          pinImageStoreProvider.overrideWithValue(FakePinImageStore()),
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository(),
           ),

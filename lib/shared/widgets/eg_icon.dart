@@ -111,6 +111,10 @@ enum EgIconData {
   /// Pasta — o item da prateleira que não é um arquivo.
   folder,
 
+  /// Moldura com sol e montanha — uma imagem copiada no Pin. É o glifo da
+  /// imagem cuja miniatura não está mais no disco.
+  image,
+
   /// O canivete — a marca do Evergreen, o mesmo desenho da abertura do Hub e
   /// do ícone do aplicativo. Não é um path daqui: vem de `eg_brand_mark.dart`.
   evergreen,
@@ -266,6 +270,7 @@ class _EgIconPainter extends CustomPainter {
     EgIconData.track => _trackPath(),
     EgIconData.tray => _trayPath(),
     EgIconData.folder => _folderPath(),
+    EgIconData.image => _imagePath(),
     EgIconData.star => _starPath(),
     // A marca não passa por aqui: ela é pintada antes, direto do desenho
     // do canivete.
@@ -333,6 +338,26 @@ class _EgIconPainter extends CustomPainter {
     )
     ..moveTo(7, 12.2)
     ..lineTo(9, 12.2);
+
+  /// Moldura arredondada, o sol no canto de cima à direita e a montanha
+  /// subindo da esquerda — a silhueta de foto que todo sistema usa.
+  ///
+  /// O sol à direita, e não à esquerda, é o que separa este glifo do
+  /// [_identityCardPath], que tem a mesma moldura com o retrato no canto
+  /// esquerdo: com os dois na mesma lista, "imagem" e "CPF" se confundiam.
+  Path _imagePath() => Path()
+    ..addRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(1.5, 2.5, 13, 11),
+        const Radius.circular(1.5),
+      ),
+    )
+    ..addOval(Rect.fromCircle(center: const Offset(10.8, 6), radius: 1.3))
+    ..moveTo(1.8, 11.8)
+    ..lineTo(5.6, 7.6)
+    ..lineTo(9.2, 11.2)
+    ..lineTo(10.8, 9.8)
+    ..lineTo(14.2, 12.6);
 
   Path _identityCardPath() => Path()
     ..addRRect(

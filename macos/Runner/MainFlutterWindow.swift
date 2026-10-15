@@ -1,10 +1,13 @@
 import ApplicationServices
 import Cocoa
 import CoreGraphics
+import CryptoKit
 import FlutterMacOS
+import ImageIO
 import IOKit.pwr_mgt
 import QuartzCore
 import ServiceManagement
+import UniformTypeIdentifiers
 import desktop_multi_window
 import window_manager
 
@@ -707,6 +710,16 @@ enum PasteboardWatcherChannel {
         acknowledge(call.arguments as? String)
         result(nil)
 
+      case "writeImage":
+        if writeImage(atPath: call.arguments as? String) {
+          result(nil)
+        } else {
+          result(FlutterError(
+            code: "image_unavailable",
+            message: "A imagem não está mais no disco.",
+            details: nil))
+        }
+
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -749,6 +762,9 @@ enum PasteboardWatcherChannel {
     guard content == nil || pasteboard.string(forType: .string) == content else { return }
 
     lastChangeCount = pasteboard.changeCount
+    // Uma imagem ainda em processamento já foi substituída por esta escrita:
+    // ela não pode chegar depois e subir para o topo como a cópia da vez.
+    generation += 1
   }
 
   private static func poll() {
@@ -759,11 +775,338 @@ enum PasteboardWatcherChannel {
     emitCurrentContent()
   }
 
+  /// Avisa o Dart do que está na área de transferência agora.
+  ///
+  /// Texto sai na hora. Imagem é trabalho de verdade — ler o arquivo do
+  /// Finder (que pode estar no iCloud, ainda por baixar), converter, tirar o
+  /// hash — e por isso vai para uma fila de fundo: na thread principal, uma
+  /// captura 5K travava o painel, os atalhos globais e o resto do AppKit por
+  /// meio segundo. O que se lê do pasteboard é lido aqui, na principal; só o
+  /// processamento sai dela.
   private static func emitCurrentContent() {
-    guard let content = NSPasteboard.general.string(forType: .string) else { return }
-    guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    generation += 1
+    let current = generation
 
-    activeChannel?.invokeMethod("onCopy", arguments: content)
+    switch PinImageCapture.snapshot(of: NSPasteboard.general) {
+    case .nothing:
+      return
+
+    case .text(let content):
+      activeChannel?.invokeMethod("onCopy", arguments: content)
+
+    case .image(let snapshot):
+      imageQueue.async {
+        let payload = PinImageCapture.process(snapshot)
+        DispatchQueue.main.async {
+          // Uma cópia mais nova chegou enquanto esta era processada: ela é
+          // a que vale, e esta já foi substituída no pasteboard.
+          guard current == generation, let payload = payload else { return }
+          activeChannel?.invokeMethod("onCopyImage", arguments: payload)
+        }
+      }
+    }
+  }
+
+  /// A fila do trabalho pesado da imagem — uma só, em série, para duas
+  /// cópias seguidas não disputarem o disco.
+  private static let imageQueue = DispatchQueue(label: "evergreen.pin.image", qos: .utility)
+
+  /// Qual cópia é a de agora — ver [emitCurrentContent].
+  private static var generation = 0
+
+  /// Põe a imagem do arquivo na área de transferência — a imagem em si, e não
+  /// o caminho: colar num e-mail traria o arquivo como anexo, e numa conversa,
+  /// o texto do caminho.
+  ///
+  /// Os bytes originais vão no tipo deles (a foto continua JPEG, o GIF
+  /// continua animado), e PNG e TIFF vão junto para quem só sabe ler esses —
+  /// mas **sob demanda**: convertidos só se o aplicativo de destino pedir.
+  /// Escrever os três de saída custava, numa foto de 12 MP, 70 MB codificados
+  /// na thread principal antes de o ⌘V acontecer.
+  ///
+  /// Marca a escrita como conhecida antes de voltar, pelo mesmo motivo do
+  /// [acknowledge]: sem isso a captura leria a própria escrita como uma cópia
+  /// nova. Aqui não há o que conferir — ninguém escreveu entre as duas linhas.
+  private static func writeImage(atPath path: String?) -> Bool {
+    guard let path = path,
+          let data = FileManager.default.contents(atPath: path),
+          let type = UTType(filenameExtension: (path as NSString).pathExtension),
+          NSImage(data: data) != nil
+    else { return false }
+
+    let original = NSPasteboard.PasteboardType(type.identifier)
+    let provider = PinImageProvider(data: data)
+    let item = NSPasteboardItem()
+    item.setData(data, forType: original)
+    item.setDataProvider(
+      provider,
+      forTypes: [.png, .tiff].filter { $0 != original })
+
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    guard pasteboard.writeObjects([item]) else { return false }
+
+    lastChangeCount = pasteboard.changeCount
+    generation += 1
+    return true
+  }
+}
+
+/// Converte a imagem para o tipo que o aplicativo de destino pedir, na hora
+/// em que ele pedir — ver `PasteboardWatcherChannel.writeImage`.
+final class PinImageProvider: NSObject, NSPasteboardItemDataProvider {
+  init(data: Data) {
+    self.data = data
+  }
+
+  private let data: Data
+
+  func pasteboard(
+    _ pasteboard: NSPasteboard?,
+    item: NSPasteboardItem,
+    provideDataForType type: NSPasteboard.PasteboardType
+  ) {
+    guard let image = NSImage(data: data), let tiff = image.tiffRepresentation else { return }
+
+    if type == .tiff {
+      item.setData(tiff, forType: .tiff)
+    } else if type == .png,
+              let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+      item.setData(png, forType: .png)
+    }
+  }
+}
+
+/// Reconhece uma imagem na área de transferência, e diz de onde ela veio.
+///
+/// A ordem é a decisão:
+///
+/// 1. **O que se pediu para não guardar não é guardado.** Gerenciador de
+///    senha e app que copia algo de passagem marcam a cópia
+///    (`org.nspasteboard.ConcealedType` e as irmãs); uma imagem assim — o QR
+///    de uma chave, uma captura sigilosa — não vira arquivo em disco.
+/// 2. **Um arquivo de imagem copiado no Finder.** O Finder põe a URL do
+///    arquivo, não a imagem — os bytes são lidos do disco, no formato em que
+///    estão. Vem com o nome e o caminho.
+/// 3. **Texto ganha de imagem.** Copiar um trecho do Pages, do Notas ou do
+///    Word põe o texto **e** uma imagem dele; quem copiou um parágrafo quer o
+///    parágrafo. A exceção é o texto que é só o endereço da própria imagem, e
+///    só quando o navegador diz que é — o mesmo endereço em `public.url`, a
+///    origem do Chrome, uma `<img>` no HTML. Sem esse sinal, um link copiado
+///    de um app que põe um ícone junto continua sendo link. O Finder também
+///    põe o ícone de qualquer arquivo como imagem, e é esta regra que faz um
+///    PDF copiado continuar entrando pelo nome.
+/// 4. **Só imagem**: a captura de tela direto para a área de transferência.
+enum PinImageCapture {
+  /// O teto de uma imagem. Acima disso ela não entra: atravessar o canal com
+  /// uma foto RAW de 80 MB a cada cópia seria travar a captura inteira por
+  /// uma imagem que ninguém cola de um gerenciador de área de transferência.
+  static let maxBytes = 25 * 1024 * 1024
+
+  /// Formatos que a tela do Flutter desenha. O resto (HEIC, TIFF, PSD, RAW)
+  /// é convertido na captura: guardado como veio, a linha e o preview ficariam
+  /// sem imagem — e colar continuaria funcionando, o que é pior, porque a
+  /// pessoa não teria como saber o que está colando.
+  private static let drawable: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp"]
+
+  private static let chromiumSource = NSPasteboard.PasteboardType("org.chromium.source-url")
+
+  private static let doNotKeep: Set<String> = [
+    "org.nspasteboard.ConcealedType",
+    "org.nspasteboard.TransientType",
+    "org.nspasteboard.AutoGeneratedType",
+  ]
+
+  /// O que dá para tirar do pasteboard sem custo — na thread principal.
+  enum Snapshot {
+    case nothing
+    case text(String)
+    case image(Pending)
+  }
+
+  /// A imagem ainda por processar: o arquivo a ler, ou os bytes já lidos.
+  struct Pending {
+    let fileURL: URL?
+    let data: Data?
+    let ext: String
+    let source: String?
+  }
+
+  static func snapshot(of pasteboard: NSPasteboard) -> Snapshot {
+    let types = Set((pasteboard.types ?? []).map(\.rawValue))
+    let text = cleaned(pasteboard.string(forType: .string))
+
+    if let file = imageFile(in: pasteboard) {
+      guard types.isDisjoint(with: doNotKeep) else { return .nothing }
+      return .image(Pending(fileURL: file, data: nil, ext: file.pathExtension.lowercased(), source: nil))
+    }
+
+    let source = sourceURL(in: pasteboard, text: text)
+    let bare = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !bare.isEmpty && bare != source { return .text(text) }
+
+    if let (data, ext) = rawImage(in: pasteboard) {
+      guard types.isDisjoint(with: doNotKeep) else { return .nothing }
+      return .image(Pending(fileURL: nil, data: data, ext: ext, source: source))
+    }
+
+    return text.isEmpty ? .nothing : .text(text)
+  }
+
+  /// Ler, normalizar, medir e tirar o hash — fora da thread principal.
+  static func process(_ pending: Pending) -> [String: Any]? {
+    let data: Data
+    if let url = pending.fileURL {
+      guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+            size <= maxBytes,
+            let read = try? Data(contentsOf: url)
+      else { return nil }
+      data = read
+    } else if let raw = pending.data {
+      data = raw
+    } else {
+      return nil
+    }
+
+    guard let (bytes, ext) = drawableData(data, ext: pending.ext),
+          bytes.count <= maxBytes,
+          let (width, height) = dimensions(of: bytes)
+    else { return nil }
+
+    let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+
+    var payload: [String: Any] = [
+      "bytes": FlutterStandardTypedData(bytes: bytes),
+      "hash": hash,
+      "extension": ext,
+      "width": width,
+      "height": height,
+    ]
+    if let url = pending.fileURL {
+      payload["name"] = url.lastPathComponent
+      payload["path"] = url.path
+    }
+    if let source = pending.source { payload["source"] = source }
+
+    return payload
+  }
+
+  /// O texto como o Pin o guarda — e o vazio quando não há texto de
+  /// verdade: uma seleção só de objetos no Pages ou no TextEdit vem como o
+  /// caractere de anexo (`U+FFFC`), que não é nada que alguém queira colar.
+  private static func cleaned(_ text: String?) -> String {
+    guard let text = text else { return "" }
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.replacingOccurrences(of: "\u{FFFC}", with: "")
+      .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : text
+  }
+
+  private static func imageFile(in pasteboard: NSPasteboard) -> URL? {
+    guard let urls = pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]) as? [URL],
+          urls.count == 1,
+          let url = urls.first,
+          let type = UTType(filenameExtension: url.pathExtension),
+          type.conforms(to: .image)
+    else { return nil }
+
+    return url
+  }
+
+  /// Os bytes da imagem, no melhor formato que vier — **TIFF por último**.
+  ///
+  /// O Fotos e alguns navegadores põem o JPEG original e um TIFF ao lado. O
+  /// TIFF primeiro, convertido a PNG, transformava os 3 MB da foto em 30 — e
+  /// o teto a deixava de fora, com o JPEG ali do lado. O GIF antes de tudo
+  /// que não é PNG: é o único jeito de ele continuar animado.
+  private static func rawImage(in pasteboard: NSPasteboard) -> (Data, String)? {
+    let ordered: [(String, String)] = [
+      ("public.png", "png"),
+      ("com.compuserve.gif", "gif"),
+      ("public.jpeg", "jpg"),
+      ("public.heic", "heic"),
+      ("public.tiff", "tiff"),
+    ]
+
+    for (type, ext) in ordered {
+      if let data = pasteboard.data(forType: NSPasteboard.PasteboardType(type)) {
+        return (data, ext)
+      }
+    }
+
+    return nil
+  }
+
+  /// O endereço da página, só quando o navegador diz que a imagem veio dela.
+  private static func sourceURL(in pasteboard: NSPasteboard, text: String) -> String? {
+    if let chromium = webAddress(pasteboard.string(forType: chromiumSource)) {
+      return chromium
+    }
+
+    let declared = webAddress(pasteboard.string(forType: .URL))
+    let typed = webAddress(text)
+    let html = pasteboard.string(forType: .html) ?? ""
+
+    if let typed = typed, typed == declared || html.contains("<img") {
+      return typed
+    }
+    return declared
+  }
+
+  private static func webAddress(_ candidate: String?) -> String? {
+    guard let candidate = candidate else { return nil }
+    let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+    let lower = trimmed.lowercased()
+    guard lower.hasPrefix("http://") || lower.hasPrefix("https://"),
+          !trimmed.contains(where: \.isWhitespace)
+    else { return nil }
+    return trimmed
+  }
+
+  /// Os bytes num formato que a tela desenha, e a extensão deles.
+  ///
+  /// O que já é desenhável fica como veio — converter a foto do Finder
+  /// mudaria o que foi copiado. O resto vira PNG quando tem transparência e
+  /// JPEG quando não tem: um HEIC de 12 MP em PNG passaria do teto.
+  private static func drawableData(_ data: Data, ext: String) -> (Data, String)? {
+    if drawable.contains(ext) { return (data, ext == "jpeg" ? "jpg" : ext) }
+
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+    else { return nil }
+
+    let hasAlpha: Bool
+    switch image.alphaInfo {
+    case .none, .noneSkipFirst, .noneSkipLast: hasAlpha = false
+    default: hasAlpha = true
+    }
+
+    let (type, newExt) = hasAlpha
+      ? (UTType.png.identifier, "png")
+      : (UTType.jpeg.identifier, "jpg")
+
+    let output = NSMutableData()
+    guard let destination = CGImageDestinationCreateWithData(output, type as CFString, 1, nil)
+    else { return nil }
+
+    let options: [CFString: Any] = hasAlpha ? [:] : [kCGImageDestinationLossyCompressionQuality: 0.9]
+    CGImageDestinationAddImage(destination, image, options as CFDictionary)
+    guard CGImageDestinationFinalize(destination) else { return nil }
+
+    return (output as Data, newExt)
+  }
+
+  /// Sem dimensão não é imagem que dê para mostrar nem colar.
+  private static func dimensions(of data: Data) -> (Int, Int)? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+          let width = properties[kCGImagePropertyPixelWidth] as? Int,
+          let height = properties[kCGImagePropertyPixelHeight] as? Int,
+          width > 0, height > 0
+    else { return nil }
+
+    return (width, height)
   }
 }
 

@@ -8,6 +8,7 @@ import '../../../../shared/widgets/eg_surface.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/pin_quick_shortcut.dart';
 import '../../models/pin_search.dart';
+import 'pin_image_view.dart';
 import '../../../../core/design/eg_tokens.dart';
 
 /// Uma linha da lista do overlay: ícone de tipo, título e um metadado à direita.
@@ -86,13 +87,26 @@ class PinListItem extends StatelessWidget {
               // texto quando a linha está selecionada.
               SizedBox(
                 width: compact ? _compactIconColumn : _iconColumn,
-                child: EgIcon(
-                  item.type.icon,
-                  size: compact ? AppIconSizes.xs : AppIconSizes.md,
-                  color: isSelected
-                      ? context.eg.colors.textPrimary
-                      : context.eg.colors.textSecondary,
-                ),
+                // A imagem leva a miniatura no lugar do ícone, do mesmo
+                // tamanho: ela é mais uma linha da lista, e reconhecer a
+                // captura de ontem pelo desenho é mais rápido que pelo nome.
+                child: item.image != null
+                    ? Align(
+                        alignment: Alignment.centerLeft,
+                        child: PinImageView.thumbnail(
+                          image: item.image!,
+                          // Do tamanho do glifo que ela substitui, e não da
+                          // coluna: maior, ela pesava mais que os vizinhos.
+                          size: compact ? AppIconSizes.sm : AppIconSizes.lg,
+                        ),
+                      )
+                    : EgIcon(
+                        item.type.icon,
+                        size: compact ? AppIconSizes.xs : AppIconSizes.md,
+                        color: isSelected
+                            ? context.eg.colors.textPrimary
+                            : context.eg.colors.textSecondary,
+                      ),
               ),
               SizedBox(width: compact ? AppSpacing.sm : AppSpacing.md),
               Expanded(child: _label(context)),
@@ -120,9 +134,15 @@ class PinListItem extends StatelessWidget {
   /// atalho. O horário fica de fora — ele está na tela para dar contexto de
   /// relance, e numa frase falada viraria cauda em toda linha.
   String get _semanticLabel {
+    // A imagem sem nome já se diz imagem no título ("Imagem de 1280 por
+    // 720"); repetir o tipo depois seria o leitor dizer "imagem" duas vezes.
+    final image = item.image;
+    final title = image?.spokenTitle ?? item.title;
+    final saysType = image == null || image.name != null;
+
     final parts = <String>[
-      if (item.hasAlias) '${item.alias!.trim()}: ${item.title}' else item.title,
-      item.type.label,
+      if (item.hasAlias) '${item.alias!.trim()}: $title' else title,
+      if (saysType) item.type.label,
       if (item.isPinned) 'fixado',
       // O atalho vai por extenso: `⌥2` lido caractere a caractere não ensina
       // nada, e ensinar o atalho é a razão de o badge existir.
