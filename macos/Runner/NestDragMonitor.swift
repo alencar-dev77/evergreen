@@ -130,12 +130,15 @@ enum NestDragMonitor {
   /// Quem mira o recorte chega por baixo dele, e a prateleira sai antes de o
   /// cursor alcançar a borda — e com ela o Mission Control. É também onde a
   /// prateleira aparece, então o arquivo já chega em cima dela.
-  private static let notchApproach: CGFloat = 24
+  private static let notchApproach: CGFloat = 48
 
   /// A folga de cada lado do recorte. O cursor não tem como entrar *no* furo —
   /// ele para na borda da tela —, e mirar a largura exata de um objeto que não
   /// tem pixel é pedir precisão que ninguém tem com um arquivo na mão.
-  private static let notchSlack: CGFloat = 16
+  ///
+  /// A mesma largura das asas da ilha: o alvo é tudo o que se vê preto em
+  /// volta do recorte quando algo está rodando, e não só o furo.
+  private static let notchSlack: CGFloat = 60
 
   // MARK: - Ligar e desligar
 

@@ -74,6 +74,7 @@ class EgOverlayShell extends StatefulWidget {
     this.focusNode,
     this.draggable = false,
     this.dismissOnBlur = true,
+    this.notchAttached = false,
   });
 
   /// O painel.
@@ -121,6 +122,11 @@ class EgOverlayShell extends StatefulWidget {
   /// e o botão continuam fechando: o que sai é o fechamento que a pessoa não
   /// pediu.
   final bool dismissOnBlur;
+
+  /// Saindo do notch, o painel encosta **no topo da tela**, sem o respiro de
+  /// baixo da barra de menus: é ele que desenha a faixa do recorte, e assim
+  /// continua o recorte em vez de pousar embaixo dele. Hoje, a pilha do Nest.
+  final bool notchAttached;
 
   /// Margem para o macOS terminar a troca de foco antes de confirmarmos um
   /// blur. Curta o bastante para o fechamento continuar parecendo instantâneo.
@@ -328,13 +334,14 @@ class _EgOverlayShellState extends State<EgOverlayShell>
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.xxl,
-                notch.height + _NotchReveal.gap,
+                widget.notchAttached ? 0 : notch.height + _NotchReveal.gap,
                 AppSpacing.xxl,
                 AppSpacing.xxl,
               ),
               child: _NotchReveal(
                 animation: _notchReveal,
                 notch: notch,
+                attached: widget.notchAttached,
                 child: panel!,
               ),
             ),
@@ -359,6 +366,7 @@ class _NotchReveal extends StatelessWidget {
     required this.animation,
     required this.notch,
     required this.child,
+    this.attached = false,
   });
 
   /// O respiro entre a barra de menus e o topo do painel.
@@ -367,6 +375,10 @@ class _NotchReveal extends StatelessWidget {
   final Animation<double> animation;
   final Size notch;
   final Widget child;
+
+  /// O painel encosta no topo da tela e já desenha a faixa do recorte — ver
+  /// `EgOverlayShell.notchAttached`.
+  final bool attached;
 
   @override
   Widget build(BuildContext context) {
@@ -395,6 +407,7 @@ class _NotchReveal extends StatelessWidget {
                   painter: _NotchPillPainter(
                     t: t,
                     notch: notch,
+                    attached: attached,
                     color: eg.colors.notch,
                     radius: eg.shapes.radiusPanel,
                   ),
@@ -414,12 +427,16 @@ class _NotchPillPainter extends CustomPainter {
   const _NotchPillPainter({
     required this.t,
     required this.notch,
+    required this.attached,
     required this.color,
     required this.radius,
   });
 
   final double t;
   final Size notch;
+
+  /// O painel começa no topo da tela, e não abaixo da barra de menus.
+  final bool attached;
   final Color color;
   final double radius;
 
@@ -431,8 +448,12 @@ class _NotchPillPainter extends CustomPainter {
     if (opacity <= 0) return;
 
     final width = lerpDouble(notch.width, size.width, t);
-    final top = -(_NotchReveal.gap + notch.height);
-    final bottom = lerpDouble(-_NotchReveal.gap, size.height, t);
+    final top = attached ? 0.0 : -(_NotchReveal.gap + notch.height);
+    final bottom = lerpDouble(
+      attached ? notch.height : -_NotchReveal.gap,
+      size.height,
+      t,
+    );
     final corner = Radius.circular(lerpDouble(notch.height / 3, radius, t));
 
     final pill = RRect.fromLTRBAndCorners(
@@ -453,6 +474,7 @@ class _NotchPillPainter extends CustomPainter {
   bool shouldRepaint(_NotchPillPainter old) =>
       old.t != t ||
       old.notch != notch ||
+      old.attached != attached ||
       old.color != color ||
       old.radius != radius;
 }

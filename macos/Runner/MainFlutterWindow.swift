@@ -217,7 +217,8 @@ enum OverlayWindowChannel {
     channel.setMethodCallHandler { call, result in
       switch call.method {
       case "show":
-        show(result: result)
+        let arguments = call.arguments as? [String: Any]
+        show(takeKeyboard: arguments?["keyboard"] as? Bool ?? true, result: result)
 
       case "positionAtNotch":
         result(positionAtNotch())
@@ -236,7 +237,12 @@ enum OverlayWindowChannel {
   ///
   /// `makeKey` sem `orderFront` junto: o `makeKeyAndOrderFront` reordena de
   /// novo, com a regra que acabamos de contornar.
-  private static func show(result: @escaping FlutterResult) {
+  ///
+  /// Sem [takeKeyboard], só põe na frente: é a pilha do Nest que sai do notch
+  /// pelo mouse ou pelo arraste — passar por ali não pode roubar as teclas de
+  /// quem está digitando em outro app. Um clique nela a torna key como em
+  /// qualquer painel.
+  private static func show(takeKeyboard: Bool, result: @escaping FlutterResult) {
     guard let panel = panel else {
       result(
         FlutterError(
@@ -248,6 +254,12 @@ enum OverlayWindowChannel {
 
     panel.setIsVisible(true)
     panel.orderFrontRegardless()
+
+    guard takeKeyboard else {
+      result(nil)
+      return
+    }
+
     panel.makeKey()
 
     // A view do Flutter de volta como first responder.

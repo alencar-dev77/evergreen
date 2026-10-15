@@ -10,6 +10,7 @@ import 'package:evergreen/features/nest/presentation/viewmodels/nest_state.dart'
 import 'package:evergreen/features/nest/presentation/viewmodels/nest_view_model.dart';
 import 'package:evergreen/features/nest/presentation/views/nest_overlay_view.dart';
 import 'package:evergreen/features/nest/presentation/widgets/nest_item_card.dart';
+import 'package:evergreen/features/nest/presentation/widgets/nest_notch_pile.dart';
 import 'package:evergreen/shared/widgets/eg_overlay_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -379,6 +380,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(channel.isDropEnabled, isFalse);
+  });
+
+  group('saindo do notch', () {
+    void atNotch() =>
+        OverlayWindow.instance.notchAnchor.value = const Size(220, 38);
+
+    testWidgets('vira a pilha, e não a prateleira', (tester) async {
+      atNotch();
+      await pumpPanel(tester, items: [writeFile('a.txt'), writeFile('b.txt')]);
+
+      expect(find.byType(NestNotchPile), findsOneWidget);
+      expect(find.byType(NestItemCard), findsNothing);
+      expect(find.text('Abrir prateleira'), findsOneWidget);
+      expect(find.text('Copiar para'.toUpperCase()), findsOneWidget);
+    });
+
+    testWidgets('a pasta da pilha manda tudo, num clique', (tester) async {
+      atNotch();
+      await pumpPanel(tester, items: [writeFile('a.txt'), writeFile('b.txt')]);
+
+      await tester.tap(find.text('Recibos'));
+      await tester.pumpAndSettle();
+
+      expect(files.entries.containsKey('$target/a.txt'), isTrue);
+      expect(files.entries.containsKey('$target/b.txt'), isTrue);
+    });
+
+    testWidgets('a pilha manda tudo, mesmo com escolha deixada para trás', (
+      tester,
+    ) async {
+      final container = await pumpPanel(
+        tester,
+        items: [writeFile('a.txt'), writeFile('b.txt')],
+      );
+      container.read(nestViewModelProvider.notifier).select(0);
+      expect(stateOf(container).selection, {0});
+
+      container.read(nestViewModelProvider.notifier).clearSelection();
+      expect(stateOf(container).outgoing, hasLength(2));
+    });
+
+    testWidgets('vazia, convida a soltar', (tester) async {
+      atNotch();
+      await pumpPanel(tester);
+
+      expect(find.text('Solte aqui'), findsOneWidget);
+    });
+
+    testWidgets('sem a âncora, volta a ser a prateleira', (tester) async {
+      atNotch();
+      await pumpPanel(tester, items: [writeFile('a.txt')]);
+
+      OverlayWindow.instance.notchAnchor.value = null;
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NestNotchPile), findsNothing);
+      expect(find.byType(NestItemCard), findsOneWidget);
+    });
   });
 
   testWidgets('sem pasta cadastrada, o painel diz onde cadastrar', (

@@ -3,6 +3,8 @@ import 'package:evergreen/features/echo/presentation/viewmodels/echo_recorder_st
 import 'package:evergreen/features/focus/models/focus_phase.dart';
 import 'package:evergreen/features/focus/models/focus_settings.dart';
 import 'package:evergreen/features/focus/presentation/viewmodels/focus_timer_state.dart';
+import 'package:evergreen/features/nest/models/nest_item.dart';
+import 'package:evergreen/features/nest/presentation/viewmodels/nest_state.dart';
 import 'package:evergreen/features/notch/models/notch_activity.dart';
 import 'package:evergreen/features/notch/models/notch_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -126,6 +128,51 @@ void main() {
 
       expect(activity.title, 'Pausado');
       expect(activity.actions.first.id, NotchAction.resume);
+    });
+  });
+
+  group('Nest', () {
+    NestItem item(String name) => NestItem(
+      path: '/tmp/$name',
+      isDirectory: false,
+      sizeInBytes: 10,
+      modifiedAt: DateTime(2026, 10, 15),
+    );
+
+    final pile = NestState(items: [item('a.pdf'), item('b.png')]);
+
+    test('vazia, não há o que esperar no notch', () {
+      expect(NotchActivity.nest(const NestState(), onScreen: false), isNull);
+    });
+
+    test('com o painel à vista, a ilha não repete o que está embaixo', () {
+      expect(NotchActivity.nest(pile, onScreen: true), isNull);
+    });
+
+    test('a bandeja e a contagem; o mouse em cima pede o painel', () {
+      final activity = NotchActivity.nest(pile, onScreen: false)!;
+      final map = activity.toMap();
+
+      expect(activity.module, NotchModule.nest);
+      expect(activity.clock, '2');
+      expect(activity.detail, '2 arquivos');
+      expect(map['indicator'], 'shelf');
+      expect(map['opensOnHover'], isTrue);
+      expect(map['actions'], isEmpty);
+    });
+
+    test('a reunião, depois a pilha, depois o foco', () {
+      final running = NotchActivity.running(
+        echo: recording,
+        focus: focusing,
+        nest: pile,
+      );
+
+      expect(running.map((activity) => activity.module), [
+        NotchModule.echo,
+        NotchModule.nest,
+        NotchModule.focus,
+      ]);
     });
   });
 

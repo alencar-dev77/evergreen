@@ -22,6 +22,7 @@ import '../../models/nest_transfer_mode.dart';
 import '../viewmodels/nest_state.dart';
 import '../viewmodels/nest_view_model.dart';
 import '../widgets/nest_item_card.dart';
+import '../widgets/nest_notch_pile.dart';
 import '../widgets/nest_stack_header.dart';
 import 'nest_overlay_intents.dart';
 
@@ -74,12 +75,26 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
   /// Quantas linhas cabem antes de a lista começar a rolar.
   static const _visibleItems = 6;
 
+  /// O teclado da pilha do notch: só o que ela mostra — as pastas, desfazer,
+  /// fechar e as preferências. Tirar, andar e escolher agiriam sobre uma
+  /// seleção que a pilha não desenha, e apagar o que não se vê é o pior
+  /// tipo de surpresa.
+  static final _pileShortcuts = <ShortcutActivator, Intent>{
+    for (final entry in NestOverlayIntents.shortcuts.entries)
+      if (entry.value is NestSendIntent ||
+          entry.value is NestCloseIntent ||
+          entry.value is NestUndoIntent ||
+          entry.value is NestOpenSettingsIntent)
+        entry.key: entry.value,
+  };
+
   @override
   void initState() {
     super.initState();
     _channel = ref.read(nestChannelProvider);
     HardwareKeyboard.instance.addHandler(_watchModifiers);
     unawaited(_channel.setDropEnabled(enabled: true));
+    OverlayWindow.instance.notchAnchor.addListener(_onFormatChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _panelFocusNode.requestFocus();
@@ -89,6 +104,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_watchModifiers);
+    OverlayWindow.instance.notchAnchor.removeListener(_onFormatChanged);
     unawaited(_channel.setDropEnabled(enabled: false));
     // A janela volta a capturar clique em toda a sua área — é o que os outros
     // painéis esperam dela.
@@ -98,6 +114,11 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
   }
 
   NestViewModel get _viewModel => ref.read(nestViewModelProvider.notifier);
+
+  /// A pilha virou prateleira, ou o contrário: o mapa de teclado muda junto.
+  void _onFormatChanged() {
+    if (mounted) setState(() {});
+  }
 
   /// O `⌥` pressionado inverte copiar/mover, e a barra de dicas passa a dizer o
   /// que vai acontecer de verdade.
@@ -136,6 +157,27 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
     await HubWindow.instance.open();
   }
 
+  /// "Abrir prateleira": a pilha do notch vira a prateleira completa, no
+  /// lugar de sempre. Reposicionar apaga a âncora do notch, e é isso que troca
+  /// o formato do painel — e pega o teclado, que a pilha pode não ter.
+  ///
+  /// O painel fica apagado durante a troca: a janela anda do topo para o
+  /// centro e o formato muda em momentos diferentes, e sem isso um dos dois
+  /// aparecia por um quadro no lugar do outro.
+  Future<void> _openShelf() async {
+    final window = OverlayWindow.instance;
+
+    window.isPanelHidden.value = true;
+    try {
+      await window.reassert();
+      await WidgetsBinding.instance.endOfFrame;
+    } finally {
+      window.isPanelHidden.value = false;
+    }
+
+    if (mounted) _panelFocusNode.requestFocus();
+  }
+
   Future<void> _reveal() async {
     final item = ref.read(nestViewModelProvider).cursorItem;
     if (item != null) await _viewModel.revealInFinder(item);
@@ -152,7 +194,9 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Shortcuts(
-        shortcuts: NestOverlayIntents.shortcuts,
+        shortcuts: OverlayWindow.instance.notchAnchor.value == null
+            ? NestOverlayIntents.shortcuts
+            : _pileShortcuts,
         child: Actions(
           actions: NestOverlayIntents.actions(
             onSend: _viewModel.sendToIndex,
@@ -166,44 +210,63 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
             onClose: _close,
             onOpenSettings: _openSettings,
           ),
-          child: EgOverlayShell(
-            onClose: () => unawaited(_close()),
-            onShow: _panelFocusNode.requestFocus,
-            focusNode: _panelFocusNode,
-            // Perder o foco é o gesto de ir buscar os arquivos, não o de
-            // desistir da prateleira — ver a classe.
-            dismissOnBlur: false,
-            // Arrastar pelo fundo do painel move a janela: a prateleira fica
-            // por cima de tudo, e às vezes o arquivo que se quer ver está
-            // justamente atrás dela. Puxar **a lista** é outra coisa (leva os
-            // arquivos embora), e ganha desta por estar mais fundo na árvore.
-            draggable: true,
-            child: EgPanel(
-              key: _panelKey,
-              width: _panelWidth,
-              vibrant: true,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: AnimatedSize(
-                      duration: AppDurations.medium,
-                      curve: context.eg.motion.curve,
-                      alignment: Alignment.center,
-                      child: _body(state),
+          // A âncora do notch decide o formato: saindo do recorte, a pilha;
+          // no lugar de sempre, a prateleira. Ver `NestNotchPile`.
+          child: ValueListenableBuilder<Size?>(
+            valueListenable: OverlayWindow.instance.notchAnchor,
+            builder: (context, notch, _) => EgOverlayShell(
+              onClose: () => unawaited(_close()),
+              onShow: _panelFocusNode.requestFocus,
+              focusNode: _panelFocusNode,
+              // Perder o foco é o gesto de ir buscar os arquivos, não o de
+              // desistir da prateleira — ver a classe.
+              dismissOnBlur: false,
+              // Arrastar pelo fundo do painel move a janela: a prateleira fica
+              // por cima de tudo, e às vezes o arquivo que se quer ver está
+              // justamente atrás dela. Puxar **a lista** é outra coisa (leva
+              // os arquivos embora), e ganha desta por estar mais fundo na
+              // árvore. A pilha do notch não se move: ela é o recorte.
+              draggable: notch == null,
+              notchAttached: notch != null,
+              child: notch == null
+                  ? _shelf(state)
+                  : NestNotchPile(
+                      key: _panelKey,
+                      state: state,
+                      notch: notch,
+                      onSend: (index) =>
+                          unawaited(_viewModel.sendToIndex(index)),
+                      onDragOut: () => unawaited(_viewModel.beginDragOut()),
+                      onOpenShelf: () => unawaited(_openShelf()),
                     ),
-                  ),
-                  _hintBar(state),
-                ],
-              ),
             ),
           ),
         ),
       ),
     );
   }
+
+  Widget _shelf(NestState state) => EgPanel(
+    key: _panelKey,
+    width: _panelWidth,
+    vibrant: true,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: AnimatedSize(
+            duration: AppDurations.medium,
+            curve: context.eg.motion.curve,
+            alignment: Alignment.center,
+            child: _body(state),
+          ),
+        ),
+        _hintBar(state),
+      ],
+    ),
+  );
 
   /// De cima para baixo: **o que está na prateleira, e para onde ele vai.**
   ///

@@ -63,13 +63,13 @@ void main() {
       island.dispose();
     });
 
-    test('o Nest é porta: avisa quem vigia o arraste', () async {
+    test('o Nest é porta e pilha: avisa o arraste e a ilha', () async {
       await container
           .read(notchSettingsViewModelProvider.notifier)
-          .setEnabled(NotchModule.nest, enabled: true);
+          .setEnabled(NotchModule.nest, enabled: false);
 
-      expect(nest.isNotchEnabled, isTrue);
-      expect(island.enabled, isEmpty);
+      expect(nest.isNotchEnabled, isFalse);
+      expect(island.enabled, {NotchModule.nest: false});
     });
 
     test('o Echo e o Focus são vitrine: avisam a ilha', () async {
