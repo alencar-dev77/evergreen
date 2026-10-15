@@ -41,6 +41,13 @@ class FakeNotchIslandChannel implements NotchIslandChannel {
     this.palette = palette;
   }
 
+  bool quiet = false;
+
+  @override
+  Future<void> setQuiet({required bool quiet}) async {
+    this.quiet = quiet;
+  }
+
   @override
   Future<void> update(List<NotchActivity> activities) async {
     updates.add(activities);

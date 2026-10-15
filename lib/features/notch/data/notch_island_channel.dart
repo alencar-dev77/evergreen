@@ -75,6 +75,11 @@ class NotchIslandChannel {
     'control': palette.control.toARGB32(),
   });
 
+  /// Deixa a ilha quieta — sem abrir, sem receber o mouse — enquanto a pilha
+  /// do Nest está aberta embaixo dela.
+  Future<void> setQuiet({required bool quiet}) =>
+      _invoke<void>('setQuiet', {'quiet': quiet});
+
   /// O que está rodando, em ordem de prioridade. Lista vazia esconde a ilha.
   Future<void> update(List<NotchActivity> activities) =>
       _invoke<void>('update', {

@@ -137,6 +137,10 @@ enum NotchIslandChannel {
         island?.apply(palette)
         result(nil)
 
+      case "setQuiet":
+        setQuiet(arguments?["quiet"] as? Bool ?? false)
+        result(nil)
+
       case "update":
         let list = arguments?["activities"] as? [[String: Any]] ?? []
         activities = list.compactMap(NotchActivity.init)
@@ -156,11 +160,22 @@ enum NotchIslandChannel {
   /// do arraste (o Focus começa, a tela muda), e a nova precisa nascer fora
   /// do caminho também.
   static func setPassThrough(_ passThrough: Bool) {
-    isPassThrough = passThrough
-    island?.setPassThrough(passThrough)
+    isDragging = passThrough
+    island?.setPassThrough(isDragging || isQuiet)
   }
 
-  private static var isPassThrough = false
+  /// A pilha do Nest está aberta embaixo do recorte: a ilha fica em cima dela,
+  /// e não pode abrir por cima do cabeçalho e das pastas. Quem diz é o Dart,
+  /// que sabe quando a pilha está na tela.
+  static func setQuiet(_ quiet: Bool) {
+    isQuiet = quiet
+    island?.setPassThrough(isDragging || isQuiet)
+  }
+
+  private static var isDragging = false
+  private static var isQuiet = false
+
+  private static var isPassThrough: Bool { isDragging || isQuiet }
 
   /// Um botão da ilha foi apertado, ou a ilha foi clicada (`open`).
   static func report(module: String, action: String) {
@@ -243,6 +258,9 @@ struct NotchActivity: Equatable {
 
     /// Quanto da fase já passou, de 0 a 1.
     case progress(Double, paused: Bool, rest: Bool)
+
+    /// A prateleira do Nest com arquivos esperando.
+    case shelf
   }
 
   let module: String
@@ -267,6 +285,11 @@ struct NotchActivity: Equatable {
   /// antes da primeira frase. Do Dart, como todo texto da ilha.
   let transcriptLabels: [String: String]
 
+  /// O mouse em cima não abre a ilha: pede ao Dart o painel do módulo. É o
+  /// Nest, cuja pilha aberta é desenhada pela janela 0 — a única que recebe
+  /// arraste do Finder.
+  let opensOnHover: Bool
+
   init?(_ map: [String: Any]) {
     guard let module = map["module"] as? String,
           let indicator = map["indicator"] as? String
@@ -282,6 +305,8 @@ struct NotchActivity: Equatable {
         map["progress"] as? Double ?? 0,
         paused: paused,
         rest: map["rest"] as? Bool ?? false)
+    case "shelf":
+      self.indicator = .shelf
     default:
       return nil
     }
@@ -294,6 +319,7 @@ struct NotchActivity: Equatable {
     system = (map["system"] as? [Double]) ?? []
     transcript = map["transcript"] as? [String]
     transcriptLabels = map["transcriptLabels"] as? [String: String] ?? [:]
+    opensOnHover = map["opensOnHover"] as? Bool ?? false
     actions = ((map["actions"] as? [[String: Any]]) ?? []).compactMap { action in
       guard let id = action["id"] as? String, let label = action["label"] as? String
       else { return nil }
@@ -509,6 +535,11 @@ final class NotchIslandController {
   private var wasPinned = false
 
   func setPassThrough(_ passThrough: Bool) {
+    // Os dois motivos (o arraste e a pilha aberta) chegam por caminhos
+    // separados; repetir o mesmo valor não pode apagar a lembrança de que a
+    // transcrição estava presa.
+    guard passThrough != isPassThrough else { return }
+
     isPassThrough = passThrough
     panel.ignoresMouseEvents = passThrough
 
@@ -554,6 +585,12 @@ final class NotchIslandController {
     // Confere de novo: o `mouseExited` de uma janela que acabou de mudar de
     // tamanho não é confiável, e a posição do cursor é.
     guard mode == .collapsed, !isPassThrough, Self.isCursor(in: panel.frame) else { return }
+
+    if let activity = view.activity, activity.opensOnHover {
+      NotchIslandChannel.report(module: activity.module, action: "open")
+      return
+    }
+
     go(to: .expanded)
   }
 
@@ -1444,6 +1481,9 @@ final class NotchIndicatorView: NSView {
 
     case (.progress(let value, let paused, let rest), .wide):
       drawBar(value, color: tone(paused: paused, rest: rest))
+
+    case (.shelf, _):
+      drawShelf()
     }
   }
 
@@ -1452,6 +1492,26 @@ final class NotchIndicatorView: NSView {
   private func tone(paused: Bool, rest: Bool) -> NSColor {
     if paused { return palette.textTertiary }
     return rest ? palette.textSecondary : palette.accent
+  }
+
+  /// A bandeja da prateleira, o mesmo desenho que o Nest tem no menu e no Hub
+  /// — aqui pelo símbolo do sistema, porque a ilha não tem os caminhos do
+  /// `EgIcon`, e a bandeja do SF Symbols é o mesmo objeto.
+  private func drawShelf() {
+    let size = min(bounds.height, 14)
+    let configuration = NSImage.SymbolConfiguration(pointSize: size, weight: .medium)
+      .applying(.init(paletteColors: [palette.textPrimary]))
+
+    guard let image = NSImage(systemSymbolName: "tray.full.fill", accessibilityDescription: nil)?
+      .withSymbolConfiguration(configuration)
+    else { return }
+
+    let rect = NSRect(
+      x: 0,
+      y: bounds.midY - image.size.height / 2,
+      width: image.size.width,
+      height: image.size.height)
+    image.draw(in: rect)
   }
 
   private func drawDot(paused: Bool) {

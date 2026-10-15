@@ -55,7 +55,7 @@ Os números, ajustados na mão:
   primeira versão pedia 200 ms parado lá em cima e nunca funcionou: um arraste
   que encosta na borda de cima abre o **Mission Control**, e o macOS ganhava a
   corrida. Na borda, em cima do furo, não há menu nem destino a confundir.
-- **A zona desce 24 pt abaixo da barra de menus**, com 150 ms de cursor
+- **A zona desce 48 pt abaixo da barra de menus**, com 150 ms de cursor
   **parado** (6 pt de tremor). Quem mira o recorte chega por baixo dele, e a
   prateleira sai antes de o cursor alcançar a borda — e o Mission Control com
   ela. É parado, e não tempo dentro da faixa, porque a faixa é a das abas de um
@@ -66,7 +66,7 @@ Os números, ajustados na mão:
 - **Nada conta antes de haver arquivo na mão**, nem o relógio da espera — o
   ícone de documento de uma janela maximizada cai nesta faixa, e um relógio
   começado antes do arraste já teria vencido quando ele nascesse.
-- **16 pt de folga de cada lado** do recorte. O cursor não entra no furo — ele
+- **60 pt de folga de cada lado** do recorte — a largura das asas da ilha. O cursor não entra no furo — ele
   para na borda —, e mirar a largura exata de algo sem pixel é pedir precisão
   que ninguém tem segurando um arquivo.
 
@@ -93,6 +93,52 @@ animação.
 **É a terceira porta do Nest**, e a regra que dizia "não há terceira porta"
 mudou de propósito: o que derrubou o recorte da primeira vez foi a janela
 própria que não recebia nada, e esta porta não tem janela própria.
+
+## A pilha mora no notch
+
+A prateleira que sai do notch não é a prateleira inteira: é **a pilha**
+(`NestNotchPile`) — preta, encostada no topo da tela, com os ombros côncavos da
+ilha, mostrando o monte (capa, contagem, peso, de onde veio), as quatro
+primeiras pastas favoritas como fichas (`⌘1 Clientes`) e "Abrir prateleira".
+Só o que se faz de passagem: mandar tudo para uma pasta, ou arrastar a pilha
+para fora. Escolher um a um, tirar, desfazer e o resto ficam na prateleira
+completa, a um clique. **Quem decide o formato é a âncora do notch**
+(`OverlayWindow.notchAnchor`): saindo do recorte, a pilha; no lugar de sempre,
+a prateleira. "Abrir prateleira" só reposiciona a janela, e a âncora some com o
+reposicionamento.
+
+**Uma regra cobre todos os caminhos:** com notch, **enquanto a prateleira tem
+arquivo, fechar o Nest nunca o faz sumir — ele recolhe para o notch.** A ilha
+mostra a bandeja numa asa e a contagem na outra sempre que há arquivo e o
+painel do Nest não está na tela (`NotchActivity.nest`). Esc, mouse saindo,
+atalho: nenhum caminho precisa de caso especial, porque esconder a janela já é
+o que traz a pilha de volta ao notch. Esvaziou (tudo enviado, ou tirado), a
+ilha do Nest some.
+
+| Situação | O que acontece |
+|---|---|
+| Arquivo levado ao notch, solto, mouse fora | A pilha recolhe para a ilha em 1,5 s |
+| Mouse em cima da ilha do Nest | A pilha sai do notch; mouse fora, recolhe |
+| `⌘⇧R` com arquivos | A pilha pelo notch, com o teclado; recolhe em 3 s se o mouse não for até ela |
+| `⌘⇧R` com a prateleira vazia | A prateleira de sempre, no centro |
+| Chacoalhar | A prateleira embaixo do cursor, como antes; fechada com arquivos, vai para o notch |
+| Mac sem notch, ou "Abrir pelo notch" desligado | Tudo como antes |
+
+- **Duas janelas, uma de cada lado.** A ilha recolhida é nativa; a pilha
+  aberta é a janela 0 — a que recebe o arraste do Finder e deixa arrastar a
+  pilha para fora. O mouse em cima da ilha do Nest não abre a ilha: pede a
+  pilha ao Dart (`opensOnHover`).
+- **Quando recolher** vem do relógio nativo que já segue o cursor para o
+  clique atravessar a janela (`NestChannel.onPointerInside`). Com o botão do
+  mouse apertado conta como dentro: o arquivo a caminho passa por fora da
+  pilha, pela barra de menus.
+- **O teclado só pelo atalho.** Pelo mouse ou pelo arraste a pilha aparece sem
+  pegar o teclado (`OverlayWindowChannel.show(keyboard: false)`) — passar pelo
+  notch não pode roubar as teclas de quem digita em outro app. Um clique nela a
+  torna key, como qualquer painel.
+- **Prioridade na ilha: Echo > Nest > Focus.** A pilha é curta e precisa ser
+  vista; o foco dura 25 minutos e aguenta ceder a vez. Com o Echo gravando, a
+  pilha fica escondida, e o `⌘⇧R` continua mostrando.
 
 ## A vitrine: a ilha do notch
 

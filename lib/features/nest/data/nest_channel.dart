@@ -46,6 +46,7 @@ class NestChannel {
   final _shakes = StreamController<void>.broadcast();
   final _notch = StreamController<void>.broadcast();
   final _notchDragEnded = StreamController<void>.broadcast();
+  final _pointerInside = StreamController<bool>.broadcast();
 
   /// Caminhos soltos sobre o painel.
   Stream<List<String>> get onDropped => _dropped.stream;
@@ -74,6 +75,13 @@ class NestChannel {
   /// O arraste que chamou a prateleira pelo notch terminou — solto nela ou em
   /// qualquer outro lugar.
   Stream<void> get onNotchDragEnded => _notchDragEnded.stream;
+
+  /// O cursor entrou (`true`) ou saiu (`false`) do painel do Nest na tela.
+  ///
+  /// Com o botão do mouse apertado conta como dentro: no meio de um arraste o
+  /// cursor passa por fora do painel a caminho dele. É o que diz à pilha do
+  /// notch quando recolher.
+  Stream<bool> get onPointerInside => _pointerInside.stream;
 
   /// O arraste que saiu da prateleira terminou: com o que o destino fez, ou
   /// `null` quando ele foi solto em lugar nenhum.
@@ -111,6 +119,10 @@ class NestChannel {
 
         case 'onNotchDragEnded':
           if (!_notchDragEnded.isClosed) _notchDragEnded.add(null);
+
+        case 'onPointerInside':
+          final inside = arguments?['inside'] as bool? ?? false;
+          if (!_pointerInside.isClosed) _pointerInside.add(inside);
 
         case 'onThumbnail':
           final path = arguments?['path'] as String?;
@@ -211,6 +223,7 @@ class NestChannel {
     _shakes.close();
     _notch.close();
     _notchDragEnded.close();
+    _pointerInside.close();
     _dragOver.close();
     _thumbnails.close();
   }

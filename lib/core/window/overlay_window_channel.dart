@@ -14,9 +14,12 @@ abstract final class OverlayWindowChannel {
   /// Devolve `false` quando o lado nativo não respondeu — em teste, onde ele
   /// não existe, ou numa janela que ainda não nasceu. Quem chama decide o que
   /// fazer com isso; engolir em silêncio aqui seria um atalho que não abre.
-  static Future<bool> show() async {
+  ///
+  /// Com [keyboard] falso, só põe na frente — ver
+  /// `OverlayWindowChannel.show` no Swift.
+  static Future<bool> show({bool keyboard = true}) async {
     try {
-      await _channel.invokeMethod('show');
+      await _channel.invokeMethod('show', {'keyboard': keyboard});
       return true;
     } on PlatformException {
       return false;

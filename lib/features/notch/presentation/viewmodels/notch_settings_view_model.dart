@@ -36,7 +36,11 @@ class NotchSettingsViewModel extends Notifier<NotchSettings> {
 
     switch (module) {
       case NotchModule.nest:
+        // A porta (o arquivo levado até o notch) e a pilha que espera nele.
         await ref.read(nestChannelProvider).setNotchEnabled(enabled: enabled);
+        await ref
+            .read(notchIslandChannelProvider)
+            .setEnabled(module, enabled: enabled);
       case NotchModule.echo:
       case NotchModule.focus:
         await ref

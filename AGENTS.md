@@ -136,7 +136,12 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   arraste**, e saiu porque ela nunca recebeu nada — esta porta não tem janela
   própria. Ver
   [docs/Ideis projeto/nest-prateleira-de-arquivos.md](docs/Ideis%20projeto/nest-prateleira-de-arquivos.md)
-  e [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
+  e [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md). **Com notch,
+  a pilha mora nele**: saindo do recorte o painel do Nest é a pilha
+  (`NestNotchPile`), e não a prateleira — quem decide o formato é a âncora do
+  notch —, e fechar o Nest com arquivos nunca o faz sumir: esconder a janela
+  já traz a bandeja e a contagem para a ilha. O `⌘⇧R` com arquivos mostra a
+  pilha pelo notch; vazio, a prateleira de sempre.
 - **`NSPanel` nativa sem engine** (`NotchIsland.swift`, canal `notch_island`)
   — a ilha do notch: o Echo gravando e o Focus contando aparecem em volta do
   recorte, e abrem com o mouse em cima para pausar e parar. **É a única

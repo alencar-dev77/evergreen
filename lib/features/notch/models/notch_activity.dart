@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../shared/utils/duration_format.dart';
 import '../../echo/presentation/viewmodels/echo_recorder_state.dart';
 import '../../focus/presentation/viewmodels/focus_timer_state.dart';
+import '../../nest/presentation/viewmodels/nest_state.dart';
 import 'notch_settings.dart';
 
 /// Um botão da ilha do notch.
@@ -51,6 +52,7 @@ class NotchActivity {
     this.isRecording = false,
     this.progress = 0,
     this.isRest = false,
+    this.isShelf = false,
     this.mic = const [],
     this.system = const [],
     this.transcript,
@@ -130,18 +132,51 @@ class NotchActivity {
     );
   }
 
+  /// A pilha do Nest esperando para ser mandada, ou `null` sem arquivo.
+  ///
+  /// [onScreen] é o painel do Nest à vista: com ele aberto, a ilha não repete
+  /// o que está logo embaixo dela. Fechar o painel com arquivos é o que traz a
+  /// pilha de volta para o notch — por qualquer caminho, Esc, mouse saindo ou
+  /// atalho, sem caso especial para nenhum.
+  static NotchActivity? nest(NestState state, {required bool onScreen}) {
+    if (state.isEmpty || onScreen) return null;
+
+    final count = state.items.length;
+
+    return NotchActivity._(
+      module: NotchModule.nest,
+      isShelf: true,
+      isPaused: false,
+      title: 'Nest',
+      detail: count == 1 ? '1 arquivo' : '$count arquivos',
+      clock: '$count',
+      actions: const [],
+    );
+  }
+
   /// Tudo o que está rodando, na ordem em que a ilha prefere mostrar.
   ///
-  /// **A reunião ganha do foco.** A ilha mostra uma coisa só — duas dividindo
-  /// as asas não caberiam, e um relógio de cada lado não diria qual é qual —,
-  /// e uma gravação esquecida rodando é o erro que custa mais caro. A lista vai
-  /// inteira para o lado nativo, e não só o primeiro: quem desligou o Echo no
-  /// notch ainda quer ver o Focus quando os dois estão de pé, e quem sabe o que
-  /// está ligado no notch é o lado nativo (o Hub o avisa direto).
+  /// **A reunião ganha de tudo, e a pilha ganha do foco.** A ilha mostra uma
+  /// coisa só — duas dividindo as asas não caberiam, e um relógio de cada lado
+  /// não diria qual é qual. Uma gravação esquecida rodando é o erro que custa
+  /// mais caro. A pilha vem antes do foco porque é curta (vai ser mandada em
+  /// seguida) e precisa ser vista; a sessão de foco dura 25 minutos e aguenta
+  /// ceder a vez.
+  ///
+  /// A lista vai inteira para o lado nativo, e não só o primeiro: quem
+  /// desligou o Echo no notch ainda quer ver o resto quando tudo está de pé, e
+  /// quem sabe o que está ligado no notch é o lado nativo (o Hub o avisa
+  /// direto).
   static List<NotchActivity> running({
     required EchoRecorderState echo,
     required FocusTimerState focus,
-  }) => [?NotchActivity.echo(echo), ?NotchActivity.focus(focus)];
+    NestState? nest,
+    bool nestOnScreen = false,
+  }) => [
+    ?NotchActivity.echo(echo),
+    if (nest != null) ?NotchActivity.nest(nest, onScreen: nestOnScreen),
+    ?NotchActivity.focus(focus),
+  ];
 
   final NotchModule module;
   final String title;
@@ -162,6 +197,10 @@ class NotchActivity {
   /// A fase é a pausa do ciclo, não o foco.
   final bool isRest;
 
+  /// A bandeja do Nest, em vez do ponto ou do anel. O mouse em cima pede o
+  /// painel do Nest, em vez de abrir a ilha (`opensOnHover`).
+  final bool isShelf;
+
   /// As bandas do equalizador do Echo, uma lista por faixa.
   final List<double> mic;
   final List<double> system;
@@ -172,7 +211,12 @@ class NotchActivity {
 
   Map<String, Object?> toMap() => {
     'module': module.id,
-    'indicator': isRecording ? 'recording' : 'progress',
+    'indicator': isShelf
+        ? 'shelf'
+        : isRecording
+        ? 'recording'
+        : 'progress',
+    'opensOnHover': isShelf,
     'paused': isPaused,
     'progress': progress,
     'rest': isRest,
@@ -208,6 +252,7 @@ class NotchActivity {
       other.isRecording == isRecording &&
       other.progress == progress &&
       other.isRest == isRest &&
+      other.isShelf == isShelf &&
       listEquals(other.actions, actions) &&
       listEquals(other.mic, mic) &&
       listEquals(other.system, system) &&
@@ -223,6 +268,7 @@ class NotchActivity {
     isRecording,
     progress,
     isRest,
+    isShelf,
     Object.hashAll(actions),
     Object.hashAll(mic),
     Object.hashAll(system),

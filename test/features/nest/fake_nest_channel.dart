@@ -17,6 +17,7 @@ class FakeNestChannel implements NestChannel {
   final _shakes = StreamController<void>.broadcast();
   final _notch = StreamController<void>.broadcast();
   final _notchDragEnded = StreamController<void>.broadcast();
+  final _pointerInside = StreamController<bool>.broadcast();
 
   /// A pasta que o seletor devolve; `null` é "cancelou".
   String? folderToChoose;
@@ -54,6 +55,9 @@ class FakeNestChannel implements NestChannel {
   /// Solta o arraste que veio do notch.
   void endNotchDrag() => _notchDragEnded.add(null);
 
+  /// O cursor entra ou sai do painel, como o lado nativo avisaria.
+  void movePointer({required bool inside}) => _pointerInside.add(inside);
+
   /// Termina o arraste para fora, como o destino faria.
   void endDragOut(NestTransferMode? operation) => _dragOutEnded.add(operation);
 
@@ -77,6 +81,9 @@ class FakeNestChannel implements NestChannel {
 
   @override
   Stream<void> get onNotchDragEnded => _notchDragEnded.stream;
+
+  @override
+  Stream<bool> get onPointerInside => _pointerInside.stream;
 
   @override
   void listen() {}
@@ -136,5 +143,6 @@ class FakeNestChannel implements NestChannel {
     _shakes.close();
     _notch.close();
     _notchDragEnded.close();
+    _pointerInside.close();
   }
 }

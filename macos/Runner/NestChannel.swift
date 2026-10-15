@@ -307,6 +307,7 @@ class NestChannel: NSObject {
     guard rect != nil else {
       cursorTimer?.invalidate()
       cursorTimer = nil
+      pointerInside = nil
       overlayWindow?.ignoresMouseEvents = false
       return
     }
@@ -330,9 +331,22 @@ class NestChannel: NSObject {
       guard let window = overlayWindow, let rect = interactiveRect else { return }
 
       let panel = window.convertToScreen(rect)
-      window.ignoresMouseEvents = !panel.contains(NSEvent.mouseLocation)
+      let inside = NSMouseInRect(NSEvent.mouseLocation, panel, false)
+      window.ignoresMouseEvents = !inside
+
+      // "Dentro" para o Dart também é o botão apertado: no meio de um arraste o
+      // cursor passa por fora do painel — pela barra de menus, a caminho dele —,
+      // e a pilha do notch não pode recolher com o arquivo ainda na mão.
+      let holding = inside || NSEvent.pressedMouseButtons & 1 != 0
+      if holding != pointerInside {
+        pointerInside = holding
+        overlayChannel?.invokeMethod("onPointerInside", arguments: ["inside": holding])
+      }
     }
   }
+
+  /// O último "dentro do painel?" avisado ao Dart. Ver [followCursor].
+  private static var pointerInside: Bool?
 
   /// Converte o retângulo que o Flutter mede — origem no canto superior
   /// esquerdo — para o do AppKit, com a origem embaixo.

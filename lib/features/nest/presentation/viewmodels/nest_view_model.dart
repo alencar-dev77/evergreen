@@ -253,6 +253,17 @@ class NestViewModel extends Notifier<NestState> {
     state = state.copyWith(selection: {index}, cursor: index);
   }
 
+  /// Esquece a escolha: volta a valer a prateleira inteira.
+  ///
+  /// É o que a pilha do notch pede ao aparecer — ela mostra e manda **tudo**,
+  /// e uma escolha deixada na prateleira completa faria o `⌘1` da pilha mandar
+  /// só dois de cinco sem que a pilha mostrasse quais.
+  void clearSelection() {
+    if (state.selection.isEmpty) return;
+
+    state = state.copyWith(clearSelection: true);
+  }
+
   void selectAll() {
     if (state.isEmpty) return;
 
