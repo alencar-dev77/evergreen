@@ -1,3 +1,5 @@
+import 'package:evergreen/core/design/app_theme.dart';
+import 'package:evergreen/core/window/overlay_window.dart';
 import 'package:evergreen/shared/widgets/eg_overlay_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -227,6 +229,71 @@ void main() {
       await tester.pump();
 
       expect(closed, 0);
+    });
+  });
+
+  group('saindo do notch', () {
+    tearDown(OverlayWindow.instance.resetForTest);
+
+    Future<void> pumpAtNotch(WidgetTester tester) async {
+      OverlayWindow.instance.notchAnchor.value = const Size(220, 38);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(),
+          home: EgOverlayShell(onClose: () {}, child: const _Painel()),
+        ),
+      );
+    }
+
+    testWidgets('o painel encosta logo abaixo do recorte, centrado nele', (
+      tester,
+    ) async {
+      await pumpAtNotch(tester);
+      await tester.pumpAndSettle();
+
+      final panel = tester.getRect(find.byKey(const Key('painel')));
+      final screen = tester.getRect(find.byType(EgOverlayShell));
+
+      expect(panel.top, 38 + 8);
+      expect(panel.center.dx, screen.center.dx);
+    });
+
+    testWidgets('entra crescendo do recorte, e termina sem pílula nenhuma', (
+      tester,
+    ) async {
+      await pumpAtNotch(tester);
+
+      // No meio da entrada a pílula está desenhada por cima do painel.
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(
+        find.descendant(
+          of: find.byType(EgOverlayShell),
+          matching: find.byType(CustomPaint),
+        ),
+        findsWidgets,
+      );
+
+      await tester.pumpAndSettle();
+      expect(
+        find.ancestor(
+          of: find.byKey(const Key('painel')),
+          matching: find.byType(Opacity),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('sem o notch, o painel volta ao centro', (tester) async {
+      await pumpAtNotch(tester);
+      await tester.pumpAndSettle();
+
+      OverlayWindow.instance.notchAnchor.value = null;
+      await tester.pump();
+
+      final panel = tester.getRect(find.byKey(const Key('painel')));
+      final screen = tester.getRect(find.byType(EgOverlayShell));
+      expect(panel.center, screen.center);
     });
   });
 }

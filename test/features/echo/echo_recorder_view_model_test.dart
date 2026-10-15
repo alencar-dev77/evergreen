@@ -200,6 +200,14 @@ void main() {
 
     expect(channel.startedWithLiveTranscription, isTrue);
     expect(channel.startedWithLocale, 'en-US');
+    // A gravação guarda o que pediu: é a pergunta da ilha do notch.
+    expect(state().isTranscribingLive, isTrue);
+  });
+
+  test('sem transcrição ao vivo, a gravação diz que não transcreve', () async {
+    await viewModel().start();
+
+    expect(state().isTranscribingLive, isFalse);
   });
 
   test('o texto ao vivo não passa dos últimos trechos', () async {

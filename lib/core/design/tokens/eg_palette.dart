@@ -55,6 +55,7 @@ class EgPalette {
     required this.shadow,
     required this.shadowContact,
     required this.scrim,
+    required this.notch,
   });
 
   /// O topo do degradê da janela — o "chão" de tudo que não é superfície.
@@ -164,6 +165,12 @@ class EgPalette {
   final Color shadowContact;
   final Color scrim;
 
+  /// O preto do recorte da câmera. Não é um degrau de neutro: é a cor do
+  /// hardware, e quem a usa é a ilha do notch, que precisa continuar o recorte
+  /// sem emenda — um `canvasDeep` ao lado do preto do vidro desenha a borda que
+  /// a ilha existe para não ter.
+  final Color notch;
+
   static EgPalette lerp(EgPalette a, EgPalette b, double t) => EgPalette(
     canvas: Color.lerp(a.canvas, b.canvas, t)!,
     canvasDeep: Color.lerp(a.canvasDeep, b.canvasDeep, t)!,
@@ -201,5 +208,6 @@ class EgPalette {
     shadow: Color.lerp(a.shadow, b.shadow, t)!,
     shadowContact: Color.lerp(a.shadowContact, b.shadowContact, t)!,
     scrim: Color.lerp(a.scrim, b.scrim, t)!,
+    notch: Color.lerp(a.notch, b.notch, t)!,
   );
 }

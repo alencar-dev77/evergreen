@@ -103,6 +103,14 @@ abstract final class AppDurations {
   /// Transições de layout.
   static const medium = Duration(milliseconds: 220);
 
+  /// A prateleira saindo do notch: a pílula preta cresce do recorte até o
+  /// tamanho do painel e se dissolve nele.
+  ///
+  /// No teto da faixa de transição de painel (`motion.md`: 180–260ms), e não no
+  /// [medium]: são dois movimentos num só — crescer e virar painel —, e em
+  /// 220ms o segundo vira um piscar.
+  static const notchReveal = Duration(milliseconds: 260);
+
   /// O assentamento no fim de um movimento que "trava".
   ///
   /// É o único spring do Evergreen, e o `motion.md` libera exatamente um: a

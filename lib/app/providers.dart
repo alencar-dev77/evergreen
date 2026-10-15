@@ -35,6 +35,8 @@ import '../features/nest/data/nest_channel.dart';
 import '../features/nest/data/nest_file_service.dart';
 import '../features/nest/data/nest_settings_repository.dart';
 import '../features/nest/data/nest_transfer_repository.dart';
+import '../features/notch/data/notch_island_channel.dart';
+import '../features/notch/data/notch_settings_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
 import '../features/pin/data/pin_image_store.dart';
@@ -209,6 +211,18 @@ final nestChannelProvider = Provider<NestChannel>((ref) {
 
 final nestSettingsRepositoryProvider = Provider<NestSettingsRepository>(
   (ref) => NestSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+/// A conversa com a ilha do notch. Provider pelo motivo de sempre: o teste
+/// troca por uma imitação, sem janela nativa.
+final notchIslandChannelProvider = Provider<NotchIslandChannel>((ref) {
+  final channel = NotchIslandChannel();
+  ref.onDispose(channel.dispose);
+  return channel;
+});
+
+final notchSettingsRepositoryProvider = Provider<NotchSettingsRepository>(
+  (ref) => NotchSettingsRepository(ref.watch(sharedPreferencesProvider)),
 );
 
 final nestTransferRepositoryProvider = Provider<NestTransferRepository>(

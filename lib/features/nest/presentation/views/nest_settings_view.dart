@@ -15,6 +15,8 @@ import '../../models/nest_settings.dart';
 import '../../models/nest_transfer_mode.dart';
 import '../viewmodels/nest_settings_view_model.dart';
 import '../widgets/nest_destination_list.dart';
+import '../../../notch/models/notch_settings.dart';
+import '../../../notch/presentation/widgets/notch_toggle_row.dart';
 
 /// Tela do Nest dentro do Hub.
 ///
@@ -56,6 +58,14 @@ class NestSettingsView extends ConsumerWidget {
                 onChanged: (value) =>
                     unawaited(viewModel.setUseShake(enabled: value)),
               ),
+              if (NotchToggleRow.isAvailable(ref))
+                const NotchToggleRow(
+                  module: NotchModule.nest,
+                  label: 'Abrir pelo notch',
+                  description:
+                      'Pare com um arquivo em cima do notch e a prateleira sai '
+                      'dele.',
+                ),
               EgSettingsRow(
                 label: 'Ao enviar para uma pasta',
                 description:

@@ -288,3 +288,9 @@ a prateleira, com os cantos arredondados continuando o desenho do hardware. Isso
 exige um engine Flutter residente a mais e a geometria animada de fora — uma
 segunda superfície viva, que é exatamente o que a regra da casa proíbe. Se um
 dia valer a pena, é uma conversa nova.
+
+**Valeu, por outro caminho.** O notch voltou como terceira porta sem janela
+própria: o relógio do chacoalhar pergunta se o cursor está no recorte, e a
+prateleira que aparece é a de sempre, na janela 0, posta embaixo dele. A pílula
+que cresce do recorte é desenhada pela casca do painel durante a entrada, e não
+por um engine a mais. Ver [notch.md](notch.md).

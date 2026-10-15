@@ -90,7 +90,11 @@ class NestChannel: NSObject {
 
       switch call.method {
       case "setShakeEnabled":
-        NestShakeMonitor.setEnabled(arguments?["enabled"] as? Bool ?? false)
+        NestDragMonitor.setShakeEnabled(arguments?["enabled"] as? Bool ?? false)
+        result(nil)
+
+      case "setNotchEnabled":
+        NestDragMonitor.setNotchEnabled(arguments?["enabled"] as? Bool ?? false)
         result(nil)
 
       case "setDropEnabled":
@@ -362,7 +366,7 @@ class NestChannel: NSObject {
     }
   }
 
-  /// Alguém chacoalhou um arquivo. Ver `NestShakeMonitor`.
+  /// Alguém chacoalhou um arquivo. Ver `NestDragMonitor`.
   ///
   /// Com o `NSLog` de guarda pelo mesmo motivo do [report(paths:)]: sem canal, o
   /// gesto morre aqui sem erro nenhum, e a falha deste módulo é sempre
@@ -375,6 +379,27 @@ class NestChannel: NSObject {
       }
 
       channel.invokeMethod("onShake", arguments: nil)
+    }
+  }
+
+  /// Alguém parou com um arquivo no notch. Ver `NestDragMonitor`.
+  static func reportNotch() {
+    DispatchQueue.main.async {
+      guard let channel = overlayChannel else {
+        NSLog("[Nest] notch sem canal para avisar o Dart.")
+        return
+      }
+
+      channel.invokeMethod("onNotch", arguments: nil)
+    }
+  }
+
+  /// O arraste que chamou a prateleira pelo notch terminou — com o arquivo
+  /// solto nela ou em qualquer outro lugar. Quem decide se ela fica é o Dart,
+  /// que sabe se alguma coisa chegou.
+  static func reportNotchDragEnded() {
+    DispatchQueue.main.async {
+      overlayChannel?.invokeMethod("onNotchDragEnded", arguments: nil)
     }
   }
 
