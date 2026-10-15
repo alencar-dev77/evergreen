@@ -55,6 +55,12 @@ enum NestDragMonitor {
   /// quadro.
   private static var hasFiles = false
 
+  /// O `changeCount` em que a resposta foi "não" — arraste de texto, de
+  /// imagem. Vale só enquanto a área de transferência não mudar: quem arrasta
+  /// escreve nela em dois passos (limpa, depois põe os itens), e um "não"
+  /// lido entre os dois, guardado de vez, mataria o gesto do arraste inteiro.
+  private static var noFilesAtCount: Int?
+
   private static var lastPoint: NSPoint?
 
   /// A perna atual: a soma dos movimentos que ainda seguem na mesma direção.
@@ -77,8 +83,14 @@ enum NestDragMonitor {
   /// e aí o gesto simplesmente não existe.
   private static var notchZone: NSRect?
 
-  /// Desde quando o cursor está parado dentro do recorte, com arquivo na mão.
+  /// Desde quando o cursor está parado dentro do recorte, com arquivo na mão,
+  /// e onde ele parou.
   private static var notchSince: TimeInterval?
+  private static var notchAnchor: NSPoint?
+
+  /// A borda de cima da tela do recorte é parede — não há outra tela
+  /// encostada acima dele. Ver [notchDwell].
+  private static var notchEdgeIsWall = false
 
   // MARK: - Os números do chacoalhar
 
@@ -98,12 +110,27 @@ enum NestDragMonitor {
 
   // MARK: - Os números do notch
 
-  /// Quanto o arquivo precisa ficar no recorte para a prateleira sair dele.
+  /// Quanto o arquivo precisa ficar na zona do recorte para a prateleira sair
+  /// dele.
   ///
-  /// É o que separa quem levou o arquivo até ali de quem só passou a caminho
-  /// da barra de menus: o caminho até um menu atravessa o recorte em poucos
-  /// quadros, e quem quer a prateleira para em cima dele.
-  private static let notchDwell: TimeInterval = 0.2
+  /// É espera de cursor **parado** (ver [notchStill]), e não de tempo dentro
+  /// da faixa: a faixa abaixo da barra de menus é a das abas de um navegador
+  /// maximizado, e deslizar o arquivo por elas passaria de qualquer espera.
+  ///
+  /// **Encostar no topo da tela não espera nada — quando o topo é parede**
+  /// (ver [edgeIsWall]). Um arraste que encosta na
+  /// borda de cima abre o Mission Control — o macOS ganhava a corrida dos
+  /// 200 ms da primeira versão, e a prateleira nunca saía. Na borda, dentro da
+  /// largura do recorte, não há menu nem destino nenhum a confundir: é o furo
+  /// da câmera, e chegar até ele já é a intenção inteira.
+  private static let notchDwell: TimeInterval = 0.15
+
+  /// Quanto abaixo da barra de menus a zona ainda vale.
+  ///
+  /// Quem mira o recorte chega por baixo dele, e a prateleira sai antes de o
+  /// cursor alcançar a borda — e com ela o Mission Control. É também onde a
+  /// prateleira aparece, então o arquivo já chega em cima dela.
+  private static let notchApproach: CGFloat = 24
 
   /// A folga de cada lado do recorte. O cursor não tem como entrar *no* furo —
   /// ele para na borda da tela —, e mirar a largura exata de um objeto que não
@@ -168,7 +195,9 @@ enum NestDragMonitor {
     stop()
 
     dragCountAtDown = dragPasteboard.changeCount
-    notchZone = isNotchEnabled ? zone(around: NotchGeometry.current()) : nil
+    let notch = isNotchEnabled ? NotchGeometry.current() : nil
+    notchZone = zone(around: notch)
+    notchEdgeIsWall = notch.map(edgeIsWall) ?? false
 
     sampler = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
       sample()
@@ -186,8 +215,10 @@ enum NestDragMonitor {
     hasFired = false
     firedByNotch = false
     hasFiles = false
+    noFilesAtCount = nil
     notchZone = nil
     notchSince = nil
+    notchAnchor = nil
 
     // A prateleira que saiu do notch precisa saber que o arraste acabou: solto
     // em lugar nenhum, com ela vazia, ela volta para onde veio.
@@ -225,15 +256,60 @@ enum NestDragMonitor {
       return
     }
 
-    let now = Date.timeIntervalSinceReferenceDate
-
-    guard let since = notchSince else {
-      notchSince = now
+    // Nada conta antes de haver arquivo na mão — nem o relógio da espera.
+    // Começado antes, ele já teria vencido quando o arraste nascesse, e o
+    // ícone de documento de uma janela maximizada, que cai nesta faixa,
+    // chamaria a prateleira no primeiro quadro do arraste.
+    guard hasFilesInHand() else {
+      notchSince = nil
       return
     }
 
-    guard now - since >= notchDwell, hasFilesInHand() else { return }
+    // Na borda de cima, sem espera: ver [notchDwell].
+    if notchEdgeIsWall, point.y >= zone.maxY - 1 {
+      fireNotch()
+      return
+    }
 
+    let now = Date.timeIntervalSinceReferenceDate
+
+    // A espera é de cursor **parado**, não de tempo dentro da faixa: deslizar
+    // o arquivo pelas abas do navegador, logo abaixo da barra de menus, passa
+    // de 150 ms na faixa sem querer prateleira nenhuma. Andou mais que a
+    // tolerância, o relógio recomeça de onde ele está agora.
+    if let anchor = notchAnchor, hypot(point.x - anchor.x, point.y - anchor.y) > notchStill {
+      notchSince = nil
+    }
+
+    guard let since = notchSince else {
+      notchSince = now
+      notchAnchor = point
+      return
+    }
+
+    guard now - since >= notchDwell else { return }
+    fireNotch()
+  }
+
+  /// O quanto a mão pode tremer e ainda contar como parada.
+  private static let notchStill: CGFloat = 6
+
+  /// Há outra tela encostada acima do recorte? Com um monitor posto em cima do
+  /// MacBook, a borda de cima é passagem, e não parede: o cursor a atravessa a
+  /// caminho do outro monitor, e não há Mission Control para correr dele.
+  private static func edgeIsWall(_ notch: NotchGeometry) -> Bool {
+    let top = notch.screen.frame.maxY
+    let span = notch.rect.insetBy(dx: -notchSlack, dy: 0)
+
+    return !NSScreen.screens.contains { screen in
+      screen !== notch.screen
+        && abs(screen.frame.minY - top) < 1
+        && screen.frame.maxX > span.minX
+        && screen.frame.minX < span.maxX
+    }
+  }
+
+  private static func fireNotch() {
     hasFired = true
     firedByNotch = true
     // A ilha sai do caminho enquanto este arraste durar: ela fica acima da
@@ -243,15 +319,16 @@ enum NestDragMonitor {
     NestChannel.reportNotch()
   }
 
-  /// A faixa que conta como "dentro do recorte": a largura dele mais a folga, e
-  /// a altura inteira da barra de menus.
-  ///
-  /// A altura inteira, e não só a borda: o cursor encosta no topo da tela, mas
-  /// quem arrasta um arquivo para cima raramente o leva até o último pixel.
+  /// A faixa que conta como "no recorte": a largura dele mais a folga, a
+  /// altura inteira da barra de menus e mais [notchApproach] abaixo dela.
   private static func zone(around notch: NotchGeometry?) -> NSRect? {
     guard let notch = notch else { return nil }
 
-    return notch.rect.insetBy(dx: -notchSlack, dy: 0)
+    var zone = notch.rect.insetBy(dx: -notchSlack, dy: 0)
+    zone.origin.y -= notchApproach
+    zone.size.height += notchApproach
+
+    return zone
   }
 
   // MARK: - O chacoalhar
@@ -295,12 +372,14 @@ enum NestDragMonitor {
   private static func hasFilesInHand() -> Bool {
     if hasFiles { return true }
 
-    guard dragPasteboard.changeCount != dragCountAtDown else { return false }
+    let count = dragPasteboard.changeCount
+    guard count != dragCountAtDown, count != noFilesAtCount else { return false }
 
     hasFiles = dragPasteboard.canReadObject(
       forClasses: [NSURL.self],
       options: [.urlReadingFileURLsOnly: true]
     )
+    if !hasFiles { noFilesAtCount = count }
 
     return hasFiles
   }

@@ -126,8 +126,10 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   descendo, que acontece antes do arraste. Só dispara com arquivo na mão
   (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta
   em que o painel vai até o cursor em vez do contrário
-  (`OverlayWindow.positionForCursor`). A terceira porta é **parar o arquivo
-  no notch** por 200 ms: o mesmo relógio do chacoalhar pergunta se o cursor
+  (`OverlayWindow.positionForCursor`). A terceira porta é **levar o arquivo
+  ao notch** (na borda de cima dispara na hora, porque o Mission Control abre
+  ali — salvo com outro monitor encostado acima; na faixa logo abaixo, com
+  150 ms de cursor parado): o mesmo relógio do chacoalhar pergunta se o cursor
   está no recorte, e quem recebe o arquivo continua sendo a janela 0, posta
   com o topo no topo da tela (`OverlayWindowChannel.positionAtNotch`). O
   recorte já tinha sido tentado com **uma janela própria recebendo o
