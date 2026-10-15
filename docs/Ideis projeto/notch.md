@@ -49,13 +49,26 @@ recebeu nada. Esta não tenta receber o arraste no recorte:
    prateleira aparece logo abaixo da barra de menus, e o arquivo, que já estava
    ali em cima, desce até ela.
 
-Os números, para ajustar na mão:
+Os números, ajustados na mão:
 
-- **200 ms parado no recorte** com arquivo na mão. Quem passa por ali a caminho
-  de um menu atravessa em poucos quadros; quem quer a prateleira para.
-- **16 pt de folga de cada lado** do recorte, na altura inteira da barra de
-  menus. O cursor não entra no furo — ele para na borda —, e mirar a largura
-  exata de algo sem pixel é pedir precisão que ninguém tem segurando um arquivo.
+- **Encostar no topo, dentro da largura do recorte, dispara na hora.** A
+  primeira versão pedia 200 ms parado lá em cima e nunca funcionou: um arraste
+  que encosta na borda de cima abre o **Mission Control**, e o macOS ganhava a
+  corrida. Na borda, em cima do furo, não há menu nem destino a confundir.
+- **A zona desce 24 pt abaixo da barra de menus**, com 150 ms de cursor
+  **parado** (6 pt de tremor). Quem mira o recorte chega por baixo dele, e a
+  prateleira sai antes de o cursor alcançar a borda — e o Mission Control com
+  ela. É parado, e não tempo dentro da faixa, porque a faixa é a das abas de um
+  navegador maximizado: deslizar o arquivo por elas passaria dos 150 ms.
+- **A borda só é parede quando é parede.** Com um monitor posto acima do
+  MacBook, o cursor atravessa o topo a caminho dele; aí a borda não dispara
+  sozinha, e vale a espera de parado como em qualquer ponto da zona.
+- **Nada conta antes de haver arquivo na mão**, nem o relógio da espera — o
+  ícone de documento de uma janela maximizada cai nesta faixa, e um relógio
+  começado antes do arraste já teria vencido quando ele nascesse.
+- **16 pt de folga de cada lado** do recorte. O cursor não entra no furo — ele
+  para na borda —, e mirar a largura exata de algo sem pixel é pedir precisão
+  que ninguém tem segurando um arquivo.
 
 **Desistir recolhe.** Se o arraste que chamou a prateleira acaba sem nada
 solto nela — de volta no Finder, ou em lugar nenhum —, ela some sozinha
