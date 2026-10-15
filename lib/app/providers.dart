@@ -37,6 +37,7 @@ import '../features/nest/data/nest_settings_repository.dart';
 import '../features/nest/data/nest_transfer_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
+import '../features/pin/data/pin_image_store.dart';
 import '../features/pin/data/pin_settings_repository.dart';
 import '../features/track/data/track_repository.dart';
 import '../features/track/data/track_summarizer.dart';
@@ -145,6 +146,22 @@ final clipboardRepositoryProvider = Provider<ClipboardRepository>(
 
 final pinSettingsRepositoryProvider = Provider<PinSettingsRepository>(
   (ref) => PinSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+/// As imagens copiadas no Pin, na pasta `Pin/Imagens` do aplicativo.
+final pinImageStoreProvider = Provider<PinImageStore>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return LocalPinImageStore(
+    Directory(p.join(database.directoryPath, 'Pin', 'Imagens')),
+  );
+});
+
+final pinImageJanitorProvider = Provider<PinImageJanitor>(
+  (ref) => PinImageJanitor(
+    repository: ref.watch(clipboardRepositoryProvider),
+    store: ref.watch(pinImageStoreProvider),
+  ),
 );
 
 final clipboardWatcherProvider = Provider<ClipboardWatcher>((ref) {

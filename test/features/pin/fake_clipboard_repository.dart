@@ -132,5 +132,10 @@ class FakeClipboardRepository implements ClipboardRepository {
   }
 
   @override
+  Set<String> imageFiles() => {
+    for (final item in _items) ?item.image?.fileName,
+  };
+
+  @override
   void clearAll() => _items.removeWhere((it) => !it.isPinned);
 }

@@ -151,6 +151,9 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
     if (!confirmed) return;
 
     ref.read(clipboardRepositoryProvider).clearAll();
+    // As imagens das linhas que saíram, agora — e não só na próxima abertura
+    // do Evergreen.
+    ref.read(pinImageJanitorProvider).sweep();
   }
 }
 

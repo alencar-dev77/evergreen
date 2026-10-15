@@ -226,6 +226,7 @@ abstract final class EvergreenTokens {
     radiusControl: 12,
     radiusSegment: 9,
     radiusChip: 999,
+    radiusThumb: 4,
     hairline: 1,
     rowPaddingV: 9,
     rowPaddingH: 12,

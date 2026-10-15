@@ -17,6 +17,10 @@ enum ClipboardItemType {
   phone('Telefone', 'Telefones', EgIconData.phone),
   cpf('CPF', 'CPF', EgIconData.identityCard),
   cnpj('CNPJ', 'CNPJ', EgIconData.building),
+
+  /// Não sai do classificador: a imagem é reconhecida na captura, pelo tipo
+  /// do que está na área de transferência, e nunca pelo texto.
+  image('Imagem', 'Imagens', EgIconData.image),
   command('Comando', 'Comandos', EgIconData.terminal);
 
   const ClipboardItemType(this.label, this.filterLabel, this.icon);
@@ -32,6 +36,19 @@ enum ClipboardItemType {
 
   /// Ícone do badge de tipo.
   final EgIconData icon;
+
+  /// "copiado" ou "copiada" — o cabeçalho do preview concorda com o tipo:
+  /// "Imagem · copiada há 2 min", e não "copiado".
+  String get copied => this == image ? 'copiada' : 'copiado';
+
+  /// Tem pílula na fila de filtros do painel.
+  ///
+  /// Comando não tem, desde que a imagem entrou: o que se procura no
+  /// histórico de um gerenciador de área de transferência é a captura de
+  /// tela de ontem, e o comando continua achável pela busca e marcado pelo
+  /// ícone de terminal na linha. O tipo fica — é dele que o Track conta "6
+  /// comandos" no dia, e a tela de preferências ainda deixa de registrá-los.
+  bool get hasFilter => this != command;
 
   static ClipboardItemType fromName(String name) => values.firstWhere(
     (type) => type.name == name,

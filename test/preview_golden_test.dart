@@ -1,6 +1,8 @@
 @Tags(['preview'])
 library;
 
+import 'dart:ui' as ui;
+
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/app_database.dart';
@@ -31,6 +33,7 @@ import 'package:evergreen/features/nest/data/nest_transfer_repository.dart';
 import 'package:evergreen/features/nest/presentation/viewmodels/nest_view_model.dart';
 import 'package:evergreen/features/nest/presentation/views/nest_overlay_view.dart';
 import 'package:evergreen/features/pin/models/clipboard_item.dart';
+import 'package:evergreen/features/pin/models/pin_image.dart';
 import 'package:evergreen/features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_overlay_view.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
@@ -59,6 +62,7 @@ import 'golden_fonts.dart';
 import 'features/echo/fake_export_service.dart';
 import 'features/echo/fake_echo_audio.dart';
 import 'features/home/fake_disk_usage_service.dart';
+import 'features/pin/fake_pin_image_store.dart';
 
 /// Goldens usados como conferência visual do design durante o desenvolvimento.
 ///
@@ -74,12 +78,70 @@ const _hubWindow = Size(1960, 1360);
 /// A mesma janela com a região de leitura aberta: 980 + 480.
 const _hubWindowWithRegion = Size(2920, 1360);
 
+/// As imagens do Pin na folha de conferência — ver o `setUpAll` que desenha
+/// a captura.
+final pinImages = FakePinImageStore();
+
+const screenshot = PinImage(
+  fileName: 'captura.png',
+  width: 720,
+  height: 450,
+  byteSize: 48213,
+  name: 'Captura de Tela 2026-07-23 às 11.42.png',
+  path: '/Users/lucas/Desktop/Captura de Tela 2026-07-23 às 11.42.png',
+);
+
 void main() {
   setUpAll(loadGoldenFonts);
 
   // A versão da barra lateral do Hub sai do bundle, que não existe em teste.
   // Fixá-la aqui mantém os goldens estáveis quando o pubspec mudar de versão —
   // é o design que eles conferem, não o número.
+  // Uma captura de tela de mentira, desenhada aqui mesmo: a folha do Pin
+  // precisa mostrar a miniatura na lista e a imagem no preview, e um PNG de
+  // um pixel só não diria se o recorte e o encaixe estão certos.
+  setUpAll(() async {
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    const size = ui.Size(720, 450);
+    canvas
+      ..drawRect(
+        Offset.zero & size,
+        ui.Paint()..color = const ui.Color(0xFF2A3236),
+      )
+      ..drawRRect(
+        ui.RRect.fromRectAndRadius(
+          const ui.Rect.fromLTWH(60, 50, 600, 350),
+          const ui.Radius.circular(14),
+        ),
+        ui.Paint()..color = const ui.Color(0xFFE9EEF0),
+      )
+      ..drawRect(
+        const ui.Rect.fromLTWH(60, 50, 600, 36),
+        ui.Paint()..color = const ui.Color(0xFFC9D1D4),
+      );
+    for (var line = 0; line < 6; line++) {
+      canvas.drawRRect(
+        ui.RRect.fromRectAndRadius(
+          ui.Rect.fromLTWH(96, 120.0 + line * 38, 380.0 - line * 30, 14),
+          const ui.Radius.circular(7),
+        ),
+        ui.Paint()..color = const ui.Color(0xFF9AA6AA),
+      );
+    }
+    canvas.drawRRect(
+      ui.RRect.fromRectAndRadius(
+        const ui.Rect.fromLTWH(500, 330, 130, 40),
+        const ui.Radius.circular(10),
+      ),
+      ui.Paint()..color = const ui.Color(0xFF22C55E),
+    );
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(720, 450);
+    final png = await image.toByteData(format: ui.ImageByteFormat.png);
+    pinImages.files[screenshot.fileName] = png!.buffer.asUint8List();
+  });
+
   setUpAll(() async {
     PackageInfo.setMockInitialValues(
       appName: 'Evergreen',
@@ -276,6 +338,12 @@ void main() {
     item(1, 'Flutter', isPinned: true),
     item(2, 'git pull origin develop', isPinned: true),
     item(4, 'https://pub.dev/packages/sqlite3'),
+    // A captura de tela copiada do Finder: na lista, a miniatura no lugar do
+    // ícone e o nome do arquivo; no preview, a imagem e de onde ela veio.
+    ClipboardItem.fromImage(
+      screenshot,
+      at: base.subtract(const Duration(minutes: 5)),
+    ).copyWith(id: 5),
     // Um item apelidado: na lista o apelido vem à frente e o conteúdo fica
     // atrás dele, em segundo plano.
     item(6, 'Senha temporária: xK9#mPz2').copyWith(alias: 'senha do roteador'),
@@ -385,6 +453,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          pinImageStoreProvider.overrideWithValue(pinImages),
           clipboardRepositoryProvider.overrideWithValue(repository),
           focusSessionRepositoryProvider.overrideWithValue(sessions),
           // Sem isso, ligar a trava chamaria o canal nativo do Awake, que não
@@ -453,6 +522,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Decodifica as imagens da tela fora do relógio falso — dentro dele a
+  /// decodificação nunca termina, e a miniatura sairia em branco na folha.
+  Future<void> decodeImages(WidgetTester tester) async {
+    await tester.runAsync(() async {
+      for (final element in find.byType(Image).evaluate()) {
+        await precacheImage((element.widget as Image).image, element);
+      }
+    });
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('overlay do Pin — lista', (tester) async {
     await pump(
       tester,
@@ -460,6 +540,7 @@ void main() {
       const Size(1120, 1000),
       beforeSettle: () => _loadHistory(tester),
     );
+    await decodeImages(tester);
 
     await expectLater(
       find.byType(PinOverlayView),
@@ -479,10 +560,33 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
+    await decodeImages(tester);
 
     await expectLater(
       find.byType(PinOverlayView),
       matchesGoldenFile('goldens/pin_overlay_preview.png'),
+    );
+  });
+
+  testWidgets('overlay do Pin — imagem no preview', (tester) async {
+    await pump(
+      tester,
+      const PinOverlayView(),
+      const Size(1120, 1000),
+      beforeSettle: () => _loadHistory(tester),
+    );
+
+    // A captura é a terceira linha depois dos dois fixados.
+    for (var step = 0; step < 3; step++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    await decodeImages(tester);
+
+    await expectLater(
+      find.byType(PinOverlayView),
+      matchesGoldenFile('goldens/pin_overlay_image.png'),
     );
   });
 

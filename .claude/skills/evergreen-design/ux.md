@@ -22,7 +22,7 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Enter` | overlay | copia o item selecionado e fecha |
 | `Tab` | overlay | abre **e fecha** o preview — é o único caminho de volta dele |
 | clique | overlay | seleciona a linha **e abre o preview** — o mouse não copia: quem copia é o botão "Copiar" de lá dentro |
-| `←` `→` | overlay | anda pela fila de filtros por tipo (Tudo · Textos · Links · E-mails · Telefones · CPF · Comandos) — o outro eixo das setas, com ↑↓ na lista |
+| `←` `→` | overlay | anda pela fila de filtros por tipo (Tudo · Textos · Links · E-mails · Telefones · CPF · CNPJ · Imagens) — o outro eixo das setas, com ↑↓ na lista |
 | `Esc` | overlay | com filtro ativo, desfaz o filtro; em qualquer outro caso fecha o overlay — o preview **não** consome o Esc |
 | `⌘P` | overlay | fixa/desafixa o selecionado |
 | `⌥↑` `⌥↓` | overlay | reordena o fixado selecionado dentro do grupo; nas pontas e fora dos fixados, não faz nada |

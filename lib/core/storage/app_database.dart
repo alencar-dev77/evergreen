@@ -216,6 +216,13 @@ class AppDatabase {
     'echo-meetings-audio': '''
     ALTER TABLE echo_meetings ADD COLUMN audio_file TEXT;
     ''',
+    // A imagem copiada no Pin: o que se sabe dela, em JSON — o arquivo na
+    // pasta `Pin/Imagens`, as dimensões, o nome e o caminho de quando veio do
+    // Finder, o site de quando veio do navegador. A imagem em si fica fora do
+    // banco pelo mesmo motivo do áudio do Echo. `NULL` é "não é imagem".
+    'clipboard-image': '''
+    ALTER TABLE clipboard_items ADD COLUMN image TEXT;
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

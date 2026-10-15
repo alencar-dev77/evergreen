@@ -2,6 +2,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../models/clipboard_item.dart';
 import '../models/clipboard_item_type.dart';
+import '../models/pin_image.dart';
 
 /// Contrato de persistência do histórico do Pin.
 ///
@@ -47,6 +48,10 @@ abstract interface class ClipboardRepository {
   /// Remove os itens não fixados mais antigos que excedam [maxItems].
   void trimHistory(int maxItems);
 
+  /// Os arquivos de imagem que alguma linha ainda quer — o que a varredura da
+  /// pasta de imagens não pode apagar. Ver `PinImageJanitor`.
+  Set<String> imageFiles();
+
   void clearAll();
 }
 
@@ -61,7 +66,7 @@ class SqliteClipboardRepository implements ClipboardRepository {
   List<ClipboardItem> loadAll({int limit = 500}) {
     final rows = _db.select(
       '''
-      SELECT id, content, type, is_pinned, copied_at, pinned_at, alias
+      SELECT id, content, type, is_pinned, copied_at, pinned_at, alias, image
         FROM clipboard_items
        ORDER BY is_pinned DESC, pinned_at ASC, copied_at DESC
        LIMIT ?;
@@ -95,9 +100,14 @@ class SqliteClipboardRepository implements ClipboardRepository {
     _db.execute(
       '''
       INSERT INTO clipboard_items
-             (content, type, is_pinned, copied_at, classifier_version)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(content) DO UPDATE SET copied_at = excluded.copied_at;
+             (content, type, is_pinned, copied_at, classifier_version, image)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(content) DO UPDATE SET
+        copied_at = excluded.copied_at,
+        -- A mesma imagem copiada de outro lugar: vale a origem mais recente.
+        -- Vinda primeiro do navegador e depois do Finder, ela ganha o nome e
+        -- o caminho — e passa a ser achada por eles.
+        image = COALESCE(excluded.image, image);
       ''',
       [
         item.content,
@@ -105,11 +115,12 @@ class SqliteClipboardRepository implements ClipboardRepository {
         item.isPinned ? 1 : 0,
         timestamp,
         ClipboardItemClassifier.version,
+        item.image?.toJson(),
       ],
     );
 
     final row = _db.select(
-      'SELECT id, content, type, is_pinned, copied_at, pinned_at, alias FROM clipboard_items WHERE content = ?;',
+      'SELECT id, content, type, is_pinned, copied_at, pinned_at, alias, image FROM clipboard_items WHERE content = ?;',
       [item.content],
     ).first;
 
@@ -186,7 +197,7 @@ class SqliteClipboardRepository implements ClipboardRepository {
       '''
       SELECT id, content, type
         FROM clipboard_items
-       WHERE classifier_version < ?;
+       WHERE classifier_version < ? AND image IS NULL;
       ''',
       [ClipboardItemClassifier.version],
     );
@@ -246,6 +257,18 @@ class SqliteClipboardRepository implements ClipboardRepository {
   }
 
   @override
+  Set<String> imageFiles() {
+    final rows = _db.select(
+      'SELECT image FROM clipboard_items WHERE image IS NOT NULL;',
+    );
+
+    return {
+      for (final row in rows)
+        ?PinImage.fromJson(row['image'] as String?)?.fileName,
+    };
+  }
+
+  @override
   void clearAll() {
     _db.execute('DELETE FROM clipboard_items WHERE is_pinned = 0;');
   }
@@ -263,6 +286,7 @@ class SqliteClipboardRepository implements ClipboardRepository {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(pinnedAt),
       alias: row['alias'] as String?,
+      image: PinImage.fromJson(row['image'] as String?),
     );
   }
 }

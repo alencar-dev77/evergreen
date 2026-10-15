@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers.dart';
 import '../../data/clipboard_repository.dart';
 import '../../data/clipboard_watcher.dart';
+import '../../data/pin_image_store.dart';
+import '../../models/pin_image.dart';
 import '../../data/pin_settings_repository.dart';
 import '../../models/clipboard_item.dart';
 import '../../models/clipboard_item_type.dart';
@@ -28,8 +31,11 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   late final ClipboardRepository _repository;
   late final ClipboardWatcher _watcher;
   late final PinSettingsRepository _settings;
+  late final PinImageStore _images;
+  late final PinImageJanitor _janitor;
 
   StreamSubscription<String>? _watchSubscription;
+  StreamSubscription<CapturedImage>? _imageSubscription;
 
   List<ClipboardItem> _allItems = const [];
 
@@ -46,8 +52,13 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     _repository = ref.watch(clipboardRepositoryProvider);
     _watcher = ref.watch(clipboardWatcherProvider);
     _settings = ref.watch(pinSettingsRepositoryProvider);
+    _images = ref.watch(pinImageStoreProvider);
+    _janitor = ref.watch(pinImageJanitorProvider);
 
-    ref.onDispose(() => _watchSubscription?.cancel());
+    ref.onDispose(() {
+      _watchSubscription?.cancel();
+      _imageSubscription?.cancel();
+    });
 
     return PinOverlayState();
   }
@@ -56,6 +67,7 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   /// inicialização do app — a captura roda mesmo com o overlay fechado.
   void startWatching() {
     _watchSubscription ??= _watcher.onCopy.listen(_onClipboardChanged);
+    _imageSubscription ??= _watcher.onImage.listen(_onImageCopied);
     _watcher.start();
 
     // Antes da primeira carga: o filtro por tipo mostra o que o classificador
@@ -63,6 +75,10 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     // inteiro como "Texto". Custa uma passada por até 500 linhas, uma única vez
     // na vida do banco (ver `ClipboardItemClassifier.version`).
     _repository.reclassifyOutdated();
+
+    // O que um "Limpar histórico" do Hub, ou uma restauração de backup,
+    // deixou sem linha desde a última abertura.
+    _janitor.sweep();
 
     load();
   }
@@ -78,6 +94,8 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   Future<void> stopWatching() async {
     await _watchSubscription?.cancel();
     _watchSubscription = null;
+    await _imageSubscription?.cancel();
+    _imageSubscription = null;
     await _watcher.stop();
   }
 
@@ -216,8 +234,7 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     final item = state.selectedItem;
     if (item == null) return false;
 
-    await copyItem(item);
-    return true;
+    return copyItem(item);
   }
 
   /// Sorteia outro documento para a linha do gerador (`⌘G`).
@@ -253,8 +270,7 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     final item = state.itemForShortcut(group, number);
     if (item == null) return false;
 
-    await copyItem(item);
-    return true;
+    return copyItem(item);
   }
 
   /// Fixa ou desafixa o item selecionado (`⌘P`).
@@ -283,17 +299,50 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     return _settings.load().autoPaste;
   }
 
-  Future<void> copyItem(ClipboardItem item) async {
-    await Clipboard.setData(ClipboardData(text: item.content));
+  /// Há o que copiar neste item — `false` só na imagem cujo arquivo não está
+  /// mais no disco, ou cuja descrição não sobreviveu no banco. É o que desliga
+  /// o "Copiar" do preview.
+  bool canCopy(ClipboardItem item) {
+    if (item.type != ClipboardItemType.image) return true;
 
-    // Sem isso a captura leria a nossa própria escrita como uma cópia nova.
-    // Aguardado de propósito: é o que garante que a marcação chegue ao lado
-    // nativo antes do próximo ciclo de leitura do pasteboard.
-    await _watcher.acknowledge(item.content);
+    final image = item.image;
+    return image != null && _images.exists(image.fileName);
+  }
+
+  /// Põe o item na área de transferência e devolve se pôs.
+  ///
+  /// `false` só numa imagem sem arquivo — e é o que impede o painel de fechar
+  /// e colar: com o auto-colar ligado, fechar mesmo assim despejaria no outro
+  /// aplicativo o que estava na área de transferência **antes**, que ninguém
+  /// pediu.
+  Future<bool> copyItem(ClipboardItem item) async {
+    final image = item.image;
+
+    if (image != null) {
+      // A imagem em si, e não o caminho — é o que o destino cola. Sem o
+      // arquivo (uma restauração de backup traz a linha e não a imagem) não
+      // há o que escrever, e a área de transferência fica como estava.
+      if (!_images.exists(image.fileName)) return false;
+      if (!await _watcher.writeImage(_images.pathOf(image.fileName))) {
+        return false;
+      }
+    } else if (item.type == ClipboardItemType.image) {
+      // Imagem cuja descrição não sobreviveu no banco: a chave `imagem:…` não
+      // é algo que alguém queira colar.
+      return false;
+    } else {
+      await Clipboard.setData(ClipboardData(text: item.content));
+
+      // Sem isso a captura leria a nossa própria escrita como uma cópia nova.
+      // Aguardado de propósito: é o que garante que a marcação chegue ao lado
+      // nativo antes do próximo ciclo de leitura do pasteboard.
+      await _watcher.acknowledge(item.content);
+    }
 
     _repository.upsert(item.copyWith(copiedAt: DateTime.now()));
     _allItems = _repository.loadAll();
     _emitResults();
+    return true;
   }
 
   void togglePin(ClipboardItem item) {
@@ -327,6 +376,7 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     if (id == null) return;
 
     _repository.delete(id);
+    _janitor.sweep();
     _allItems = _repository.loadAll();
 
     // Mantém a seleção na mesma posição da lista, que agora aponta para o item
@@ -344,8 +394,40 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     // gerenciador de área de transferência ela é a única que importa.
     if (!settings.captures(captured.type)) return;
 
+    _store(captured, settings.historyLimit);
+  }
+
+  /// Uma imagem copiada: vira arquivo na pasta de imagens e linha no
+  /// histórico, com a mesma regra do texto — o tipo desligado não é
+  /// registrado, nem como arquivo.
+  void _onImageCopied(CapturedImage captured) {
+    final settings = _settings.load();
+    if (!settings.captures(ClipboardItemType.image)) return;
+
+    final PinImage image;
+    try {
+      image = _images.save(captured);
+    } on FileSystemException {
+      // Disco cheio, pasta sem permissão: a cópia não entra, e nada mais
+      // deixa de funcionar. Uma linha sem o arquivo seria pior — ela
+      // prometeria uma imagem que não está em lugar nenhum.
+      return;
+    }
+
+    _store(ClipboardItem.fromImage(image), settings.historyLimit);
+  }
+
+  void _store(ClipboardItem captured, int historyLimit) {
     _repository.upsert(captured);
-    _repository.trimHistory(settings.historyLimit);
+    _repository.trimHistory(historyLimit);
+
+    // O teto pode ter levado uma imagem — o arquivo dela sai junto. Pergunta
+    // ao banco, e não à lista em memória: uma restauração de backup feita no
+    // Hub traz linhas que esta janela ainda não leu. Sem imagem nenhuma, não
+    // varre — seria abrir a pasta a cada texto copiado.
+    if (captured.isImage || _repository.imageFiles().isNotEmpty) {
+      _janitor.sweep();
+    }
 
     _allItems = _repository.loadAll();
     _emitResults();
@@ -469,7 +551,12 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     // de preferências desligou tem de sumir **do Pin**, senão ela diz uma coisa
     // e o painel mostra outra. Religar devolve tudo — nada é apagado aqui.
     return ClipboardItemType.values
-        .where((type) => present.contains(type) && settings.captures(type))
+        .where(
+          (type) =>
+              type.hasFilter &&
+              present.contains(type) &&
+              settings.captures(type),
+        )
         .toList(growable: false);
   }
 

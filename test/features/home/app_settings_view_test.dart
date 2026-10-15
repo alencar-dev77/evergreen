@@ -20,6 +20,7 @@ import '../focus/fake_focus_session_repository.dart';
 import 'backup_fixture.dart';
 import 'fake_disk_usage_service.dart';
 import '../pin/fake_clipboard_repository.dart';
+import '../pin/fake_pin_image_store.dart';
 
 void main() {
   late SharedPreferences preferences;
@@ -61,6 +62,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          pinImageStoreProvider.overrideWithValue(FakePinImageStore()),
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository(),
           ),

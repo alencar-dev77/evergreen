@@ -24,6 +24,7 @@ import '../pin/fake_clipboard_repository.dart';
 import 'fake_echo_audio.dart';
 import 'fake_echo_channel.dart';
 import 'fake_export_service.dart';
+import '../pin/fake_pin_image_store.dart';
 
 /// A busca das reuniões, de ponta a ponta no Hub.
 ///
@@ -124,6 +125,7 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
+          pinImageStoreProvider.overrideWithValue(FakePinImageStore()),
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository(),
           ),
