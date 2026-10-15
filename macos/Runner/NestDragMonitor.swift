@@ -1,9 +1,12 @@
 import Cocoa
 
-/// Chacoalhar o arquivo no meio do arraste para chamar a prateleira.
+/// Os dois gestos que chamam a prateleira no meio de um arraste: chacoalhar o
+/// arquivo, e levá-lo até o notch.
 ///
-/// É o gesto que quem vem do Dropover tenta primeiro, e ele foi descartado na
-/// primeira versão do Nest por uma razão que estava errada.
+/// Os dois moram juntos porque perguntam as mesmas coisas ao mesmo relógio —
+/// o botão está apertado? onde está o cursor? tem arquivo na mão? — e dois
+/// relógios de 60 Hz rodando a cada clique seria o dobro do custo para a mesma
+/// resposta.
 ///
 /// **Consulta, não evento.** Durante uma sessão de arraste do sistema o AppKit
 /// não entrega os movimentos do mouse a monitor nenhum — foi por isso que o
@@ -21,9 +24,11 @@ import Cocoa
 /// aplicativo (Finder, Mail, navegador), e o único arraste que nasce dentro do
 /// Evergreen é o da própria prateleira — que já está na tela, e onde chacoalhar
 /// não deve fazer nada.
-enum NestShakeMonitor {
-  /// A preferência de quem usa. Ver `NestSettings.useShake`.
-  private static var isEnabled = false
+enum NestDragMonitor {
+  /// As preferências de quem usa. Ver `NestSettings.useShake` e
+  /// `NotchSettings.nest`.
+  private static var isShakeEnabled = false
+  private static var isNotchEnabled = false
 
   private static var downMonitor: Any?
   private static var sampler: Timer?
@@ -46,7 +51,7 @@ enum NestShakeMonitor {
   /// A resposta de "tem arquivo na mão?", já dada neste aperto de botão.
   ///
   /// Guardada porque ela não muda no meio de um arraste, e a pergunta só é feita
-  /// quando o chacoalhar já foi reconhecido — o caminho caro não roda a cada
+  /// quando um gesto já foi reconhecido — o caminho caro não roda a cada
   /// quadro.
   private static var hasFiles = false
 
@@ -58,11 +63,24 @@ enum NestShakeMonitor {
   /// Os instantes em que a direção se inverteu, dentro da janela de tempo.
   private static var reversals: [TimeInterval] = []
 
-  /// Já chamou a prateleira neste aperto de botão. Um chacoalhar não pode virar
-  /// três aberturas.
+  /// Já chamou a prateleira neste aperto de botão — por qualquer um dos dois
+  /// gestos. Um chacoalhar não pode virar três aberturas, e chacoalhar em cima
+  /// do notch não pode virar duas.
   private static var hasFired = false
 
-  // MARK: - Os números do gesto
+  /// Quem chamou, quando foi o notch: é a ele que o "soltou" é avisado.
+  private static var firedByNotch = false
+
+  /// O recorte da tela onde o botão desceu, medido uma vez por aperto: a
+  /// geometria da tela não muda no meio de um arraste, e perguntá-la a cada
+  /// quadro seria trabalho para a mesma resposta. `nil` em tela sem recorte —
+  /// e aí o gesto simplesmente não existe.
+  private static var notchZone: NSRect?
+
+  /// Desde quando o cursor está parado dentro do recorte, com arquivo na mão.
+  private static var notchSince: TimeInterval?
+
+  // MARK: - Os números do chacoalhar
 
   /// O quanto a mão precisa andar numa direção para a volta contar como
   /// inversão. Abaixo disso é tremor de quem está mirando o destino.
@@ -78,17 +96,56 @@ enum NestShakeMonitor {
 
   private static let neededReversals = 3
 
+  // MARK: - Os números do notch
+
+  /// Quanto o arquivo precisa ficar no recorte para a prateleira sair dele.
+  ///
+  /// É o que separa quem levou o arquivo até ali de quem só passou a caminho
+  /// da barra de menus: o caminho até um menu atravessa o recorte em poucos
+  /// quadros, e quem quer a prateleira para em cima dele.
+  private static let notchDwell: TimeInterval = 0.2
+
+  /// A folga de cada lado do recorte. O cursor não tem como entrar *no* furo —
+  /// ele para na borda da tela —, e mirar a largura exata de um objeto que não
+  /// tem pixel é pedir precisão que ninguém tem com um arquivo na mão.
+  private static let notchSlack: CGFloat = 16
+
   // MARK: - Ligar e desligar
 
-  static func setEnabled(_ enabled: Bool) {
-    guard enabled != isEnabled else { return }
-    isEnabled = enabled
+  static func setShakeEnabled(_ enabled: Bool) {
+    isShakeEnabled = enabled
+    reconcile()
+  }
 
-    if enabled {
+  static func setNotchEnabled(_ enabled: Bool) {
+    isNotchEnabled = enabled
+    reconcile()
+  }
+
+  /// O monitor existe enquanto pelo menos um gesto quer ouvir — e o notch só
+  /// quer ouvir em tela que tem um. Em Mac sem recorte, quem desligou o
+  /// chacoalhar não paga um relógio a cada clique por uma porta que não existe.
+  private static func reconcile() {
+    observeScreens()
+
+    if isShakeEnabled || (isNotchEnabled && NotchGeometry.current() != nil) {
       install()
     } else {
       uninstall()
     }
+  }
+
+  private static var screenObserver: NSObjectProtocol?
+
+  /// A tampa que abre traz o recorte de volta, e a que fecha o leva.
+  private static func observeScreens() {
+    guard screenObserver == nil else { return }
+
+    screenObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didChangeScreenParametersNotification,
+      object: nil,
+      queue: .main
+    ) { _ in reconcile() }
   }
 
   private static func install() {
@@ -111,6 +168,7 @@ enum NestShakeMonitor {
     stop()
 
     dragCountAtDown = dragPasteboard.changeCount
+    notchZone = isNotchEnabled ? zone(around: NotchGeometry.current()) : nil
 
     sampler = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
       sample()
@@ -118,13 +176,25 @@ enum NestShakeMonitor {
   }
 
   private static func stop() {
+    let endedNotchGesture = firedByNotch
+
     sampler?.invalidate()
     sampler = nil
     lastPoint = nil
     leg = .zero
     reversals = []
     hasFired = false
+    firedByNotch = false
     hasFiles = false
+    notchZone = nil
+    notchSince = nil
+
+    // A prateleira que saiu do notch precisa saber que o arraste acabou: solto
+    // em lugar nenhum, com ela vazia, ela volta para onde veio.
+    if endedNotchGesture {
+      NotchIslandChannel.setPassThrough(false)
+      NestChannel.reportNotchDragEnded()
+    }
   }
 
   private static func sample() {
@@ -140,6 +210,53 @@ enum NestShakeMonitor {
 
     let point = NSEvent.mouseLocation
 
+    if isNotchEnabled { sampleNotch(at: point) }
+    if isShakeEnabled, !hasFired { sampleShake(at: point) }
+  }
+
+  // MARK: - O notch
+
+  private static func sampleNotch(at point: NSPoint) {
+    // `NSMouseInRect`, e não `contains`: o cursor encostado no topo da tela
+    // tem `y == maxY`, e o `contains` do `NSRect` deixa a borda de cima de
+    // fora — justamente onde o arquivo para quando a mão o empurra até o fim.
+    guard let zone = notchZone, NSMouseInRect(point, zone, false) else {
+      notchSince = nil
+      return
+    }
+
+    let now = Date.timeIntervalSinceReferenceDate
+
+    guard let since = notchSince else {
+      notchSince = now
+      return
+    }
+
+    guard now - since >= notchDwell, hasFilesInHand() else { return }
+
+    hasFired = true
+    firedByNotch = true
+    // A ilha sai do caminho enquanto este arraste durar: ela fica acima da
+    // janela 0, e não é destino de arquivo — abrir com o cursor em cima dela
+    // cobriria o topo da prateleira que acabou de sair do notch.
+    NotchIslandChannel.setPassThrough(true)
+    NestChannel.reportNotch()
+  }
+
+  /// A faixa que conta como "dentro do recorte": a largura dele mais a folga, e
+  /// a altura inteira da barra de menus.
+  ///
+  /// A altura inteira, e não só a borda: o cursor encosta no topo da tela, mas
+  /// quem arrasta um arquivo para cima raramente o leva até o último pixel.
+  private static func zone(around notch: NotchGeometry?) -> NSRect? {
+    guard let notch = notch else { return nil }
+
+    return notch.rect.insetBy(dx: -notchSlack, dy: 0)
+  }
+
+  // MARK: - O chacoalhar
+
+  private static func sampleShake(at point: NSPoint) {
     guard let last = lastPoint else {
       lastPoint = point
       return

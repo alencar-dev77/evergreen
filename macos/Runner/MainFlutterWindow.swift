@@ -128,6 +128,10 @@ class MainFlutterWindow: NSPanel {
     // O `isOverlay` decide quem **recebe** os avisos de arraste: os dois
     // engines podem chamar o canal, mas quem guarda a prateleira é a janela 0.
     NestChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
+    // Os dois engines falam com a ilha — o Hub liga e desliga os módulos nela,
+    // a janela 0 manda o que está rodando —, mas só a janela 0 atende os
+    // botões dela.
+    NotchIslandChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
     // Só a janela 0: o centro de notificações tem um delegate por processo, e
     // quem atende o clique são os serviços que vivem nela.
     if isOverlay {
@@ -215,6 +219,9 @@ enum OverlayWindowChannel {
       case "show":
         show(result: result)
 
+      case "positionAtNotch":
+        result(positionAtNotch())
+
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -259,6 +266,33 @@ enum OverlayWindowChannel {
     }
 
     result(nil)
+  }
+
+  /// Põe a janela 0 com o topo encostado no topo da tela, centrada no
+  /// recorte — o lugar de onde a prateleira sai quando o arquivo é levado até
+  /// o notch.
+  ///
+  /// Do lado nativo, e não pelo `setPosition` do `window_manager`, porque a
+  /// conta é toda em cima do recorte, e o recorte só existe aqui: levar a
+  /// geometria até o Dart para ela voltar convertida de origem embaixo para
+  /// origem em cima seria o caminho de um sinal trocado no monitor da direita.
+  ///
+  /// Devolve o tamanho do recorte, que o Dart usa para pôr o painel logo
+  /// abaixo dele — ou `nil` quando não há recorte, e aí quem chamou cai no
+  /// lugar de sempre.
+  private static func positionAtNotch() -> [String: Double]? {
+    guard let panel = panel, let notch = NotchGeometry.current() else { return nil }
+
+    let screen = notch.screen.frame
+    let size = panel.frame.size
+    let x = min(max(notch.rect.midX - size.width / 2, screen.minX), screen.maxX - size.width)
+
+    panel.setFrameOrigin(NSPoint(x: x, y: screen.maxY - size.height))
+
+    return [
+      "width": Double(notch.rect.width),
+      "height": Double(notch.rect.height),
+    ]
   }
 
   /// Código de tecla propositalmente fora do mapa do Flutter — ver

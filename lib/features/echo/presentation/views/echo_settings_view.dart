@@ -26,6 +26,8 @@ import '../widgets/echo_search_box.dart';
 import '../widgets/echo_search_results.dart';
 import '../widgets/echo_permission_row.dart';
 import '../../../../core/design/eg_tokens.dart';
+import '../../../notch/models/notch_settings.dart';
+import '../../../notch/presentation/widgets/notch_toggle_row.dart';
 
 /// Tela do Echo dentro do Hub.
 class EchoSettingsView extends ConsumerStatefulWidget {
@@ -244,6 +246,15 @@ class _EchoSettingsViewState extends ConsumerState<EchoSettingsView> {
                 value: settings.liveTranscription,
                 onChanged: viewModel.setLiveTranscription,
               ),
+              if (NotchToggleRow.isAvailable(ref))
+                const NotchToggleRow(
+                  module: NotchModule.echo,
+                  label: 'Mostrar no notch',
+                  description:
+                      'Enquanto grava, o ponto, o som e o tempo ficam em volta '
+                      'do notch. Com o mouse em cima, ele abre para pausar ou '
+                      'parar.',
+                ),
               EgSettingsRow(
                 label: 'Idioma da transcrição',
                 description:

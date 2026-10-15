@@ -51,6 +51,14 @@ class OverlayWindow {
   /// esconder/exibir a janela; o `OverlayHost` só o escuta.
   final isPanelHidden = ValueNotifier<bool>(false);
 
+  /// O tamanho do recorte da câmera quando o painel saiu dele, ou `null`
+  /// quando o painel está no lugar de sempre.
+  ///
+  /// É o que faz a casca (`EgOverlayShell`) alinhar o painel logo abaixo do
+  /// recorte e entrar crescendo a partir dele. Escrito a cada
+  /// posicionamento, então todo caminho que não pede o notch volta ao centro.
+  final notchAnchor = ValueNotifier<Size?>(null);
+
   /// Ferrolho contra o fechamento que o próprio fechamento provoca — ver [hide].
   bool _isHiding = false;
 
@@ -64,6 +72,7 @@ class OverlayWindow {
   void resetForTest() {
     _isHiding = false;
     isPanelHidden.value = false;
+    notchAnchor.value = null;
   }
 
   /// Visibilidade real, perguntada ao sistema.
@@ -118,7 +127,11 @@ class OverlayWindow {
   /// janela. É o caminho do chacoalhar do Nest: quem está com um arquivo na mão
   /// não deve ter de levá-lo até o centro da tela depois de chamar a
   /// prateleira. Sem [at], nada muda para nenhum painel.
-  Future<void> show({Offset? at}) async {
+  ///
+  /// Com [atNotch], a janela nasce com o topo no topo da tela, centrada no
+  /// recorte da câmera — o caminho do arquivo levado até o notch. Sem recorte,
+  /// cai em [at] e, sem ele, no lugar de sempre.
+  Future<void> show({Offset? at, bool atNotch = false}) async {
     // Quem está na frente agora é para quem o auto-colar vai colar depois. O
     // painel não-ativante não tira ninguém da frente, então esta foto tende a
     // continuar valendo quando o item for escolhido — mas ela é tirada aqui,
@@ -126,7 +139,7 @@ class OverlayWindow {
     // resposta é certamente a de antes do atalho.
     await PreviousAppFocusChannel.capture();
 
-    await reposition(at: at);
+    await reposition(at: at, atNotch: atNotch);
 
     // O painel volta a ser desenhado só agora: o quadro gravado na janela
     // escondida é o branco deixado por `hide`, e é ele que aparece no instante
@@ -157,8 +170,8 @@ class OverlayWindow {
   /// de o painel aparecer, e ela já foi tirada na primeira abertura. Repeti-la
   /// agora fotografaria o próprio Evergreen se a pessoa tivesse clicado no
   /// painel — e o auto-colar do Pin colaria nele mesmo.
-  Future<void> reassert({Offset? at}) async {
-    await reposition(at: at);
+  Future<void> reassert({Offset? at, bool atNotch = false}) async {
+    await reposition(at: at, atNotch: atNotch);
     await OverlayWindowChannel.show();
   }
 
@@ -200,6 +213,9 @@ class OverlayWindow {
 
       await _blankPanel();
       await windowManager.hide();
+      // Depois de esconder, com o painel já apagado: o próximo painel que
+      // abrir — o Pin pelo atalho — não pode nascer achando que está no notch.
+      notchAnchor.value = null;
 
       if (paste) {
         try {
@@ -241,7 +257,15 @@ class OverlayWindow {
   /// Público porque trocar de painel com a janela já visível também precisa
   /// dele: o cursor pode estar em outro monitor, e reposicionar é mais barato
   /// (e não pisca) comparado a esconder e reexibir a janela.
-  Future<void> reposition({Offset? at}) async {
+  Future<void> reposition({Offset? at, bool atNotch = false}) async {
+    if (atNotch) {
+      final notch = await OverlayWindowChannel.positionAtNotch();
+      notchAnchor.value = notch;
+      if (notch != null) return;
+    } else {
+      notchAnchor.value = null;
+    }
+
     final display = await _activeDisplay();
     final origin = display.visiblePosition ?? Offset.zero;
     final size = display.visibleSize ?? display.size;
@@ -274,8 +298,18 @@ class OverlayWindow {
   /// direita.
   @visibleForTesting
   static Offset positionForCursor(Offset cursor, Rect visible) => Offset(
-    _clamped(cursor.dx - _windowSize.width / 2, visible.left, visible.width, _windowSize.width),
-    _clamped(cursor.dy - _windowSize.height / 2, visible.top, visible.height, _windowSize.height),
+    _clamped(
+      cursor.dx - _windowSize.width / 2,
+      visible.left,
+      visible.width,
+      _windowSize.width,
+    ),
+    _clamped(
+      cursor.dy - _windowSize.height / 2,
+      visible.top,
+      visible.height,
+      _windowSize.height,
+    ),
   );
 
   /// Preso dentro da área útil: janela que passa da borda leva o painel junto

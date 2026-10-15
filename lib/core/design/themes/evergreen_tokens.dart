@@ -84,6 +84,8 @@ abstract final class EvergreenTokens {
     shadow: Color(0xC7000000),
     shadowContact: Color(0x73000000),
     scrim: Color(0x9E000000),
+
+    notch: Color(0xFF000000),
   );
 
   static const _fontFamily = 'Inter';

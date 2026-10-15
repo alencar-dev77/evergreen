@@ -152,6 +152,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       phase: EchoPhase.recording,
       elapsed: Duration.zero,
       liveText: const [],
+      isTranscribingLive: settings.liveTranscription,
       isPaused: false,
       clearSpectrum: true,
       clearError: true,

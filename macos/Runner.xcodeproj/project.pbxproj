@@ -29,7 +29,8 @@
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		A1E0C40012B4E0A100EC4001 /* EchoChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */; };
 		A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4004 /* NestChannel.swift */; };
-		A1E0C40012B4E0A100EC4007 /* NestShakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4008 /* NestShakeMonitor.swift */; };
+		A1E0C40012B4E0A100EC4007 /* NestDragMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */; };
+		A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */; };
 		A1E0C40012B4E0A100EC4009 /* NotificationChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */; };
 		A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */; };
 		BE7A0B11AB72F5E7532FAFAE /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE97AC87C95DF958712FA9D8 /* Pods_RunnerTests.framework */; };
@@ -92,7 +93,8 @@
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4004 /* NestChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestChannel.swift; sourceTree = "<group>"; };
-		A1E0C40012B4E0A100EC4008 /* NestShakeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestShakeMonitor.swift; sourceTree = "<group>"; };
+		A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestDragMonitor.swift; sourceTree = "<group>"; };
+		A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchIsland.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoPlayerChannel.swift; sourceTree = "<group>"; };
 		AE97AC87C95DF958712FA9D8 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -195,7 +197,8 @@
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */,
 				A1E0C40012B4E0A100EC4004 /* NestChannel.swift */,
-				A1E0C40012B4E0A100EC4008 /* NestShakeMonitor.swift */,
+				A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */,
+				A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */,
 				A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */,
 				A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
@@ -468,7 +471,8 @@
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				A1E0C40012B4E0A100EC4001 /* EchoChannel.swift in Sources */,
 				A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */,
-				A1E0C40012B4E0A100EC4007 /* NestShakeMonitor.swift in Sources */,
+				A1E0C40012B4E0A100EC4007 /* NestDragMonitor.swift in Sources */,
+				A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */,
 				A1E0C40012B4E0A100EC4009 /* NotificationChannel.swift in Sources */,
 				A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,

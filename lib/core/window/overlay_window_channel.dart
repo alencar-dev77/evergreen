@@ -24,4 +24,26 @@ abstract final class OverlayWindowChannel {
       return false;
     }
   }
+
+  /// Leva a janela para baixo do recorte da câmera: topo da janela no topo da
+  /// tela, centrada no recorte.
+  ///
+  /// Devolve o tamanho do recorte, ou `null` quando não há um (ou o lado nativo
+  /// não respondeu) — e aí quem chamou põe a janela no lugar de sempre.
+  static Future<Size?> positionAtNotch() async {
+    try {
+      final notch = await _channel.invokeMapMethod<String, Object?>(
+        'positionAtNotch',
+      );
+      final width = notch?['width'] as num?;
+      final height = notch?['height'] as num?;
+      if (width == null || height == null) return null;
+
+      return Size(width.toDouble(), height.toDouble());
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
 }

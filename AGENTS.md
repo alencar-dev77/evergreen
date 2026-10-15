@@ -8,7 +8,7 @@ registro de atividade, `⌘⇧F`), Leaf (parede de até nove anotações curtas,
 `⌘⇧D`), Awake (mantém a tela acesa por um prazo, `⌘⇧X`), Echo (grava,
 transcreve e resume reuniões, `⌘⇧E`), Nest (prateleira que junta arquivos de
 várias pastas e manda todos para uma só, `⌘⇧R`, ou chacoalhando o arquivo no
-meio do arraste) e
+meio do arraste, ou parando com ele no notch) e
 Track (reconstrói o dia a partir do que os outros gravaram — só tela do Hub,
 sem atalho global e sem painel).
 
@@ -118,7 +118,7 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   porque o destino lê o `⌥` sozinho e um `.move` declarado nascia proibido).
   O `NestDrop` recusa o arraste cuja origem é a própria prateleira — sem essa
   recusa o arquivo atravessaria o painel e cairia na janela atrás dele. A
-  outra porta é **chacoalhar o arquivo** (`NestShakeMonitor`), e a regra dela
+  outra porta é **chacoalhar o arquivo** (`NestDragMonitor`), e a regra dela
   é *perguntar, nunca escutar*: durante uma sessão de arraste o AppKit não
   entrega movimento de mouse a monitor nenhum, então quem responde é
   `NSEvent.mouseLocation` e `NSEvent.pressedMouseButtons`, que são
@@ -126,9 +126,27 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   descendo, que acontece antes do arraste. Só dispara com arquivo na mão
   (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta
   em que o painel vai até o cursor em vez do contrário
-  (`OverlayWindow.positionForCursor`). Não há terceira porta — o recorte de
-  tela foi tentado e saiu: **só a janela 0**. Ver
-  [docs/Ideis projeto/nest-prateleira-de-arquivos.md](docs/Ideis%20projeto/nest-prateleira-de-arquivos.md).
+  (`OverlayWindow.positionForCursor`). A terceira porta é **parar o arquivo
+  no notch** por 200 ms: o mesmo relógio do chacoalhar pergunta se o cursor
+  está no recorte, e quem recebe o arquivo continua sendo a janela 0, posta
+  com o topo no topo da tela (`OverlayWindowChannel.positionAtNotch`). O
+  recorte já tinha sido tentado com **uma janela própria recebendo o
+  arraste**, e saiu porque ela nunca recebeu nada — esta porta não tem janela
+  própria. Ver
+  [docs/Ideis projeto/nest-prateleira-de-arquivos.md](docs/Ideis%20projeto/nest-prateleira-de-arquivos.md)
+  e [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
+- **`NSPanel` nativa sem engine** (`NotchIsland.swift`, canal `notch_island`)
+  — a ilha do notch: o Echo gravando e o Focus contando aparecem em volta do
+  recorte, e abrem com o mouse em cima para pausar e parar. **É a única
+  exceção à regra da janela 0**, e é exceção porque não tem Flutter dentro: a
+  regra protege engine e superfície viva, e a janela 0 não serve por ser
+  compartilhada (abrir o Pin a tiraria do notch no meio da reunião). O Dart
+  manda cada `NotchActivity` pronta — texto, relógio formatado, botões — e as
+  cores dos tokens; o Swift só desenha — com as medidas dele mesmo, que são
+  do recorte e da barra de menus, e não da escala do app (a única exceção à
+  regra dos literais). **Sem recorte, nada disto existe**:
+  nem a ilha, nem a porta do Nest, nem as linhas de preferência. Ver
+  [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
   que o rodapé da sidebar do Hub mostra (`lib/core/app_info.dart`).
@@ -460,7 +478,8 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Módulo com painel flutuante: **não crie uma janela nova** — acrescente um
   valor a `OverlayPanel`, desenhe o painel em `OverlayHost` e registre o atalho
   global no `EvergreenBootstrap`. Só a janela 0 pode ser borderless/sempre no
-  topo (motivo em `docs/Ideis projeto/`).
+  topo (motivo em `docs/Ideis projeto/`) — a ilha do notch é a exceção única,
+  por não ter engine, e não é precedente para painel nenhum.
 - A janela 0 é um `NSPanel` **não-ativante**: ela recebe o teclado sem tirar da
   frente o app em que a pessoa estava. Quem a exibe é o `OverlayWindowChannel`,
   nunca `windowManager.show()` — o `show()` do pacote chama
