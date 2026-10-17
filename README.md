@@ -165,6 +165,25 @@ sem erro: o `⌘V` fica manual, como antes.
 
 ---
 
+## Quando algo dá errado
+
+Nada sai da máquina, então nenhum relatório de falha chega a ninguém sozinho.
+Em vez disso, o Evergreen guarda os próprios erros num registro local
+(`Diagnóstico/`, na pasta do aplicativo) — só o que aconteceu e onde, **nunca**
+o que passou pela área de transferência, o que foi anotado, gravado ou o nome
+de um arquivo.
+
+Configurações → Aplicativo → **Diagnóstico**:
+
+- **Copiar diagnóstico** — põe na área de transferência um texto pronto para
+  colar numa issue: versão, macOS, chip, módulos ligados, permissões, tamanho
+  do banco e as últimas linhas do registro.
+- **Registro de erros** e **Falhas do macOS** — abrem no Finder a pasta do
+  registro e a `~/Library/Logs/DiagnosticReports`, onde o sistema guarda os
+  relatórios (`.ips`) de quando um app fecha sozinho.
+
+---
+
 ## Permissões do macOS
 
 | Permissão | Para quê | Sem ela |
@@ -260,6 +279,7 @@ lib/
   app/          composição: providers, raiz do app, bootstrap dos serviços
   core/
     design/     tokens: cores, tipografia, métricas, tema
+    diagnostics/ registro de erros local e o texto do "Copiar diagnóstico"
     storage/    banco SQLite, migrações e backup
     system/     barra de menus, atalhos globais, foco do app anterior, autostart
     window/     criação e controle das duas janelas

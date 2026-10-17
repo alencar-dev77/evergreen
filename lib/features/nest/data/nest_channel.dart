@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/diagnostics/app_log.dart';
 import '../models/nest_transfer_mode.dart';
 
 /// Uma miniatura pronta, para o caminho que a pediu.
@@ -205,7 +206,8 @@ class NestChannel {
   ]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
-    } on PlatformException {
+    } on PlatformException catch (error) {
+      AppLog.channelError('nest', method, error);
       // O lado nativo recusou — pasta que sumiu entre o clique e a chamada,
       // arquivo sem permissão. Quem chama já trata o vazio, e derrubar o painel
       // por causa de um arquivo seria pior que não fazer nada.
