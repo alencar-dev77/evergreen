@@ -1,0 +1,20 @@
+name: hotkey_manager_macos
+description: macOS implementation of the hotkey_manager plugin, vendorizada com Swift Package Manager.
+version: 0.2.0
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  hotkey_manager_platform_interface: ^0.2.0
+
+flutter:
+  plugin:
+    implements: hotkey_manager
+    platforms:
+      macos:
+        pluginClass: HotkeyManagerMacosPlugin
