@@ -24,22 +24,34 @@ e esconder ícones da barra de menus
 
 # Stack
 
-- **Flutter** (Dart SDK ^3.11.5) — app desktop nativo, sem backend.
+- **Flutter** 3.47 (Dart 3.13; a linguagem do projeto segue em `^3.11.5`, no
+  `environment`) — app desktop nativo, sem backend. **O
+  Flutter do CI (`ci.yml`) é o mesmo da máquina que builda**: o `pubspec.lock`
+  é resolvido nela, e um CI mais velho falha no `flutter pub get` da promoção
+  sem dizer qual PR subiu o piso.
 - **O piso é macOS 14, e foi o FluidAudio que o pediu.** O Xcode não linka um
   pacote cujo piso é maior que o do alvo, e o pacote que separa as vozes do
   Echo declara 14. Antes era 12, e esse quem escolheu foi a ferramenta: o
   `macos_deployment_target_migration` do Flutter reescreve tudo abaixo de
   `12.0` no primeiro build. O 14 fica de pé porque está acima do que ela
-  reescreve. Trocar o piso é sempre no `project.pbxproj` (as três
-  configurações) e no `Podfile` juntos, porque os dois precisam concordar. O
-  custo é pequeno: o macOS 14 é de 2023, e o Echo já exigia o 26.
-- **A build é híbrida, SPM mais CocoaPods — e falta um só para deixar de ser.**
-  Seis dos sete plugins nativos vêm pelo Swift Package Manager; o
-  `hotkey_manager_macos` é o último de CocoaPods, e é ele que segura o
-  `Podfile` de pé. Não é escolha nossa: o suporte a SPM tem de vir num
-  `Package.swift` **dentro do plugin**, e a 0.2.0 dele — a última — só traz
-  `.podspec`. Enquanto isso o Flutter avisa a cada build, e promete transformar
-  o aviso em erro; no dia em que transformar, o que para é todo atalho global.
+  reescreve. Trocar o piso é no `project.pbxproj`, nas três configurações —
+  e, se algum dia um `Package.swift` nosso declarar piso (o do
+  `hotkey_manager_macos` vendorizado declara 10.15), ele não pode passar do
+  alvo. O custo é pequeno: o macOS 14 é de 2023, e o Echo já exigia o 26.
+- **A build é só Swift Package Manager — não há CocoaPods, nem `Podfile`.** O
+  último plugin que o segurava era o `hotkey_manager_macos`, cuja 0.2.0 — a
+  última publicada — só traz `.podspec`; o suporte a SPM tem de vir num
+  `Package.swift` **dentro do plugin**, e o Flutter prometia transformar o aviso
+  de cada build em erro, o que pararia todo atalho global. Por isso ele está
+  **vendorizado** em `packages/hotkey_manager_macos/`, puxado pelo
+  `dependency_overrides` do `pubspec.yaml`: o Swift é o do autor (mais um
+  `import Cocoa`, que no CocoaPods chegava pelo módulo e no SPM tem de estar no
+  arquivo), e o `Package.swift` é nosso, com o `HotKey` travado em versão
+  exata. Plugin novo que venha só com `.podspec` traz o CocoaPods de volta para
+  o projeto inteiro — vendorize do mesmo jeito em vez de aceitar. O SPM fica
+  ligado pelo `pubspec.yaml` (`flutter: config:`), não pelo `flutter config` de
+  cada máquina. Detalhes:
+  [packages/hotkey_manager_macos/README.md](packages/hotkey_manager_macos/README.md).
   Fora dos plugins, há **um pacote SPM nosso**: o FluidAudio, referenciado
   direto no `project.pbxproj` do `Runner` (`XCRemoteSwiftPackageReference`,
   versão exata), ao lado do `FlutterGeneratedPluginSwiftPackage`. Pacote novo
@@ -48,11 +60,17 @@ e esconder ícones da barra de menus
   `packageProductDependencies` do alvo `Runner` e o `packageReferences` do
   projeto. A versão travada vai no `Package.resolved` do `Runner.xcworkspace`,
   que é o que o `flutter build` lê.
-  A saída, se a hora chegar antes do autor, é vendorizar o plugin com um
-  `Package.swift` nosso. O `desktop_multi_window` era o outro da lista e saiu
-  dela na 0.3.1, cujo changelog é exatamente essa uma linha — vale reconferir
-  o `hotkey_manager` de tempos em tempos pelo mesmo caminho:
-  `flutter pub outdated`.
+  O dia de desfazer a cópia é o dia em que o pub.dev publicar um
+  `hotkey_manager_macos` com `Package.swift` (o `desktop_multi_window` saiu da
+  mesma lista assim, na 0.3.1): apague a pasta e o override. Vale reconferir de
+  tempos em tempos com `flutter pub outdated`.
+- **Duas dependências diretas ficam atrás da última versão, e não por
+  descuido.** O `screen_retriever` (0.2.x) é o que o `window_manager` 0.5.2 — o
+  último — exige; o `package_info_plus` (9.x) é o teto que o `launch_at_startup`
+  0.5.1 — o último — permite, porque o `win32_registry` dele pede o `win32` 5
+  (só de Windows) e o `package_info_plus` 10 exige o 6. Os dois sobem quando
+  quem os segura subir. O `tray_manager` (0.5 → 0.8) é salto grande, traz o
+  `nativeapi` junto e mexe no menu da barra: fica para uma mudança própria.
 - **Riverpod** (`flutter_riverpod`) — gerenciamento de estado, padrão MVVM.
 - **SQLite direto** (`sqlite3` via native assets) — não usa Isar (descartado:
   sem manutenção ativa, codegen quebra no Dart 3.11); acesso isolado atrás de

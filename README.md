@@ -291,6 +291,7 @@ macos/Runner/         o lado nativo: um canal Swift por assunto que o Flutter n�
   NestDragMonitor.swift     chacoalhar o arquivo e levá-lo ao notch
   NotchIsland.swift         a ilha do notch, uma NSPanel sem Flutter
   NotificationChannel.swift notificações do sistema
+packages/             hotkey_manager_macos vendorizado, com Package.swift (é o que tira o CocoaPods)
 assets/               ícone da barra de menus (gerado a partir da marca) e imagens do onboarding
 test/                 espelha lib/; goldens/ guarda as imagens de conferência, tools/ os geradores
 docs/Ideis projeto/   decisões de arquitetura, alternativas descartadas e propostas futuras
