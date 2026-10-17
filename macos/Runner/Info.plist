@@ -32,7 +32,7 @@
 	     do computador. As duas faixas ficam separadas para o app saber quem
 	     falou sem precisar de modelo de reconhecimento de voz. -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>O Echo usa o microfone para gravar a sua fala nas reuniões. O áudio fica nesta máquina, é apagado assim que a transcrição termina, e nada é enviado para a internet.</string>
+	<string>O Echo usa o microfone para gravar a sua fala nas reuniões. O áudio fica só nesta máquina e é apagado em até 14 dias, a não ser que você guarde a reunião. Nada é enviado para a internet.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
