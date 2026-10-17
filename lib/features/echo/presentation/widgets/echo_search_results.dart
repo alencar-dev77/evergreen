@@ -65,9 +65,7 @@ class _EchoSearchResultsState extends State<EchoSearchResults> {
 
       Scrollable.ensureVisible(
         context,
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : AppDurations.fast,
+        duration: AppDurations.movement(context, AppDurations.fast),
         curve: AppDurations.curve,
         alignmentPolicy: active > (oldWidget.activeEntry ?? 0)
             ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd

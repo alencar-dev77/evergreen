@@ -1416,4 +1416,62 @@ void main() {
       });
     });
   });
+
+  /// "Reduzir movimento" do macOS: o painel não desliza para o preview e a
+  /// lista não rola animada — o primeiro quadro já é o estado final.
+  group('com movimento reduzido', () {
+    setUp(() {
+      final dispatcher = TestWidgetsFlutterBinding.instance.platformDispatcher;
+      dispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(dispatcher.clearAccessibilityFeaturesTestValue);
+    });
+
+    /// A caixa que anima a largura do painel é o primeiro `AnimatedContainer`
+    /// da árvore — ver `PinOverlayView`.
+    double panelWidth(WidgetTester tester) =>
+        tester.getSize(find.byType(AnimatedContainer).first).width;
+
+    testWidgets('o preview abre com o painel já na largura final', (
+      tester,
+    ) async {
+      await pumpOverlay(tester);
+      final listOnly = panelWidth(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final firstFrame = panelWidth(tester);
+
+      await tester.pumpAndSettle();
+
+      expect(firstFrame, greaterThan(listOnly));
+      expect(firstFrame, panelWidth(tester));
+    });
+
+    testWidgets('a seleção leva a lista junto sem rolagem animada', (
+      tester,
+    ) async {
+      repository = FakeClipboardRepository([
+        for (var id = 1; id <= 40; id++) item(id, 'item número $id'),
+      ]);
+      await pumpOverlay(tester);
+
+      for (var i = 0; i < 30; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+      }
+      // O quadro do pós-frame que rola: sem ele a lista ainda não saiu do lugar.
+      await tester.pump();
+
+      // Pulou, e não está a caminho: as linhas ainda trocam de cor com
+      // transição, mas a rolagem não tem o que terminar.
+      final position = tester
+          .stateList<ScrollableState>(find.byType(Scrollable))
+          .singleWhere((s) => s.widget.axisDirection == AxisDirection.down)
+          .position;
+      expect(position.isScrollingNotifier.value, isFalse);
+      expect(position.pixels, greaterThan(0));
+      expect(find.text('item número 31'), findsOneWidget);
+    });
+  });
 }

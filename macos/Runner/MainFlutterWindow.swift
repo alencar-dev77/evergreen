@@ -537,6 +537,15 @@ enum HubWindowChannel {
     frame.origin.x = max(frame.origin.x, visible.minX)
     if !isClosing { originDebt += frame.origin.x - targetX }
 
+    // "Reduzir movimento" do macOS: a janela vai direto ao tamanho final. É a
+    // mesma pergunta que o Dart faz pelo `AppDurations.movement` — aqui ela é
+    // feita do lado nativo porque quem anima é o AppKit.
+    if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+      animatedFrame = nil
+      window.setFrame(frame, display: true)
+      return
+    }
+
     animatedFrame = frame
 
     NSAnimationContext.runAnimationGroup({ context in

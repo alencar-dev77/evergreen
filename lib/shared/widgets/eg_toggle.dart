@@ -80,7 +80,7 @@ class EgToggle extends StatelessWidget {
                 : null,
           ),
           child: AnimatedAlign(
-            duration: AppDurations.instant,
+            duration: AppDurations.movement(context, AppDurations.instant),
             curve: AppDurations.curve,
             alignment: value ? Alignment.centerRight : Alignment.centerLeft,
             child: Padding(

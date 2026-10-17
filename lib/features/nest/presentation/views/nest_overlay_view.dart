@@ -257,7 +257,7 @@ class _NestOverlayViewState extends ConsumerState<NestOverlayView> {
         Padding(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: AnimatedSize(
-            duration: AppDurations.medium,
+            duration: AppDurations.movement(context, AppDurations.medium),
             curve: context.eg.motion.curve,
             alignment: Alignment.center,
             child: _body(state),
