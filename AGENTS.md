@@ -256,6 +256,21 @@ e esconder ícones da barra de menus
   `app_metrics.dart`, e isso é decisão: o ritmo é do produto, não da pele — um
   app que fica mais lento ao trocar de aparência estaria mentindo sobre o que a
   troca faz. Do movimento, só a curva é do tema.
+- **"Reduzir movimento" do macOS é decidido num ponto só no Dart**:
+  `AppDurations.movement(context, duração)`, que devolve zero com a preferência
+  ligada, e `AppDurations.reduced(context)` para quem precisa pular uma cena
+  inteira (a abertura do Hub, a pílula do notch). Widget nenhum lê
+  `MediaQuery.disableAnimationsOf` por conta própria. Só **deslocamento** —
+  posição, tamanho, rolagem — vira instantâneo; troca de cor e de opacidade
+  segue com a duração dela, porque é o que o `accessibility.md` da skill de
+  design manda pôr no lugar do movimento. O equalizador do Echo também segue:
+  é medida, não enfeite. Duas armadilhas: `ScrollController.animateTo` com
+  `Duration.zero` dispara asserção — com movimento reduzido é `jumpTo`
+  (`Scrollable.ensureVisible` aceita zero) —; e o quadro de espera do
+  `OverlayWindow.hide` não é animação e nunca encurta. O que o AppKit anima
+  pergunta do lado nativo (`accessibilityDisplayShouldReduceMotion`): a janela
+  do Hub crescendo para a região de leitura (`HubWindowChannel.setDetailWidth`)
+  e a ilha do notch.
 - `copyWith` em estilo de texto vale só para cor; peso e tamanho são degraus da
   escala, e degrau que falta entra na `EgTypeScale` com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.

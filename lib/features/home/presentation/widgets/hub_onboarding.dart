@@ -231,7 +231,7 @@ class HubOnboarding extends StatelessWidget {
                 horizontal: AppSpacing.xxxs + 1,
               ),
               child: AnimatedContainer(
-                duration: AppDurations.fast,
+                duration: AppDurations.movement(context, AppDurations.fast),
                 curve: AppDurations.curve,
                 width: i == index ? 18 : 6,
                 height: 6,

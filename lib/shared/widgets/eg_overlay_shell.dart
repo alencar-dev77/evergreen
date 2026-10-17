@@ -382,7 +382,7 @@ class _NotchReveal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return child;
+    if (AppDurations.reduced(context)) return child;
 
     final eg = context.eg;
 

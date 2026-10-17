@@ -321,7 +321,7 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
             onClose: () => unawaited(_close()),
             onShow: _onShow,
             child: AnimatedContainer(
-              duration: AppDurations.medium,
+              duration: AppDurations.movement(context, AppDurations.medium),
               curve: AppDurations.curve,
               width: showPreview ? _withPreviewWidth : _listOnlyWidth,
               constraints: const BoxConstraints(maxHeight: _maxPanelHeight),

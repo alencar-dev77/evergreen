@@ -227,9 +227,9 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
         Scrollable.ensureVisible(
           context,
           alignment: 0.3,
-          duration: !animate || MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : AppDurations.medium,
+          duration: animate
+              ? AppDurations.movement(context, AppDurations.medium)
+              : Duration.zero,
           curve: AppDurations.curve,
         );
       } else if (_scroll.hasClients) {
@@ -607,7 +607,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       Scrollable.ensureVisible(
         context,
         alignment: 0.3,
-        duration: AppDurations.medium,
+        duration: AppDurations.movement(context, AppDurations.medium),
         curve: AppDurations.curve,
       );
     });

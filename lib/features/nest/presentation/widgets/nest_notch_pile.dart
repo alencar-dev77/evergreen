@@ -71,7 +71,7 @@ class NestNotchPile extends StatelessWidget {
             AppSpacing.xl,
           ),
           child: AnimatedSize(
-            duration: AppDurations.medium,
+            duration: AppDurations.movement(context, AppDurations.medium),
             curve: eg.motion.curve,
             alignment: Alignment.topCenter,
             child: state.isEmpty ? _empty(context) : _pile(context),
