@@ -63,14 +63,19 @@ e esconder ícones da barra de menus
   O dia de desfazer a cópia é o dia em que o pub.dev publicar um
   `hotkey_manager_macos` com `Package.swift` (o `desktop_multi_window` saiu da
   mesma lista assim, na 0.3.1): apague a pasta e o override. Vale reconferir de
-  tempos em tempos com `flutter pub outdated`.
+  tempos em tempos com `flutter pub outdated`. **O CocoaPods volta sozinho**, e
+  sem erro: um `flutter pub get` que o Flutter rode sem achar o Xcode (o
+  automático do editor já fez isso uma vez) recria `macos/Podfile`, os
+  `#include?` de Pods nos xcconfig e a integração no `project.pbxproj`, e o
+  build seguinte roda `pod install` e passa. Quem pega é
+  `test/tools/no_cocoapods_test.dart`; o conserto é apagar `Podfile`,
+  `Podfile.lock` e `Pods/` e restaurar os arquivos do Xcode pelo git.
 - **Duas dependências diretas ficam atrás da última versão, e não por
   descuido.** O `screen_retriever` (0.2.x) é o que o `window_manager` 0.5.2 — o
   último — exige; o `package_info_plus` (9.x) é o teto que o `launch_at_startup`
   0.5.1 — o último — permite, porque o `win32_registry` dele pede o `win32` 5
   (só de Windows) e o `package_info_plus` 10 exige o 6. Os dois sobem quando
-  quem os segura subir. O `tray_manager` (0.5 → 0.8) é salto grande, traz o
-  `nativeapi` junto e mexe no menu da barra: fica para uma mudança própria.
+  quem os segura subir.
 - **Riverpod** (`flutter_riverpod`) — gerenciamento de estado, padrão MVVM.
 - **SQLite direto** (`sqlite3` via native assets) — não usa Isar (descartado:
   sem manutenção ativa, codegen quebra no Dart 3.11); acesso isolado atrás de
@@ -83,6 +88,24 @@ e esconder ícones da barra de menus
   [docs/Ideis projeto/focus-janela-compartilhada.md](docs/Ideis%20projeto/focus-janela-compartilhada.md).
 - **`window_manager`, `tray_manager`, `hotkey_manager`, `screen_retriever`** —
   janela flutuante, ícone da barra de menus, atalho global.
+- **O `tray_manager` é usado pela API nativa, nunca pelo `legacy.dart`.** A
+  partir da 0.7 ele é uma casca do `nativeapi` (C++ compilado do fonte por
+  build hook, como o `sqlite3`, e chamado por FFI — não é plugin, não aparece
+  no `GeneratedPluginRegistrant` nem no SPM). A API da 0.5 sobrevive no
+  `legacy.dart` como ponte `@Deprecated`, com remoção anunciada. Duas regras do
+  `MenuBarService`, as duas de quebra silenciosa: **o `Menu` do ícone é um
+  objeto só, entregue uma vez e nunca trocado** — o `setContextMenu` do
+  `nativeapi` tira do menu antigo o listener que devolve o clique ao ícone, e
+  trocar com o menu aberto (o minuto do Awake vira com ele na tela) deixa o
+  ícone preso a um menu morto até reiniciar; rótulo novo renomeia o item, lista
+  nova esvazia e repovoa o mesmo menu. E o `TrayIcon` fica num campo, porque o
+  wrapper que o coletor de lixo leva solta o objeto nativo e o ícone some da
+  barra. O clique esquerdo abre o menu pelo gatilho nativo, que só funciona
+  porque o ícone tem um listener (o do clique direito). Diferenças da 0.5 que
+  ficaram: o menu abre no soltar do botão, não no apertar, e um clique logo
+  depois de fechar pode virar duplo e não abrir. O que o menu mostra mora em
+  `MenuBarContent`, que é puro e testado; o serviço só o traduz para objetos
+  nativos.
 - **`launch_at_startup`** — "iniciar com o macOS", via canal nativo próprio
   (`SMAppService`), não o pacote nativo sugerido pela lib.
 - **`IOPMAssertionCreateWithName`** (nativo, canal `sleep_assertion`) — a trava
