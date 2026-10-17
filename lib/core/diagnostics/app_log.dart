@@ -103,19 +103,29 @@ abstract final class AppLog {
     FormatException(:final message) => 'FormatException: ${redact(message)}',
     TypeError() || NoSuchMethodError() => _code(error),
     _ when '$error'.startsWith('LateInitializationError') => _code(error),
-    _ => '${error.runtimeType}: ${redact(_firstLine('$error'))}',
+    _ => '${error.runtimeType}: ${redact('$error')}',
   };
 
-  /// Aspas de todo tipo, **gulosas**: da primeira à última da linha. Um nome
-  /// de arquivo com apóstrofo fecharia uma regra que parasse na aspa seguinte
-  /// no meio do nome, e o resto vazaria. Apagar demais é o erro certo para
-  /// este lado.
+  /// Aspas de todo tipo, **gulosas**: da primeira à última do texto inteiro,
+  /// atravessando linhas. Um nome de arquivo com apóstrofo fecharia uma regra
+  /// que parasse na aspa seguinte no meio do nome; uma anotação de várias
+  /// linhas teria a aspa de fechamento cortada junto com a segunda linha.
+  /// Apagar demais é o erro certo para este lado.
   static final _quoted = RegExp(
-    '"[^\\n]*"|\'[^\\n]*\'|“[^\\n]*”|‘[^\\n]*’',
+    '"[\\s\\S]*"|\'[\\s\\S]*\'|“[\\s\\S]*”|‘[\\s\\S]*’',
   );
+
+  /// A aspa que sobrou sem par: dali até o fim da linha é valor.
+  static final _openQuote = RegExp('["\'“‘][^\\n]*');
+
   static final _url = RegExp(r'[a-zA-Z][a-zA-Z0-9+.-]*://\S+');
-  static final _email = RegExp(r'[\w.+-]+@[\w-]+\.[\w.-]+');
-  static final _path = RegExp(r'(?:~|/(?:Users|Volumes|private|var|tmp))/\S*');
+  static final _email = RegExp(r'''[^\s@"'<>()]+@[\w-]+\.[\w.-]+''');
+
+  /// Até o fim do trecho, e não até o primeiro espaço: "Meus Documentos" não
+  /// pode deixar meio caminho para trás.
+  static final _path = RegExp(
+    r'(?:~|/(?:Users|Volumes|private|var|tmp))/[^\n,;)]*',
+  );
   static final _number = RegExp(r'\d[\d.\-/ ]{4,}\d');
 
   /// Onde começa o primeiro valor de uma mensagem de arquivo: aspa, dois
@@ -129,8 +139,17 @@ abstract final class AppLog {
   /// É a segunda rede, não a primeira: o que sabidamente carrega dado já foi
   /// separado por tipo em [describe]. Esta pega o que um erro qualquer
   /// resolver citar na mensagem — `StateError('falhou ao ler "…"')`.
-  static String redact(String message) =>
-      _cut(_values(message.replaceAll(_quoted, '‹…›')));
+  ///
+  /// As aspas saem do texto **inteiro** antes de a primeira linha ser
+  /// escolhida — cortar antes deixaria a aspa de abertura sem par, e o valor
+  /// passaria. E sai sempre uma linha só, venha de onde vier a mensagem.
+  static String redact(String message) => _cut(
+    _values(
+      _firstLine(
+        message.replaceAll(_quoted, '‹…›'),
+      ).replaceAll(_openQuote, '‹…›'),
+    ),
+  );
 
   static String _values(String text) => text
       .replaceAll(_url, '‹link›')

@@ -216,6 +216,42 @@ void main() {
       );
     });
 
+    test('aspa que atravessa a linha, ou que não fecha, não deixa o valor', () {
+      const leaks = {
+        'quebra de linha': 'falhou ao ler "senhaSecreta\nlinha 2"',
+        'aspa sem par': 'valor: "senhaSecreta',
+        'aspas misturadas': 'arquivo “senhaSecreta" falhou',
+      };
+
+      for (final MapEntry(key: name, value: message) in leaks.entries) {
+        expect(
+          AppLog.describe(StateError(message)),
+          isNot(contains('senhaSecreta')),
+          reason: name,
+        );
+      }
+
+      // FormatException e SqliteException não passam pelo ramo genérico, e
+      // a mensagem deles também sai numa linha só.
+      final format = AppLog.describe(
+        const FormatException('valor "senhaSecreta\nfim"'),
+      );
+      expect(format, isNot(contains('senhaSecreta')));
+      expect(format, isNot(contains('\n')));
+    });
+
+    test('caminho com espaço sai inteiro, e e-mail com acento também', () {
+      final text = AppLog.describe(
+        StateError(
+          'falhou em /Users/lucas/Meus Documentos/Contrato Fulano.pdf, '
+          'avise joão@empresa.com.br',
+        ),
+      );
+
+      expect(text, isNot(contains('Contrato')));
+      expect(text, isNot(contains('joão')));
+    });
+
     test('só a primeira linha da mensagem', () {
       final text = AppLog.describe(Exception('resumo\nconteúdo da linha 2'));
 
