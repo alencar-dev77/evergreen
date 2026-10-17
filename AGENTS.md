@@ -14,6 +14,14 @@ sem atalho global e sem painel).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 
+A visão de origem (filosofia, referências, a lista de módulos sonhados) está em
+[docs/Ideis projeto/ideia.md](docs/Ideis%20projeto/ideia.md). Propostas de
+módulo **ainda sem código**, cada uma com o porquê e o custo nativo: Snap,
+captura de tela ([snap-captura-de-tela.md](docs/Ideis%20projeto/snap-captura-de-tela.md)),
+Frame, imagem local ([frame-imagem-local.md](docs/Ideis%20projeto/frame-imagem-local.md)),
+e esconder ícones da barra de menus
+([hide-icones-barra-menu.md](docs/Ideis%20projeto/hide-icones-barra-menu.md)).
+
 # Stack
 
 - **Flutter** (Dart SDK ^3.11.5) — app desktop nativo, sem backend.
@@ -230,7 +238,12 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   tema, o `apple`, e ele saiu: a escolha de aparência estava desligada por
   bandeira desde que nasceu, e o segundo arquivo dobrava o custo de cada papel
   novo. Se voltar, volta como um `EgPalette` completo — nunca como `if`s
-  espalhados.
+  espalhados. A especificação da Estufa (a regra da não-duplicidade: o painel
+  opera, o Hub configura e lê) é
+  [docs/redesign-estufa.md](docs/redesign-estufa.md); o andamento da execução
+  ficou em [docs/redesign-estufa-progresso.md](docs/redesign-estufa-progresso.md),
+  e o "antes", que **não** descreve o app de hoje, em
+  [docs/brief-redesign-visual-v2.md](docs/brief-redesign-visual-v2.md).
 - **O canto é contínuo acima de 14** (`EgSquircle.shape`): o macOS não arredonda
   com arco de círculo, e era daí que vinha o "tudo muito quadrado". Superfície
   interativa desenha com `ShapeDecoration`, não `BoxDecoration`. Abaixo do
@@ -349,6 +362,19 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   leitura e o player obedecem **uma vez por pedido**, e que `select` esquece.
   `⌘F` leva até ela de qualquer aba do Echo. Ver
   [docs/Ideis projeto/echo-busca.md](docs/Ideis%20projeto/echo-busca.md).
+- **A captura da área de transferência é nativa, e o evento é o
+  `changeCount`, não o conteúdo.** O `PasteboardWatcherChannel`
+  (`MainFlutterWindow.swift`) pergunta a cada 200 ms se o
+  `NSPasteboard.general.changeCount` mudou — o macOS não notifica, nem em
+  Swift. Comparar conteúdo, como o polling em Dart fazia, tornava invisível
+  recopiar a mesma coisa, e o item não subia. Duas armadilhas: o canal existe
+  nos dois engines, mas o Swift guarda o de **quem chamou `start`** (sempre a
+  janela 0) — senão o aviso de cópia sairia pelo Hub, onde ninguém escuta; e,
+  quando o Pin escreve texto, o `acknowledge` **confere o conteúdo** antes de
+  engolir o evento, porque o `changeCount` pode ser de outro app que copiou no
+  meio (a escrita de imagem marca o `changeCount` sozinha, no `writeImage`). A
+  interface Dart é o `ClipboardWatcher`. Detalhes:
+  [docs/Ideis projeto/captura-de-clipboard-nativa.md](docs/Ideis%20projeto/captura-de-clipboard-nativa.md).
 - **O Pin guarda imagem — e a imagem não mora no banco.** É um arquivo na
   pasta `Pin/Imagens` do aplicativo (`PinImageStore`), com o nome tirado do
   hash do conteúdo; a linha guarda só o que se sabe dela, em JSON na coluna
@@ -427,7 +453,9 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
   a única obrigação é a do lado dele — **nunca ler o conteúdo de um item do
   Pin**. A consulta do Track pede `copied_at` e `type`, e mais nada, porque o
   Pin registra tudo o que passa pela área de transferência, senha inclusive.
-  O mesmo vale para o que segue ao modelo local: só o agregado.
+  O mesmo vale para o que segue ao modelo local: só o agregado. Por que o
+  Track mede "tempo registrado" (foco **mais** reunião) e o que mais a
+  construção decidiu: [docs/Ideis projeto/track-diario-do-dia.md](docs/Ideis%20projeto/track-diario-do-dia.md).
 - Do outro lado dessa regra: **módulo que quer aparecer no Track precisa gravar
   alguma coisa.** O Awake era o único que não aparecia — não por decisão, mas
   porque não tinha tabela. Agora grava uma linha por trava solta (`quando`,
@@ -485,8 +513,10 @@ Domain: produtividade pessoal / utilitário de sistema para macOS.
 - Módulo com painel flutuante: **não crie uma janela nova** — acrescente um
   valor a `OverlayPanel`, desenhe o painel em `OverlayHost` e registre o atalho
   global no `EvergreenBootstrap`. Só a janela 0 pode ser borderless/sempre no
-  topo (motivo em `docs/Ideis projeto/`) — a ilha do notch é a exceção única,
-  por não ter engine, e não é precedente para painel nenhum.
+  topo (motivo em
+  [sugestoes-futuras-migracao-nativa.md](docs/Ideis%20projeto/sugestoes-futuras-migracao-nativa.md))
+  — a ilha do notch é a exceção única, por não ter engine, e não é precedente
+  para painel nenhum.
 - A janela 0 é um `NSPanel` **não-ativante**: ela recebe o teclado sem tirar da
   frente o app em que a pessoa estava. Quem a exibe é o `OverlayWindowChannel`,
   nunca `windowManager.show()` — o `show()` do pacote chama

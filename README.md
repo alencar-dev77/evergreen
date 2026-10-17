@@ -16,7 +16,7 @@ flutter run -d macos
 ```
 
 O Evergreen é um **agente de barra de menus** (`LSUIElement`): ao iniciar, **não
-abre janela nenhuma e não aparece no Dock**. Procure o quadrado verde na barra
+abre janela nenhuma e não aparece no Dock**. Procure o canivete na barra
 superior do macOS.
 
 ### Instalando de verdade
@@ -37,7 +37,7 @@ Pin. O cabeçalho do script explica a ordem em que ele escolhe o certificado.
 
 | Módulo | O que faz | Atalho global |
 |---|---|---|
-| **Pin** | Histórico da área de transferência, com busca, apelidos e itens fixados | `⌘⇧C` |
+| **Pin** | Histórico da área de transferência (texto e imagem), com busca, apelidos e itens fixados | `⌘⇧C` |
 | **Focus** | Ciclos de foco e pausa, com o registro do que foi feito em cada sessão | `⌘⇧F` |
 | **Leaf** | Parede de até nove anotações curtas, todas à vista de uma vez | `⌘⇧D` |
 | **Awake** | Impede o Mac de dormir pelo prazo escolhido — a tela, ou só o sistema | `⌘⇧X` |
@@ -74,6 +74,20 @@ gravação não para com o painel fechado. A posição não fica guardada: o pr�
 O **Track** não tem atalho nem painel de propósito: ele não grava nada, só lê o
 que os outros seis módulos já gravaram.
 
+### O notch
+
+Em MacBook com o recorte da câmera, o notch ganha dois usos — e, sem nada
+acontecendo, continua sendo só o recorte:
+
+- **A ilha**: enquanto o Echo grava ou o Focus conta, o que está rodando aparece
+  em volta do recorte; com o mouse em cima ela abre, com pausar e parar.
+- **A porta do Nest**: levar um arquivo até o notch no meio do arraste abre,
+  logo abaixo dele, a pilha de arquivos do Nest (tela do Nest → Ajustes →
+  "Abrir pelo notch"). Com arquivos na pilha, fechar o Nest a guarda no notch
+  em vez de sumir com ela.
+
+Em Mac sem recorte nada disso existe, nem as linhas de preferência.
+
 ---
 
 ### Atalhos dentro do painel do Pin
@@ -86,6 +100,7 @@ que os outros seis módulos já gravaram.
 | `⌥1`…`⌥5` | Copia direto o 1º…5º **fixado** e fecha |
 | `←` `→` | Anda pela fila de filtros por tipo |
 | `⌘P` | Fixa/desafixa o item selecionado |
+| `⌘G` | No filtro de CPF ou CNPJ, gera um documento válido e copia |
 | `⌥↑` `⌥↓` | Reordena o fixado selecionado dentro do grupo |
 | `⌘⌫` | Apaga o item selecionado, sem fechar o painel |
 | `⌘R` | Dá um apelido ao item selecionado |
@@ -103,7 +118,11 @@ posições.
 
 Cada item é classificado na captura como **texto**, **link**, **e-mail**,
 **telefone**, **CPF**, **CNPJ** ou **comando**, e o tipo vira uma pílula de
-filtro na busca. Imagens, arquivos e rich text continuam de fora.
+filtro na busca. **Imagens** também entram — uma captura de tela, uma imagem
+copiada do navegador ou um arquivo de imagem copiado no Finder — e colar
+devolve a imagem, não o caminho. Quando a cópia traz texto e imagem juntos (um
+parágrafo do Pages), fica o texto. Arquivos que não são imagem e rich text
+continuam de fora.
 
 #### Apelidos
 
@@ -228,6 +247,10 @@ dos automáticos e a restauração; ficam os **cinco** mais recentes.
 O snapshot é um `VACUUM INTO`: um arquivo único, consistente e compactado, sem
 `-wal` nem `-shm` para acompanhar. Dá para copiar para onde quiser.
 
+O que não mora no banco fica **fora** do backup: as imagens do Pin
+(`Pin/Imagens`) e o áudio das reuniões do Echo (`Reuniões`, guardado por 14
+dias), ambos na pasta do aplicativo.
+
 ---
 
 ## Arquitetura
@@ -245,6 +268,7 @@ lib/
     utils/
   features/
     home/       o Hub e as configurações do aplicativo
+    notch/      a ilha do notch (desenhada pelo Swift) e as preferências dele
     pin/  focus/  leaf/  awake/  echo/  nest/  track/
       data/         repositórios e serviços do módulo
       models/       entidades
@@ -252,6 +276,26 @@ lib/
         viewmodels/ estado e regras (Notifier do Riverpod)
         views/      telas
         widgets/    componentes do módulo
+```
+
+Fora do `lib/`:
+
+```
+macos/Runner/         o lado nativo: um canal Swift por assunto que o Flutter não alcança
+  AppDelegate.swift         ciclo de vida: fechar janela não encerra o app
+  MainFlutterWindow.swift   janela 0, Hub, área de transferência, imagem do Pin, trava do Awake,
+                            iniciar com o macOS e devolver o foco ao app anterior
+  EchoChannel.swift         captura, transcrição e resumo do Echo (macOS 26)
+  EchoPlayerChannel.swift   o player do áudio guardado da reunião
+  NestChannel.swift         arraste do Finder, miniaturas e saída da prateleira
+  NestDragMonitor.swift     chacoalhar o arquivo e levá-lo ao notch
+  NotchIsland.swift         a ilha do notch, uma NSPanel sem Flutter
+  NotificationChannel.swift notificações do sistema
+assets/               ícone da barra de menus (gerado a partir da marca) e imagens do onboarding
+test/                 espelha lib/; goldens/ guarda as imagens de conferência, tools/ os geradores
+docs/Ideis projeto/   decisões de arquitetura, alternativas descartadas e propostas futuras
+docs/                 especificação do redesign "Estufa" e documentos históricos
+.github/workflows/    label de bump na PR, bump da versão no merge e CI na promoção
 ```
 
 As convenções de arquitetura — a regra do MVVM, como adicionar um módulo, o
@@ -295,6 +339,7 @@ e `flutter test`.
 
 ## O que ainda não está pronto
 
-- **Pin só guarda texto.** Imagens, arquivos e rich text estão no plano.
+- **Pin não guarda arquivos nem rich text.** Texto e imagem já entram; o resto
+  está no plano.
 - **Fixados não se reordenam arrastando.** Por teclado (`⌥↑`/`⌥↓`) já funciona;
   o arrasto com o mouse é que falta.
