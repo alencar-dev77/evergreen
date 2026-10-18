@@ -38,6 +38,17 @@ e esconder ícones da barra de menus
   e, se algum dia um `Package.swift` nosso declarar piso (o do
   `hotkey_manager_macos` vendorizado declara 10.15), ele não pode passar do
   alvo. O custo é pequeno: o macOS 14 é de 2023, e o Echo já exigia o 26.
+- **Só Apple Silicon — o binário não tem a fatia Intel (x86_64).** A fatia
+  Intel saía no binário universal sem ninguém nunca a ter rodado; o que o app
+  faz com IA local (o resumo do Echo e o parágrafo do Track, pelo Apple
+  Intelligence) não existe em Mac Intel; e o macOS 26 é o último com Intel. O
+  piso real é, portanto, **macOS 14 em Apple Silicon**. Vale em dois lugares:
+  `enable-macos-arm64-only` no `flutter: config:` do `pubspec.yaml` — a forma
+  oficial da ferramenta, que vai virar o padrão dela, e que pelo `flutter
+  config` da máquina não viajaria com o repositório — e `EXCLUDED_ARCHS =
+  x86_64` no `macos/Runner/Configs/Release.xcconfig`, para quem builda pelo
+  Xcode direto. Conferir com `lipo -archs` no `Evergreen` do build de release:
+  só `arm64`.
 - **A build é só Swift Package Manager — não há CocoaPods, nem `Podfile`.** O
   último plugin que o segurava era o `hotkey_manager_macos`, cuja 0.2.0 — a
   última publicada — só traz `.podspec`; o suporte a SPM tem de vir num

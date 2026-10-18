@@ -1,2 +1,7 @@
 #include "../../Flutter/Flutter-Release.xcconfig"
 #include "Warnings.xcconfig"
+
+// Só Apple Silicon (Release e Profile). O `enable-macos-arm64-only` do
+// pubspec é o que o `flutter build` lê; esta linha cobre quem builda direto
+// pelo Xcode ou pelo `xcodebuild`, que não passam pela ferramenta.
+EXCLUDED_ARCHS = x86_64

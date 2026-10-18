@@ -2,6 +2,10 @@
 
 Suíte pessoal de produtividade para macOS. Tudo local, nada vai para a internet.
 
+Roda em **Mac com Apple Silicon** (M1 ou mais novo) a partir do **macOS 14**. Mac
+Intel não é suportado: o app nunca foi testado lá, e o que ele faz com IA local
+(o resumo das reuniões e o parágrafo do dia) não roda em Intel.
+
 Sete módulos em um app só: **Pin** (área de transferência), **Focus**
 (cronômetro), **Leaf** (anotações), **Awake** (tela acesa), **Echo** (reuniões),
 **Nest** (prateleira de arquivos) e **Track** (o dia reconstruído).
