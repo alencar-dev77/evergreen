@@ -74,6 +74,10 @@ flutter:
   # saber.
   config:
     enable-swift-package-manager: true
+    # Só Apple Silicon: a parte Intel nunca foi testada, e o que o Evergreen faz
+    # com IA local (resumo do Echo, parágrafo do Track) não roda em Mac Intel.
+    # Ver o AGENTS.md (Stack).
+    enable-macos-arm64-only: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
