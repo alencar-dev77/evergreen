@@ -22,6 +22,7 @@ import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 import '../widgets/global_shortcut_section.dart';
 import '../viewmodels/backup_view_model.dart';
+import '../viewmodels/diagnostics_view_model.dart';
 import '../viewmodels/disk_usage_view_model.dart';
 import '../widgets/backup_list.dart';
 import '../../../../core/design/eg_tokens.dart';
@@ -127,6 +128,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
           onAutomaticChanged: viewModel.setAutomaticBackup,
         ),
         const _RestoreSection(),
+        const _DiagnosticsSection(),
       ],
     );
   }
@@ -340,6 +342,58 @@ class _RestoreSection extends ConsumerWidget {
     if (!confirmed) return;
 
     ref.read(backupViewModelProvider.notifier).restoreSelected();
+  }
+}
+
+/// O que levar quando o Evergreen falha: um texto para colar numa issue e as
+/// duas pastas de onde o resto vem.
+///
+/// Por último porque é onde se vai num dia ruim, e não toda semana. A
+/// descrição diz o que **não** vai junto: quem cola isso num lugar público
+/// precisa saber, antes de colar, que a área de transferência dele não está
+/// ali.
+class _DiagnosticsSection extends ConsumerWidget {
+  const _DiagnosticsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final copied = ref.watch(diagnosticsViewModelProvider);
+    final viewModel = ref.read(diagnosticsViewModelProvider.notifier);
+
+    return EgSettingsCard(
+      title: 'Diagnóstico',
+      children: [
+        EgSettingsRow(
+          label: 'Copiar diagnóstico',
+          description: copied
+              ? 'Diagnóstico copiado.'
+              : 'Versão, sistema, módulos, permissões e o fim do registro. '
+                    'Nada do que você copiou, anotou ou gravou vai junto.',
+          trailing: EgButton.secondary(
+            label: 'Copiar',
+            onPressed: () => unawaited(viewModel.copy()),
+          ),
+        ),
+        EgSettingsRow(
+          label: 'Registro de erros',
+          description: viewModel.logLabel,
+          trailing: EgButton.secondary(
+            label: 'Mostrar no Finder',
+            onPressed: () => unawaited(viewModel.revealLog()),
+          ),
+        ),
+        EgSettingsRow(
+          label: 'Falhas do macOS',
+          description:
+              'Os relatórios que o sistema guarda quando um app fecha '
+              'sozinho, em ${viewModel.crashReportsLabel}.',
+          trailing: EgButton.secondary(
+            label: 'Mostrar no Finder',
+            onPressed: () => unawaited(viewModel.revealCrashReports()),
+          ),
+        ),
+      ],
+    );
   }
 }
 

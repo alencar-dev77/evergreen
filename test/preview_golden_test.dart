@@ -61,6 +61,7 @@ import 'features/pin/fake_clipboard_repository.dart';
 import 'golden_fonts.dart';
 import 'features/echo/fake_export_service.dart';
 import 'features/echo/fake_echo_audio.dart';
+import 'features/home/fake_diagnostics_service.dart';
 import 'features/home/fake_disk_usage_service.dart';
 import 'features/pin/fake_pin_image_store.dart';
 
@@ -501,6 +502,9 @@ void main() {
                 backups: 5872025,
               ),
             ),
+          ),
+          diagnosticsServiceProvider.overrideWithValue(
+            FakeDiagnosticsService(),
           ),
           if (fakeClock)
             clockProvider.overrideWithValue(() => tester.binding.clock.now())

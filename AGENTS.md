@@ -488,6 +488,28 @@ e esconder ícones da barra de menus
   o `NestFileService`, pelo motivo de sempre — no relógio falso do teste de
   widget a resposta de uma escrita em disco nunca chega. Ver
   [docs/Ideis projeto/echo-copiar-e-exportar.md](docs/Ideis%20projeto/echo-copiar-e-exportar.md).
+- **Erro vai para o registro local, e o registro não leva nada de quem usa.**
+  `AppLog` (`lib/core/diagnostics/app_log.dart`) escreve em `Diagnóstico/`, na
+  pasta do aplicativo (três arquivos de 1 MB, só a janela 0 roda a rotação —
+  os dois engines escrevem no mesmo arquivo, e o Hub para no dobro do teto; a
+  mesma linha repetida é contada, não reescrita). Quem alimenta: os dois caminhos
+  de erro não tratado (`ErrorCapture`, encadeado depois do
+  `KeyboardStateGuard`, cujo assert continua fora) e o `_invoke` de cada canal
+  nativo do Echo, do Nest e da trava do Awake (`AppLog.channelError`), nos
+  dois engines — canal novo que falhe em silêncio ganha a mesma linha. **Quem garante a regra é o
+  `AppLog.describe`, nunca quem chama**, e a armadilha é o `toString` dos
+  erros: o `SqliteException` imprime os parâmetros da instrução (numa escrita
+  do Pin, o texto copiado), o `FileSystemException` imprime o caminho (no Nest,
+  o nome do arquivo), o `PlatformException` traz mensagem e detalhes do nativo,
+  o `FormatException` traz o texto que não leu. Cada um é tratado por tipo;
+  erro novo que carregue dado no `toString` entra lá, e o resto passa pelo
+  `redact` (aspas, link, e-mail, caminho, número longo). Do canal vai o método
+  e o código, nunca a mensagem. `AppLog.info` recebe só texto do próprio app.
+  O que prende isso é `test/core/diagnostics/app_log_test.dart`, com um item do
+  Pin passando por um SQLite de verdade. O "Copiar diagnóstico" da tela do
+  aplicativo (`DiagnosticsService`, interface pelo motivo do `NestFileService`)
+  junta versão, sistema, módulos, permissões e o fim do registro, e abre no
+  Finder a pasta dele e a `~/Library/Logs/DiagnosticReports` do macOS.
 - Migrações de schema: só **adicionar** entrada com chave nova em `_migrations`
   em `lib/core/storage/app_database.dart`; nunca editar nem reaproveitar uma
   chave já publicada (a tabela `schema_migrations` rastreia quais rodaram). A

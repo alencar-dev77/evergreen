@@ -26,6 +26,9 @@ import '../features/focus/data/focus_run_repository.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
 import '../core/app_info.dart';
+import '../core/diagnostics/log_store.dart';
+import '../core/system/previous_app_focus_channel.dart';
+import '../features/home/data/diagnostics_service.dart';
 import '../features/home/data/app_settings_repository.dart';
 import '../features/home/data/hub_intro_repository.dart';
 import '../features/home/data/module_settings_repository.dart';
@@ -97,6 +100,30 @@ final exportServiceProvider = Provider<ExportService>((ref) {
     directory: Directory(p.join(database.directoryPath, 'Exportações')),
   );
 });
+
+/// O registro de erros, na subpasta `Diagnóstico` do aplicativo.
+///
+/// Ao lado dos backups e das exportações, pela mesma razão. Os dois engines
+/// escrevem nele, e só a janela 0 roda a rotação — ver [LocalLogStore].
+final logStoreProvider = Provider<LogStore>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return LocalLogStore(
+    directory: Directory(p.join(database.directoryPath, 'Diagnóstico')),
+    rotates: ref.watch(windowKindProvider) == WindowKind.overlay,
+  );
+});
+
+/// O que o "Copiar diagnóstico" junta, na tela do aplicativo.
+final diagnosticsServiceProvider = Provider<DiagnosticsService>(
+  (ref) => LocalDiagnosticsService(
+    log: ref.watch(logStoreProvider),
+    disk: ref.watch(diskUsageServiceProvider),
+    modules: () => ref.read(moduleSettingsRepositoryProvider).load(),
+    accessibility: PreviousAppFocusChannel.hasAccessibilityPermission,
+    echoCapabilities: () => ref.read(echoChannelProvider).capabilities(),
+  ),
+);
 
 /// Quanto a pasta do aplicativo ocupa — o banco e as subpastas ao lado dele.
 final diskUsageServiceProvider = Provider<DiskUsageService>(
