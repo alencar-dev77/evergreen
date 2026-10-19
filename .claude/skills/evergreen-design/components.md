@@ -18,7 +18,7 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgShortcutRecorder` | `eg_shortcut_recorder.dart` | os key-caps de um atalho global + o botão que põe a tela à escuta; devolve a combinação apertada e não decide nada | repouso · gravando |
 | `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado; `bare` tira a caixa (fila de filtros do Pin) | default · hover · pressed · focus · selected |
 | `EgSearchField` | `eg_search_field.dart` | campo de busca (`bare` para a linha do topo do overlay) | default · focus (borda accent) · placeholder |
-| `EgTextField` | `eg_text_field.dart` | campo de texto de uma linha que a pessoa escreve e confirma (atividade e resumo do Focus) | default · focus (borda accent) · disabled |
+| `EgTextField` | `eg_text_field.dart` | campo de texto de uma linha que a pessoa escreve e confirma (atividade e resumo do Focus); `bare` + `style` para renomear no lugar um título (o nome da reunião do Echo), no degrau dele | default · focus (borda accent) · disabled |
 | `EgHintBar` / `EgHint` | `eg_hint_bar.dart` | rodapé de atalhos de um painel operado por teclado | — |
 | `EgPanel` | `eg_panel.dart` | superfície flutuante com borda, radius e sombra | `elevated` on/off |
 | `EgIconBadge` | `eg_panel.dart` | quadrado arredondado que abriga um ícone | — |

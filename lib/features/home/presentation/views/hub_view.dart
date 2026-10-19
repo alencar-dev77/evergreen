@@ -11,6 +11,7 @@ import '../../../../shared/widgets/eg_background.dart';
 import '../../../awake/presentation/views/awake_settings_view.dart';
 import '../../../echo/presentation/views/echo_settings_view.dart';
 import '../../../echo/presentation/viewmodels/echo_playback_view_model.dart';
+import '../../../echo/presentation/viewmodels/echo_rename_request.dart';
 import '../../../echo/presentation/viewmodels/echo_search_focus.dart';
 import '../../../echo/presentation/widgets/echo_reader.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
@@ -248,6 +249,11 @@ class _HubViewState extends ConsumerState<HubView> {
                 .isEnabled(EvergreenModule.echo))
           const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
               _focusEchoSearch,
+        // Com uma reunião aberta: o nome dela vira campo. O mesmo `⌘R` do
+        // apelido do Pin.
+        if (isDetailOpen && detail == EvergreenModule.echo)
+          const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
+              ref.read(echoRenameRequestProvider.notifier).request(),
       },
       // As teclas da região num mapa à parte, porque elas **cedem a quem
       // digita**: espaço e letra são texto. Um `CallbackShortcuts` consome

@@ -269,7 +269,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       final startedAt = _startedAt ?? _now();
       final meeting = _repository.insert(
         Meeting(
-          title: _defaultTitle(startedAt),
+          title: Meeting.defaultTitle(startedAt),
           startedAt: startedAt,
           durationMs: files.durationMs,
           language: settings.language,
@@ -446,29 +446,5 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       clearError: true,
       clearMeeting: true,
     );
-  }
-
-  /// "Reunião de 14 de agosto, 15:30" — trocável na tela do Hub.
-  String _defaultTitle(DateTime startedAt) {
-    const months = [
-      'janeiro',
-      'fevereiro',
-      'março',
-      'abril',
-      'maio',
-      'junho',
-      'julho',
-      'agosto',
-      'setembro',
-      'outubro',
-      'novembro',
-      'dezembro',
-    ];
-
-    final hour = startedAt.hour.toString().padLeft(2, '0');
-    final minute = startedAt.minute.toString().padLeft(2, '0');
-
-    return 'Reunião de ${startedAt.day} de ${months[startedAt.month - 1]}, '
-        '$hour:$minute';
   }
 }

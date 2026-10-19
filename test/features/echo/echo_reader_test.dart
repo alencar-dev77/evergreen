@@ -7,6 +7,7 @@ import 'package:evergreen/features/echo/models/meeting.dart';
 import 'package:evergreen/features/echo/models/echo_settings.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
 import 'package:evergreen/features/echo/models/transcription_language.dart';
+import 'package:evergreen/features/echo/presentation/widgets/echo_meeting_title.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/hub_detail_region.dart';
@@ -171,6 +172,140 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HubDetailRegion), findsNothing);
+  });
+
+  /// O nome da reunião é trocado no lugar, no cabeçalho da leitura — clicando
+  /// nele ou pelo `⌘R` —, e segue as regras de campo da casa: Enter e sair
+  /// guardam, Esc desfaz sem levar a região junto.
+  group('renomear', () {
+    Finder header(String title) => find.descendant(
+      of: find.byType(EchoMeetingTitle),
+      matching: find.text(title),
+    );
+
+    Finder field() => find.descendant(
+      of: find.byType(EchoMeetingTitle),
+      matching: find.byType(EditableText),
+    );
+
+    Future<void> startEditing(WidgetTester tester) async {
+      await openMeeting(tester);
+      await tester.tap(header('Alinhamento de escopo'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('clicar no nome abre o campo, e o Enter guarda', (
+      tester,
+    ) async {
+      await pumpHub(tester);
+      await startEditing(tester);
+
+      expect(field(), findsOneWidget);
+      await tester.enterText(field(), 'Retro da sprint');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(field(), findsNothing);
+      expect(header('Retro da sprint'), findsOneWidget);
+      expect(repository.findById(meetingId)!.title, 'Retro da sprint');
+      // A lista acompanha: é a mesma reunião, com o nome novo.
+      expect(find.text('Alinhamento de escopo'), findsNothing);
+    });
+
+    testWidgets('Esc desfaz e a região continua aberta', (tester) async {
+      await pumpHub(tester);
+      await startEditing(tester);
+
+      await tester.enterText(field(), 'Nome descartado');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HubDetailRegion), findsOneWidget);
+      expect(field(), findsNothing);
+      expect(header('Alinhamento de escopo'), findsOneWidget);
+      expect(repository.findById(meetingId)!.title, 'Alinhamento de escopo');
+    });
+
+    testWidgets('apagar o nome devolve a data e a hora', (tester) async {
+      await pumpHub(tester);
+      await startEditing(tester);
+
+      await tester.enterText(field(), '   ');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      final meeting = repository.findById(meetingId)!;
+      expect(meeting.title, Meeting.defaultTitle(meeting.startedAt));
+      expect(header(meeting.title), findsOneWidget);
+    });
+
+    testWidgets('fechar a leitura com o campo aberto guarda o nome', (
+      tester,
+    ) async {
+      await pumpHub(tester);
+      await startEditing(tester);
+
+      await tester.enterText(field(), 'Planejamento do trimestre');
+      await tester.tap(find.byTooltip('Fechar (esc)'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HubDetailRegion), findsNothing);
+      expect(
+        repository.findById(meetingId)!.title,
+        'Planejamento do trimestre',
+      );
+      expect(find.text('Planejamento do trimestre'), findsOneWidget);
+    });
+
+    /// No macOS um clique fora do campo tira o foco dele antes de o clique
+    /// chegar à linha — é o foco perdido que guarda, e não a desmontagem.
+    testWidgets(
+      'trocar de reunião no meio da edição guarda na de antes',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        final otherId = repository
+            .insert(
+              Meeting(
+                title: 'Daily de quinta',
+                startedAt: DateTime.now().subtract(const Duration(days: 1)),
+                durationMs: const Duration(minutes: 15).inMilliseconds,
+                language: TranscriptionLanguage.ptBR,
+                segments: const [],
+              ),
+            )
+            .id!;
+
+        await pumpHub(tester);
+        await startEditing(tester);
+
+        await tester.enterText(field(), 'Escopo fechado');
+        await tester.tap(find.text('Daily de quinta'));
+        await tester.pumpAndSettle();
+
+        expect(repository.findById(meetingId)!.title, 'Escopo fechado');
+        expect(repository.findById(otherId)!.title, 'Daily de quinta');
+        expect(header('Daily de quinta'), findsOneWidget);
+        expect(field(), findsNothing);
+      },
+    );
+
+    testWidgets('⌘R abre o campo com o nome todo selecionado', (tester) async {
+      await pumpHub(tester);
+      await openMeeting(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+
+      final editable = tester.widget<EditableText>(field());
+      expect(editable.controller.text, 'Alinhamento de escopo');
+      expect(
+        editable.controller.selection,
+        const TextSelection(baseOffset: 0, extentOffset: 21),
+      );
+      expect(editable.focusNode.hasFocus, isTrue);
+    });
   });
 
   testWidgets('trocar de módulo fecha a região', (tester) async {
