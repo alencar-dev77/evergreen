@@ -104,6 +104,19 @@ class MenuBarContent {
   /// Há quanto tempo o Echo está gravando, quando está.
   String? echoLabel;
 
+  /// O módulo cujo relógio a ilha do notch está mostrando —
+  /// [MenuBarAction.openEcho] ou [MenuBarAction.openFocus] —, ou `null` sem
+  /// ilha na tela.
+  ///
+  /// Esse relógio sai do título: os dois ficam a um palmo um do outro, no topo
+  /// da mesma tela, e o mesmo minuto escrito duas vezes é ruído. Só o que a
+  /// ilha mostra sai — ela mostra uma coisa só, e com a reunião nela a sessão
+  /// de foco continua ao lado do ícone. Sem recorte (a tampa fechou), a ilha
+  /// some e o relógio volta para cá — e com outro monitor ligado ele nem sai:
+  /// a barra de menus aparece em todas as telas, a ilha só na do notch, e na
+  /// outra o relógio da barra é o único.
+  MenuBarAction? inNotch;
+
   /// Ponto que anuncia a trava do Awake ligada.
   ///
   /// Um caractere, e não um número: a contagem do Focus já ocupa o título, e
@@ -123,8 +136,9 @@ class MenuBarContent {
   String title() {
     final parts = <String>[
       if (awakeDetail != null) awakeMark,
-      if (echoLabel != null) '$recordingMark $echoLabel',
-      ?sessionLabel,
+      if (echoLabel != null && inNotch != MenuBarAction.openEcho)
+        '$recordingMark $echoLabel',
+      if (inNotch != MenuBarAction.openFocus) ?sessionLabel,
     ];
 
     return parts.join(' ');
@@ -284,6 +298,12 @@ class MenuBarService {
   /// quanto".
   Future<void> setEchoLabel(String? label) async {
     _content.echoLabel = label;
+    _applyTitle();
+  }
+
+  /// Diz qual relógio a ilha do notch já mostra. Ver [MenuBarContent.inNotch].
+  Future<void> setInNotch(MenuBarAction? action) async {
+    _content.inNotch = action;
     _applyTitle();
   }
 

@@ -85,5 +85,33 @@ void main() {
 
       expect(content.title(), '● ◉ 04:10 12:30');
     });
+
+    test('o relógio que a ilha do notch mostra sai do título', () {
+      final content = MenuBarContent()
+        ..sessionLabel = '12:30'
+        ..echoLabel = '04:10'
+        ..awakeDetail = 'sem limite';
+
+      content.inNotch = MenuBarAction.openEcho;
+      expect(
+        content.title(),
+        '● 12:30',
+        reason: 'a ilha mostra uma coisa só; o foco continua ao lado do ícone',
+      );
+
+      content.inNotch = MenuBarAction.openFocus;
+      expect(content.title(), '● ◉ 04:10');
+
+      content.inNotch = null;
+      expect(content.title(), '● ◉ 04:10 12:30', reason: 'sem ilha, volta');
+    });
+
+    test('só a reunião, e ela no notch: título vazio', () {
+      final content = MenuBarContent()
+        ..echoLabel = '04:10'
+        ..inNotch = MenuBarAction.openEcho;
+
+      expect(content.title(), isEmpty);
+    });
   });
 }

@@ -222,6 +222,25 @@ aberta pelo mouse e fecha como fecharia. Parar a gravação recolhe tudo.
 - **Pausar e parar continuam à mão** com ela presa: ninguém deveria precisar
   recolher a transcrição para parar a gravação.
 
+### O relógio não se repete na barra de menus
+
+O que a ilha mostra **sai do título ao lado do ícone** da barra de menus: os
+dois ficam a um palmo um do outro, no topo da mesma tela, e o mesmo minuto
+escrito duas vezes é ruído. Só sai o que ela mostra — com a reunião no notch, a
+sessão de foco continua ao lado do ícone —, e volta sozinho quando a ilha some
+(a tampa fechou, o módulo foi desligado no notch).
+
+**Com mais de um monitor, nada sai.** A barra de menus aparece em todas as
+telas e a ilha só na do notch; quem trabalha no monitor externo perderia o
+único sinal de "está gravando" que tem à vista. Mostrar o relógio duas vezes no
+notebook é o custo menor.
+
+Quem diz o que a ilha mostra é o lado nativo (`onShown`, só na virada, e
+`shown` para quem começa a escutar), porque é ele que junta os módulos ligados
+no notch, o recorte existir agora e quantas telas há; o Dart não tem nenhum dos
+três. É a única coisa que a ilha devolve ao Dart além dos botões. A regra de que
+relógio sai mora no `MenuBarContent.inNotch`, testada sem ícone.
+
 ### O custo assumido
 
 Recolhida, a ilha avança 56 pt de cada lado do recorte, e **cobre os ícones da

@@ -25,6 +25,23 @@ class FakeNotchIslandChannel implements NotchIslandChannel {
   @override
   Stream<NotchIslandEvent> get onAction => _events.stream;
 
+  /// O módulo que a ilha está mostrando, como o lado nativo o diria.
+  NotchModule? showing;
+
+  final _shown = StreamController<NotchModule?>.broadcast();
+
+  /// A ilha passa a mostrar [module] (ou nada), como o lado nativo avisaria.
+  void show(NotchModule? module) {
+    showing = module;
+    _shown.add(module);
+  }
+
+  @override
+  Stream<NotchModule?> get onShown => _shown.stream;
+
+  @override
+  Future<NotchModule?> shown() async => showing;
+
   @override
   void listen() {}
 
@@ -54,5 +71,8 @@ class FakeNotchIslandChannel implements NotchIslandChannel {
   }
 
   @override
-  void dispose() => _events.close();
+  void dispose() {
+    _events.close();
+    _shown.close();
+  }
 }
