@@ -340,8 +340,19 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
     );
   }
 
+  /// Dá nome à reunião. Vazio devolve o nome com que ela nasceu — a data e a
+  /// hora —, que é o jeito de desfazer um nome sem ter de lembrá-lo.
   void rename(int id, String title) {
-    _repository.setTitle(id, title);
+    final meeting = _repository.findById(id);
+    if (meeting == null) return;
+
+    final trimmed = title.trim();
+    final next = trimmed.isEmpty
+        ? Meeting.defaultTitle(meeting.startedAt)
+        : trimmed;
+    if (next == meeting.title) return;
+
+    _repository.setTitle(id, next);
     state = state.copyWith(meetings: _repository.loadAll());
     _refreshSearch();
   }

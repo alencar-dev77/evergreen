@@ -63,6 +63,9 @@ Isso é uma inversão consciente do padrão típico de design de produto (que co
 | `Esc` | Echo | fecha o painel; a gravação **continua** |
 | `space` | Hub, leitura do Echo | toca e pausa o áudio da reunião — só com a leitura aberta e a reunião com áudio; num campo de texto, espaço continua sendo espaço |
 | `←` `→` | Hub, leitura do Echo | volta e avança 10 s no áudio da reunião |
+| `⌘R` | Hub, leitura do Echo | o nome da reunião vira campo, com o texto todo selecionado — o mesmo `⌘R` do apelido do Pin; clicar no nome faz o mesmo |
+| `Enter` | nome da reunião em edição | guarda o nome; vazio, a reunião volta ao nome de data e hora com que nasceu |
+| `Esc` | nome da reunião em edição | desfaz o que foi digitado, sem fechar a região de leitura |
 | `⌘F` | Hub, Echo | leva o teclado à busca de todas as reuniões — da aba de ajustes também, trocando para a das reuniões |
 | `↑` `↓` | Hub, busca do Echo | andam pelos resultados com o cursor no campo, sem dar a volta no fim da lista |
 | `Enter` | Hub, busca do Echo | abre o resultado apontado — a reunião na face do trecho, a fala dele à vista, o áudio parado onde a palavra soa — e tira o cursor da busca: o espaço seguinte toca dali |

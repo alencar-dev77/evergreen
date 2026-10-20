@@ -403,7 +403,8 @@ e esconder ícones da barra de menus
   fora desses dois caminhos põe o seu.
 - Campo de texto guarda ao perder o foco, por qualquer caminho — clique fora,
   troca de item, fechamento do painel. Vale para o apelido do Pin, o cartão do
-  Leaf e os campos das telas de preferência. O Esc é a única saída que
+  Leaf, o nome da reunião do Echo (`EchoMeetingTitle`) e os campos das telas
+  de preferência. O Esc é a única saída que
   descarta, e ele desfaz a edição **antes** de o campo sair da árvore, então
   nunca colide com o commit do foco perdido. A contrapartida disso no Leaf é o
   `⌘Z`: como esvaziar o campo apaga a anotação, e sair do campo confirma

@@ -13,6 +13,7 @@ import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
 import '../viewmodels/echo_library_view_model.dart';
 import '../viewmodels/echo_playback_view_model.dart';
 import 'echo_meeting_detail.dart';
+import 'echo_meeting_title.dart';
 import 'echo_player_bar.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -53,11 +54,12 @@ class EchoReader extends ConsumerWidget {
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            meeting.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: context.eg.text.panelTitle,
+          // Pela reunião: trocar de reunião com o nome em edição guarda o que
+          // foi escrito na de antes, em vez de levá-lo para a seguinte.
+          EchoMeetingTitle(
+            key: ValueKey(meeting.id),
+            meeting: meeting,
+            onRename: (title) => viewModel.rename(meeting.id!, title),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(

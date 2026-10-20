@@ -26,8 +26,37 @@ class Meeting {
 
   final int? id;
 
-  /// Nome dado pela pessoa, ou a data por extenso enquanto ela não deu nenhum.
+  /// Nome dado pela pessoa, ou a data por extenso enquanto ela não deu nenhum
+  /// ([defaultTitle]).
   final String title;
+
+  /// "Reunião de 14 de agosto, 15:30": o nome com que a reunião nasce, e o que
+  /// ela volta a ter quando a pessoa apaga o que deu.
+  ///
+  /// A data e a hora, e não "Reunião 12": é o que a pessoa lembra de uma
+  /// reunião que ainda não nomeou — "a de terça de manhã".
+  static String defaultTitle(DateTime startedAt) {
+    const months = [
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
+    ];
+
+    final hour = startedAt.hour.toString().padLeft(2, '0');
+    final minute = startedAt.minute.toString().padLeft(2, '0');
+
+    return 'Reunião de ${startedAt.day} de ${months[startedAt.month - 1]}, '
+        '$hour:$minute';
+  }
 
   final DateTime startedAt;
   final int durationMs;
