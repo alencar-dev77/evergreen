@@ -143,6 +143,18 @@ e esconder ícones da barra de menus
   modelo é baixado do Hugging Face uma vez, e é a única conexão que o
   Evergreen abre. Ao vivo não separa. Ver
   [docs/Ideis projeto/echo-separacao-de-vozes.md](docs/Ideis%20projeto/echo-separacao-de-vozes.md).
+  **O microfone é aberto cru, nunca com `setVoiceProcessingEnabled`.** O
+  processamento de voz não fica dentro do Echo: enquanto ele está ligado, o
+  microfone interno entrega as cápsulas cruas a **todos** os apps (a sua voz
+  chegava "longe" na reunião) e o som dos outros abaixa. Já entrou e saiu duas
+  vezes. O que ele dava ao Echo é refeito só na faixa dele: escolher uma
+  cápsula em vez de somar, e ganho quando a entrada vem em vários canais
+  (`EchoMicGain`). E o `AVAudioEngine` **para sozinho** quando o microfone muda
+  de formato no meio da reunião (o app da chamada ligando o processamento dele
+  basta); o `EchoRecorder` o religa num motor novo, só se a gravação ainda for a
+  mesma (`micGeneration`), e o buraco do religamento vira silêncio na faixa —
+  senão a sua voz se adianta em relação à reunião. Ver
+  [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
   texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro
   de cada faixa dez vezes por segundo: uma FFT (`Accelerate`/`vDSP`) sobre os
