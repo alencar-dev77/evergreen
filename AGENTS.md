@@ -211,7 +211,10 @@ e esconder ícones da barra de menus
   manda cada `NotchActivity` pronta — texto, relógio formatado, botões — e as
   cores dos tokens; o Swift só desenha — com as medidas dele mesmo, que são
   do recorte e da barra de menus, e não da escala do app (a única exceção à
-  regra dos literais). **Sem recorte, nada disto existe**:
+  regra dos literais). Além dos botões, a ilha devolve uma coisa só: qual
+  módulo ela está mostrando (`onShown`), para o relógio dele sair do título
+  da barra de menus (`MenuBarContent.inNotch`) — só com uma tela, porque a
+  barra aparece em todas e a ilha só numa. **Sem recorte, nada disto existe**:
   nem a ilha, nem a porta do Nest, nem as linhas de preferência. Ver
   [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —

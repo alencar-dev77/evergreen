@@ -116,6 +116,10 @@ class EvergreenBootstrap {
   /// Assinatura dos botões da ilha do notch. Ver [_watchNotch].
   StreamSubscription<NotchIslandEvent>? _notchActions;
 
+  /// Assinatura do módulo que a ilha mostra, para a barra de menus não
+  /// repeti-lo. Ver [_watchNotch].
+  StreamSubscription<NotchModule?>? _notchOnShown;
+
   /// O que a ilha mostra agora, para só mandar ao canal o que mudou.
   List<NotchActivity> _notchShown = const [];
 
@@ -916,10 +920,26 @@ class EvergreenBootstrap {
     OverlayWindow.instance.notchAnchor.addListener(push);
     push();
 
-    _notchActions = _container
-        .read(notchIslandChannelProvider)
-        .onAction
-        .listen((event) => unawaited(_handleNotchAction(event)));
+    final channel = _container.read(notchIslandChannelProvider);
+    _notchActions = channel.onAction.listen(
+      (event) => unawaited(_handleNotchAction(event)),
+    );
+
+    // O relógio que a ilha mostra sai da barra de menus. Ela só avisa a
+    // virada e sobrevive a um hot restart, então quem começa a escutar
+    // pergunta também o que ela mostra agora.
+    _notchOnShown = channel.onShown.listen(_showInMenuBar);
+    unawaited(channel.shown().then(_showInMenuBar));
+  }
+
+  void _showInMenuBar(NotchModule? module) {
+    final action = switch (module) {
+      NotchModule.echo => MenuBarAction.openEcho,
+      NotchModule.focus => MenuBarAction.openFocus,
+      // A pilha do Nest não tem relógio na barra de menus.
+      NotchModule.nest || null => null,
+    };
+    unawaited(MenuBarService.instance.setInNotch(action));
   }
 
   Future<void> _handleNotchAction(NotchIslandEvent event) async {
@@ -1139,6 +1159,7 @@ class EvergreenBootstrap {
     await _nestPointer?.cancel();
     _pileTimer?.cancel();
     await _notchActions?.cancel();
+    await _notchOnShown?.cancel();
     // A ilha é uma janela nativa: sem isto ela ficaria no notch até o processo
     // morrer, que é um instante depois — mas um instante com um relógio parado.
     await _container.read(notchIslandChannelProvider).update(const []);

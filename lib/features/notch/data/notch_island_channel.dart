@@ -41,18 +41,40 @@ class NotchIslandChannel {
   /// reunião e o cronômetro.
   Stream<NotchIslandEvent> get onAction => _events.stream;
 
+  final _shown = StreamController<NotchModule?>.broadcast();
+
+  /// O módulo que a ilha passou a mostrar, ou `null` quando ela sai da tela.
+  /// Só na virada.
+  ///
+  /// Quem responde é o lado nativo, e só ele poderia: a ilha mostra a primeira
+  /// atividade cujo módulo está ligado no notch — o que o Hub muda de outro
+  /// engine —, e só enquanto há recorte, que some com a tampa fechada. Com
+  /// mais de um monitor a resposta é `null`: a barra de menus aparece em todos,
+  /// e a ilha só num.
+  Stream<NotchModule?> get onShown => _shown.stream;
+
   void listen() {
     _channel.setMethodCallHandler((call) async {
-      if (call.method != 'onAction') return;
-
       final arguments = call.arguments as Map<Object?, Object?>?;
       final module = NotchModule.fromId(arguments?['module'] as String?);
-      final action = arguments?['action'] as String?;
 
-      if (module == null || action == null || _events.isClosed) return;
-      _events.add(NotchIslandEvent(module, action));
+      switch (call.method) {
+        case 'onAction':
+          final action = arguments?['action'] as String?;
+          if (module == null || action == null || _events.isClosed) return;
+          _events.add(NotchIslandEvent(module, action));
+
+        case 'onShown':
+          if (!_shown.isClosed) _shown.add(module);
+      }
     });
   }
+
+  /// O módulo que a ilha mostra agora, ou `null`. O [onShown] só avisa a
+  /// virada, e a ilha sobrevive a um hot restart — quem começa a escutar
+  /// pergunta antes.
+  Future<NotchModule?> shown() async =>
+      NotchModule.fromId(await _invoke<String>('shown'));
 
   /// Este Mac tem recorte agora? Muda com a tampa: fechada, com um monitor
   /// externo, o recorte some.
@@ -103,5 +125,6 @@ class NotchIslandChannel {
   void dispose() {
     _channel.setMethodCallHandler(null);
     _events.close();
+    _shown.close();
   }
 }

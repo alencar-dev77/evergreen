@@ -119,6 +119,9 @@ enum NotchIslandChannel {
       case "hasNotch":
         result(NotchGeometry.current() != nil)
 
+      case "shown":
+        result(shownModule)
+
       case "setEnabled":
         guard let module = arguments?["module"] as? String else {
           result(nil)
@@ -187,12 +190,32 @@ enum NotchIslandChannel {
     channel.invokeMethod("onAction", arguments: ["module": module, "action": action])
   }
 
+  /// O módulo que a ilha está mostrando agora, ou `nil` sem ilha na tela — ou
+  /// com mais de um monitor, em que a ilha não está à vista de toda barra de
+  /// menus (ver o fim do `refresh`).
+  ///
+  /// Quem precisa saber é a barra de menus: o relógio que já está no notch não
+  /// se repete ao lado do ícone. E só daqui dá para saber — quem decide são os
+  /// módulos ligados no notch, que o Hub muda de outro engine, e o recorte, que
+  /// some com a tampa fechada.
+  private static var shownModule: String?
+
+  /// Avisa o Dart quando a ilha passa a mostrar outro módulo, ou nenhum. Só na
+  /// virada: o `update` chega dez vezes por segundo gravando.
+  private static func setShown(_ module: String?) {
+    guard module != shownModule else { return }
+    shownModule = module
+    let value: Any = module ?? NSNull()
+    overlayChannel?.invokeMethod("onShown", arguments: ["module": value])
+  }
+
   private static func refresh() {
     let visible = activities.first { enabledModules.contains($0.module) }
 
     guard let activity = visible, let notch = NotchGeometry.current() else {
       island?.dismiss()
       island = nil
+      setShown(nil)
       return
     }
 
@@ -200,6 +223,11 @@ enum NotchIslandChannel {
     if island == nil, isPassThrough { controller.setPassThrough(true) }
     island = controller
     controller.show(activity)
+    // Com outro monitor ligado a ilha fica na tela do notch, mas a barra de
+    // menus está em todas — e a pessoa pode estar trabalhando na outra. Ali o
+    // relógio da barra é o único, e não pode sumir por causa de uma ilha que
+    // ela não está vendo.
+    setShown(NSScreen.screens.count == 1 ? activity.module : nil)
   }
 }
 
