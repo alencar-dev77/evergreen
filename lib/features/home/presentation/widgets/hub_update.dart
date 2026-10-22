@@ -3,22 +3,23 @@ import 'package:flutter/widgets.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/eg_tokens.dart';
 import '../../../../core/system/update_service.dart';
-import '../../../../shared/widgets/eg_background.dart';
 import '../../../../shared/widgets/eg_brand_mark.dart';
 import '../../../../shared/widgets/eg_button.dart';
-import '../../../../shared/widgets/eg_hint_bar.dart';
+import '../../../../shared/widgets/eg_panel.dart';
 
-/// A versão nova, por cima do Hub: o que mudou e o botão de atualizar.
+/// A versão nova: o que muda e o botão de atualizar, num cartão por cima do
+/// Hub.
 ///
-/// Mesma cena da apresentação de boas-vindas — o fundo, o palco que vai do
-/// preto ao verde da marca, o botão no centro —, porque é o mesmo tipo de
-/// momento: o Evergreen falando de si mesmo, uma vez, em vez de uma janela de
-/// sistema pedindo licença. O palco leva o canivete no lugar do print.
+/// Cartão, e não a tela inteira: é uma pergunta de sim ou não ("atualizar
+/// agora?"), que é o único caso em que o Evergreen escurece o que está atrás —
+/// a regra do `EgConfirmDialog`. Clicar fora fecha, como Esc ou "Agora não"; a
+/// versão continua anunciada (a bolinha e o item do menu ficam). Do palco da
+/// apresentação de boas-vindas ele herda o gradiente, com o canivete no lugar
+/// do print — é o Evergreen falando de si mesmo, não uma janela de sistema.
 ///
 /// "Atualizar e reiniciar" é a resposta inteira: daqui o app baixa, fecha,
 /// instala e abre de novo, com a abertura animada da build nova. O andamento
-/// aparece no próprio botão; "Agora não" fecha a tela e a versão continua
-/// anunciada (a bolinha e o item do menu ficam).
+/// aparece no próprio botão, e enquanto ele anda o cartão não fecha.
 class HubUpdate extends StatelessWidget {
   const HubUpdate({
     super.key,
@@ -36,98 +37,58 @@ class HubUpdate extends StatelessWidget {
   final VoidCallback onInstall;
   final VoidCallback onClose;
 
-  static const _stageWidth = 620.0;
-  static const _stageHeight = 200.0;
-  static const _contentWidth = 480.0;
+  static const _width = 440.0;
+  static const _stageHeight = 120.0;
 
-  /// Até onde a lista de novidades cresce antes de rolar por dentro: o botão
-  /// precisa continuar à vista numa versão com muita coisa.
-  static const _notesMaxHeight = 220.0;
+  /// Até onde a lista de novidades cresce antes de rolar por dentro: os
+  /// botões precisam continuar à vista numa versão com muita coisa.
+  static const _notesMaxHeight = 200.0;
 
   @override
   Widget build(BuildContext context) {
+    final eg = context.eg;
     final failed = state.phase == UpdatePhase.error;
 
-    return EgBackground(
+    return EgPanel(
+      width: _width,
+      padding: const EdgeInsets.all(AppSpacing.xxl),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.xxxl,
-                  horizontal: AppSpacing.huge,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _stage(context),
-                    const SizedBox(height: AppSpacing.xxxl),
-                    Text(
-                      'Evergreen ${state.version ?? ''}',
-                      style: context.eg.text.display,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    SizedBox(
-                      width: _contentWidth,
-                      child: Text(
-                        failed
-                            ? 'Não deu para atualizar agora. A versão '
-                                  '$currentVersion continua instalada; tente '
-                                  'de novo mais tarde.'
-                            : 'Você está na $currentVersion. Isto é o que '
-                                  'muda:',
-                        textAlign: TextAlign.center,
-                        style: context.eg.text.body.copyWith(
-                          color: context.eg.colors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    if (!failed && state.notes.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.xl),
-                      _notes(context),
-                    ],
-                    const SizedBox(height: AppSpacing.xxxl),
-                    _action(context, failed: failed),
-                  ],
-                ),
-              ),
-            ),
+          _stage(context),
+          const SizedBox(height: AppSpacing.xl),
+          Text('Evergreen ${state.version ?? ''}', style: eg.text.panelTitle),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            failed
+                ? 'Não deu para atualizar agora. A $currentVersion continua '
+                      'instalada; tente de novo mais tarde.'
+                : 'Você está na $currentVersion. Isto é o que muda:',
+            style: eg.text.bodyCompact.copyWith(color: eg.colors.textSecondary),
           ),
-          EgHintBar(
-            hints: [
-              if (!failed && !state.phase.isBusy)
-                EgHint(
-                  keys: const ['enter'],
-                  label: 'atualizar',
-                  onTap: onInstall,
-                ),
-            ],
-            trailing: state.phase.isBusy
-                ? null
-                : EgHint(
-                    keys: const ['esc'],
-                    label: 'agora não',
-                    onTap: onClose,
-                  ),
-          ),
+          if (!failed && state.notes.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _notes(context),
+          ],
+          const SizedBox(height: AppSpacing.xxl),
+          _actions(context, failed: failed),
         ],
       ),
     );
   }
 
-  /// O palco da apresentação, com o canivete no centro.
+  /// O palco da apresentação, em miniatura, com o canivete no centro.
   Widget _stage(BuildContext context) {
     return SizedBox(
-      width: _stageWidth,
       height: _stageHeight,
       child: ClipRRect(
-        borderRadius: context.eg.shapes.panelAll,
+        borderRadius: context.eg.shapes.cardAll,
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: context.eg.gradients.onboardingStage,
           ),
-          child: const Center(child: EgBrandMark(size: 96)),
+          child: const Center(child: EgBrandMark(size: 64)),
         ),
       ),
     );
@@ -139,10 +100,7 @@ class HubUpdate extends StatelessWidget {
     final eg = context.eg;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxWidth: _contentWidth,
-        maxHeight: _notesMaxHeight,
-      ),
+      constraints: const BoxConstraints(maxHeight: _notesMaxHeight),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,7 +109,7 @@ class HubUpdate extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.only(
                   top: note.kind == UpdateNoteKind.heading && index > 0
-                      ? AppSpacing.lg
+                      ? AppSpacing.md
                       : AppSpacing.xxs,
                 ),
                 child: switch (note.kind) {
@@ -161,7 +119,7 @@ class HubUpdate extends StatelessWidget {
                   ),
                   UpdateNoteKind.paragraph => Text(
                     note.text,
-                    style: eg.text.body.copyWith(
+                    style: eg.text.bodyCompact.copyWith(
                       color: eg.colors.textSecondary,
                     ),
                   ),
@@ -170,9 +128,13 @@ class HubUpdate extends StatelessWidget {
                     children: [
                       Text(
                         '•  ',
-                        style: eg.text.body.copyWith(color: eg.colors.accent),
+                        style: eg.text.bodyCompact.copyWith(
+                          color: eg.colors.accent,
+                        ),
                       ),
-                      Expanded(child: Text(note.text, style: eg.text.body)),
+                      Expanded(
+                        child: Text(note.text, style: eg.text.bodyCompact),
+                      ),
                     ],
                   ),
                 },
@@ -183,8 +145,10 @@ class HubUpdate extends StatelessWidget {
     );
   }
 
-  /// O botão, que também é onde o andamento aparece.
-  Widget _action(BuildContext context, {required bool failed}) {
+  /// Os dois botões, à direita como no `EgConfirmDialog`. O de atualizar é
+  /// também onde o andamento aparece.
+  Widget _actions(BuildContext context, {required bool failed}) {
+    final busy = state.phase.isBusy;
     final progress = state.progress;
     final label = switch (state.phase) {
       UpdatePhase.downloading when progress != null =>
@@ -192,26 +156,32 @@ class HubUpdate extends StatelessWidget {
       UpdatePhase.downloading => 'Baixando…',
       UpdatePhase.extracting => 'Preparando…',
       UpdatePhase.installing => 'Reiniciando…',
-      _ when failed => 'Fechar',
       _ => 'Atualizar e reiniciar',
     };
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 240,
-          child: EgButton(
-            label: label,
-            onPressed: state.phase.isBusy
-                ? null
-                : (failed ? onClose : onInstall),
-            isLoading: state.phase == UpdatePhase.installing,
-            expand: true,
-            autofocus: true,
-          ),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            if (failed)
+              EgButton(label: 'Fechar', autofocus: true, onPressed: onClose)
+            else ...[
+              if (!busy)
+                EgButton.secondary(label: 'Agora não', onPressed: onClose),
+              EgButton(
+                label: label,
+                autofocus: true,
+                isLoading: state.phase == UpdatePhase.installing,
+                onPressed: busy ? null : onInstall,
+              ),
+            ],
+          ],
         ),
-        if (state.phase.isBusy && progress != null) ...[
+        if (busy && progress != null) ...[
           const SizedBox(height: AppSpacing.md),
           _ProgressLine(value: progress),
         ],
@@ -220,7 +190,7 @@ class HubUpdate extends StatelessWidget {
   }
 }
 
-/// A linha fina do andamento, sob o botão.
+/// A linha fina do andamento, sob os botões.
 class _ProgressLine extends StatelessWidget {
   const _ProgressLine({required this.value});
 
@@ -232,7 +202,6 @@ class _ProgressLine extends StatelessWidget {
       label: 'Andamento',
       value: '${(value * 100).round()}%',
       child: SizedBox(
-        width: 240,
         height: 3,
         child: DecoratedBox(
           decoration: BoxDecoration(

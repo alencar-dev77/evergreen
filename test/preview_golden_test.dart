@@ -707,31 +707,34 @@ void main() {
     );
   });
 
-  /// A versão nova, por cima do Hub: o que muda e o botão de atualizar.
+  /// A versão nova, num cartão por cima do Hub: o que muda e o botão de
+  /// atualizar.
   testWidgets('Hub — atualização', (tester) async {
     await pump(
       tester,
       Builder(
-        builder: (context) => HubUpdate(
-          state: UpdateState(
-            available: true,
-            phase: UpdatePhase.available,
-            version: '1.0.3',
-            notes: UpdateNote.parse(
-              '<h3>1.0.3 — 23/10/2026</h3><ul>'
-              '<li>Atualizações pelo próprio app (#137)</li>'
-              '<li>Os filtros do Pin cabem numa linha só (#136)</li></ul>'
-              '<h3>1.0.0 — 22/10/2026</h3><p>A V1.</p><ul>'
-              '<li>Política de privacidade e licenças dentro do app (#134)</li>'
-              '</ul>',
+        builder: (context) => Center(
+          child: HubUpdate(
+            state: UpdateState(
+              available: true,
+              phase: UpdatePhase.available,
+              version: '1.0.3',
+              notes: UpdateNote.parse(
+                '<h3>1.0.3 — 23/10/2026</h3><ul>'
+                '<li>Atualizações pelo próprio app (#137)</li>'
+                '<li>Os filtros do Pin cabem numa linha só (#136)</li></ul>'
+                '<h3>1.0.0 — 22/10/2026</h3><p>A V1.</p><ul>'
+                '<li>Política de privacidade e licenças dentro do app (#134)</li>'
+                '</ul>',
+              ),
             ),
+            currentVersion: '1.0.2',
+            onInstall: () {},
+            onClose: () {},
           ),
-          currentVersion: '1.0.2',
-          onInstall: () {},
-          onClose: () {},
         ),
       ),
-      _hubWindow,
+      const Size(1000, 1160),
     );
 
     await expectLater(

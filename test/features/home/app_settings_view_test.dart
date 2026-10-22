@@ -479,11 +479,29 @@ void main() {
       expect(find.byType(HubUpdate), findsOneWidget);
       expect(find.text('Filtros numa linha'), findsOneWidget);
 
-      // "Agora não" fecha a tela e a versão continua anunciada.
+      // Esc é "agora não": o cartão fecha e a versão continua anunciada.
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(HubUpdate), findsNothing);
       expect(find.text('Versão 1.0.3 disponível'), findsOneWidget);
+
+      // Clicar fora do cartão também.
+      await tester.ensureVisible(find.text('Ver novidades'));
+      await tester.tap(find.text('Ver novidades'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsNothing);
+
+      // E dentro dele, não.
+      await tester.tap(find.text('Ver novidades'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Filtros numa linha'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsOneWidget);
+      await tester.tap(find.text('Agora não'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsNothing);
 
       await tester.ensureVisible(find.text('Ver novidades'));
       await tester.tap(find.text('Ver novidades'));
@@ -521,6 +539,9 @@ void main() {
 
       expect(find.text('Baixando… 42%'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.byType(HubUpdate), findsOneWidget);
+      await tester.tapAt(const Offset(10, 10));
       await tester.pump();
       expect(find.byType(HubUpdate), findsOneWidget);
 

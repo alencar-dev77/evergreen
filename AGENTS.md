@@ -289,7 +289,8 @@ e esconder ícones da barra de menus
   atualizador é um por processo, nasce com a janela 0 e não existe em build de
   desenvolvimento (`#if DEBUG`). **A interface é nossa** (`UpdateDriver`, um
   `SPUUserDriver` próprio): a versão nova vira item no menu da barra, tecla
-  com bolinha no botão "Aplicativo" e a tela `HubUpdate`, nunca a janela do
+  com bolinha no botão "Aplicativo" e o cartão `HubUpdate` por cima do Hub
+  (pergunta de sim ou não, então fecha ao clicar fora), nunca a janela do
   Sparkle, que tiraria o foco de quem está trabalhando. Os executáveis de dentro do `Sparkle.framework`
   (XPC, `Autoupdate`, `Updater.app`) são assinados um a um no `release`. Ver
   [docs/Ideis projeto/atualizacao-sparkle.md](docs/Ideis%20projeto/atualizacao-sparkle.md).

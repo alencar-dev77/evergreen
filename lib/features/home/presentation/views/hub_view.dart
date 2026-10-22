@@ -238,9 +238,9 @@ class _HubViewState extends ConsumerState<HubView> {
     );
   }
 
-  /// A tela de novidades da versão nova, com o teclado dela.
+  /// O cartão de novidades da versão nova, por cima do Hub escurecido.
   ///
-  /// Os atalhos ficam aqui pelo mesmo motivo da apresentação: com ela na
+  /// Os atalhos ficam aqui pelo mesmo motivo da apresentação: com o cartão na
   /// tela, o Esc é "agora não", e não pode chegar ao `_handleEscape`, que
   /// esconderia a janela.
   Widget _update() {
@@ -270,11 +270,27 @@ class _HubViewState extends ConsumerState<HubView> {
       child: FocusScope(
         child: Focus(
           autofocus: true,
-          child: HubUpdate(
-            state: updates,
-            currentVersion: AppInfo.version,
-            onInstall: () => unawaited(model.install()),
-            onClose: presentation.close,
+          child: Stack(
+            children: [
+              // O Hub escurecido atrás, como no `EgConfirmDialog`. Clicar nele
+              // é "agora não" — menos enquanto baixa ou instala, pelo mesmo
+              // motivo do Esc.
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: busy ? null : presentation.close,
+                  child: ColoredBox(color: context.eg.colors.scrim),
+                ),
+              ),
+              Center(
+                child: HubUpdate(
+                  state: updates,
+                  currentVersion: AppInfo.version,
+                  onInstall: () => unawaited(model.install()),
+                  onClose: presentation.close,
+                ),
+              ),
+            ],
           ),
         ),
       ),

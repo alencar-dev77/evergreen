@@ -76,12 +76,14 @@ instalados não aceitariam a atualização.
   interrompe: um item "● Atualizar para a …" no topo do menu da barra (não no
   título ao lado do ícone, onde o `●` é do Awake), uma tecla com bolinha no
   botão "Aplicativo" da barra lateral, e a linha "Versão … disponível" na tela
-  do aplicativo. Qualquer uma leva à tela de novidades (`HubUpdate`), com a
-  cena da apresentação de boas-vindas, as notas do `CHANGELOG.md` e o
-  "Atualizar e reiniciar". Dali não há mais pergunta: o driver responde sim ao
+  do aplicativo. Qualquer uma leva ao cartão de novidades (`HubUpdate`), por
+  cima do Hub escurecido — é uma pergunta de sim ou não, a regra do
+  `EgConfirmDialog` —, com o gradiente da apresentação de boas-vindas, as notas
+  do `CHANGELOG.md` e o "Atualizar e reiniciar". Dali não há mais pergunta: o driver responde sim ao
   "instalo?" do Sparkle, o app fecha, instala e abre o Hub sozinho
   (`app.open_hub_after_update`) — e o Hub de uma build nova abre com a
-  abertura animada. "Agora não" fecha a tela, e a versão continua anunciada.
+  abertura animada. "Agora não", Esc ou um clique fora fecham o cartão, e a versão continua
+  anunciada; baixando ou instalando, ele não fecha.
 - **Quem é avisado é a janela 0** (`onState`), o engine que nunca morre e que
   cuida do menu. O Hub relê o estado: de meio em meio segundo enquanto algo
   anda, de meio em meio minuto no resto.
