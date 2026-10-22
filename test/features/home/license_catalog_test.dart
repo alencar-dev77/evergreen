@@ -17,7 +17,7 @@ void main() {
         licenses.first.texts.single,
         contains('GNU GENERAL PUBLIC LICENSE'),
       );
-      expect(names, containsAll(['FluidAudio', 'HotKey']));
+      expect(names, containsAll(['FluidAudio', 'HotKey', 'Sparkle']));
       // O registro também traz o pacote raiz; ele não pode aparecer de novo no
       // meio da lista.
       expect(

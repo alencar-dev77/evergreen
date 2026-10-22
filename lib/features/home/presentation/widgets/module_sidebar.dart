@@ -13,6 +13,7 @@ import '../../../../shared/widgets/eg_pill.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/evergreen_module.dart';
 import '../../models/module_settings.dart';
+import '../viewmodels/updates_view_model.dart';
 import '../viewmodels/local_model_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 
@@ -111,7 +112,18 @@ class ModuleSidebar extends ConsumerWidget {
                 ],
               ),
             ),
-            _footer(context, settings, ref.watch(localModelViewModelProvider)),
+            _footer(
+              context,
+              settings,
+              ref.watch(localModelViewModelProvider),
+              ref.watch(
+                updatesViewModelProvider.select(
+                  (updates) => updates.value?.hasUpdate == true
+                      ? updates.value!.version
+                      : null,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -181,6 +193,7 @@ class ModuleSidebar extends ConsumerWidget {
     BuildContext context,
     ModuleSettings settings,
     LocalModelStatus localModel,
+    String? updateVersion,
   ) {
     final eg = context.eg;
 
@@ -200,6 +213,11 @@ class ModuleSidebar extends ConsumerWidget {
             title: 'Aplicativo',
             shortcut: settings.bindingFor(GlobalShortcutSlot.hub).compact,
             isSelected: selected == null,
+            // A versão nova mora na tela do aplicativo: a bolinha fica no
+            // botão que leva até ela.
+            notice: updateVersion == null
+                ? null
+                : 'versão $updateVersion disponível',
             onTap: () => onSelect(null),
           ),
           const SizedBox(height: AppSpacing.md),

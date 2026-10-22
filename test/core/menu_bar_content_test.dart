@@ -36,6 +36,29 @@ void main() {
     expect(entries[entries.length - 3].isSeparator, isTrue);
   });
 
+  test('a versão nova vira o primeiro item, com a bolinha, e some depois', () {
+    final content = MenuBarContent()..updateVersion = '1.0.3';
+    final entries = content.entries();
+
+    expect(
+      entries[1],
+      const MenuBarEntry.item(
+        '● Atualizar para a 1.0.3…',
+        action: MenuBarAction.update,
+      ),
+    );
+    expect(entries[2].isSeparator, isTrue);
+    expect(entries[3].action, MenuBarAction.openPin);
+    // O título ao lado do ícone não muda: ali o ponto é do Awake.
+    expect(content.title(), isEmpty);
+
+    content.updateVersion = null;
+    expect(
+      content.entries().where((entry) => entry.action == MenuBarAction.update),
+      isEmpty,
+    );
+  });
+
   test('cada item leva a tecla em vigor; as saídas não têm', () {
     final content = MenuBarContent();
 

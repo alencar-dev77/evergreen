@@ -9,6 +9,7 @@ import '../core/storage/app_database.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
 import '../core/system/uninstall_service.dart';
+import '../core/system/update_service.dart';
 import '../core/storage/backup_service.dart';
 import '../core/storage/disk_usage_service.dart';
 import '../core/storage/export_service.dart';
@@ -143,6 +144,11 @@ final diagnosticsServiceProvider = Provider<DiagnosticsService>(
 /// [UninstallService] para o porquê da interface.
 final uninstallServiceProvider = Provider<UninstallService>(
   (ref) => ChannelUninstallService(),
+);
+
+/// A atualização pelo Sparkle — a seção "Atualizações" da tela do aplicativo.
+final updateServiceProvider = Provider<UpdateService>(
+  (ref) => ChannelUpdateService(),
 );
 
 /// Quanto a pasta do aplicativo ocupa — o banco e as subpastas ao lado dele.

@@ -17,8 +17,8 @@ abstract interface class LicenseCatalog {
 ///
 /// O `LicenseRegistry` junta sozinho as licenças de todo pacote Dart, inclusive
 /// o `hotkey_manager_macos` vendorizado. O que fica de fora é o que entra pelo
-/// Swift Package Manager direto no `Runner` (o FluidAudio) ou por dentro de um
-/// plugin (o HotKey): esses dois moram em `assets/licenses/`, copiados do
+/// Swift Package Manager direto no `Runner` (o FluidAudio e o Sparkle) ou por
+/// dentro de um plugin (o HotKey): esses dois moram em `assets/licenses/`, copiados do
 /// pacote na versão que o `Package.resolved` trava. Pacote Swift novo entra
 /// lá do mesmo jeito.
 class FlutterLicenseCatalog implements LicenseCatalog {
@@ -32,6 +32,7 @@ class FlutterLicenseCatalog implements LicenseCatalog {
   static const _native = {
     'FluidAudio': 'assets/licenses/FluidAudio.txt',
     'HotKey': 'assets/licenses/HotKey.txt',
+    'Sparkle': 'assets/licenses/Sparkle.txt',
   };
 
   @override

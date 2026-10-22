@@ -210,6 +210,19 @@ fi
 APP="$OUT_DIR/$APP_NAME"
 ditto "$BUILT_APP" "$APP"
 
+# As ferramentas do Sparkle chegam com o pacote, que o build acabou de baixar.
+# Publicar sem a chave das atualizações deixaria a versão nova sem appcast — e
+# quem já instalou nunca a encontraria —, então a falta dela para aqui, antes
+# dos minutos de notarização.
+SPARKLE_BIN="build/macos/SourcePackages/artifacts/sparkle/Sparkle/bin"
+SPARKLE_ACCOUNT="${EVERGREEN_SPARKLE_ACCOUNT:-evergreen}"
+if [[ "$PUBLISH" == "1" ]] \
+  && ! "$SPARKLE_BIN/generate_keys" --account "$SPARKLE_ACCOUNT" -p > /dev/null 2>&1; then
+  echo "❌ A chave das atualizações (Sparkle, conta \"$SPARKLE_ACCOUNT\") não está" >&2
+  echo "   no chaveiro. Ver docs/Ideis projeto/atualizacao-sparkle.md." >&2
+  exit 1
+fi
+
 # --- 3. Assinatura -----------------------------------------------------------
 
 sign() {
@@ -217,6 +230,19 @@ sign() {
 }
 
 echo "🔏 Assinando de dentro para fora…"
+
+# O Sparkle traz executáveis próprios dentro do framework — os dois serviços
+# XPC, o `Autoupdate` e o `Updater.app` —, e assinar só o framework os deixaria
+# com a assinatura de quem o compilou e sem o runtime endurecido: a notarização
+# recusa. A ordem e o `--preserve-metadata` do `Downloader` são os da
+# documentação do Sparkle ("Sandboxing and Code Signing").
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+if [[ -d "$SPARKLE" ]]; then
+  sign "$SPARKLE/XPCServices/Installer.xpc"
+  sign --preserve-metadata=entitlements "$SPARKLE/XPCServices/Downloader.xpc"
+  sign "$SPARKLE/Autoupdate"
+  sign "$SPARKLE/Updater.app"
+fi
 
 # Do caminho mais fundo para o mais raso: um framework dentro de outro é
 # assinado antes do que o contém.
@@ -369,14 +395,60 @@ if [[ "$PUBLISH" == "1" ]]; then
     echo "⚠️  Sem os PDFs dos documentos (./scripts/documentos falhou)." >&2
   fi
 
+  # O appcast: o arquivo que o Evergreen instalado lê para saber se há versão
+  # nova. Vai anexado ao próprio release, e o app o procura em
+  # `releases/latest/download/appcast.xml` — o "latest" do GitHub só aponta
+  # para release publicado (não rascunho), e um release que não é da `main`
+  # volta a rascunho (`release-so-da-main.yml`). Um item só, o desta versão:
+  # o Sparkle só precisa saber da mais nova.
+  #
+  # Quem o Sparkle compara é o `sparkle:version` com o `CFBundleVersion` — o
+  # **build**, não o semver. É por isso que o build só cresce, uma vez por
+  # publicação (`require-build-bump.yml`).
+  echo "📡 Gerando o appcast…"
+  SIGNATURE="$("$SPARKLE_BIN/sign_update" --account "$SPARKLE_ACCOUNT" "$DMG")"
+  REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+  # O `+` da tag vira `%2B` na URL: cru, ele seria lido como espaço.
+  DMG_URL="https://github.com/$REPO/releases/download/${TAG//+/%2B}/$(basename "$DMG")"
+  MIN_SYSTEM="$(awk -F' = ' '/MACOSX_DEPLOYMENT_TARGET/ { gsub(/;/, "", $2); print $2; exit }' \
+    macos/Runner.xcodeproj/project.pbxproj)"
+  # As mesmas notas do release, em HTML: título de versão, lista e parágrafo.
+  NOTES_HTML="$(awk '
+    function esc(t) { gsub(/&/, "\\&amp;", t); gsub(/</, "\\&lt;", t); gsub(/>/, "\\&gt;", t); return t }
+    /^## / { if (open) { print "</ul>"; open = 0 } print "<h3>" esc(substr($0, 4)) "</h3>"; next }
+    /^- /  { if (!open) { print "<ul>"; open = 1 } print "<li>" esc(substr($0, 3)) "</li>"; next }
+    /^$/   { next }
+           { if (open) { print "</ul>"; open = 0 } print "<p>" esc($0) "</p>" }
+    END    { if (open) print "</ul>" }
+  ' "$NOTES")"
+  APPCAST="$OUT_DIR/appcast.xml"
+  cat > "$APPCAST" <<APPCAST_XML
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Evergreen</title>
+    <item>
+      <title>Evergreen $VERSION</title>
+      <pubDate>$(LC_ALL=C date -u "+%a, %d %b %Y %H:%M:%S +0000")</pubDate>
+      <sparkle:version>${FULL_VERSION##*+}</sparkle:version>
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>$MIN_SYSTEM</sparkle:minimumSystemVersion>
+      <description><![CDATA[$NOTES_HTML]]></description>
+      <enclosure url="$DMG_URL" type="application/octet-stream" $SIGNATURE />
+    </item>
+  </channel>
+</rss>
+APPCAST_XML
+  xmllint --noout "$APPCAST"
+
   echo "🚀 Publicando no GitHub Release $TAG…"
   if gh release view "$TAG" > /dev/null 2>&1; then
-    gh release upload "$TAG" "$DMG" ${DOCS[@]+"${DOCS[@]}"} --clobber
+    gh release upload "$TAG" "$DMG" "$APPCAST" ${DOCS[@]+"${DOCS[@]}"} --clobber
   elif [[ -s "$NOTES" ]]; then
-    gh release create "$TAG" "$DMG" ${DOCS[@]+"${DOCS[@]}"} \
+    gh release create "$TAG" "$DMG" "$APPCAST" ${DOCS[@]+"${DOCS[@]}"} \
       --title "Evergreen $FULL_VERSION" --notes-file "$NOTES"
   else
-    gh release create "$TAG" "$DMG" ${DOCS[@]+"${DOCS[@]}"} \
+    gh release create "$TAG" "$DMG" "$APPCAST" ${DOCS[@]+"${DOCS[@]}"} \
       --title "Evergreen $FULL_VERSION" --generate-notes
   fi
 fi

@@ -12,6 +12,7 @@ import '../core/system/global_shortcut_slot.dart';
 import '../core/system/menu_bar_service.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
+import '../core/system/update_service.dart';
 import '../core/system/startup_service.dart';
 import '../core/window/hub_destination.dart';
 import '../core/window/hub_window.dart';
@@ -128,6 +129,9 @@ class EvergreenBootstrap {
   /// Assinatura dos cliques nas notificações. Ver [_watchNotifications].
   StreamSubscription<EgNotificationResponse>? _notificationResponses;
 
+  /// Assinatura dos avisos do atualizador. Ver [_watchUpdates].
+  StreamSubscription<UpdateState>? _updates;
+
   /// Relógio do resumo da semana. Ver [_scheduleWeekDigest].
   Timer? _weekTimer;
 
@@ -190,6 +194,7 @@ class EvergreenBootstrap {
     _watchAwake();
     _watchEcho();
     _watchNotch();
+    _watchUpdates();
     _scheduleBackups();
     _scheduleWeekDigest();
     await _openHubIfRequested();
@@ -1041,6 +1046,16 @@ class EvergreenBootstrap {
   /// própria apresentação (uma vez por build), então quem atualiza também a
   /// encontra, e quem já a viu segue abrindo minimizado.
   Future<void> _openHubIfRequested() async {
+    // Acabou de se atualizar pelo "Atualizar e reiniciar": o Hub abre, e com
+    // ele a abertura animada da build nova. Quem escreve a chave é o
+    // `UpdaterChannel`, antes de o app fechar; ela vale uma abertura só.
+    final preferences = _container.read(sharedPreferencesProvider);
+    if (preferences.getBool(openHubAfterUpdateKey) ?? false) {
+      await preferences.remove(openHubAfterUpdateKey);
+      await HubWindow.instance.open();
+      return;
+    }
+
     final onboardingPending =
         FeatureFlags.onboarding &&
         _container
@@ -1150,6 +1165,8 @@ class EvergreenBootstrap {
 
   void _handleMenuAction(MenuBarAction action) {
     switch (action) {
+      case MenuBarAction.update:
+        unawaited(_showUpdate());
       case MenuBarAction.openPin:
         toggleOverlay(OverlayPanel.pin);
       case MenuBarAction.openFocus:
@@ -1171,6 +1188,33 @@ class EvergreenBootstrap {
     }
   }
 
+  /// A chave que o `UpdaterChannel.swift` grava antes de o app fechar para se
+  /// atualizar (com o prefixo `flutter.` do `shared_preferences`).
+  static const openHubAfterUpdateKey = 'app.open_hub_after_update';
+
+  /// Põe a versão nova no menu da barra, e a tira quando ela some.
+  ///
+  /// A janela 0 é a única que o lado nativo avisa (`onState`): é o engine que
+  /// nunca morre, e é ela que cuida do menu.
+  void _watchUpdates() {
+    final service = _container.read(updateServiceProvider);
+    void apply(UpdateState state) => unawaited(
+      MenuBarService.instance.setUpdateVersion(
+        state.hasUpdate ? state.version : null,
+      ),
+    );
+
+    _updates = service.changes.listen(apply);
+    unawaited(service.state().then(apply));
+  }
+
+  /// Leva ao Hub com as novidades da versão nova na tela. O destino antes da
+  /// janela — ver [HubDestination].
+  Future<void> _showUpdate() async {
+    await HubDestination.request(HubDestination.update);
+    await HubWindow.instance.open();
+  }
+
   /// Leva ao Hub com a pergunta de desinstalar na tela. O destino antes da
   /// janela, como no "Abrir no Hub" do Echo — ver [HubDestination].
   Future<void> _askToUninstall() async {
@@ -1183,6 +1227,7 @@ class EvergreenBootstrap {
     _weekTimer?.cancel();
     _suspensionGuard?.cancel();
     await _notificationResponses?.cancel();
+    await _updates?.cancel();
     await _nestDrops?.cancel();
     await _nestShakes?.cancel();
     await _nestNotch?.cancel();

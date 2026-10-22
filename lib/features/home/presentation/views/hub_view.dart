@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/system/update_service.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/hub_window_channel.dart';
@@ -28,7 +29,9 @@ import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/hub_intro_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 import '../viewmodels/onboarding_view_model.dart';
+import '../viewmodels/updates_view_model.dart';
 import '../widgets/hub_detail_region.dart';
+import '../widgets/hub_update.dart';
 import '../widgets/licenses_reader.dart';
 import '../widgets/hub_intro.dart';
 import '../widgets/hub_onboarding.dart';
@@ -120,6 +123,14 @@ class _HubViewState extends ConsumerState<HubView> {
   Future<void> _goToRequested() async {
     final moduleId = await HubDestination.take();
     if (moduleId == null || !mounted) return;
+
+    if (moduleId == HubDestination.update) {
+      // A versão nova mora na tela do aplicativo; a de novidades abre por cima
+      // dela, e "Agora não" devolve a pessoa para lá.
+      _select(null);
+      ref.read(updatePresentationProvider.notifier).open();
+      return;
+    }
 
     if (moduleId == HubDestination.uninstall) {
       _select(null);
@@ -218,10 +229,54 @@ class _HubViewState extends ConsumerState<HubView> {
           // A apresentação vem antes da abertura animada na pilha porque a
           // abertura é quem cobre tudo: a marca entra, a marca sai, e o que
           // estava embaixo dela é a primeira coisa que a pessoa vê.
+          if (ref.watch(updatePresentationProvider)) _update(),
           if (ref.watch(onboardingViewModelProvider).visible) _onboarding(),
           if (ref.watch(hubIntroViewModelProvider))
             HubIntro(onDone: _introDone),
         ],
+      ),
+    );
+  }
+
+  /// A tela de novidades da versão nova, com o teclado dela.
+  ///
+  /// Os atalhos ficam aqui pelo mesmo motivo da apresentação: com ela na
+  /// tela, o Esc é "agora não", e não pode chegar ao `_handleEscape`, que
+  /// esconderia a janela.
+  Widget _update() {
+    final updates = ref.watch(updatesViewModelProvider).value;
+    final presentation = ref.read(updatePresentationProvider.notifier);
+    final model = ref.read(updatesViewModelProvider.notifier);
+
+    // Sem versão para mostrar (a tela foi pedida antes de o estado chegar, ou
+    // a versão sumiu), não há o que desenhar: o Hub de baixo continua.
+    if (updates == null || updates.version == null) {
+      return const SizedBox.shrink();
+    }
+
+    final busy = updates.phase.isBusy;
+    final failed = updates.phase == UpdatePhase.error;
+
+    return CallbackShortcuts(
+      bindings: {
+        if (!busy && !failed)
+          const SingleActivator(LogicalKeyboardKey.enter): () =>
+              unawaited(model.install()),
+        // Baixando ou instalando não há volta: fechar a tela no meio deixaria
+        // a pessoa sem saber por que o app sumiu.
+        if (!busy)
+          const SingleActivator(LogicalKeyboardKey.escape): presentation.close,
+      },
+      child: FocusScope(
+        child: Focus(
+          autofocus: true,
+          child: HubUpdate(
+            state: updates,
+            currentVersion: AppInfo.version,
+            onInstall: () => unawaited(model.install()),
+            onClose: presentation.close,
+          ),
+        ),
       ),
     );
   }

@@ -136,10 +136,16 @@ class MainFlutterWindow: NSPanel {
     // Quem chama é o Hub, onde mora a confirmação; o processo inteiro termina
     // dentro do método, então não importa de qual engine o pedido vem.
     UninstallChannel.register(with: controller.engine.binaryMessenger)
+    // Os dois engines perguntam; o atualizador é um só, do processo — ver
+    // `UpdaterChannel`.
+    UpdaterChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
     // Só a janela 0: o centro de notificações tem um delegate por processo, e
     // quem atende o clique são os serviços que vivem nela.
     if isOverlay {
       NotificationChannel.register(with: controller.engine.binaryMessenger)
+      // E é com ela que o atualizador nasce: a consulta agendada roda mesmo
+      // que o Hub nunca seja aberto.
+      UpdaterChannel.start()
     }
   }
 
