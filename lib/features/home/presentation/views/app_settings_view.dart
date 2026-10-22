@@ -496,15 +496,21 @@ class _UpdatesSection extends ConsumerWidget {
 
   /// O que a última procura disse — ou quando ela foi.
   static String _checkDescription(UpdateState updates, DateTime now) {
-    return switch (updates.phase) {
-      UpdatePhase.checking => 'Procurando…',
-      UpdatePhase.upToDate => 'Você está na versão mais nova.',
-      UpdatePhase.error =>
-        'Não deu para procurar agora. Tente de novo mais tarde.',
-      _ => switch (updates.lastCheck) {
-        null => 'Ainda não procurou.',
-        final last => 'Última procura: ${RelativeTime.format(last, now: now)}.',
-      },
+    if (updates.phase == UpdatePhase.checking) return 'Procurando…';
+    // O resultado só fica enquanto for o da procura mais recente — ver
+    // `UpdateState.hasFreshResult`.
+    if (updates.hasFreshResult) {
+      if (updates.phase == UpdatePhase.upToDate) {
+        return 'Você está na versão mais nova.';
+      }
+      if (updates.phase == UpdatePhase.error) {
+        return 'A última tentativa não deu certo. Tente de novo mais tarde.';
+      }
+    }
+
+    return switch (updates.lastCheck) {
+      null => 'Ainda não procurou.',
+      final last => 'Última procura: ${RelativeTime.format(last, now: now)}.',
     };
   }
 }

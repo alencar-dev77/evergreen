@@ -65,8 +65,14 @@ class UpdatesViewModel extends AsyncNotifier<UpdateState> {
     _poll?.cancel();
     if (!current.available) return;
 
+    // `canCheck` falso também é "algo andando": o Sparkle o apaga na hora do
+    // "Procurar", antes de avisar que começou. Menos com uma versão anunciada
+    // — ali ele fica falso até instalar, e o Hub relendo de meio em meio
+    // segundo por horas seria só gasto.
     final active =
-        current.phase == UpdatePhase.checking || current.phase.isBusy;
+        current.phase == UpdatePhase.checking ||
+        current.phase.isBusy ||
+        (!current.canCheck && current.phase != UpdatePhase.available);
     _poll = Timer(active ? busyInterval : idleInterval, () {
       if (ref.mounted) unawaited(refresh());
     });

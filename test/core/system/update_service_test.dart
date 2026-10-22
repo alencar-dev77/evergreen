@@ -57,6 +57,44 @@ void main() {
       expect(state.hasUpdate, isTrue);
     });
 
+    test('o "em dia" ou "não deu" só vale até a procura seguinte', () {
+      final result = DateTime(2026, 10, 22, 10);
+
+      expect(
+        UpdateState(
+          phase: UpdatePhase.error,
+          resultAt: result,
+          lastCheck: result,
+        ).hasFreshResult,
+        isTrue,
+      );
+      // A procura diária andou o relógio sem trocar a fase: o "não deu" é
+      // velho.
+      expect(
+        UpdateState(
+          phase: UpdatePhase.error,
+          resultAt: result,
+          lastCheck: result.add(const Duration(days: 1)),
+        ).hasFreshResult,
+        isFalse,
+      );
+      expect(
+        const UpdateState(phase: UpdatePhase.upToDate).hasFreshResult,
+        isFalse,
+      );
+    });
+
+    test('esperando a reunião conta como em curso', () {
+      expect(UpdatePhase.waiting.isBusy, isTrue);
+      expect(
+        const UpdateState(
+          phase: UpdatePhase.waiting,
+          version: '1.0.3',
+        ).hasUpdate,
+        isTrue,
+      );
+    });
+
     test('sem lado nativo, não se atualiza', () {
       final state = UpdateState.fromMap({'available': false});
 
@@ -72,6 +110,7 @@ void main() {
             phase == UpdatePhase.available ||
             phase == UpdatePhase.downloading ||
             phase == UpdatePhase.extracting ||
+            phase == UpdatePhase.waiting ||
             phase == UpdatePhase.installing;
         expect(state.hasUpdate, expected, reason: phase.name);
       }

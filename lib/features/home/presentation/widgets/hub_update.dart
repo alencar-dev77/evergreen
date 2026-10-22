@@ -155,6 +155,9 @@ class HubUpdate extends StatelessWidget {
         'Baixando… ${(progress * 100).round()}%',
       UpdatePhase.downloading => 'Baixando…',
       UpdatePhase.extracting => 'Preparando…',
+      // Pronta, mas uma reunião do Echo está em curso: fechar agora a
+      // cortaria. Reinicia sozinho quando ela terminar.
+      UpdatePhase.waiting => 'Esperando a reunião terminar…',
       UpdatePhase.installing => 'Reiniciando…',
       _ => 'Atualizar e reiniciar',
     };
