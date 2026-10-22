@@ -8,6 +8,10 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.0.1 — 22/10/2026
+
+- Ajustes internos nas novidades e na publicação de cada versão (#135)
+
 ## 1.0.0 — 22/10/2026
 
 A V1.
