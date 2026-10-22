@@ -5,11 +5,11 @@
 # Fluxo:
 #   1. Encerra o app, se estiver em execução.
 #   2. Apaga o build anterior (build/macos/.../Release/Evergreen.app), se existir.
-#   3. Apaga a cópia antiga em /Applications, se existir.
-#   4. Roda `flutter build macos --release`.
-#   5. Reassina com uma identidade estável (ver abaixo).
-#   6. Copia o .app novo para /Applications.
-#   7. Abre o app instalado.
+#   3. Roda `flutter build macos --release`.
+#   4. Reassina com uma identidade estável (ver abaixo) e confere a assinatura.
+#   5. Troca a cópia de /Applications pela nova — só agora, para uma falha nos
+#      passos anteriores não deixar a máquina sem app.
+#   6. Abre o app instalado.
 #
 # Por que reassinar
 # -----------------
@@ -28,13 +28,23 @@
 #   1. o do `EVERGREEN_SIGN_IDENTITY`, se estiver definido;
 #   2. **o mesmo com que a cópia instalada foi assinada** — lido do app que
 #      ainda está em /Applications, antes de ele ser apagado;
-#   3. o primeiro que aparecer no chaveiro.
+#   3. o "Developer ID Application", se houver um só — o mesmo do `./release`;
+#   4. o primeiro que aparecer no chaveiro.
 #
 # O passo 2 é o que faz a escolha parar de andar sozinha. Este chaveiro tem
 # quatro certificados de desenvolvimento, e "o primeiro" é posição, não
 # identidade: basta o `security find-identity` listar em outra ordem — um
 # certificado renovado, um novo perfil baixado — para a instalação seguinte sair
 # com outra identidade, e aí **todas** as permissões caem de uma vez, sem aviso.
+#
+# O passo 2 vem antes do 3 de propósito: trocar de certificado derruba as
+# permissões uma vez, e isso tem de ser pedido (`EVERGREEN_SIGN_IDENTITY`), não
+# acontecer no dia em que o Developer ID chega ao chaveiro.
+#
+# Com certificado, a assinatura leva o runtime endurecido, como a do
+# `./release`: o que se testa instalado daqui é o que vai no .dmg. É o runtime
+# que nega o microfone a quem não declara `device.audio-input` — sem ele aqui,
+# um entitlement esquecido só apareceria no Mac de outra pessoa.
 #
 # Sem certificado nenhum, o script segue com a assinatura ad-hoc e avisa — dá
 # para instalar e usar, só a permissão é que precisará ser concedida de novo a
@@ -103,14 +113,6 @@ if [[ -d "$DEST_APP" ]]; then
     | awk -F'=' '/^Authority=/ { print $2; exit }' || true)"
 fi
 
-echo "🧹 Removendo cópia antiga em ${DEST_DIR}…"
-if [[ -d "$DEST_APP" ]]; then
-  rm -rf "$DEST_APP"
-  echo "   removido: $DEST_APP"
-else
-  echo "   nada pra remover."
-fi
-
 echo "🔨 Buildando release…"
 flutter build macos --release
 
@@ -148,6 +150,16 @@ if [[ -z "$SIGN_IDENTITY" && -n "$INSTALLED_AUTHORITY" ]]; then
 fi
 
 if [[ -z "$SIGN_IDENTITY" ]]; then
+  DEVELOPER_ID="$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep -F '"Developer ID Application:' | awk '{ print $2 }' || true)"
+
+  if [[ "$(printf '%s' "$DEVELOPER_ID" | grep -c .)" == "1" ]]; then
+    SIGN_IDENTITY="$DEVELOPER_ID"
+    echo "   usando o Developer ID, o mesmo do ./release."
+  fi
+fi
+
+if [[ -z "$SIGN_IDENTITY" ]]; then
   SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
     | awk 'NR==1 && /\)/ { print $2 }' || true)"
 
@@ -158,19 +170,53 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
 fi
 
 if [[ -z "$SIGN_IDENTITY" ]]; then
+  # Ad-hoc fica sem o runtime endurecido: sem time, o macOS recusaria carregar
+  # os próprios frameworks do app (ver docs/Ideis projeto/instalador-dmg.md).
   echo "   ⚠️  Nenhum certificado de assinatura no chaveiro — seguindo ad-hoc."
-  echo "      A permissão de Acessibilidade vai precisar ser concedida de novo"
+  echo "      Acessibilidade e Microfone vão precisar ser concedidos de novo"
   echo "      depois desta instalação (Ajustes > Privacidade e Segurança)."
 else
   # Duas passadas: a primeira assina tudo que está aninhado (frameworks, libs),
   # a segunda refaz só o topo, que é quem carrega os entitlements — aplicá-los
   # ao pacote inteiro assinaria cada framework como se fosse o app.
-  codesign --force --deep --sign "$SIGN_IDENTITY" "$BUILT_APP" > /dev/null 2>&1
-  codesign --force --sign "$SIGN_IDENTITY" \
-    --entitlements "$ENTITLEMENTS" "$BUILT_APP" > /dev/null 2>&1
+  #
+  # A saída só aparece quando falha. Calado, o `set -e` encerraria o script
+  # aqui sem dizer nada — e a cópia antiga em /Applications já foi apagada.
+  sign() {
+    local output
+    if ! output="$(codesign --force --options runtime --sign "$SIGN_IDENTITY" \
+      "$@" "$BUILT_APP" 2>&1)"; then
+      echo "❌ O codesign falhou:" >&2
+      echo "$output" >&2
+      echo "   Rode de novo com EVERGREEN_SIGN_IDENTITY apontando para outro" >&2
+      echo "   certificado (security find-identity -v -p codesigning)." >&2
+      exit 1
+    fi
+  }
+  sign --deep
+  sign --entitlements "$ENTITLEMENTS"
+
+  # Com o runtime endurecido, um framework assinado por outro time não carrega
+  # e o app morre ao abrir, sem janela nem aviso. Conferir aqui é o que troca
+  # esse sumiço por uma mensagem.
+  if ! codesign --verify --strict --deep "$BUILT_APP" 2>/dev/null; then
+    echo "❌ A assinatura não confere — o app não abriria. Nada foi instalado." >&2
+    exit 1
+  fi
 
   echo "   assinado com: $(codesign -dvv "$BUILT_APP" 2>&1 \
-    | awk -F'=' '/^Authority/ { print $2; exit }')"
+    | awk -F'=' '/^Authority/ { print $2; exit }') (runtime endurecido)"
+fi
+
+# Só agora, com o build pronto e assinado: um build ou uma assinatura que
+# falhem no meio deixam a cópia antiga onde estava, em vez de deixar a pessoa
+# sem app nenhum.
+echo "🧹 Removendo cópia antiga em ${DEST_DIR}…"
+if [[ -d "$DEST_APP" ]]; then
+  rm -rf "$DEST_APP"
+  echo "   removido: $DEST_APP"
+else
+  echo "   nada pra remover."
 fi
 
 echo "📦 Copiando pra ${DEST_DIR}…"

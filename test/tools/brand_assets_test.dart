@@ -45,11 +45,15 @@ void main() {
     File(path).writeAsBytesSync(data!.buffer.asUint8List());
   }
 
-  Future<ui.Image> render(int side, void Function(Canvas canvas) draw) async {
+  Future<ui.Image> render(
+    int side,
+    void Function(Canvas canvas) draw, {
+    int? height,
+  }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     draw(canvas);
-    return recorder.endRecording().toImage(side, side);
+    return recorder.endRecording().toImage(side, height ?? side);
   }
 
   test('ícone do aplicativo', () async {
@@ -111,5 +115,89 @@ void main() {
     });
 
     await write('assets/icons/tray_icon.png', image);
+  });
+
+  test('fundo da janela do instalador', () async {
+    // A janela do `.dmg` que o `./release` monta: o Evergreen à esquerda, o
+    // atalho de Aplicativos à direita e a seta entre os dois. As posições são
+    // as do AppleScript do `release` (`DMG_WIDTH`, `DMG_HEIGHT`, `APP_X`,
+    // `APPLICATIONS_X`, `ICONS_Y`), em pontos — mexeu num, mexa no outro.
+    //
+    // Sem texto: o teste desenha com a fonte de teste, e a frase de "arraste"
+    // que o Finder não escreve sairia em quadradinhos. A seta já é a frase.
+    //
+    // As plaquinhas atrás dos nomes existem porque o Finder escreve o nome do
+    // ícone **sempre em preto** quando a pasta tem imagem de fundo — no modo
+    // escuro também, e não há opção que mude a cor. Preto sobre o canvas some;
+    // sobre o `textSecondary` o contraste passa de 8:1. A altura é a em que o
+    // Finder põe o nome com ícone de 128 e texto de 13, medida na tela.
+    //
+    // Duas resoluções, porque o Finder escolhe pelo nome: `@2x` na tela
+    // Retina. O `release` junta as duas num `.tiff` só com o `tiffutil`.
+    const window = Size(660, 400);
+    const appAt = Offset(170, 190);
+    const applicationsAt = Offset(490, 190);
+
+    for (final scale in [1, 2]) {
+      final image = await render(
+        (window.width * scale).round(),
+        height: (window.height * scale).round(),
+        (canvas) {
+          canvas.scale(scale.toDouble());
+          final palette = EvergreenTokens.palette;
+
+          canvas.drawRect(
+            Offset.zero & window,
+            Paint()
+              ..shader = ui.Gradient.linear(
+                Offset.zero,
+                Offset(0, window.height),
+                [palette.canvas, palette.canvasDeep],
+              ),
+          );
+
+          // Entre as bordas dos dois ícones (128 pt), com folga para não
+          // encostar no realce que o Finder desenha no ícone selecionado.
+          final start = Offset(appAt.dx + 92, appAt.dy);
+          final end = Offset(applicationsAt.dx - 92, applicationsAt.dy);
+          final stroke = Paint()
+            ..color = palette.accent
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 6
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round;
+
+          canvas.drawLine(start, end, stroke);
+
+          for (final center in [appAt, applicationsAt]) {
+            canvas.drawRRect(
+              RRect.fromRectAndRadius(
+                Rect.fromCenter(
+                  center: Offset(center.dx, center.dy + 84),
+                  width: 112,
+                  height: 22,
+                ),
+                const Radius.circular(11),
+              ),
+              Paint()..color = palette.textSecondary,
+            );
+          }
+          canvas.drawPath(
+            Path()
+              ..moveTo(end.dx - 18, end.dy - 18)
+              ..lineTo(end.dx, end.dy)
+              ..lineTo(end.dx - 18, end.dy + 18),
+            stroke,
+          );
+        },
+      );
+
+      await write(
+        scale == 1
+            ? 'macos/packaging/dmg_background.png'
+            : 'macos/packaging/dmg_background@2x.png',
+        image,
+      );
+    }
   });
 }

@@ -32,6 +32,7 @@
 		A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4004 /* NestChannel.swift */; };
 		A1E0C40012B4E0A100EC4007 /* NestDragMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */; };
 		A1E0C40012B4E0A100EC4009 /* NotificationChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */; };
+		A1E0C50012B4E0A100EC4009 /* AppLocationGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C50012B4E0A100EC400A /* AppLocationGuard.swift */; };
 		A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */; };
 		A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */; };
 		A1E0C40012B4E0A100EC4101 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = A1E0C40012B4E0A100EC4102 /* FluidAudio */; };
@@ -91,6 +92,7 @@
 		A1E0C40012B4E0A100EC4004 /* NestChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestDragMonitor.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationChannel.swift; sourceTree = "<group>"; };
+		A1E0C50012B4E0A100EC400A /* AppLocationGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocationGuard.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoPlayerChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchIsland.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -186,6 +188,7 @@
 				A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */,
 				A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */,
 				A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */,
+				A1E0C50012B4E0A100EC400A /* AppLocationGuard.swift */,
 				A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
@@ -374,6 +377,7 @@
 				A1E0C40012B4E0A100EC4007 /* NestDragMonitor.swift in Sources */,
 				A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */,
 				A1E0C40012B4E0A100EC4009 /* NotificationChannel.swift in Sources */,
+				A1E0C50012B4E0A100EC4009 /* AppLocationGuard.swift in Sources */,
 				A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,

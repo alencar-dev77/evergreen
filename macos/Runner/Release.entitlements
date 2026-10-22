@@ -10,5 +10,12 @@
 	     que separa as vozes do Echo; nada da máquina é enviado. -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<!-- Com o runtime endurecido, que a notarização exige, o microfone é
+	     negado em silêncio a quem não declara este. É a voz de quem usa no
+	     Echo. A captura do áudio do computador (ScreenCaptureKit), o
+	     auto-colar do Pin (Acessibilidade) e o arraste do Nest não pedem
+	     entitlement nenhum: são permissões do sistema, não do runtime. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

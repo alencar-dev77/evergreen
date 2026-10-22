@@ -8,7 +8,11 @@ class AppDelegate: FlutterAppDelegate {
   /// Antes do Flutter subir, porque a preferência de "iniciar com o macOS" é
   /// lida pelo Dart logo no arranque e deve encontrar o item já no lugar certo.
   /// Ver `LaunchAtLoginChannel.adoptInstalledBundle`.
+  ///
+  /// E antes dele, a oferta de mover para Aplicativos: aceita, este processo
+  /// encerra aqui mesmo e quem adota o item é a cópia instalada.
   override func applicationWillFinishLaunching(_ notification: Notification) {
+    AppLocationGuard.offerMoveIfNeeded()
     LaunchAtLoginChannel.adoptInstalledBundle()
     super.applicationWillFinishLaunching(notification)
   }

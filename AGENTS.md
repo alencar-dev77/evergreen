@@ -229,6 +229,18 @@ e esconder ícones da barra de menus
   barra aparece em todas e a ilha só numa. **Sem recorte, nada disto existe**:
   nem a ilha, nem a porta do Nest, nem as linhas de preferência. Ver
   [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
+- **A distribuição é um `.dmg` assinado com o Developer ID da conta do Luiz
+  Fernando Bargas (time `W3TC63GH63`) e notarizado** — `./release`. O runtime
+  endurecido é obrigatório para notarizar, e ele **nega o que não está
+  declarado sem dar erro**: o microfone do Echo só funciona por causa do
+  `com.apple.security.device.audio-input` no `Release.entitlements`. Recurso
+  nativo novo que dependa de exceção do runtime (JIT, biblioteca de outro
+  time, Apple Events) precisa entrar ali, e quem pega é instalar com o
+  `run_build_copy`, que assina com o mesmo runtime. Na primeira abertura fora
+  de Aplicativos (de dentro do `.dmg`, dos Downloads), o `AppLocationGuard`
+  oferece mover o app, e a apresentação de boas-vindas pendente abre o Hub
+  mesmo com "Abrir minimizado" — sem isso quem instalava não via nada. Ver
+  [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
   que o rodapé da sidebar do Hub mostra (`lib/core/app_info.dart`).
@@ -711,9 +723,18 @@ UI e microcopy em português (pt-BR).
   com identidade estável. A assinatura ad-hoc do projeto muda de hash a cada
   build, e com ela o macOS descarta a permissão de Acessibilidade — que é o que
   sustenta o auto-colar do Pin.
-- `./bump_version` — bump manual da versão, para quando o Actions está fora do
-  ar. Roda na `validation`, **depois** do merge; normalmente quem bumpa é o
-  `.github/workflows/version-bump.yml`, pela label `bump:` da PR.
+- `./release` — o `.dmg` para distribuir: build release, assinatura Developer
+  ID com runtime endurecido, notarização do `.app` e do `.dmg` e upload no
+  GitHub Release da tag `v<semver>+<build>` (exige árvore limpa e o código
+  igual ao da tag — a `main` promovida serve).
+  `--sem-publicar` para no `.dmg`; `--sem-notarizar` só assina e monta, para
+  conferir a janela. Pede o certificado e a credencial do `notarytool` no
+  chaveiro — o passo a passo está em
+  [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+- `./bump_version` — a regra do bump, num lugar só: o `version-bump.yml` o
+  chama com o nível da label, o `preparar-release.yml` com `--build`, e à mão
+  ele é a rede para quando o Actions está fora do ar. Roda na `validation`,
+  **depois** do merge.
 
 # Branches
 
@@ -722,13 +743,23 @@ a `validation` é promovida para a `main`.** Cada PR passa por um portão só, e
 os dois portões perguntam coisas diferentes.
 
 - **Feature → `validation`.** É onde a label `bump:patch|minor|major` é exigida
-  (`require-bump-label.yml`) e, no merge, onde a versão sobe e a tag é criada
-  (`version-bump.yml`). A suíte **não** roda aqui.
+  (`require-bump-label.yml`) e, no merge, onde o **semver** sobe e a tag é
+  criada (`version-bump.yml`). O build (`+N`) fica intacto. A suíte **não**
+  roda aqui.
+- **Preparar release.** Antes de promover, o botão "Preparar release" na aba
+  Actions (`preparar-release.yml`, ou `./bump_version --build --push`) soma +1
+  no **build**, na `validation`, com tag `v<semver>+<build>`. É uma vez por
+  publicação, não por PR — o build responde "qual `.dmg` é este", e contaria
+  merges se subisse a cada um. Até a 0.33.0 todo build era `+1`, porque o
+  `cider bump <nível>` o zerava; os dois workflows agora chamam o mesmo
+  `bump_version`, como no rookplace-app e no rookplace-portal.
 - **`validation` → `main`.** É a PR de promoção, e é ela que roda `flutter
   analyze` e `flutter test` (`ci.yml`) — a integração é onde se confere o
-  conjunto, e um runner de macOS custa dez vezes um de Linux por minuto. Não
+  conjunto, e um runner de macOS custa dez vezes um de Linux por minuto — e
+  que exige o build maior que o da `main` (`require-build-bump.yml`). Não
   pede label: ela carrega um número que já foi decidido, e bumpar dos dois
-  lados daria dois números para o mesmo código.
+  lados daria dois números para o mesmo código. Promovida, o `./release`
+  publica o `.dmg` na tag.
 
 A consequência a saber: **entre a feature e a promoção, o que segura a barra é
 rodar `flutter analyze` e `flutter test` na máquina** antes de abrir a PR. O CI

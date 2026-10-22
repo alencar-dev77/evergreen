@@ -35,6 +35,19 @@ cujo hash muda a cada build — e a cada mudança o macOS descarta as permissõe
 guardadas para o app, entre elas a Acessibilidade que sustenta o auto-colar do
 Pin. O cabeçalho do script explica a ordem em que ele escolhe o certificado.
 
+### Gerando o instalador
+
+```bash
+./release
+```
+
+Gera `build/release/Evergreen-<versão>.dmg`, assinado com o Developer ID e
+notarizado pela Apple, e o publica no GitHub Release da tag — é o arquivo que
+se manda para outra pessoa. Roda da `main` promovida, com a tag da versão no
+HEAD. A configuração de uma vez por máquina (certificado e credencial da
+notarização) está em
+[docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+
 ---
 
 ## Os módulos
