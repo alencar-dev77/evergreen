@@ -29,10 +29,9 @@ para o CHANGELOG ele mesmo lê do evento.
 **A [PRIVACY.md](PRIVACY.md) é uma promessa, e muda antes do código.** Ela diz
 o que cada módulo guarda, onde, por quanto tempo, e o que sai do app (o
 download do modelo de vozes, o modelo de transcrição que o macOS baixa a
-pedido do Echo e o `127.0.0.1` do LM Studio). Módulo que passe a
-guardar outra coisa, prazo que mude, permissão nova ou qualquer conexão nova —
-uma futura verificação de versão (o Sparkle, por exemplo) inclusive — entra
-nela na mesma PR. **E a mudança na política
+pedido do Echo, o `127.0.0.1` do LM Studio e a procura diária por versão nova
+do Sparkle). Módulo que passe a guardar outra coisa, prazo que mude, permissão
+nova ou qualquer conexão nova entra nela na mesma PR. **E a mudança na política
 nunca é silenciosa**: quem mexe nela — gente ou agente — avisa, na conversa e
 na descrição da PR, o que foi **acrescentado** ou **alterado** e por quê, e
 atualiza a data de "Última atualização" no topo dela. É o que deixa quem mantém
@@ -41,7 +40,7 @@ depois no repositório. Termos de uso não
 existem de propósito: a GPL-3.0 já é o acordo, com o "sem garantia" dela. As
 licenças de quem o Evergreen usa aparecem dentro do app (Aplicativo → Sobre →
 Licenças, `LicenseCatalog`); as de pacote Dart entram sozinhas, e as de pacote
-Swift (FluidAudio, HotKey) moram em `assets/licenses/` — pacote Swift novo
+Swift (FluidAudio, HotKey, Sparkle) moram em `assets/licenses/` — pacote Swift novo
 traz a dele para lá. Os PDFs da licença e da política saem do
 `./scripts/documentos`, pelo LibreOffice, e não são commitados.
 
@@ -171,10 +170,10 @@ e esconder ícones da barra de menus
   A faixa diz o lado, e isso é certeza; a voz (`MeetingSegment.voice`, que vira
   "Pessoa 1", "Pessoa 2") é palpite, e por isso mora num campo à parte. É
   enfeite: falhou, a reunião sai com o outro lado em "Reunião", sem aviso. O
-  modelo é baixado do Hugging Face uma vez, e é a única conexão que o
-  Evergreen abre para fora da máquina (o modelo de transcrição quem baixa é o
-  macOS, a pedido do Echo; e o `127.0.0.1` do LM Studio não sai dela — ver o
-  modelo local abaixo e a [PRIVACY.md](PRIVACY.md)). Ao vivo não separa. Ver
+  modelo é baixado do Hugging Face uma vez (as outras saídas — o modelo de
+  transcrição, que quem baixa é o macOS a pedido do Echo, e a procura diária
+  por versão nova do Sparkle — estão na [PRIVACY.md](PRIVACY.md); o
+  `127.0.0.1` do LM Studio não sai da máquina). Ao vivo não separa. Ver
   [docs/Ideis projeto/echo-separacao-de-vozes.md](docs/Ideis%20projeto/echo-separacao-de-vozes.md).
   **O microfone é aberto cru, nunca com `setVoiceProcessingEnabled`.** O
   processamento de voz não fica dentro do Echo: enquanto ele está ligado, o
@@ -275,6 +274,26 @@ e esconder ícones da barra de menus
   oferece mover o app, e a apresentação de boas-vindas pendente abre o Hub
   mesmo com "Abrir minimizado" — sem isso quem instalava não via nada. Ver
   [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+- **O Sparkle atualiza o app** (SPM direto no `Runner`, como o FluidAudio;
+  `UpdaterChannel.swift`). Três regras. **Quem o Sparkle compara é o build**
+  (`sparkle:version` contra o `CFBundleVersion`), não o semver — por isso o
+  build só cresce, uma vez por publicação, e o `require-build-bump.yml` é o
+  que garante que uma versão nova seja vista como nova. **O feed é o
+  `appcast.xml` anexado ao release** (`releases/latest/download/appcast.xml`),
+  que o `./scripts/release` gera e assina com a chave EdDSA do chaveiro de
+  quem publica; a pública mora no `Info.plist` (`SUPublicEDKey`). Perder a
+  chave privada é não conseguir mais atualizar quem já instalou — ela tem
+  cópia de segurança fora da máquina. E **a preferência é do Sparkle**
+  (`automaticallyChecksForUpdates`), não do `AppSettings`: uma cópia nossa
+  seria uma segunda fonte para a pergunta que decide se algo sai do app. O
+  atualizador é um por processo, nasce com a janela 0 e não existe em build de
+  desenvolvimento (`#if DEBUG`). **A interface é nossa** (`UpdateDriver`, um
+  `SPUUserDriver` próprio): a versão nova vira item no menu da barra, tecla
+  com bolinha no botão "Aplicativo" e o cartão `HubUpdate` por cima do Hub
+  (pergunta de sim ou não, então fecha ao clicar fora), nunca a janela do
+  Sparkle, que tiraria o foco de quem está trabalhando. Os executáveis de dentro do `Sparkle.framework`
+  (XPC, `Autoupdate`, `Updater.app`) são assinados um a um no `release`. Ver
+  [docs/Ideis projeto/atualizacao-sparkle.md](docs/Ideis%20projeto/atualizacao-sparkle.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
   que o rodapé da sidebar do Hub mostra (`lib/core/app_info.dart`).

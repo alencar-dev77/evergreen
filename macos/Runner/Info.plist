@@ -37,5 +37,23 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- Atualização pelo Sparkle (ver UpdaterChannel.swift). O feed é o
+	     appcast.xml anexado ao último GitHub Release — o "latest" só aponta para
+	     release publicado da main. A consulta só lê: não leva perfil do sistema
+	     (SUEnableSystemProfiling) nem dado de quem usa. Ligada de fábrica, sem a
+	     pergunta do Sparkle na segunda abertura; desliga em Configurações →
+	     Aplicativo → Atualizações, e desligada não sai requisição nenhuma. -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/alencar-dev77/evergreen/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>Y+2658FUAdeDe49AtY2Bhd0mcFK/47EsS/WKHn83ew8=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>

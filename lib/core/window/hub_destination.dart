@@ -29,6 +29,10 @@ abstract final class HubDestination {
   /// confirmação é um modal, e modal só existe no Hub.
   static const uninstall = 'app.uninstall';
 
+  /// A tela de novidades da versão nova, por cima da tela do aplicativo. É o
+  /// caminho do "Atualizar para a …" do menu da barra.
+  static const update = 'app.update';
+
   static const channel = WindowMethodChannel(
     'hub_navigation',
     mode: ChannelMode.unidirectional,

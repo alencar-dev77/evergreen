@@ -8,6 +8,7 @@ import '../../../../core/design/app_metrics.dart';
 import '../../../../core/storage/backup_service.dart';
 import '../../../../core/storage/disk_usage_service.dart';
 import '../../../../core/system/global_shortcut_slot.dart';
+import '../../../../core/system/update_service.dart';
 import '../../../../shared/utils/byte_size.dart';
 import '../../../../shared/utils/relative_time.dart';
 import '../../../../shared/widgets/eg_button.dart';
@@ -16,6 +17,7 @@ import '../../../../shared/widgets/eg_settings_row.dart';
 import '../../../../shared/widgets/eg_settings_card.dart';
 import '../../../../shared/widgets/eg_text_field.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_pill.dart';
 import '../../../../shared/widgets/eg_shortcut_grid.dart';
 import '../../models/evergreen_module.dart';
 import '../viewmodels/app_settings_view_model.dart';
@@ -25,6 +27,7 @@ import '../widgets/local_model_section.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../viewmodels/diagnostics_view_model.dart';
 import '../viewmodels/hub_detail_view_model.dart';
+import '../viewmodels/updates_view_model.dart';
 import '../viewmodels/disk_usage_view_model.dart';
 import '../widgets/backup_list.dart';
 import '../widgets/uninstall_section.dart';
@@ -135,6 +138,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
         ),
         const _RestoreSection(),
         const _DiagnosticsSection(),
+        const _UpdatesSection(),
         const _AboutSection(),
         const UninstallSection(),
       ],
@@ -402,6 +406,106 @@ class _DiagnosticsSection extends ConsumerWidget {
         ),
       ],
     );
+  }
+}
+
+/// Se o Evergreen procura versão nova, e o "procurar agora".
+///
+/// Logo antes do "Sobre", porque é a outra pergunta sobre o Evergreen como
+/// software. A preferência é do Sparkle, não do `AppSettings` — ver
+/// `UpdatesViewModel`. Numa build de desenvolvimento a seção diz que esta
+/// cópia não se atualiza, em vez de sumir: sumida, a falta dela pareceria
+/// esquecimento.
+class _UpdatesSection extends ConsumerWidget {
+  const _UpdatesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final updates = ref.watch(updatesViewModelProvider).value;
+    final viewModel = ref.read(updatesViewModelProvider.notifier);
+    final now = ref.watch(clockProvider)();
+
+    // Ainda perguntando ao lado nativo: nada a mostrar por um quadro.
+    if (updates == null) return const SizedBox.shrink();
+
+    if (!updates.available) {
+      return const EgSettingsCard(
+        title: 'Atualizações',
+        children: [
+          EgSettingsRow(
+            label: 'Esta cópia não se atualiza sozinha',
+            description:
+                'É uma build de desenvolvimento. A versão publicada procura '
+                'versão nova no GitHub.',
+            trailing: SizedBox.shrink(),
+          ),
+        ],
+      );
+    }
+
+    final version = updates.hasUpdate ? updates.version : null;
+
+    return EgSettingsCard(
+      title: 'Atualizações',
+      children: [
+        EgSettingsRow.toggle(
+          label: 'Procurar atualizações automaticamente',
+          description:
+              'Uma vez por dia o Evergreen pergunta ao GitHub se há versão '
+              'nova. A pergunta não leva nada seu.',
+          value: updates.automaticChecks,
+          onChanged: (enabled) =>
+              unawaited(viewModel.setAutomaticChecks(enabled)),
+        ),
+        if (version != null)
+          EgSettingsRow(
+            label: 'Versão $version disponível',
+            description:
+                'Veja o que mudou e atualize — o Evergreen fecha, '
+                'instala e abre de novo.',
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // A mesma bolinha do botão "Aplicativo": quem a seguiu até
+                // aqui reconhece onde ela dava.
+                EgStatusDot(color: context.eg.colors.accent),
+                const SizedBox(width: AppSpacing.sm),
+                EgButton(
+                  label: 'Ver novidades',
+                  onPressed: () =>
+                      ref.read(updatePresentationProvider.notifier).open(),
+                ),
+              ],
+            ),
+          )
+        else
+          EgSettingsRow(
+            label: 'Procurar agora',
+            description: _checkDescription(updates, now),
+            trailing: EgButton.secondary(
+              label: 'Procurar',
+              isLoading: updates.phase == UpdatePhase.checking,
+              onPressed: updates.canCheck
+                  ? () => unawaited(viewModel.checkNow())
+                  : null,
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// O que a última procura disse — ou quando ela foi.
+  static String _checkDescription(UpdateState updates, DateTime now) {
+    return switch (updates.phase) {
+      UpdatePhase.checking => 'Procurando…',
+      UpdatePhase.upToDate => 'Você está na versão mais nova.',
+      UpdatePhase.error =>
+        'Não deu para procurar agora. Tente de novo mais tarde.',
+      _ => switch (updates.lastCheck) {
+        null => 'Ainda não procurou.',
+        final last => 'Última procura: ${RelativeTime.format(last, now: now)}.',
+      },
+    };
   }
 }
 

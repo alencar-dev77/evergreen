@@ -35,6 +35,7 @@ class EgNavTile extends StatelessWidget {
     this.iconColor,
     this.isMuted = false,
     this.margin,
+    this.notice,
   });
 
   final EgIconData icon;
@@ -64,6 +65,13 @@ class EgNavTile extends StatelessWidget {
 
   final EdgeInsetsGeometry? margin;
 
+  /// Um aviso que espera a pessoa — hoje, só a versão nova do Evergreen, no
+  /// botão "Aplicativo". Vira uma tecla com uma bolinha verde, antes da tecla
+  /// do atalho: no lugar onde o olho já vai procurar o que a linha tem a
+  /// dizer, e no formato das teclas ao lado, para não parecer um selo de
+  /// notificação de rede social. O texto é o que o leitor de tela diz.
+  final String? notice;
+
   @override
   Widget build(BuildContext context) {
     final eg = context.eg;
@@ -79,6 +87,7 @@ class EgNavTile extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: eg.shapes.rowPaddingH - 2),
       semanticLabel: [
         title,
+        ?notice,
         if (shortcut != null) 'atalho $shortcut',
       ].join(', '),
       builder: (context, state) => Opacity(
@@ -106,6 +115,17 @@ class EgNavTile extends StatelessWidget {
                     ),
               ),
             ),
+            if (notice != null) ...[
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.xxs),
+                decoration: BoxDecoration(
+                  color: eg.colors.control,
+                  borderRadius: eg.shapes.segmentAll,
+                ),
+                child: EgStatusDot(color: eg.colors.accent),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
             if (shortcut != null)
               Text(
                 shortcut!,

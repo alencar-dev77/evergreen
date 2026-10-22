@@ -8,7 +8,7 @@ recebe nenhum dado seu**: nem o que você usa, nem como você usa, nem que você
 instalou.
 
 Esta política diz o que o Evergreen guarda no seu Mac, por quanto tempo, e as
-três únicas ocasiões em que algo sai do aplicativo.
+quatro únicas ocasiões em que algo sai do aplicativo.
 
 ## O que fica no seu Mac
 
@@ -21,6 +21,9 @@ lugares:
 - `~/Library/Preferences/com.alencardev.evergreen.plist` — as preferências;
 - `~/Library/Application Support/FluidAudio/Models/` — o modelo que separa as
   vozes do Echo, depois de baixado.
+
+E, só enquanto uma atualização baixa, o instalador dela fica em
+`~/Library/Caches/com.alencardev.evergreen/`.
 
 | Módulo | O que guarda | Por quanto tempo |
 |---|---|---|
@@ -49,7 +52,7 @@ anotou, gravou ou o nome de um arquivo seu. Ele só sai do seu Mac se você usar
 
 ## O que sai do seu Mac
 
-Algo sai do Evergreen em só três situações, e nenhuma delas envia o que você
+Algo sai do Evergreen em só quatro situações, e nenhuma delas envia o que você
 guardou:
 
 1. **O modelo que separa as vozes do Echo.** Na primeira reunião com fala do
@@ -64,12 +67,16 @@ guardou:
 3. **O LM Studio, se você o escolher como modelo local.** O texto da reunião ou
    do dia vai para o servidor do LM Studio no endereço `127.0.0.1`, que é o
    próprio Mac. O Evergreen não aceita outro endereço.
+4. **A procura por versão nova.** Uma vez por dia, e quando você clica em
+   "Procurar", o Evergreen lê no GitHub um arquivo que diz qual é a versão mais
+   nova (o `appcast.xml` do último release). O GitHub vê o endereço IP e,
+   como em todo pedido de app, o nome e a versão do Evergreen; não vai perfil
+   do sistema nem nada do que você guardou. Se houver versão nova, o Evergreen
+   pergunta antes de baixar. Dá para desligar em Configurações → Aplicativo →
+   **Atualizações**, e desligada nenhuma procura sai.
 
 O resumo feito pelo Apple Intelligence também roda no seu Mac, pelo modelo
 local do sistema.
-
-Se um dia o Evergreen passar a verificar se há versão nova, esta política será
-atualizada antes, dizendo o que essa verificação envia.
 
 ## Permissões do macOS
 
