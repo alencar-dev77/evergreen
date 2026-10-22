@@ -26,6 +26,27 @@ class _StatusHttp implements LmStudioHttp {
   }) async => LmStudioResponse(status, null);
 }
 
+/// Um servidor que responde 200 com o mesmo corpo para tudo.
+class _BodyHttp implements LmStudioHttp {
+  _BodyHttp(this.body);
+
+  final Object? body;
+
+  @override
+  Future<LmStudioResponse> get(
+    String path, {
+    required Duration timeout,
+  }) async => LmStudioResponse(200, body);
+
+  @override
+  Future<LmStudioResponse> post(
+    String path,
+    Map<String, Object?> body, {
+    required Duration timeout,
+    LocalModelCancellation? cancellation,
+  }) async => LmStudioResponse(200, this.body);
+}
+
 class _MemoryLedger implements LmStudioLedger {
   String? value;
 
@@ -191,6 +212,24 @@ void main() {
         ),
       );
     });
+
+    test(
+      'rota desconhecida respondida com 200 também é LM Studio antigo',
+      () async {
+        final old = _BodyHttp({'error': 'Unexpected endpoint or method.'});
+
+        await expectLater(
+          LmStudioApi(old).models(),
+          throwsA(
+            isA<LocalModelException>().having(
+              (error) => error.code,
+              'code',
+              LocalModelException.outdated,
+            ),
+          ),
+        );
+      },
+    );
 
     test('a mensagem de erro é achada em qualquer forma', () {
       expect(LmStudioApi.errorMessageOf({'error': 'falhou'}), 'falhou');

@@ -175,6 +175,10 @@ class LmStudioApi {
     // Studio.
     if (response.status == 404) throw outdated;
     _check(response);
+    // Há versões que respondem 200 a rota desconhecida, com um `error` no
+    // corpo e sem lista nenhuma — o mesmo "não tem a API nativa".
+    final json = response.json;
+    if (json is! Map || json['models'] is! List) throw outdated;
 
     return LmStudioModel.listFromJson(response.json);
   }

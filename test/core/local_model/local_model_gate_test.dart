@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:evergreen/core/local_model/lm_studio_http.dart';
 import 'package:evergreen/core/local_model/lm_studio_local_model.dart';
 import 'package:evergreen/core/local_model/local_model.dart';
 import 'package:evergreen/core/local_model/local_model_gate.dart';
@@ -214,6 +215,23 @@ void main() {
         expect(http.loaded, isEmpty);
       },
     );
+
+    test('o modelo ejetado na folga não prende os pedidos seguintes', () async {
+      await askPatient('um');
+      // Ejetado no LM Studio: o chat responde 404.
+      http.loaded.clear();
+      http.chatFailure = const LmStudioResponse(404, null);
+
+      await expectLater(
+        askPatient('dois'),
+        throwsA(isA<LocalModelException>()),
+      );
+
+      // O seguinte abre uma sessão nova — e carrega de novo.
+      final answer = await askPatient('três');
+      expect(answer.text, 'resumo');
+      expect(http.loads, 2);
+    });
 
     test('trocar de modelo na folga fecha o anterior', () async {
       await askPatient('um');

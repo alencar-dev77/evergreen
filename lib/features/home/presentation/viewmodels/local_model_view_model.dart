@@ -62,11 +62,17 @@ class LocalModelStatus {
     bool? isStarting,
     String? refusal,
   }) {
+    final next = server ?? this.server;
+
     return LocalModelStatus(
-      server: server ?? this.server,
+      server: next,
       models: models ?? this.models,
       isStarting: isStarting ?? this.isStarting,
-      refusal: refusal,
+      // A recusa vive enquanto o estado for de recusa — trocar só o
+      // `isStarting` não pode apagá-la.
+      refusal: next == LmStudioServerState.refused
+          ? refusal ?? this.refusal
+          : null,
     );
   }
 }

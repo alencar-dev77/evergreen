@@ -36,6 +36,13 @@ class LocalModelGate implements LocalModelClient {
   /// pouco depois do último. Zero é fechar na hora — o que os testes usam.
   final Duration idleGrace;
 
+  static const _quiet = {
+    LocalModelException.unsupported,
+    LocalModelException.contextWindowExceeded,
+    'model_unavailable',
+    'summary_failed',
+  };
+
   Future<void> _tail = Future.value();
   int _pending = 0;
   LocalModelSession? _session;
@@ -62,12 +69,17 @@ class LocalModelGate implements LocalModelClient {
     try {
       return await work(await _sessionFor(await _choice()));
     } on LocalModelException catch (error) {
-      // O que é fluxo não vai ao registro: o servidor desligado e o texto que
-      // não coube acontecem toda hora e já têm tratamento. O resto — prazo,
-      // recusa, LM Studio antigo — é o que se procura num diagnóstico. Só o
-      // código: a mensagem é nossa, mas o código basta.
-      if (error.code != LocalModelException.unsupported &&
-          !error.isContextWindowExceeded) {
+      // Modelo que sumiu (ejetado no LM Studio durante a folga, servidor que
+      // caiu): a sessão não vale mais, e o pedido seguinte abre outra em vez
+      // de bater na mesma porta até a folga acabar.
+      if (error.code == LocalModelException.unsupported) await _close();
+
+      // O que é fluxo não vai ao registro: o servidor desligado, o Apple
+      // Intelligence desligado e o texto que não coube acontecem toda hora e
+      // já têm tratamento — o canal do Echo, inclusive, já registra o dele. O
+      // resto — prazo, recusa, LM Studio antigo — é o que se procura num
+      // diagnóstico. Só o código.
+      if (!_quiet.contains(error.code)) {
         AppLog.info('local_model', 'falhou: ${error.code}');
       }
       rethrow;
@@ -101,9 +113,13 @@ class LocalModelGate implements LocalModelClient {
 
     _idle = Timer(idleGrace, () {
       // Pela fila, para não fechar debaixo de um pedido que acabou de entrar.
-      _tail = _tail.then((_) async {
-        if (_pending == 0) await _close();
-      });
+      // Com `onError`, como no `run`: um fechamento que falha não pode deixar
+      // a fila presa no erro dele.
+      _tail = _tail
+          .then((_) async {
+            if (_pending == 0) await _close();
+          })
+          .then<void>((_) {}, onError: (Object _) {});
     });
   }
 

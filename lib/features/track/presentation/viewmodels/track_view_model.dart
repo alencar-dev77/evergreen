@@ -174,10 +174,16 @@ class TrackViewModel extends Notifier<TrackState> {
     // O dia que estava aberto perdeu o "não deu" na releitura: pede de novo,
     // senão ele ficaria sem parágrafo até a pessoa escolher outro dia e voltar.
     final day = state.selected;
-    if (day != null && !state.summaries.containsKey(day.date)) {
+    if (day != null &&
+        !state.summaries.containsKey(day.date) &&
+        !_writing.contains(_signatureOf(day))) {
       unawaited(_write(day));
     }
   }
+
+  /// As assinaturas que estão com o modelo agora: a releitura não pede de novo
+  /// o que já está na fila.
+  final _writing = <String>{};
 
   void setRange(TrackRange range) {
     if (range == state.range) return;
@@ -237,7 +243,13 @@ class TrackViewModel extends Notifier<TrackState> {
     final signature = _signatureOf(day);
     _setSummary(day.date, TrackSummary.writing(signature));
 
-    final paragraph = await _summarizer.write(day);
+    _writing.add(signature);
+    final TrackParagraph? paragraph;
+    try {
+      paragraph = await _summarizer.write(day);
+    } finally {
+      _writing.remove(signature);
+    }
     // A tela pode ter trocado de recorte — ou a janela ter fechado — enquanto o
     // modelo escrevia.
     if (!ref.mounted) return;
