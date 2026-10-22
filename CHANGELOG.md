@@ -8,6 +8,10 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.1.0 — 22/10/2026
+
+- Atualizações pelo próprio app, com aviso no menu e as novidades da versão (#137)
+
 ## 1.0.2 — 22/10/2026
 
 - Os filtros do Pin cabem numa linha só, mesmo com todos os tipos (#136)
