@@ -16,7 +16,7 @@ Antes de desenhar um componente novo, procure aqui. Módulos novos devem **reusa
 | `EgIconButton` | `eg_button.dart` | botão só de ícone, 36×36, com `tooltip` opcional | default · hover · pressed · focus · disabled |
 | `EgToggle` | `eg_toggle.dart` | switch de preferência | default · hover · pressed · focus · disabled · on/off |
 | `EgShortcutRecorder` | `eg_shortcut_recorder.dart` | os key-caps de um atalho global + o botão que põe a tela à escuta; devolve a combinação apertada e não decide nada | repouso · gravando |
-| `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado; `bare` tira a caixa (fila de filtros do Pin) | default · hover · pressed · focus · selected |
+| `EgSegmentedControl` | `eg_segmented_control.dart` | escolha única entre 3–4 opções curtas; ← → quando focado; `bare` tira a caixa (fila de filtros do Pin); sem largura quebra linha, a não ser que tenha `iconOf` — aí as opções não escolhidas viram o ícone e a fila fica numa linha (o Pin com todos os tipos, onde os ícones são os mesmos da lista) | default · hover · pressed · focus · selected |
 | `EgSearchField` | `eg_search_field.dart` | campo de busca (`bare` para a linha do topo do overlay) | default · focus (borda accent) · placeholder |
 | `EgTextField` | `eg_text_field.dart` | campo de texto de uma linha que a pessoa escreve e confirma (atividade e resumo do Focus); `bare` + `style` para renomear no lugar um título (o nome da reunião do Echo), no degrau dele | default · focus (borda accent) · disabled |
 | `EgHintBar` / `EgHint` | `eg_hint_bar.dart` | rodapé de atalhos de um painel operado por teclado | — |

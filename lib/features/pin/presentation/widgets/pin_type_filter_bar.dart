@@ -40,6 +40,10 @@ class PinTypeFilterBar extends StatelessWidget {
           value: state.typeFilter,
           options: state.typeFilterOptions,
           labelOf: (type) => type?.filterLabel ?? 'Tudo',
+          // Com todos os tipos no histórico os rótulos não cabem nos 420px
+          // do painel: os não escolhidos viram o ícone do tipo — o mesmo da
+          // linha da lista —, e a fila continua numa linha só.
+          iconOf: (type) => type?.icon,
           onChanged: onChanged,
           bare: true,
           focusable: false,
