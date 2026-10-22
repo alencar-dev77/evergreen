@@ -1,7 +1,7 @@
 name: Require version bump label
 
-# Mesma regra do LuizLaporta e do Portal_LL, e agora pelo mesmo caminho: o bump
-# acontece na integração (`validation`) e a promoção para `main` herda a versão.
+# O bump acontece na integração (`validation`) e a promoção para `main` herda a
+# versão.
 # A label é exigida onde a versão sobe — na PR de feature, que entra na
 # `validation`. A PR de promoção não pede label nenhuma: ela carrega um número
 # que já foi decidido.

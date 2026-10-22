@@ -2,8 +2,7 @@ name: Preparar release
 
 # Botão manual: soma +1 no build number da `validation` — o `CFBundleVersion`
 # do `.dmg` que o `./scripts/release` gera. Roda UMA vez por release, antes de abrir a
-# PR de promoção `validation` -> `main`. Copiado do rookplace-app e do
-# rookplace-portal, com o mesmo raciocínio.
+# PR de promoção `validation` -> `main`.
 #
 # Não é automático de propósito. Preparar release é uma decisão, não efeito de
 # merge: entre duas publicações cabem várias PRs, e bumpar por merge faria o

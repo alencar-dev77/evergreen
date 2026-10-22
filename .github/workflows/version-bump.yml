@@ -1,15 +1,21 @@
 name: Bump version on merge
 
 # A versão sobe quando uma PR é mergeada na `validation`, lendo a label `bump:`
-# da própria PR — como no LuizLaporta e no Portal_LL. A `main` herda o número
+# da própria PR. A `main` herda o número
 # pela PR de promoção, e por isso ele é decidido **uma vez**: bumpar dos dois
 # lados daria dois números para o mesmo código.
 #
 # O bump é ato de integração, não de feature: na branch da feature, duas PRs
 # abertas ao mesmo tempo subiriam para o mesmo número e conflitariam no
 # `pubspec.yaml`, e a versão seria decidida antes de se saber se a PR entra.
+# `pull_request_target`, e não `pull_request`: numa PR vinda de fork, o
+# `pull_request` recebe um token só de leitura — o `contents: write` abaixo é
+# ignorado — e o push do bump falharia no merge de toda contribuição de fora.
+# É seguro aqui porque o job nunca roda o código da PR: ele faz checkout da
+# `validation` **depois do merge**, que é código que já foi revisado. Não troque
+# o `ref: validation` pelo head da PR.
 on:
-  pull_request:
+  pull_request_target:
     types: [closed]
     branches: [validation]
 
