@@ -24,12 +24,18 @@ abstract final class HubDestination {
   /// O módulo pedido, pelo `EvergreenModule.id`. `null` quando ninguém pediu.
   static const _key = 'hub.pending_module';
 
+  /// O único destino que não é um módulo: a tela do aplicativo com a pergunta
+  /// de desinstalar já aberta. É o caminho do item do menu da barra — a
+  /// confirmação é um modal, e modal só existe no Hub.
+  static const uninstall = 'app.uninstall';
+
   static const channel = WindowMethodChannel(
     'hub_navigation',
     mode: ChannelMode.unidirectional,
   );
 
-  /// Anota o destino e avisa um Hub que já esteja de pé.
+  /// Anota o destino — o `EvergreenModule.id` de um módulo, ou [uninstall] —
+  /// e avisa um Hub que já esteja de pé.
   ///
   /// Nesta ordem, e não na inversa: o aviso manda reler o disco, então o disco
   /// precisa já estar escrito quando ele chega.

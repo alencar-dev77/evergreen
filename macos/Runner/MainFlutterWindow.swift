@@ -8,6 +8,7 @@ import IOKit.pwr_mgt
 import QuartzCore
 import ServiceManagement
 import UniformTypeIdentifiers
+import UserNotifications
 import desktop_multi_window
 import window_manager
 
@@ -132,6 +133,9 @@ class MainFlutterWindow: NSPanel {
     // a janela 0 manda o que está rodando —, mas só a janela 0 atende os
     // botões dela.
     NotchIslandChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
+    // Quem chama é o Hub, onde mora a confirmação; o processo inteiro termina
+    // dentro do método, então não importa de qual engine o pedido vem.
+    UninstallChannel.register(with: controller.engine.binaryMessenger)
     // Só a janela 0: o centro de notificações tem um delegate por processo, e
     // quem atende o clique são os serviços que vivem nela.
     if isOverlay {
@@ -1517,5 +1521,126 @@ enum PreviousAppFocusChannel {
     guard let app = capturedApp, !app.isTerminated else { return }
 
     activate(app)
+  }
+}
+
+/// Desinstala o Evergreen: tira dos Ajustes do Sistema, apaga tudo o que ele
+/// guardou, manda o aplicativo para o Lixo e encerra.
+///
+/// Nativo porque três das peças não existem em Dart: o item de início
+/// (`SMAppService`), as permissões (`tccutil`) e o Lixo (`trashItem`). E é um
+/// método só, sem volta ao Dart no meio: o processo termina dentro dele, então
+/// nenhum serviço da janela 0 tem a vez de escrever de novo numa pasta que
+/// acabou de ser apagada.
+///
+/// **A ordem importa.** O `tccutil` acha o aplicativo pelo identificador no
+/// LaunchServices, e com o bundle já no Lixo ele responde "identificador
+/// desconhecido" — então as permissões saem antes de o aplicativo sair do
+/// lugar. Cada passo é tentativa: um que falhe não impede os outros, porque
+/// uma desinstalação pela metade é pior que uma com uma sobra.
+///
+/// O que fica de fora, por não ter API: a linha do Evergreen em Ajustes →
+/// Notificações (o macOS a guarda sozinho, e o app não tem como apagá-la) e os
+/// modelos de voz do `Speech`, que são do sistema e servem a outros apps.
+enum UninstallChannel {
+  private static let channelName = "uninstall"
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "uninstall" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      uninstall()
+    }
+  }
+
+  private static func uninstall() {
+    let fileManager = FileManager.default
+    let bundle = Bundle.main.bundleURL
+    let identifier = Bundle.main.bundleIdentifier ?? "com.alencardev.evergreen"
+
+    // Ajustes → Geral → Itens de início.
+    try? SMAppService.mainApp.unregister()
+
+    // Ajustes → Privacidade e Segurança: Acessibilidade, Microfone, Gravação
+    // de Tela e o resto, de uma vez.
+    run("/usr/bin/tccutil", ["reset", "All", identifier])
+
+    // Assíncronas do lado do sistema: cedo, para terem tempo de sair antes do
+    // `exit`.
+    UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
+    // Esquecido pelo LaunchServices antes de ir para o Lixo, para não sobrar
+    // em "Abrir com".
+    run(
+      "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
+        + "LaunchServices.framework/Support/lsregister",
+      ["-u", bundle.path])
+
+    let trashed = (try? fileManager.trashItem(at: bundle, resultingItemURL: nil)) != nil
+
+    // **As pastas por último**, logo antes do `exit`: o Dart está parado
+    // enquanto este método roda, mas as tarefas do Swift não — o Echo
+    // exportando o áudio de uma reunião recriaria a pasta dele. Quanto menor o
+    // intervalo entre apagar e sair, menor a chance.
+    //
+    // O banco, os backups, as reuniões, as imagens do Pin, o registro, o
+    // áudio em gravação e o que o sistema guarda em nome do app.
+    let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+    let leftovers = [
+      "Application Support/\(identifier)",
+      "Caches/\(identifier)",
+      "HTTPStorages/\(identifier)",
+      "HTTPStorages/\(identifier).binarycookies",
+      "WebKit/\(identifier)",
+      "Saved Application State/\(identifier).savedState",
+      // Os modelos que separam as vozes do Echo. O FluidAudio os guarda numa
+      // pasta dele, sem o nosso identificador — e outro app que use o pacote
+      // dividiria a mesma, por isso só o modelo que o Echo baixa sai.
+      "Application Support/FluidAudio/Models/speaker-diarization",
+    ]
+    for path in leftovers {
+      try? fileManager.removeItem(at: library.appendingPathComponent(path))
+    }
+    removeIfEmpty(library.appendingPathComponent("Application Support/FluidAudio/Models"))
+    removeIfEmpty(library.appendingPathComponent("Application Support/FluidAudio"))
+
+    // As preferências — as do Dart (`shared_preferences`) moram no mesmo
+    // domínio. Pelo `UserDefaults` primeiro, que é quem avisa o `cfprefsd`;
+    // apagar só o arquivo deixaria a cópia dele em memória escrever de volta.
+    UserDefaults.standard.removePersistentDomain(forName: identifier)
+    UserDefaults.standard.synchronize()
+    try? fileManager.removeItem(
+      at: library.appendingPathComponent("Preferences/\(identifier).plist"))
+
+    if !trashed {
+      // Sem permissão para mover (uma pasta de outro usuário, um volume só de
+      // leitura): o Finder mostra o aplicativo, e arrastar para o Lixo é com
+      // quem pediu.
+      NSWorkspace.shared.activateFileViewerSelecting([bundle])
+    }
+
+    exit(0)
+  }
+
+  private static func removeIfEmpty(_ url: URL) {
+    guard let contents = try? FileManager.default.contentsOfDirectory(atPath: url.path),
+          contents.filter({ $0 != ".DS_Store" }).isEmpty
+    else { return }
+    try? FileManager.default.removeItem(at: url)
+  }
+
+  private static func run(_ executable: String, _ arguments: [String]) {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: executable)
+    process.arguments = arguments
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
+    guard (try? process.run()) != nil else { return }
+    process.waitUntilExit()
   }
 }
