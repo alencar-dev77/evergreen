@@ -184,7 +184,7 @@ class LmStudioApi {
       'context_length': contextLength,
       'echo_load_config': true,
     }, timeout: _loadTimeout);
-    _check(response);
+    _check(response, canOverflow: false);
 
     final json = response.json;
     final id = json is Map ? json['instance_id'] : null;
@@ -252,11 +252,14 @@ class LmStudioApi {
     caseSensitive: false,
   );
 
-  static void _check(LmStudioResponse response) {
+  /// [canOverflow] só no chat: no `load`, "context" na mensagem é a recusa de
+  /// carregar com aquele contexto (memória, quase sempre), e não um texto que
+  /// não coube — repartir o texto não resolveria nada.
+  static void _check(LmStudioResponse response, {bool canOverflow = true}) {
     if (response.isOk) return;
 
     final message = errorMessageOf(response.json);
-    if (_overflow.hasMatch(message)) {
+    if (canOverflow && _overflow.hasMatch(message)) {
       throw LocalModelException(
         LocalModelException.contextWindowExceeded,
         'O texto não coube no modelo.',
@@ -341,25 +344,43 @@ class LmStudioLocalModel implements LocalModelBackend {
       );
     }
 
+    // O que o Evergreen deixou na memória numa vez anterior — um `load` que
+    // estourou o prazo e terminou do lado do servidor, ou um `unload` recusado.
+    final leftover = _ledger.read();
+
     if (model.isLoaded) {
-      final instance = model.loadedInstances.first;
+      final ours = model.loadedInstances
+          .where((instance) => instance.id == leftover)
+          .firstOrNull;
+      // A instância que o registro aponta é do Evergreen, e é ele quem a
+      // descarrega no fim; qualquer outra é da pessoa, e fica aberta.
       return _LmStudioSession(
         api: _api,
         ledger: _ledger,
         model: model,
-        instance: instance,
-        owned: false,
+        instance: ours ?? model.loadedInstances.first,
+        owned: ours != null,
       );
     }
+
+    // Sobra de outro modelo: sai antes, senão o registro novo a esqueceria.
+    if (leftover != null) await sweep();
 
     final wanted = math.min(
       contextLength,
       model.maxContextLength ?? contextLength,
     );
+    // Anotado **antes** do `load`: se ele estourar o prazo, o servidor termina
+    // de carregar sozinho, e sem o registro o modelo ficaria na memória como
+    // se fosse da pessoa. O id da instância é a chave do modelo até o servidor
+    // dizer outro.
+    await _ledger.write(model.key);
     final LmStudioInstance instance;
     try {
       instance = await _api.load(model.key, contextLength: wanted);
     } on LmStudioUnreachable {
+      // Servidor fora não carregou nada.
+      await _ledger.write(null);
       throw offline;
     }
     await _ledger.write(instance.id);
@@ -375,8 +396,12 @@ class LmStudioLocalModel implements LocalModelBackend {
 
   /// Descarrega o que uma execução anterior deixou na memória.
   ///
-  /// Roda na abertura da janela 0. Sem registro, não faz nada — e nunca toca
-  /// numa instância que não foi o Evergreen quem abriu.
+  /// Roda na abertura da janela 0. Sem registro, não faz nada.
+  ///
+  /// Um limite que não tem conserto daqui: o id da instância é a chave do
+  /// modelo, e se a pessoa abrir **o mesmo modelo** no LM Studio entre a queda
+  /// e a abertura seguinte, a varredura o descarrega — o servidor não diz quem
+  /// carregou o quê.
   Future<void> sweep() async {
     final leftover = _ledger.read();
     if (leftover == null) return;

@@ -335,6 +335,32 @@ void main() {
       },
     );
 
+    test('resposta vazia é erro, e o resumo que existia fica', () async {
+      repository.setSummary(
+        longMeetingId,
+        'o resumo de antes',
+        prompt: 'p',
+        model: 'Apple Intelligence',
+      );
+      await preferences.setString('app.local_model_source', 'lm_studio');
+      await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+      // Um modelo que gastou o teto inteiro pensando.
+      final http = FakeLmStudioHttp()..chatAnswer = '<think>pensando…';
+      final lmStudio = openBackground(
+        extra: [lmStudioHttpProvider.overrideWithValue(http)],
+      );
+      final runner = lmStudio.read(echoSummaryRunnerProvider);
+
+      await runner.start(longMeetingId);
+      await pumpEventQueue();
+
+      expect((await runner.status()).errorMessage, isNotNull);
+      final meeting = repository.findById(longMeetingId)!;
+      expect(meeting.summary, 'o resumo de antes');
+      expect(meeting.summaryModel, 'Apple Intelligence');
+      expect(http.loaded, isEmpty);
+    });
+
     test('com o servidor desligado, "Resumir" mostra o erro', () async {
       await preferences.setString('app.local_model_source', 'lm_studio');
       await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');

@@ -268,6 +268,15 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
         return (summary, session.displayName);
       });
 
+      // Resposta vazia não é resumo: um modelo que gastou o teto pensando
+      // devolve nada, e gravar nada apagaria o resumo que já existia.
+      if (summary.trim().isEmpty) {
+        throw const LocalModelException(
+          LocalModelException.failed,
+          'O modelo não escreveu nada. Tente outro modelo ou resuma de novo.',
+        );
+      }
+
       // Grava a instrução que a pessoa escolheu, não as regras do aplicativo:
       // a tela a mostra como "Instrução deste resumo" para ser copiada de
       // volta às preferências, e as regras iriam junto, dobradas.

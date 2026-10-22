@@ -120,6 +120,17 @@ class DartLmStudioHttp implements LmStudioHttp {
     } on SocketException {
       if (cancellation?.isCancelled ?? false) rethrow;
       throw const LmStudioUnreachable();
+    } on HttpException {
+      // A conexão caiu no meio da resposta — o servidor fechou, ou o
+      // cancelamento abortou o pedido. Para quem pediu, é servidor fora.
+      if (cancellation?.isCancelled ?? false) rethrow;
+      throw const LmStudioUnreachable();
+    } on FormatException {
+      // Corpo que nem UTF-8 é: resposta que não se entende.
+      throw const LocalModelException(
+        LocalModelException.failed,
+        'O LM Studio devolveu uma resposta ilegível.',
+      );
     } finally {
       await onCancel?.cancel();
     }

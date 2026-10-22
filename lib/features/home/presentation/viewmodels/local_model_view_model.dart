@@ -88,13 +88,13 @@ class LocalModelViewModel extends Notifier<LocalModelStatus> {
     _api = LmStudioApi(ref.watch(lmStudioHttpProvider));
     _launcher = ref.watch(lmStudioLauncherProvider);
 
-    final source = ref
-        .watch(
-          appSettingsViewModelProvider.select(
-            (settings) => settings.localModel,
-          ),
-        )
-        .source;
+    // Só a origem: trocar de modelo não pode refazer este estado — a lista
+    // piscaria em "Procurando o servidor…" a cada "Usar".
+    final source = ref.watch(
+      appSettingsViewModelProvider.select(
+        (settings) => settings.localModel.source,
+      ),
+    );
     if (source != LocalModelSource.lmStudio) return const LocalModelStatus();
 
     final timer = Timer.periodic(pollInterval, (_) => unawaited(refresh()));
@@ -126,7 +126,10 @@ class LocalModelViewModel extends Notifier<LocalModelStatus> {
       _pickFirstIfNoneChosen(models);
     } on LmStudioUnreachable {
       _set(state.copyWith(server: LmStudioServerState.offline, models: []));
-    } on LocalModelException {
+    } on Object {
+      // Roda num relógio, sem tela embaixo para pegar o erro: qualquer
+      // resposta que não se entende vale como servidor fora, e a próxima
+      // pergunta tenta de novo.
       _set(state.copyWith(server: LmStudioServerState.offline, models: []));
     }
   }

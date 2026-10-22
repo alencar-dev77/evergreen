@@ -44,6 +44,13 @@ class FakeLmStudioHttp implements LmStudioHttp {
   /// A resposta de erro do próximo chat.
   LmStudioResponse? chatFailure;
 
+  /// O próximo `load` carrega do lado do servidor e, mesmo assim, estoura o
+  /// prazo para quem pediu.
+  bool loadTimesOut = false;
+
+  /// A resposta de erro do próximo `load`, sem carregar nada.
+  LmStudioResponse? loadFailure;
+
   @override
   Future<LmStudioResponse> get(String path, {required Duration timeout}) async {
     if (offline) throw const LmStudioUnreachable();
@@ -79,7 +86,19 @@ class FakeLmStudioHttp implements LmStudioHttp {
       case '/api/v1/models/load':
         loads++;
         final key = body['model']! as String;
+        final failure = loadFailure;
+        if (failure != null) {
+          loadFailure = null;
+          return failure;
+        }
         loaded[key] = body['context_length']! as int;
+        if (loadTimesOut) {
+          loadTimesOut = false;
+          throw const LocalModelException(
+            LocalModelException.timeout,
+            'O LM Studio não respondeu a tempo.',
+          );
+        }
         return LmStudioResponse(200, {
           'type': 'llm',
           'instance_id': key,

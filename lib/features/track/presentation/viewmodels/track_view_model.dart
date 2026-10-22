@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/local_model/local_model.dart';
 import '../../../../shared/utils/day_bounds.dart';
 import '../../data/track_repository.dart';
 import '../../data/track_summarizer.dart';
@@ -256,7 +257,11 @@ class TrackViewModel extends Notifier<TrackState> {
   String _signatureOf(TrackDay day) {
     final choice = ref.read(appSettingsRepositoryProvider).load().localModel;
 
-    return '${day.signature}|${choice.key}';
+    // Com o padrão, a assinatura de antes: o cache de quem nunca escolheu
+    // outro modelo continua valendo.
+    return choice.source == LocalModelSource.apple
+        ? day.signature
+        : '${day.signature}|${choice.key}';
   }
 
   void _setSummary(DateTime date, TrackSummary summary) {

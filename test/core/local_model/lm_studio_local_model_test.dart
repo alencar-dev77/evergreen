@@ -265,6 +265,46 @@ void main() {
       },
     );
 
+    test(
+      'o load que estoura o prazo fica anotado, e a próxima vez o descarrega',
+      () async {
+        http.loadTimesOut = true;
+
+        await expectLater(
+          backend.open(qwen),
+          throwsA(isA<LocalModelException>()),
+        );
+        // O servidor terminou de carregar sozinho: o registro é o que impede o
+        // modelo de passar por um que a pessoa abriu.
+        expect(http.loaded, isNotEmpty);
+        expect(ledger.value, 'qwen3.5-4b-mlx');
+
+        final session = await backend.open(qwen);
+        expect(http.loads, 1);
+        await session.close();
+
+        expect(http.loaded, isEmpty);
+        expect(ledger.value, isNull);
+      },
+    );
+
+    test('recusa de carregar não é "o texto não coube"', () async {
+      http.loadFailure = const LmStudioResponse(500, {
+        'error': 'Not enough memory to load the model with this context',
+      });
+
+      await expectLater(
+        backend.open(qwen),
+        throwsA(
+          isA<LocalModelException>().having(
+            (error) => error.isContextWindowExceeded,
+            'estouro',
+            isFalse,
+          ),
+        ),
+      );
+    });
+
     test('a varredura descarrega o que uma queda deixou na memória', () async {
       http.loaded['qwen3.5-4b-mlx'] = 32768;
       ledger.value = 'qwen3.5-4b-mlx';
