@@ -197,6 +197,18 @@ if [ "$MODO_BUILD" = false ] && [ -z "$NIVEL" ]; then
   amarelo "→ Um bump '$NIVEL' cobrindo as PRs acima (a mais forte manda)."
 fi
 
+# No Actions, sem --nota: o título vem do evento da própria PR. É o script que
+# vai buscá-lo, e não só o workflow que o passa, porque o `pull_request_target`
+# roda o workflow da `main` — que fica um passo atrás até a promoção —, mas
+# este script sai do checkout da `validation`. Um workflow velho que não sabe
+# do `--nota` deixava a versão sem linha no CHANGELOG (foi o que aconteceu na
+# 1.0.0). O título é lido pelo `jq` como texto e nunca é executado.
+if [ "$MODO_BUILD" = false ] && [ -z "$NOTAS" ] && [ -n "${GITHUB_EVENT_PATH:-}" ] \
+  && command -v jq >/dev/null; then
+  NOTAS="$(jq -r 'if .pull_request.title then "\(.pull_request.title) (#\(.pull_request.number))" else empty end' \
+    "$GITHUB_EVENT_PATH" 2>/dev/null || true)"
+fi
+
 # --- Cálculo da nova versão -------------------------------------------------
 # Os dois bumps são exclusivos: o de nível preserva o build, o --build preserva
 # o semver (ver o cabeçalho).

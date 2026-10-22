@@ -106,7 +106,8 @@ para você conferir antes.
 
 O bump de semver também escreve o [CHANGELOG.md](../CHANGELOG.md), no mesmo
 commit: uma seção com a versão nova e uma linha por PR, que é o título dela (o
-`--pr` e o modo sem argumento o buscam sozinhos; o `--nota` o dá à mão). O
+`--pr` e o modo sem argumento o buscam sozinhos, no Actions ele vem do evento
+da PR, e o `--nota` o dá à mão). O
 `--build` não escreve nada.
 
 ---

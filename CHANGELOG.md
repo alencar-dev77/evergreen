@@ -10,6 +10,10 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 ## 1.0.0 — 22/10/2026
 
+A V1.
+
+- Política de privacidade, novidades de cada versão e licenças dentro do app (#134)
+
 ## 0.35.1 — 22/10/2026
 
 A primeira versão aberta. As anteriores ficaram nas tags `v0.x`.

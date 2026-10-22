@@ -20,7 +20,11 @@ outro projeto — entra no repositório, nem em comentário. Contribuição de f
 chega por fork e PR para a `validation`; por isso o `version-bump.yml` usa
 `pull_request_target` (num fork, o `pull_request` só lê e o bump não subiria),
 e é seguro só enquanto ele fizer checkout da `validation` pós-merge, nunca do
-head da PR.
+head da PR. A armadilha do `pull_request_target`: ele roda o **arquivo do
+workflow que está na `main`**, não o da `validation` — mudança no
+`version-bump.yml` só vale depois da promoção. Por isso o que dá para pôr no
+`bump_version` (que sai do checkout da `validation`) mora nele: o título da PR
+para o CHANGELOG ele mesmo lê do evento.
 
 **A [PRIVACY.md](PRIVACY.md) é uma promessa, e muda antes do código.** Ela diz
 o que cada módulo guarda, onde, por quanto tempo, e o que sai do app (o
