@@ -608,7 +608,9 @@ e esconder ícones da barra de menus
   aplicativo** (o Track pede do Hub pelo `LocalModelHost`, no arranjo do
   `EchoSummaryHost`, senão o Track descarregaria o modelo no meio do resumo do
   Echo); **um pedido por vez**, carregando uma vez para a fila e descarregando
-  quando ela esvazia (num resumo em blocos, depois do último); e **só
+  20 s depois de ela esvaziar (`idleGrace` — sem a folga, passear pelos dias do
+  Track carregaria 3 GB a cada clique; num resumo em blocos, nunca entre um
+  bloco e outro); e **só
   descarrega o que ele mesmo carregou** — o modelo que a pessoa abriu à mão no
   LM Studio continua aberto, e o bloco segue o contexto daquela instância. O
   `load` nativo não tem prazo de inatividade, então o Evergreen anota o que
@@ -618,7 +620,11 @@ e esconder ícones da barra de menus
   responde; o tamanho do bloco vem de `contextTokens` da sessão aberta. O
   servidor nunca é ligado sozinho: o "Ligar" da tela do aplicativo é o único
   ponto em que o Evergreen abre o processo de outro programa (`lms server
-  start`). Com o LM Studio escolhido, o Hub pergunta ao servidor de cinco em
+  start`); o arranjo recomendado é o servidor subir com o login, que é leve e
+  não carrega modelo. Com o LM Studio escolhido, o "Resumir" do Echo não
+  depende do Apple Intelligence, e LM Studio antigo (sem `/api/v1`) ou com
+  token de API aparece como recusa, não como "desligado". Com o LM Studio
+  escolhido, o Hub pergunta ao servidor de cinco em
   cinco segundos quem está na memória, e a bolinha do rodapé da barra lateral
   acende verde enquanto houver um modelo carregado. Ver
   [docs/Ideis projeto/modelo-local-escolhivel.md](docs/Ideis%20projeto/modelo-local-escolhivel.md).
