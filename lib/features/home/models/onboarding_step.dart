@@ -60,7 +60,7 @@ class OnboardingStep {
     OnboardingStep(
       module: EvergreenModule.pin,
       image: 'assets/onboarding/pin.png',
-      imageWidth: 420,
+      imageWidth: 460,
       imageHeight: 452,
       shortcut: '⌘⇧C',
       line:
