@@ -28,7 +28,7 @@
 #   1. o do `EVERGREEN_SIGN_IDENTITY`, se estiver definido;
 #   2. **o mesmo com que a cópia instalada foi assinada** — lido do app que
 #      ainda está em /Applications, antes de ele ser apagado;
-#   3. o "Developer ID Application", se houver um só — o mesmo do `./release`;
+#   3. o "Developer ID Application", se houver um só — o mesmo do `./scripts/release`;
 #   4. o primeiro que aparecer no chaveiro.
 #
 # O passo 2 é o que faz a escolha parar de andar sozinha. Este chaveiro tem
@@ -42,7 +42,7 @@
 # acontecer no dia em que o Developer ID chega ao chaveiro.
 #
 # Com certificado, a assinatura leva o runtime endurecido, como a do
-# `./release`: o que se testa instalado daqui é o que vai no .dmg. É o runtime
+# `./scripts/release`: o que se testa instalado daqui é o que vai no .dmg. É o runtime
 # que nega o microfone a quem não declara `device.audio-input` — sem ele aqui,
 # um entitlement esquecido só apareceria no Mac de outra pessoa.
 #
@@ -63,9 +63,9 @@
 # mesmo assim o Echo insistir que falta permissão, `EVERGREEN_RESET_TCC=1`
 # apaga o registro guardado e força o macOS a perguntar do zero.
 #
-# Uso: ./run_build_copy
-#      EVERGREEN_RESET_TCC=1   ./run_build_copy   # zera a Gravação de Tela
-#      EVERGREEN_RESET_TCC=all ./run_build_copy   # zera também Microfone e
+# Uso: ./scripts/run_build_copy
+#      EVERGREEN_RESET_TCC=1   ./scripts/run_build_copy   # zera a Gravação de Tela
+#      EVERGREEN_RESET_TCC=all ./scripts/run_build_copy   # zera também Microfone e
 #                                                 # Acessibilidade
 
 set -euo pipefail
@@ -78,7 +78,8 @@ DEST_APP="$DEST_DIR/$APP_NAME"
 ENTITLEMENTS="macos/Runner/Release.entitlements"
 
 # Garante que estamos na raiz do projeto (onde está o pubspec.yaml).
-cd "$(dirname "$0")"
+# Os scripts moram em `scripts/`; tudo daqui para baixo roda da raiz.
+cd "$(dirname "$0")/.."
 
 if [[ ! -f pubspec.yaml ]]; then
   echo "❌ pubspec.yaml não encontrado — rode o script na raiz do projeto." >&2
@@ -155,7 +156,7 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
 
   if [[ "$(printf '%s' "$DEVELOPER_ID" | grep -c .)" == "1" ]]; then
     SIGN_IDENTITY="$DEVELOPER_ID"
-    echo "   usando o Developer ID, o mesmo do ./release."
+    echo "   usando o Developer ID, o mesmo do ./scripts/release."
   fi
 fi
 
@@ -253,4 +254,4 @@ echo
 echo "ℹ️  Na primeira gravação depois desta instalação o macOS pode pedir a"
 echo "   Gravação de Tela outra vez — é ele reconferindo o binário novo, não o"
 echo "   Echo perdendo a permissão. Se insistir que falta, rode:"
-echo "   EVERGREEN_RESET_TCC=1 ./run_build_copy"
+echo "   EVERGREEN_RESET_TCC=1 ./scripts/run_build_copy"

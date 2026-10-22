@@ -25,8 +25,10 @@ superior do macOS.
 
 ### Instalando de verdade
 
+Os comandos moram em [`scripts/`](scripts/README.md), cada um explicado lá.
+
 ```bash
-./run_build_copy
+./scripts/run_build_copy
 ```
 
 Builda em release, reassina com uma identidade estável e copia para
@@ -38,7 +40,7 @@ Pin. O cabeçalho do script explica a ordem em que ele escolhe o certificado.
 ### Gerando o instalador
 
 ```bash
-./release
+./scripts/release
 ```
 
 Gera `build/release/Evergreen-<versão>.dmg`, assinado com o Developer ID e
@@ -217,7 +219,7 @@ registro enquanto o app roda de `build/macos/...`, sem assinatura estável e for
 de `/Applications`. Nesse caso o toggle volta sozinho para desligado — é
 intencional: ele reflete o estado real do sistema, não a intenção.
 
-Para testar de verdade, instale com `./run_build_copy` e rode de
+Para testar de verdade, instale com `./scripts/run_build_copy` e rode de
 `/Applications`.
 
 ---
@@ -366,7 +368,7 @@ As imagens são geradas em [test/goldens/](test/goldens/).
 O `version:` do `pubspec.yaml` é o que a sidebar do Hub mostra no rodapé. Quem
 bumpa é o GitHub Actions no merge de uma PR na `validation`, lendo a label
 `bump:` da própria PR; a `main` herda o número pela PR de promoção. Quando o
-Actions está fora do ar, `./bump_version` faz o mesmo à mão — na `validation`,
+Actions está fora do ar, `./scripts/bump_version` faz o mesmo à mão — na `validation`,
 depois do merge.
 
 O caminho de uma mudança é `feature → validation → main`: a PR de feature pede

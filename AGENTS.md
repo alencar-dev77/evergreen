@@ -230,7 +230,7 @@ e esconder ícones da barra de menus
   nem a ilha, nem a porta do Nest, nem as linhas de preferência. Ver
   [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
 - **A distribuição é um `.dmg` assinado com o Developer ID da conta do Luiz
-  Fernando Bargas (time `W3TC63GH63`) e notarizado** — `./release`. O runtime
+  Fernando Bargas (time `W3TC63GH63`) e notarizado** — `./scripts/release`. O runtime
   endurecido é obrigatório para notarizar, e ele **nega o que não está
   declarado sem dar erro**: o microfone do Echo só funciona por causa do
   `com.apple.security.device.audio-input` no `Release.entitlements`. Recurso
@@ -719,11 +719,13 @@ UI e microcopy em português (pt-BR).
 - `flutter test --run-skipped -t assets test/tools/brand_assets_test.dart` —
   reexportar o ícone do aplicativo e o da barra de menus a partir da marca em
   Dart. Fora da suíte padrão porque **escreve** no repositório.
-- `./run_build_copy` — build release e instala em `/Applications`, reassinando
+- Os scripts de instalar, versionar e publicar moram em `scripts/`, e o
+  [scripts/README.md](scripts/README.md) explica cada comando.
+- `./scripts/run_build_copy` — build release e instala em `/Applications`, reassinando
   com identidade estável. A assinatura ad-hoc do projeto muda de hash a cada
   build, e com ela o macOS descarta a permissão de Acessibilidade — que é o que
   sustenta o auto-colar do Pin.
-- `./release` — o `.dmg` para distribuir: build release, assinatura Developer
+- `./scripts/release` — o `.dmg` para distribuir: build release, assinatura Developer
   ID com runtime endurecido, notarização do `.app` e do `.dmg` e upload no
   GitHub Release da tag `v<semver>+<build>` (exige árvore limpa e o código
   igual ao da tag — a `main` promovida serve).
@@ -731,7 +733,7 @@ UI e microcopy em português (pt-BR).
   conferir a janela. Pede o certificado e a credencial do `notarytool` no
   chaveiro — o passo a passo está em
   [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
-- `./bump_version` — a regra do bump, num lugar só: o `version-bump.yml` o
+- `./scripts/bump_version` — a regra do bump, num lugar só: o `version-bump.yml` o
   chama com o nível da label, o `preparar-release.yml` com `--build`, e à mão
   ele é a rede para quando o Actions está fora do ar. Roda na `validation`,
   **depois** do merge.
@@ -747,7 +749,7 @@ os dois portões perguntam coisas diferentes.
   criada (`version-bump.yml`). O build (`+N`) fica intacto. A suíte **não**
   roda aqui.
 - **Preparar release.** Antes de promover, o botão "Preparar release" na aba
-  Actions (`preparar-release.yml`, ou `./bump_version --build --push`) soma +1
+  Actions (`preparar-release.yml`, ou `./scripts/bump_version --build --push`) soma +1
   no **build**, na `validation`, com tag `v<semver>+<build>`. É uma vez por
   publicação, não por PR — o build responde "qual `.dmg` é este", e contaria
   merges se subisse a cada um. Até a 0.33.0 todo build era `+1`, porque o
@@ -758,7 +760,7 @@ os dois portões perguntam coisas diferentes.
   conjunto, e um runner de macOS custa dez vezes um de Linux por minuto — e
   que exige o build maior que o da `main` (`require-build-bump.yml`). Não
   pede label: ela carrega um número que já foi decidido, e bumpar dos dois
-  lados daria dois números para o mesmo código. Promovida, o `./release`
+  lados daria dois números para o mesmo código. Promovida, o `./scripts/release`
   publica o `.dmg` na tag.
 
 A consequência a saber: **entre a feature e a promoção, o que segura a barra é
