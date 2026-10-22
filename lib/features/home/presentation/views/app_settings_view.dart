@@ -21,6 +21,7 @@ import '../../models/evergreen_module.dart';
 import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 import '../widgets/global_shortcut_section.dart';
+import '../widgets/local_model_section.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../viewmodels/diagnostics_view_model.dart';
 import '../viewmodels/disk_usage_view_model.dart';
@@ -122,6 +123,9 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
             ),
           ],
         ),
+        // Logo depois de "Sistema": é a outra pergunta sobre como o Evergreen
+        // funciona, e não sobre o que ele guarda — que é do disco para baixo.
+        const LocalModelSection(),
         const _ShortcutMapCard(),
         const _DiskUsageSection(),
         _BackupSection(

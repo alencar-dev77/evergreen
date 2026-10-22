@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Tooltip;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,9 +9,11 @@ import '../../../../core/system/global_shortcut_slot.dart';
 import '../../../../shared/widgets/eg_brand_mark.dart';
 import '../../../../shared/widgets/eg_icon.dart';
 import '../../../../shared/widgets/eg_nav_tile.dart';
+import '../../../../shared/widgets/eg_pill.dart';
 import '../../../../shared/widgets/eg_section_label.dart';
 import '../../models/evergreen_module.dart';
 import '../../models/module_settings.dart';
+import '../viewmodels/local_model_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 
 /// Um grupo da barra lateral.
@@ -108,7 +111,7 @@ class ModuleSidebar extends ConsumerWidget {
                 ],
               ),
             ),
-            _footer(context, settings),
+            _footer(context, settings, ref.watch(localModelViewModelProvider)),
           ],
         ),
       ),
@@ -174,7 +177,11 @@ class ModuleSidebar extends ConsumerWidget {
   /// Embaixo, e não no topo, porque preferência do aplicativo é onde se vai de
   /// vez em quando — o macOS põe esse tipo de entrada no pé (Ajustes do
   /// Sistema, Mail, Notas) justamente por isso.
-  Widget _footer(BuildContext context, ModuleSettings settings) {
+  Widget _footer(
+    BuildContext context,
+    ModuleSettings settings,
+    LocalModelStatus localModel,
+  ) {
     final eg = context.eg;
 
     return Container(
@@ -198,14 +205,71 @@ class ModuleSidebar extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text(
-              'tudo local · nada sai daqui',
-              style: eg.text.monoSmall.copyWith(
-                color: eg.colors.textQuaternary,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'tudo local · nada sai daqui',
+                    style: eg.text.monoSmall.copyWith(
+                      color: eg.colors.textQuaternary,
+                    ),
+                  ),
+                ),
+                if (localModel.server != LmStudioServerState.idle)
+                  _LocalModelDot(status: localModel),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// O modelo do LM Studio está na memória agora?
+///
+/// Verde quando está, apagada quando não: é o que responde "ele saiu da
+/// memória depois do resumo?" sem abrir o LM Studio. Só existe com o LM Studio
+/// escolhido, e o nome de quem está carregado vem no tooltip — a bolinha diz
+/// que há um modelo, o tooltip diz qual.
+class _LocalModelDot extends StatelessWidget {
+  const _LocalModelDot({required this.status});
+
+  final LocalModelStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final eg = context.eg;
+    final loaded = status.loaded;
+    final message = loaded.isEmpty
+        ? 'Nenhum modelo na memória do LM Studio'
+        : '${loaded.map((model) => model.displayName).join(', ')} na memória '
+              'do LM Studio';
+
+    // O mesmo balão do `EgIconButton`, para não haver dois tooltips no app.
+    return Tooltip(
+      message: message,
+      waitDuration: const Duration(milliseconds: 500),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: eg.colors.surface,
+        borderRadius: eg.shapes.segmentAll,
+        border: eg.borderAll,
+        boxShadow: eg.elevations.dropdown,
+      ),
+      textStyle: eg.text.footnote,
+      child: Semantics(
+        label: message,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxs),
+          child: EgStatusDot(
+            color: loaded.isEmpty ? eg.colors.textQuaternary : eg.colors.accent,
+            size: 6,
+          ),
+        ),
       ),
     );
   }

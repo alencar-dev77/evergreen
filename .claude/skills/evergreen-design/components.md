@@ -252,6 +252,7 @@ Modais no Evergreen são reservados para decisões que genuinamente interrompem 
 - Cor de badge segue estritamente o sistema semântico (`colors.md`) — nunca uma cor arbitrária "só para diferenciar visualmente" sem que ela represente um estado real (status, prioridade, categoria).
 - Prefira fundo em baixa opacidade da cor semântica com texto na cor semântica em versão mais saturada/escura, em vez de fundo sólido saturado com texto branco — o primeiro padrão é mais discreto e combina melhor com a paleta majoritariamente neutra do Evergreen.
 - Indicadores de status simples (ponto colorido, sem texto) são preferíveis a badges com texto sempre que o significado já for aprendido pelo usuário (ex: um ponto verde para "online/ativo" depois que o padrão foi estabelecido uma vez na interface).
+- **A bolinha do modelo local mora no rodapé da barra lateral**, à direita de "tudo local · nada sai daqui": verde (`accent`) com um modelo na memória do LM Studio, `textQuaternary` sem nenhum, e ausente com o Apple Intelligence. O nome do modelo vai no tooltip (o mesmo balão do `EgIconButton`) e no rótulo de leitor de tela. Na barra de menus ela não seria verde — o macOS não colore texto ali —, e na linha "Modelo local" só seria vista por quem fosse até a tela do aplicativo.
 
 ## Loading
 
