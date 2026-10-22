@@ -40,4 +40,13 @@ class FakeUpdateService implements UpdateService {
 
   @override
   Stream<UpdateState> get changes => _changes.stream;
+
+  @override
+  Stream<void> get installRequests => const Stream.empty();
+
+  @override
+  Future<void> proceedInstall() async {}
+
+  @override
+  Future<UpdateState> waitForMeeting() async => current;
 }

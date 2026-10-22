@@ -73,7 +73,8 @@ guardou:
    como em todo pedido de app, o nome e a versão do Evergreen; não vai perfil
    do sistema nem nada do que você guardou. Se houver versão nova, o Evergreen
    pergunta antes de baixar. Dá para desligar em Configurações → Aplicativo →
-   **Atualizações**, e desligada nenhuma procura sai.
+   **Atualizações**: desligada, nenhuma procura automática sai — só a que você
+   pedir no botão "Procurar".
 
 O resumo feito pelo Apple Intelligence também roda no seu Mac, pelo modelo
 local do sistema.

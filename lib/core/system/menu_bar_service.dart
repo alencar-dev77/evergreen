@@ -138,6 +138,11 @@ class MenuBarContent {
   /// dois pontos idênticos lado a lado não diriam qual é qual.
   static const recordingMark = '◉';
 
+  /// A bolinha da versão nova, no item do menu — o mesmo desenho da que
+  /// acende o botão "Aplicativo" no Hub. Só no item, nunca no título: lá o
+  /// ponto cheio é o do Awake.
+  static const updateMark = '●';
+
   /// A versão nova anunciada pelo Sparkle ("1.0.3"), ou `null` sem nenhuma.
   ///
   /// Vira o primeiro item do menu, logo abaixo do "Evergreen", com a bolinha
@@ -164,7 +169,7 @@ class MenuBarContent {
       // As reticências, como no desinstalar: o clique abre o Hub nas
       // novidades, e é lá que se confirma.
       MenuBarEntry.item(
-        '$awakeMark Atualizar para a $version…',
+        '$updateMark Atualizar para a $version…',
         action: MenuBarAction.update,
       ),
       const MenuBarEntry.separator(),
@@ -304,11 +309,6 @@ class MenuBarService {
     _applyTitle();
   }
 
-  /// Anuncia a trava do Awake: o ponto no título e o tempo restante no menu.
-  ///
-  /// [detail] nulo significa desligado. Acontece no máximo uma vez por minuto
-  /// — e pode acontecer com o menu aberto na tela, que é por que o item é
-  /// renomeado, e não refeito.
   /// Anuncia a versão nova no menu — ver [MenuBarContent.updateVersion].
   Future<void> setUpdateVersion(String? version) async {
     if (_content.updateVersion == version) return;
@@ -317,6 +317,11 @@ class MenuBarService {
     _menu?.show(_content.entries());
   }
 
+  /// Anuncia a trava do Awake: o ponto no título e o tempo restante no menu.
+  ///
+  /// [detail] nulo significa desligado. Acontece no máximo uma vez por minuto
+  /// — e pode acontecer com o menu aberto na tela, que é por que o item é
+  /// renomeado, e não refeito.
   Future<void> setAwakeDetail(String? detail) async {
     _content.awakeDetail = detail;
 

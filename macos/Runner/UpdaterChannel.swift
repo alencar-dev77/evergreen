@@ -92,15 +92,27 @@ enum UpdaterChannel {
         result(state(of: updater))
 
       case "checkNow":
-        if updater.canCheckForUpdates { updater.checkForUpdates() }
+        // A fase muda antes: o Sparkle só avisa que começou a procurar depois
+        // de conferir se há instalação pendente, e até lá a tela ficaria com
+        // o botão apagado e sem dizer nada.
+        if updater.canCheckForUpdates {
+          driver.beginCheck()
+          updater.checkForUpdates()
+        }
         result(state(of: updater))
 
       case "install":
-        // Quem pediu já disse sim na tela do Evergreen: daqui até reabrir não
-        // há mais pergunta. A chave faz o app novo abrir o Hub, e com ele a
-        // abertura animada, que roda uma vez por build.
-        UserDefaults.standard.set(true, forKey: openHubAfterUpdateKey)
         driver.install()
+        result(state(of: updater))
+
+      case "proceedInstall":
+        // A janela 0 terminou a limpeza do "Encerrar" — ver
+        // `UpdateDriver.showReady`.
+        driver.finishInstall()
+        result(nil)
+
+      case "waitForMeeting":
+        driver.waitForMeeting()
         result(state(of: updater))
 
       default:
@@ -117,6 +129,16 @@ enum UpdaterChannel {
     DispatchQueue.main.async {
       channel.invokeMethod("onState", arguments: snapshot)
     }
+  }
+
+  /// Pede à janela 0 que se prepare para fechar. Devolve `false` sem janela 0
+  /// para pedir — aí não há o que esperar.
+  fileprivate static func askToPrepareInstall() -> Bool {
+    guard let channel = overlayChannel else { return false }
+    DispatchQueue.main.async {
+      channel.invokeMethod("prepareToInstall", arguments: nil)
+    }
+    return true
   }
 
   private static func state(of updater: SPUUpdater) -> [String: Any] {
@@ -141,7 +163,7 @@ enum UpdaterChannel {
 /// apertar o botão — a tela é que decide, não uma janela solta.
 final class UpdateDriver: NSObject, SPUUserDriver {
   private enum Phase: String {
-    case idle, checking, available, downloading, extracting, installing
+    case idle, checking, available, downloading, extracting, waiting, installing
     case upToDate, error
   }
 
@@ -152,16 +174,61 @@ final class UpdateDriver: NSObject, SPUUserDriver {
   private var expectedLength: UInt64 = 0
   private var receivedLength: UInt64 = 0
 
+  /// Quando a última procura terminou ("em dia" ou "não deu"). A tela só
+  /// mostra esse resultado enquanto ele for o da procura mais recente.
+  private var resultAt: Date?
+
   /// A resposta que o Sparkle espera para a versão achada. Guardada até o
   /// "Atualizar e reiniciar" — sem ela, a versão continua anunciada.
+  ///
+  /// "Agora não" não responde, de propósito: a versão continua anunciada (a
+  /// bolinha fica). O preço é o Sparkle não procurar de novo nesta sessão —
+  /// uma versão publicada depois aparece no próximo arranque.
   private var foundReply: ((SPUUserUpdateChoice) -> Void)?
+
+  /// A resposta ao "pronto para instalar e reabrir", guardada enquanto a
+  /// janela 0 faz a limpeza do "Encerrar". Ver [showReady].
+  private var readyReply: ((SPUUserUpdateChoice) -> Void)?
+
+  /// Se a janela 0 não responder (travada, ocupada), a instalação segue
+  /// sozinha depois disto — melhor perder a limpeza que nunca atualizar.
+  private var readyTimeout: DispatchWorkItem?
+  private static let prepareTimeout: TimeInterval = 10
 
   func snapshot() -> [String: Any] {
     var snapshot: [String: Any] = ["phase": phase.rawValue]
+    if let resultAt = resultAt {
+      snapshot["resultMs"] = Int(resultAt.timeIntervalSince1970 * 1000)
+    }
     if let version = version { snapshot["version"] = version }
     if let notesHtml = notesHtml { snapshot["notesHtml"] = notesHtml }
     if let progress = progress { snapshot["progress"] = progress }
     return snapshot
+  }
+
+  func beginCheck() {
+    move(to: .checking)
+  }
+
+  /// A janela 0 avisou que há uma reunião do Echo em curso: a instalação
+  /// espera, sem prazo, até ela terminar e a janela 0 mandar seguir.
+  func waitForMeeting() {
+    readyTimeout?.cancel()
+    readyTimeout = nil
+    move(to: .waiting)
+  }
+
+  /// Fecha, instala e reabre. A chave faz o app novo abrir o Hub, e com ele a
+  /// abertura animada da build nova — gravada só aqui, a um passo de fechar,
+  /// para uma instalação que falhe antes não abrir o Hub no arranque seguinte.
+  func finishInstall() {
+    readyTimeout?.cancel()
+    readyTimeout = nil
+    guard let reply = readyReply else { return }
+    readyReply = nil
+    UserDefaults.standard.set(true, forKey: UpdaterChannel.openHubAfterUpdateKey)
+    move(to: .installing)
+    reply(.install)
   }
 
   /// O "Atualizar e reiniciar" da tela.
@@ -173,9 +240,14 @@ final class UpdateDriver: NSObject, SPUUserDriver {
   }
 
   private func move(to next: Phase, progress: Double? = nil) {
+    // Um aviso por ponto percentual, e não por pedaço baixado: um `.dmg` de
+    // dezenas de MB chega em milhares de pedaços, e cada aviso leva as notas
+    // inteiras para a janela 0.
+    let percent = progress.map { Int($0 * 100) }
+    let unchanged = next == phase && percent == self.progress.map { Int($0 * 100) }
     phase = next
     self.progress = progress
-    UpdaterChannel.notify()
+    if !unchanged { UpdaterChannel.notify() }
   }
 
   // MARK: - SPUUserDriver
@@ -223,6 +295,7 @@ final class UpdateDriver: NSObject, SPUUserDriver {
   func showUpdateReleaseNotesFailedToDownloadWithError(_ error: Error) {}
 
   func showUpdateNotFoundWithError(_ error: Error, acknowledgement: @escaping () -> Void) {
+    resultAt = Date()
     move(to: .upToDate)
     acknowledgement()
   }
@@ -231,6 +304,10 @@ final class UpdateDriver: NSObject, SPUUserDriver {
     // Só a fase: a mensagem do Sparkle pode trazer caminho de disco, e o
     // registro do app não leva isso (ver `AppLog.describe`).
     foundReply = nil
+    readyReply = nil
+    readyTimeout?.cancel()
+    readyTimeout = nil
+    resultAt = Date()
     move(to: .error)
     acknowledgement()
   }
@@ -261,9 +338,20 @@ final class UpdateDriver: NSObject, SPUUserDriver {
 
   func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
     // A pessoa já disse sim na tela; perguntar de novo seria o diálogo que
-    // este driver existe para não mostrar.
+    // este driver existe para não mostrar. Mas fechar agora seria fechar sem
+    // o "Encerrar": a trava do Awake não viraria linha para o Track, e uma
+    // reunião do Echo seria cortada. Então a janela 0 é avisada, faz a mesma
+    // limpeza, e manda seguir (`proceedInstall`) — ou pede para esperar a
+    // reunião (`waitForMeeting`).
+    readyReply = reply
     move(to: .installing)
-    reply(.install)
+    guard UpdaterChannel.askToPrepareInstall() else {
+      finishInstall()
+      return
+    }
+    let timeout = DispatchWorkItem { [weak self] in self?.finishInstall() }
+    readyTimeout = timeout
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.prepareTimeout, execute: timeout)
   }
 
   func showInstallingUpdate(

@@ -22,6 +22,9 @@ enum UpdatePhase {
   /// Abrindo o `.dmg` baixado e conferindo a assinatura.
   extracting,
 
+  /// Pronta para instalar, esperando uma reunião do Echo terminar.
+  waiting,
+
   /// O app vai fechar, instalar e abrir de novo.
   installing,
 
@@ -37,7 +40,10 @@ enum UpdatePhase {
   /// A versão nova está sendo baixada ou instalada — a tela mostra o
   /// andamento, e o botão não aceita um segundo clique.
   bool get isBusy =>
-      this == downloading || this == extracting || this == installing;
+      this == downloading ||
+      this == extracting ||
+      this == waiting ||
+      this == installing;
 }
 
 /// Uma linha das novidades, como o appcast as traz.
@@ -104,12 +110,14 @@ class UpdateState {
     this.version,
     this.notes = const [],
     this.progress,
+    this.resultAt,
   });
 
   /// Esta cópia se atualiza? Não numa build de desenvolvimento, nem em teste.
   final bool available;
 
-  /// A procura diária está ligada. Desligada, nada sai do app.
+  /// A procura diária está ligada. Desligada, só sai a que a pessoa pedir no
+  /// "Procurar".
   final bool automaticChecks;
 
   /// Dá para procurar agora — falso enquanto uma procura está em curso.
@@ -129,6 +137,21 @@ class UpdateState {
   /// De 0 a 1, enquanto baixa ou prepara; `null` quando não se sabe.
   final double? progress;
 
+  /// Quando a última procura disse "em dia" ou "não deu".
+  final DateTime? resultAt;
+
+  /// O resultado ("em dia", "não deu") ainda é o da procura mais recente?
+  ///
+  /// Uma procura diária que termina calada (o Sparkle só fala das que acham
+  /// algo) anda o [lastCheck] sem trocar a fase — e um "não deu" de três dias
+  /// atrás não pode continuar na tela como se fosse o de agora.
+  bool get hasFreshResult {
+    final result = resultAt;
+    final last = lastCheck;
+    if (result == null) return false;
+    return last == null || !result.isBefore(last);
+  }
+
   /// Há versão nova anunciada — achada e ainda não instalada. É o que acende
   /// a bolinha e o item do menu.
   bool get hasUpdate =>
@@ -138,6 +161,7 @@ class UpdateState {
     final lastCheckMs = map['lastCheckMs'];
     final progress = map['progress'];
     final version = map['version'];
+    final resultMs = map['resultMs'];
 
     return UpdateState(
       available: map['available'] == true,
@@ -150,6 +174,9 @@ class UpdateState {
       version: version is String && version.isNotEmpty ? version : null,
       notes: UpdateNote.parse(map['notesHtml'] as String?),
       progress: progress is num ? progress.toDouble() : null,
+      resultAt: resultMs is int
+          ? DateTime.fromMillisecondsSinceEpoch(resultMs)
+          : null,
     );
   }
 
@@ -165,7 +192,8 @@ class UpdateState {
       other.phase == phase &&
       other.version == version &&
       listEquals(other.notes, notes) &&
-      other.progress == progress;
+      other.progress == progress &&
+      other.resultAt == resultAt;
 
   @override
   int get hashCode => Object.hash(
@@ -177,6 +205,7 @@ class UpdateState {
     version,
     Object.hashAll(notes),
     progress,
+    resultAt,
   );
 
   UpdateState copyWith({bool? automaticChecks}) => UpdateState(
@@ -188,6 +217,7 @@ class UpdateState {
     version: version,
     notes: notes,
     progress: progress,
+    resultAt: resultAt,
   );
 }
 
@@ -211,6 +241,15 @@ abstract interface class UpdateService {
   /// Cada mudança que o lado nativo avisa. Só a janela 0 é avisada — ver
   /// `UpdaterChannel.swift`; o Hub pergunta pelo [state].
   Stream<UpdateState> get changes;
+
+  /// O Sparkle está pronto para fechar o app e instalar. Só a janela 0 ouve:
+  /// ela faz a limpeza do "Encerrar" e responde com [proceedInstall] — ou com
+  /// [waitForMeeting], se uma reunião do Echo estiver em curso.
+  Stream<void> get installRequests;
+
+  Future<void> proceedInstall();
+
+  Future<UpdateState> waitForMeeting();
 }
 
 /// A conversa com o `UpdaterChannel` (`UpdaterChannel.swift`).
@@ -222,7 +261,9 @@ class ChannelUpdateService implements UpdateService {
     : _channel = channel ?? const MethodChannel('updater');
 
   final MethodChannel _channel;
-  StreamController<UpdateState>? _changes;
+  final _changes = StreamController<UpdateState>.broadcast();
+  final _installRequests = StreamController<void>.broadcast();
+  bool _listening = false;
 
   @override
   Future<UpdateState> state() => _ask('state');
@@ -239,20 +280,47 @@ class ChannelUpdateService implements UpdateService {
 
   @override
   Stream<UpdateState> get changes {
-    final existing = _changes;
-    if (existing != null) return existing.stream;
+    _listen();
+    return _changes.stream;
+  }
 
-    final controller = StreamController<UpdateState>.broadcast();
-    _changes = controller;
+  @override
+  Stream<void> get installRequests {
+    _listen();
+    return _installRequests.stream;
+  }
+
+  @override
+  Future<void> proceedInstall() async {
+    try {
+      await _channel.invokeMethod<void>('proceedInstall');
+    } on PlatformException catch (error) {
+      AppLog.channelError('updater', 'proceedInstall', error);
+    } on MissingPluginException {
+      // Sem lado nativo: em teste, ou fora do macOS.
+    }
+  }
+
+  @override
+  Future<UpdateState> waitForMeeting() => _ask('waitForMeeting');
+
+  /// Atende o que o lado nativo manda — uma vez só por canal, e só quem
+  /// pede os avisos (a janela 0).
+  void _listen() {
+    if (_listening) return;
+    _listening = true;
+
     _channel.setMethodCallHandler((call) async {
-      if (call.method != 'onState') return;
-      final raw = call.arguments;
-      if (raw is Map<Object?, Object?>) {
-        controller.add(UpdateState.fromMap(raw));
+      switch (call.method) {
+        case 'onState':
+          final raw = call.arguments;
+          if (raw is Map<Object?, Object?>) {
+            _changes.add(UpdateState.fromMap(raw));
+          }
+        case 'prepareToInstall':
+          _installRequests.add(null);
       }
     });
-
-    return controller.stream;
   }
 
   Future<UpdateState> _ask(String method, [Object? arguments]) async {
