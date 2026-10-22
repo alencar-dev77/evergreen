@@ -1,7 +1,7 @@
 name: Preparar release
 
 # Botão manual: soma +1 no build number da `validation` — o `CFBundleVersion`
-# do `.dmg` que o `./release` gera. Roda UMA vez por release, antes de abrir a
+# do `.dmg` que o `./scripts/release` gera. Roda UMA vez por release, antes de abrir a
 # PR de promoção `validation` -> `main`. Copiado do rookplace-app e do
 # rookplace-portal, com o mesmo raciocínio.
 #
@@ -13,11 +13,11 @@ name: Preparar release
 # nasceria na `main`, que então divergiria da `validation` — e mergear `main` de
 # volta é proibido neste fluxo. Na `validation` o número entra uma vez, com a
 # tag `v<versão>+<build>`, e a `main` herda na promoção, como já acontece com o
-# semver. É essa tag que o `./release` confere e na qual publica o `.dmg`.
+# semver. É essa tag que o `./scripts/release` confere e na qual publica o `.dmg`.
 #
 # O botão só aparece depois que este arquivo chegar na branch padrão (`main`):
 # é regra do GitHub pra `workflow_dispatch`. Até lá, use o script:
-#   ./bump_version --build --push
+#   ./scripts/bump_version --build --push
 on:
   workflow_dispatch:
 
@@ -38,4 +38,4 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          ./bump_version --build --push
+          ./scripts/bump_version --build --push

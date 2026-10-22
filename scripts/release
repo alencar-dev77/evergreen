@@ -44,9 +44,9 @@
 #   - Na primeira vez, o macOS pergunta se o terminal pode controlar o Finder:
 #     é o Finder quem arruma a janela do .dmg.
 #
-# Uso: ./release                  # tudo, até o GitHub Release
-#      ./release --sem-publicar   # para no .dmg notarizado em build/release
-#      ./release --sem-notarizar  # só assina e monta o .dmg — para conferir a
+# Uso: ./scripts/release                  # tudo, até o GitHub Release
+#      ./scripts/release --sem-publicar   # para no .dmg notarizado em build/release
+#      ./scripts/release --sem-notarizar  # só assina e monta o .dmg — para conferir a
 #                                 # janela ou testar sem a credencial; o
 #                                 # Gatekeeper recusa o resultado
 #
@@ -84,7 +84,8 @@ APP_X=170
 APPLICATIONS_X=490
 ICONS_Y=190
 
-cd "$(dirname "$0")"
+# Os scripts moram em `scripts/`; tudo daqui para baixo roda da raiz.
+cd "$(dirname "$0")/.."
 
 if [[ ! -f pubspec.yaml ]]; then
   echo "❌ pubspec.yaml não encontrado — rode o script na raiz do projeto." >&2

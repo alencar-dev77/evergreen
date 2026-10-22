@@ -1,13 +1,13 @@
 # Instalador: `.dmg` assinado e notarizado
 
-> Status: **código pronto, falta a credencial** (#127). Issue #97. O `./release`
+> Status: **código pronto, falta a credencial** (#127). Issue #97. O `./scripts/release`
 > roda inteiro no dia em que o certificado Developer ID e a credencial da
 > notarização estiverem no chaveiro (ver "O que é feito à mão").
 
-O único jeito de instalar o Evergreen era o `./run_build_copy`, que builda e
+O único jeito de instalar o Evergreen era o `./scripts/run_build_copy`, que builda e
 copia para `/Applications` na própria máquina. Agora há um arquivo para mandar
 para outra pessoa: `build/release/Evergreen-<versão>.dmg`, gerado pelo
-`./release` e publicado no GitHub Release da tag.
+`./scripts/release` e publicado no GitHub Release da tag.
 
 ## Por que `.dmg` de arrastar, e não `.pkg`
 
@@ -60,7 +60,7 @@ As posições dos ícones moram em dois lugares que precisam concordar: no
 
 Quem arruma a janela é o Finder, por AppleScript: a posição de cada ícone
 vive no `.DS_Store` do disco, e só o Finder o escreve. Por isso o primeiro
-`./release` faz o macOS perguntar se o terminal pode controlar o Finder.
+`./scripts/release` faz o macOS perguntar se o terminal pode controlar o Finder.
 Feito com `hdiutil` puro, sem o `create-dmg` que a issue sugeria — é o mesmo
 AppleScript por baixo, e uma dependência de `brew` a menos para quem builda.
 
@@ -136,12 +136,12 @@ script confere que o código é o da tag:
 
 ```bash
 git checkout main && git pull && git fetch --tags
-./release
+./scripts/release
 ```
 
 ## Fora daqui, por enquanto
 
-- **Job no Actions.** Disparar o `./release` pela tag pede o `.p12`, a senha
+- **Job no Actions.** Disparar o `./scripts/release` pela tag pede o `.p12`, a senha
   dele e a credencial da notarização como segredos do repositório, e um
   runner de macOS — que custa dez vezes um de Linux. O comando local vem
   primeiro; o job é o mesmo script quando valer a pena.

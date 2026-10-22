@@ -118,7 +118,7 @@ void main() {
   });
 
   test('fundo da janela do instalador', () async {
-    // A janela do `.dmg` que o `./release` monta: o Evergreen à esquerda, o
+    // A janela do `.dmg` que o `./scripts/release` monta: o Evergreen à esquerda, o
     // atalho de Aplicativos à direita e a seta entre os dois. As posições são
     // as do AppleScript do `release` (`DMG_WIDTH`, `DMG_HEIGHT`, `APP_X`,
     // `APPLICATIONS_X`, `ICONS_Y`), em pontos — mexeu num, mexa no outro.
