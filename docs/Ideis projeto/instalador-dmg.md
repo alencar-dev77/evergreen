@@ -18,11 +18,11 @@ assistente seria exagero: o app não instala nada fora do próprio bundle — o
 
 ## Assinatura: de quem e como
 
-- **Developer ID Application da conta do Luiz Fernando Bargas** (time
-  `W3TC63GH63`, conta individual paga). Conta individual serve: o Developer ID
-  é emitido pelo Account Holder, que numa conta individual é o próprio dono. O
-  que muda em relação a uma conta de empresa é só o nome que o macOS mostra
-  como desenvolvedor — "Luiz Fernando Bargas", e não uma razão social.
+- **Developer ID Application de uma conta paga do Apple Developer Program.**
+  Conta individual serve: o Developer ID é emitido pelo Account Holder, que
+  numa conta individual é o próprio dono. O que muda em relação a uma conta de
+  empresa é só o nome que o macOS mostra como desenvolvedor — o da pessoa, e
+  não uma razão social.
 - O certificado "Apple Development" que já estava no chaveiro **não serve**
   para distribuir: o Gatekeeper o recusa em qualquer Mac (`spctl` responde
   `rejected`), e a notarização também.
@@ -112,7 +112,7 @@ cabeçalho do `run_build_copy`). Trocar o certificado de quem já usa —
 
 ## O que é feito à mão
 
-Uma vez, na conta do Bargas (developer.apple.com):
+Uma vez, na conta que assina (developer.apple.com):
 
 1. **Certificates → +** → "Developer ID Application" (o perfil G2). Gera-se o
    CSR no Acesso às Chaves da máquina que vai assinar ("Solicitar um
@@ -125,7 +125,7 @@ Uma vez, na conta do Bargas (developer.apple.com):
 
    ```bash
    xcrun notarytool store-credentials evergreen-notary \
-     --apple-id <apple-id do Bargas> --team-id W3TC63GH63 \
+     --apple-id <apple-id da conta> --team-id <team id> \
      --password <senha de app>
    ```
 

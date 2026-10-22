@@ -455,13 +455,15 @@ contribuição sob a mesma GPL-3.0 do projeto.
 ## Apoie o projeto
 
 O Evergreen é gratuito e vai continuar sendo. Se ele te ajuda e você quiser
-contribuir com o desenvolvimento, qualquer valor via **Pix** é bem-vindo:
+contribuir com o desenvolvimento, qualquer valor via **Pix** é bem-vindo, pela chave aleatória:
 
 ```
-<CHAVE_PIX>
+94e2aa73-999c-4e5f-8cf2-0572f565eeb2
 ```
 
 ## Licença
+
+Copyright © 2026 Lucas Alencar Simões de Melo.
 
 [GNU General Public License v3.0](LICENSE). Você pode usar, estudar, modificar e
 redistribuir o Evergreen; quem distribuir uma versão modificada precisa

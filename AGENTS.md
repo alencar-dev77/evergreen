@@ -238,8 +238,9 @@ e esconder ícones da barra de menus
   barra aparece em todas e a ilha só numa. **Sem recorte, nada disto existe**:
   nem a ilha, nem a porta do Nest, nem as linhas de preferência. Ver
   [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
-- **A distribuição é um `.dmg` assinado com o Developer ID da conta do Luiz
-  Fernando Bargas (time `W3TC63GH63`) e notarizado** — `./scripts/release`. O runtime
+- **A distribuição é um `.dmg` assinado com um Developer ID e notarizado** —
+  `./scripts/release`, que acha o certificado e a credencial no chaveiro de
+  quem publica; nada disso mora no repositório. O runtime
   endurecido é obrigatório para notarizar, e ele **nega o que não está
   declarado sem dar erro**: o microfone do Echo só funciona por causa do
   `com.apple.security.device.audio-input` no `Release.entitlements`. Recurso
