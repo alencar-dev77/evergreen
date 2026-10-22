@@ -52,7 +52,13 @@ class _PinOverlayViewState extends ConsumerState<PinOverlayView> {
   bool _isPreviewOpen = false;
 
   /// Largura do painel em cada modo, conforme as telas do design.
-  static const _listOnlyWidth = 420.0;
+  ///
+  /// 460, e não os 420 de antes: com todos os tipos no histórico (Tudo e mais
+  /// sete) a fila de filtros pedia uns 425px, e "Imagens" descia sozinha para
+  /// uma segunda linha. Trocar os rótulos por ícones foi tentado e saiu — um
+  /// ícone que precisa de nome falhou —, e apertar as pílulas deixava a
+  /// escolhida sem respiro. Com 460 a fila cabe com folga e os nomes inteiros.
+  static const _listOnlyWidth = 460.0;
   static const _withPreviewWidth = 560.0;
   static const _maxPanelHeight = 460.0;
 

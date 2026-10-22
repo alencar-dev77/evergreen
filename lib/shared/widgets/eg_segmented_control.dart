@@ -2,7 +2,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_metrics.dart';
-import 'eg_icon.dart';
 import 'eg_surface.dart';
 import '../../core/design/eg_tokens.dart';
 
@@ -23,7 +22,6 @@ class EgSegmentedControl<T> extends StatefulWidget {
     required this.onChanged,
     this.bare = false,
     this.focusable = true,
-    this.iconOf,
   });
 
   final T value;
@@ -45,16 +43,6 @@ class EgSegmentedControl<T> extends StatefulWidget {
   /// foco é sempre do campo de busca, e o Tab abre o preview; ali quem anda
   /// pela fila é o `⌘←` / `⌘→` do próprio painel.
   final bool focusable;
-
-  /// O ícone de cada opção, para quando os rótulos não cabem numa linha.
-  ///
-  /// Sem ele, o controle quebra linha (ver o `Wrap` em [build]). Com ele, a
-  /// fila que não cabe fica numa linha só: as opções que têm ícone mostram só
-  /// o ícone, e a escolhida mostra ícone e rótulo — é a fila do Pin com todos
-  /// os tipos no histórico, que quebrava e deixava "Imagens" sozinha embaixo.
-  /// Opção sem ícone (o "Tudo") continua com o rótulo. Onde os rótulos cabem,
-  /// nada muda.
-  final EgIconData? Function(T option)? iconOf;
 
   @override
   State<EgSegmentedControl<T>> createState() => _EgSegmentedControlState<T>();
@@ -99,49 +87,7 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
     );
   }
 
-  /// Os rótulos inteiros cabem em [maxWidth]?
-  ///
-  /// A conta é a do `Wrap` numa linha: cada rótulo no estilo em que ele vai
-  /// aparecer, mais o padding da pílula e o vão entre elas.
-  bool _labelsFit(BuildContext context, double maxWidth) {
-    final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
-    final padding = 2 * _Segment.horizontalPadding(bare: widget.bare);
-    final spacing = widget.bare ? AppSpacing.xxs : 0.0;
-
-    var width = widget.bare ? 0.0 : 2 * AppSpacing.xxxs;
-    for (final (index, option) in widget.options.indexed) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: widget.labelOf(option),
-          style: option == widget.value
-              ? context.eg.text.bodyEmphasis
-              : context.eg.text.caption,
-        ),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: 1,
-      )..layout();
-      width += painter.width + padding + (index == 0 ? 0 : spacing);
-      painter.dispose();
-    }
-
-    return width <= maxWidth;
-  }
-
   Widget _control() {
-    if (widget.iconOf == null) return _box(compact: false);
-
-    return LayoutBuilder(
-      builder: (context, constraints) => _box(
-        compact:
-            constraints.hasBoundedWidth &&
-            !_labelsFit(context, constraints.maxWidth),
-      ),
-    );
-  }
-
-  Widget _box({required bool compact}) {
     return AnimatedContainer(
       duration: AppDurations.instant,
       curve: AppDurations.curve,
@@ -174,7 +120,6 @@ class _EgSegmentedControlState<T> extends State<EgSegmentedControl<T>> {
               isSelected: option == widget.value,
               onTap: () => widget.onChanged(option),
               bare: widget.bare,
-              icon: compact ? widget.iconOf!(option) : null,
             ),
         ],
       ),
@@ -188,11 +133,7 @@ class _Segment extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.bare = false,
-    this.icon,
   });
-
-  static double horizontalPadding({required bool bare}) =>
-      bare ? AppSpacing.xs : AppSpacing.md;
 
   final String label;
   final bool isSelected;
@@ -205,10 +146,6 @@ class _Segment extends StatelessWidget {
   /// pílula órfã custaria mais altura do que ela vale num painel que se lê de
   /// relance.
   final bool bare;
-
-  /// Na fila compacta: o ícone no lugar do rótulo, e ao lado dele na opção
-  /// escolhida. `null` é o rótulo de sempre.
-  final EgIconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -228,43 +165,22 @@ class _Segment extends StatelessWidget {
       // Concêntrico com o container: 6px do pai menos os 2px de padding.
       borderRadius: context.eg.shapes.segmentAll,
       padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding(bare: bare),
+        horizontal: bare ? AppSpacing.xs : AppSpacing.md,
         vertical: AppSpacing.xxs,
       ),
-      // Só o ícone na tela, então quem diz o nome ao leitor de tela é a
-      // superfície. Com o rótulo visível, ele mesmo é a etiqueta.
-      semanticLabel: icon == null ? null : label,
       builder: (context, state) {
         final style = isSelected
             ? context.eg.text.bodyEmphasis
             : context.eg.text.caption;
-        final color = context.eg.surfaces.segment.foregroundFor(
-          state,
-          isSelected: isSelected,
-        );
-        final text = Text(label, style: style.copyWith(color: color));
 
-        final glyph = icon;
-        if (glyph == null) return text;
-
-        // A altura da linha do rótulo, para a pílula de ícone não ficar mais
-        // baixa que a do "Tudo" ao lado dela.
-        final iconRow = SizedBox(
-          height: style.fontSize! * style.height!,
-          child: Center(
-            widthFactor: 1,
-            child: EgIcon(glyph, size: AppIconSizes.xs, color: color),
+        return Text(
+          label,
+          style: style.copyWith(
+            color: context.eg.surfaces.segment.foregroundFor(
+              state,
+              isSelected: isSelected,
+            ),
           ),
-        );
-        if (!isSelected) return iconRow;
-
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            iconRow,
-            const SizedBox(width: AppSpacing.xxs),
-            text,
-          ],
         );
       },
     );
