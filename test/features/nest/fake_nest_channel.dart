@@ -15,6 +15,9 @@ class FakeNestChannel implements NestChannel {
   final _thumbnails = StreamController<NestThumbnail>.broadcast();
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
   final _shakes = StreamController<void>.broadcast();
+  final _notch = StreamController<void>.broadcast();
+  final _notchDragEnded = StreamController<void>.broadcast();
+  final _pointerInside = StreamController<bool>.broadcast();
 
   /// A pasta que o seletor devolve; `null` é "cancelou".
   String? folderToChoose;
@@ -24,6 +27,7 @@ class FakeNestChannel implements NestChannel {
   /// Onde o painel disse que está desenhado. `null` quando ele saiu de cena.
   Rect? interactiveRect;
   bool isShakeEnabled = true;
+  bool isNotchEnabled = false;
 
   final revealed = <String>[];
   final trashed = <String>[];
@@ -45,6 +49,15 @@ class FakeNestChannel implements NestChannel {
   /// Chacoalha um arquivo, como o lado nativo faria.
   void shake() => _shakes.add(null);
 
+  /// Para com um arquivo no notch, como o lado nativo faria.
+  void reachNotch() => _notch.add(null);
+
+  /// Solta o arraste que veio do notch.
+  void endNotchDrag() => _notchDragEnded.add(null);
+
+  /// O cursor entra ou sai do painel, como o lado nativo avisaria.
+  void movePointer({required bool inside}) => _pointerInside.add(inside);
+
   /// Termina o arraste para fora, como o destino faria.
   void endDragOut(NestTransferMode? operation) => _dragOutEnded.add(operation);
 
@@ -64,11 +77,25 @@ class FakeNestChannel implements NestChannel {
   Stream<void> get onShake => _shakes.stream;
 
   @override
+  Stream<void> get onNotch => _notch.stream;
+
+  @override
+  Stream<void> get onNotchDragEnded => _notchDragEnded.stream;
+
+  @override
+  Stream<bool> get onPointerInside => _pointerInside.stream;
+
+  @override
   void listen() {}
 
   @override
   Future<void> setShakeEnabled({required bool enabled}) async {
     isShakeEnabled = enabled;
+  }
+
+  @override
+  Future<void> setNotchEnabled({required bool enabled}) async {
+    isNotchEnabled = enabled;
   }
 
   @override
@@ -114,5 +141,8 @@ class FakeNestChannel implements NestChannel {
     _thumbnails.close();
     _dragOutEnded.close();
     _shakes.close();
+    _notch.close();
+    _notchDragEnded.close();
+    _pointerInside.close();
   }
 }

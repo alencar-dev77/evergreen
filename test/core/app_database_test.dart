@@ -106,6 +106,33 @@ void main() {
     expect(columnsOf(database, 'clipboard_items'), contains('alias'));
   });
 
+  test('os resumos que já existem passam a ser do Apple Intelligence', () {
+    AppDatabase.migrate(database);
+
+    // O banco de antes desta migração: resumos sem ninguém assinando.
+    database.execute('DELETE FROM schema_migrations WHERE id = ?;', [
+      'echo-summary-model',
+    ]);
+    database.execute('ALTER TABLE echo_meetings DROP COLUMN summary_model;');
+    for (final summary in ['- escopo fechado', null, '   ']) {
+      database.execute(
+        'INSERT INTO echo_meetings '
+        '(title, started_at, duration_ms, language, transcript, summary) '
+        "VALUES ('r', 0, 0, 'pt-BR', '[]', ?);",
+        [summary],
+      );
+    }
+
+    AppDatabase.migrate(database);
+
+    final models = database
+        .select('SELECT summary_model FROM echo_meetings ORDER BY id;')
+        .map((row) => row['summary_model'])
+        .toList();
+    // Até aqui só ele resumia; reunião sem resumo não ganha assinatura.
+    expect(models, ['Apple Intelligence', null, null]);
+  });
+
   test('uma migração que falha de verdade não é engolida', () {
     database.execute('CREATE TABLE clipboard_items (wrong INTEGER);');
 

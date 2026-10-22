@@ -5,6 +5,8 @@ import 'package:evergreen/features/nest/models/nest_settings.dart';
 import 'package:evergreen/features/nest/models/nest_transfer_mode.dart';
 import 'package:evergreen/features/nest/presentation/viewmodels/nest_settings_view_model.dart';
 import 'package:evergreen/features/nest/presentation/views/nest_settings_view.dart';
+import 'package:evergreen/features/notch/presentation/viewmodels/notch_settings_view_model.dart';
+import 'package:evergreen/shared/widgets/eg_settings_row.dart';
 import 'package:evergreen/shared/widgets/eg_text_field.dart';
 import 'package:evergreen/shared/widgets/eg_toggle.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +31,7 @@ void main() {
   Future<ProviderContainer> pumpSettings(
     WidgetTester tester, {
     NestSettings? settings,
+    bool hasNotch = false,
   }) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1.0;
@@ -37,6 +40,7 @@ void main() {
     final overrides = [
       sharedPreferencesProvider.overrideWithValue(preferences),
       nestChannelProvider.overrideWithValue(channel),
+      hasNotchProvider.overrideWith((ref) async => hasNotch),
     ];
 
     if (settings != null) {
@@ -67,6 +71,37 @@ void main() {
     await pumpSettings(tester);
 
     expect(find.text('Chacoalhar para chamar a prateleira'), findsOneWidget);
+  });
+
+  group('o notch', () {
+    testWidgets('sem recorte, a linha não existe', (tester) async {
+      await pumpSettings(tester);
+
+      expect(find.text('Abrir pelo notch'), findsNothing);
+    });
+
+    testWidgets('com recorte, nasce ligada e desligar avisa o lado nativo', (
+      tester,
+    ) async {
+      channel.isNotchEnabled = true;
+      await pumpSettings(tester, hasNotch: true);
+
+      expect(find.text('Abrir pelo notch'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.ancestor(
+            of: find.text('Abrir pelo notch'),
+            matching: find.byType(EgSettingsRow),
+          ),
+          matching: find.byType(EgToggle),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(channel.isNotchEnabled, isFalse);
+      expect(preferences.getBool('notch.nest'), isFalse);
+    });
   });
 
   testWidgets('desligar o chacoalhar avisa o lado nativo', (tester) async {

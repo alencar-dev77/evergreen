@@ -473,7 +473,10 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
   String? _statusDetail(EchoRecorderState state) => switch (state.phase) {
     EchoPhase.idle => 'Sua voz e a reunião, em faixas separadas',
     EchoPhase.recording => 'Fechar o painel não para a gravação',
-    EchoPhase.transcribing => 'Pode levar alguns minutos',
+    EchoPhase.transcribing =>
+      state.isSeparatingVoices
+          ? 'Separando as vozes — da primeira vez, demora mais'
+          : 'Pode levar alguns minutos',
     EchoPhase.done =>
       (state.lastMeeting?.isEmpty ?? false)
           ? 'A gravação saiu muda — confira o microfone e a saída'

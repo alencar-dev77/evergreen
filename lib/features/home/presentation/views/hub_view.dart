@@ -11,6 +11,8 @@ import '../../../../shared/widgets/eg_background.dart';
 import '../../../awake/presentation/views/awake_settings_view.dart';
 import '../../../echo/presentation/views/echo_settings_view.dart';
 import '../../../echo/presentation/viewmodels/echo_playback_view_model.dart';
+import '../../../echo/presentation/viewmodels/echo_rename_request.dart';
+import '../../../echo/presentation/viewmodels/echo_search_focus.dart';
 import '../../../echo/presentation/widgets/echo_reader.dart';
 import '../../../focus/presentation/views/focus_settings_view.dart';
 import '../../../focus/presentation/widgets/focus_reader.dart';
@@ -32,6 +34,7 @@ import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import '../widgets/module_switch.dart';
+import '../widgets/uninstall_section.dart';
 import '../../../../core/app_info.dart';
 import '../../../../shared/widgets/eg_pill.dart';
 import '../../../../shared/widgets/eg_screen_header.dart';
@@ -109,6 +112,17 @@ class _HubViewState extends ConsumerState<HubView> {
     final moduleId = await HubDestination.take();
     if (moduleId == null || !mounted) return;
 
+    if (moduleId == HubDestination.uninstall) {
+      _select(null);
+      // Depois do quadro: a pergunta abre por cima da tela do aplicativo, e
+      // não da tela em que o Hub estava antes de trocar. Pergunta repetida é
+      // barrada dentro do `confirmUninstall`.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(confirmUninstall(context, ref));
+      });
+      return;
+    }
+
     final module = EvergreenModule.values
         .where((candidate) => candidate.id == moduleId)
         .firstOrNull;
@@ -122,6 +136,23 @@ class _HubViewState extends ConsumerState<HubView> {
     // preferências do Pin seria a leitura de um módulo dentro de outro.
     ref.read(hubDetailProvider.notifier).close();
     setState(() => _selected = module);
+  }
+
+  /// `⌘F` no Echo: leva o teclado à busca das reuniões, de qualquer aba.
+  ///
+  /// Da aba de ajustes, troca para a das reuniões antes — e o pedido de foco
+  /// vai depois do quadro, quando o campo já nasceu e está escutando.
+  ///
+  /// O campo que estava sendo editado sai do foco **antes** de a aba trocar:
+  /// trocada a aba, ele sai da árvore com o foco na mão, e o "perder o foco"
+  /// que guarda a preferência nunca aconteceria — o vocabulário digitado
+  /// sumiria sem aviso.
+  void _focusEchoSearch() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _tabs[EvergreenModule.echo] = 'Reuniões');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(echoSearchFocusProvider.notifier).request();
+    });
   }
 
   /// O Esc do Hub, do mais interno para o mais externo: sai do campo de texto,
@@ -222,33 +253,62 @@ class _HubViewState extends ConsumerState<HubView> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
-        if (isDetailOpen) ..._regionBindings(detail),
+        // Só com o Echo ligado: desligado, a tela dele não recebe foco, e o
+        // atalho trocaria de aba sem levar o cursor a lugar nenhum.
+        if (_selected == EvergreenModule.echo &&
+            ref
+                .watch(moduleSettingsViewModelProvider)
+                .isEnabled(EvergreenModule.echo))
+          const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+              _focusEchoSearch,
+        // Com uma reunião aberta: o nome dela vira campo. O mesmo `⌘R` do
+        // apelido do Pin.
+        if (isDetailOpen && detail == EvergreenModule.echo)
+          const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
+              ref.read(echoRenameRequestProvider.notifier).request(),
       },
-      // O escopo é o chão do teclado do Hub: no macOS o campo de texto de uma
-      // tela de preferências larga o foco a cada clique fora dele, e sem um
-      // escopo aqui esse foco cai na rota — acima do `CallbackShortcuts`, de
-      // onde nenhuma tecla volta a descer. Era o que deixava o Hub sem Esc
-      // depois de um clique num campo, e é a mesma falha do painel flutuante
-      // (ver `EgOverlayShell`).
-      child: FocusScope(
-        child: Focus(
-          autofocus: true,
-          child: EgBackground(
-            child: LayoutBuilder(
-              builder: (context, constraints) => Row(
-                // Estica: a área de detalhe rola, e um `SingleChildScrollView`
-                // se encolhe até a altura do conteúdo quando ele cabe na tela.
-                // Com o alinhamento padrão do `Row` (center), a tela de um
-                // módulo curto — o Awake — nascia centralizada verticalmente,
-                // enquanto Pin e Focus, que enchem a janela, começavam no topo.
-                // Toda tela do Hub começa no mesmo lugar.
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ModuleSidebar(selected: _selected, onSelect: _select),
-                  Expanded(child: _detail()),
-                  if (isDetailOpen)
-                    _region(detail, _regionWidth(constraints.maxWidth)),
-                ],
+      // As teclas da região num mapa à parte, porque elas **cedem a quem
+      // digita**: espaço e letra são texto. Um `CallbackShortcuts` consome
+      // tudo o que casa, e consumir no macOS impede a tecla de virar
+      // caractere — com uma reunião aberta, o espaço tocava o áudio em vez
+      // de entrar no campo de vocabulário ou na instrução do resumo.
+      child: Shortcuts(
+        shortcuts: {
+          if (isDetailOpen)
+            for (final MapEntry(:key, :value) in _regionBindings(
+              detail,
+            ).entries)
+              key: _RegionKeyIntent(value),
+        },
+        child: Actions(
+          actions: {_RegionKeyIntent: _RegionKeyAction()},
+          // O escopo é o chão do teclado do Hub: no macOS o campo de texto de
+          // uma tela de preferências larga o foco a cada clique fora dele, e
+          // sem um escopo aqui esse foco cai na rota — acima do
+          // `CallbackShortcuts`, de onde nenhuma tecla volta a descer. Era o
+          // que deixava o Hub sem Esc depois de um clique num campo, e é a
+          // mesma falha do painel flutuante (ver `EgOverlayShell`).
+          child: FocusScope(
+            child: Focus(
+              autofocus: true,
+              child: EgBackground(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    // Estica: a área de detalhe rola, e um `SingleChildScrollView`
+                    // se encolhe até a altura do conteúdo quando ele cabe na tela.
+                    // Com o alinhamento padrão do `Row` (center), a tela de um
+                    // módulo curto — o Awake — nascia centralizada verticalmente,
+                    // enquanto Pin e Focus, que enchem a janela, começavam no topo.
+                    // Toda tela do Hub começa no mesmo lugar.
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ModuleSidebar(selected: _selected, onSelect: _select),
+                      Expanded(child: _detail()),
+                      if (isDetailOpen)
+                        _region(detail, _regionWidth(constraints.maxWidth)),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -301,6 +361,8 @@ class _HubViewState extends ConsumerState<HubView> {
           unawaited(player.skipBy(-skip)),
       const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
           unawaited(player.skipBy(skip)),
+      const SingleActivator(LogicalKeyboardKey.keyS): () =>
+          unawaited(player.cycleRate()),
     };
   }
 
@@ -399,7 +461,6 @@ class _HubViewState extends ConsumerState<HubView> {
         .watch(moduleSettingsViewModelProvider)
         .isEnabled(module);
 
-
     // O interruptor mestre não está mais aqui: ele vive no cabeçalho, fora do
     // scroll. O que fica é o portão, que apaga a tela do módulo desligado sem
     // que ela precise saber disso.
@@ -460,4 +521,31 @@ class _HubViewState extends ConsumerState<HubView> {
       EvergreenModule.track => const TrackView(),
     };
   }
+}
+
+/// Uma tecla da região aberta — o espaço, as setas e o S do player do Echo.
+class _RegionKeyIntent extends Intent {
+  const _RegionKeyIntent(this.callback);
+
+  final VoidCallback callback;
+}
+
+/// Roda a tecla da região, menos quando o foco está num campo de texto.
+///
+/// Desabilitada, a ação devolve a tecla sem consumi-la, e o campo a recebe
+/// como texto. As setas não precisam disto — o campo as trata no mapa de
+/// edição dele, abaixo deste —, mas o espaço e as letras chegam ao campo
+/// pelo sistema de entrada de texto, que só os entrega se ninguém os
+/// consumiu antes.
+class _RegionKeyAction extends Action<_RegionKeyIntent> {
+  @override
+  bool isEnabled(_RegionKeyIntent intent) {
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused == null) return true;
+
+    return focused.findAncestorStateOfType<EditableTextState>() == null;
+  }
+
+  @override
+  void invoke(_RegionKeyIntent intent) => intent.callback();
 }

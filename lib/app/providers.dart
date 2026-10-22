@@ -8,6 +8,7 @@ import 'dart:io';
 import '../core/storage/app_database.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
+import '../core/system/uninstall_service.dart';
 import '../core/storage/backup_service.dart';
 import '../core/storage/disk_usage_service.dart';
 import '../core/storage/export_service.dart';
@@ -21,11 +22,19 @@ import '../features/echo/data/echo_channel.dart';
 import '../features/echo/data/echo_player.dart';
 import '../features/echo/data/echo_repository.dart';
 import '../features/echo/data/echo_settings_repository.dart';
+import '../core/local_model/apple_local_model.dart';
+import '../core/local_model/lm_studio_http.dart';
+import '../core/local_model/lm_studio_local_model.dart';
+import '../core/local_model/local_model.dart';
+import '../core/local_model/local_model_gate.dart';
 import '../features/echo/data/echo_summary_runner.dart';
 import '../features/focus/data/focus_run_repository.dart';
 import '../features/focus/data/focus_session_repository.dart';
 import '../features/focus/data/focus_settings_repository.dart';
 import '../core/app_info.dart';
+import '../core/diagnostics/log_store.dart';
+import '../core/system/previous_app_focus_channel.dart';
+import '../features/home/data/diagnostics_service.dart';
 import '../features/home/data/app_settings_repository.dart';
 import '../features/home/data/hub_intro_repository.dart';
 import '../features/home/data/module_settings_repository.dart';
@@ -35,8 +44,11 @@ import '../features/nest/data/nest_channel.dart';
 import '../features/nest/data/nest_file_service.dart';
 import '../features/nest/data/nest_settings_repository.dart';
 import '../features/nest/data/nest_transfer_repository.dart';
+import '../features/notch/data/notch_island_channel.dart';
+import '../features/notch/data/notch_settings_repository.dart';
 import '../features/pin/data/clipboard_repository.dart';
 import '../features/pin/data/clipboard_watcher.dart';
+import '../features/pin/data/pin_image_store.dart';
 import '../features/pin/data/pin_settings_repository.dart';
 import '../features/track/data/track_repository.dart';
 import '../features/track/data/track_summarizer.dart';
@@ -95,6 +107,37 @@ final exportServiceProvider = Provider<ExportService>((ref) {
   );
 });
 
+/// O registro de erros, na subpasta `Diagnóstico` do aplicativo.
+///
+/// Ao lado dos backups e das exportações, pela mesma razão. Os dois engines
+/// escrevem nele, e só a janela 0 roda a rotação — ver [LocalLogStore].
+final logStoreProvider = Provider<LogStore>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return LocalLogStore(
+    directory: Directory(p.join(database.directoryPath, 'Diagnóstico')),
+    rotates: ref.watch(windowKindProvider) == WindowKind.overlay,
+  );
+});
+
+/// O que o "Copiar diagnóstico" junta, na tela do aplicativo.
+final diagnosticsServiceProvider = Provider<DiagnosticsService>(
+  (ref) => LocalDiagnosticsService(
+    log: ref.watch(logStoreProvider),
+    disk: ref.watch(diskUsageServiceProvider),
+    modules: () => ref.read(moduleSettingsRepositoryProvider).load(),
+    accessibility: PreviousAppFocusChannel.hasAccessibilityPermission,
+    echoCapabilities: () => ref.read(echoChannelProvider).capabilities(),
+    localModel: () => ref.read(appSettingsRepositoryProvider).load().localModel,
+  ),
+);
+
+/// O "Desinstalar" da tela do aplicativo e do menu da barra. Ver
+/// [UninstallService] para o porquê da interface.
+final uninstallServiceProvider = Provider<UninstallService>(
+  (ref) => ChannelUninstallService(),
+);
+
 /// Quanto a pasta do aplicativo ocupa — o banco e as subpastas ao lado dele.
 final diskUsageServiceProvider = Provider<DiskUsageService>(
   (ref) => LocalDiskUsageService(
@@ -147,6 +190,22 @@ final pinSettingsRepositoryProvider = Provider<PinSettingsRepository>(
   (ref) => PinSettingsRepository(ref.watch(sharedPreferencesProvider)),
 );
 
+/// As imagens copiadas no Pin, na pasta `Pin/Imagens` do aplicativo.
+final pinImageStoreProvider = Provider<PinImageStore>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+
+  return LocalPinImageStore(
+    Directory(p.join(database.directoryPath, 'Pin', 'Imagens')),
+  );
+});
+
+final pinImageJanitorProvider = Provider<PinImageJanitor>(
+  (ref) => PinImageJanitor(
+    repository: ref.watch(clipboardRepositoryProvider),
+    store: ref.watch(pinImageStoreProvider),
+  ),
+);
+
 final clipboardWatcherProvider = Provider<ClipboardWatcher>((ref) {
   final watcher = ClipboardWatcher();
   ref.onDispose(watcher.dispose);
@@ -192,6 +251,18 @@ final nestChannelProvider = Provider<NestChannel>((ref) {
 
 final nestSettingsRepositoryProvider = Provider<NestSettingsRepository>(
   (ref) => NestSettingsRepository(ref.watch(sharedPreferencesProvider)),
+);
+
+/// A conversa com a ilha do notch. Provider pelo motivo de sempre: o teste
+/// troca por uma imitação, sem janela nativa.
+final notchIslandChannelProvider = Provider<NotchIslandChannel>((ref) {
+  final channel = NotchIslandChannel();
+  ref.onDispose(channel.dispose);
+  return channel;
+});
+
+final notchSettingsRepositoryProvider = Provider<NotchSettingsRepository>(
+  (ref) => NotchSettingsRepository(ref.watch(sharedPreferencesProvider)),
 );
 
 final nestTransferRepositoryProvider = Provider<NestTransferRepository>(
@@ -271,8 +342,67 @@ final echoSummaryRunnerProvider = Provider<EchoSummaryRunner>((ref) {
     repository: ref.watch(echoRepositoryProvider),
     settings: ref.watch(echoSettingsRepositoryProvider),
     appSettings: ref.watch(appSettingsRepositoryProvider),
-    channel: ref.watch(echoChannelProvider),
+    gate: ref.watch(localModelGateProvider),
   );
+});
+
+/// A conversa HTTP com o servidor do LM Studio, presa a `127.0.0.1:1234`.
+///
+/// Provider porque o teste troca pela imitação — no relógio falso do teste de
+/// widget a resposta de um socket nunca chega.
+final lmStudioHttpProvider = Provider<LmStudioHttp>((ref) {
+  final http = DartLmStudioHttp();
+  ref.onDispose(http.close);
+  return http;
+});
+
+/// Os modelos do LM Studio: carregar, escrever, descarregar.
+final lmStudioLocalModelProvider = Provider<LmStudioLocalModel>(
+  (ref) => LmStudioLocalModel(
+    api: LmStudioApi(ref.watch(lmStudioHttpProvider)),
+    ledger: PrefsLmStudioLedger(ref.watch(sharedPreferencesProvider)),
+  ),
+);
+
+/// A única porta para o modelo local — ver [LocalModelGate].
+///
+/// Só a janela 0 deve ler este provider: o portão é um por aplicativo, e um
+/// segundo no Hub descarregaria o modelo de baixo do primeiro. O Hub fala com
+/// ele pelo [localModelClientProvider].
+final localModelGateProvider = Provider<LocalModelGate>((ref) {
+  final appSettings = ref.watch(appSettingsRepositoryProvider);
+  final apple = AppleLocalModel(ref.watch(echoChannelProvider));
+  final lmStudio = ref.watch(lmStudioLocalModelProvider);
+
+  final gate = LocalModelGate(
+    idleGrace: ref.watch(localModelIdleGraceProvider),
+    choice: () async {
+      await appSettings.reload();
+      return appSettings.load().localModel;
+    },
+    backendFor: (source) => switch (source) {
+      LocalModelSource.apple => apple,
+      LocalModelSource.lmStudio => lmStudio,
+    },
+  );
+  ref.onDispose(gate.dispose);
+  return gate;
+});
+
+/// A folga do portão antes de descarregar — ver [LocalModelGate.idleGrace].
+/// Provider para o teste pôr zero e ver a descarga na hora.
+final localModelIdleGraceProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 20),
+);
+
+/// Pedir um texto ao modelo escolhido — o portão na janela 0, o canal até ele
+/// no Hub. Quem pede não sabe a diferença.
+final localModelClientProvider = Provider<LocalModelClient>((ref) {
+  if (ref.watch(windowKindProvider) == WindowKind.hub) {
+    return const WindowLocalModelClient();
+  }
+
+  return ref.watch(localModelGateProvider);
 });
 
 /// A leitura agregada que o Track faz das tabelas dos outros módulos.
@@ -288,7 +418,7 @@ final trackRepositoryProvider = Provider<TrackRepository>(
 /// disponível.
 final trackSummarizerProvider = Provider<TrackSummarizer>(
   (ref) => TrackSummarizer(
-    ref.watch(echoChannelProvider),
+    ref.watch(localModelClientProvider),
     ref.watch(appSettingsRepositoryProvider).load().userName,
   ),
 );

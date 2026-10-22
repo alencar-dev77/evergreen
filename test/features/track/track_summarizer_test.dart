@@ -1,10 +1,10 @@
-import 'package:evergreen/features/echo/data/echo_channel.dart';
+import 'package:evergreen/core/local_model/local_model.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
 import 'package:evergreen/features/track/data/track_summarizer.dart';
 import 'package:evergreen/features/track/models/track_day.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../echo/fake_echo_channel.dart';
+import '../../core/local_model/fake_local_model.dart';
 
 /// O parágrafo do dia — e as duas regras que valem mais que ele.
 ///
@@ -225,52 +225,56 @@ void main() {
   });
 
   group('escrever o parágrafo', () {
-    test('devolve o que o modelo escreveu', () async {
-      final channel = FakeEchoChannel()..summaryValue = 'Foi um dia de foco.';
+    test('devolve o que o modelo escreveu, com quem escreveu', () async {
+      final model = FakeLocalModelClient(
+        answerValue: 'Foi um dia de foco.',
+        model: 'Qwen3.5 4B',
+      );
 
-      final text = await TrackSummarizer(channel, '').write(
+      final paragraph = await TrackSummarizer(model, '').write(
         dayWith(
           focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
-      expect(text, 'Foi um dia de foco.');
-      expect(channel.summarizedTexts, hasLength(1));
+      expect(paragraph?.text, 'Foi um dia de foco.');
+      expect(paragraph?.model, 'Qwen3.5 4B');
+      expect(model.texts, hasLength(1));
     });
 
     test('degrada em silêncio quando o modelo não está disponível', () async {
-      final channel = FakeEchoChannel()
-        ..failWith = const EchoException(
-          'unsupported_os',
-          'O Echo precisa do macOS 26 ou superior.',
+      final model = FakeLocalModelClient()
+        ..failWith = const LocalModelException(
+          LocalModelException.unsupported,
+          'O servidor do LM Studio está desligado.',
         );
 
-      final text = await TrackSummarizer(channel, '').write(
+      final paragraph = await TrackSummarizer(model, '').write(
         dayWith(
           focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
-      expect(text, isNull);
+      expect(paragraph, isNull);
     });
 
     test('um retorno vazio é o mesmo que não ter parágrafo', () async {
-      final channel = FakeEchoChannel()..summaryValue = '   ';
+      final model = FakeLocalModelClient(answerValue: '   ');
 
-      final text = await TrackSummarizer(channel, '').write(
+      final paragraph = await TrackSummarizer(model, '').write(
         dayWith(
           focus: [TrackEntry(at: date, duration: const Duration(minutes: 25))],
         ),
       );
 
-      expect(text, isNull);
+      expect(paragraph, isNull);
     });
 
     test('não incomoda o modelo com um dia vazio', () async {
-      final channel = FakeEchoChannel();
+      final model = FakeLocalModelClient();
 
-      expect(await TrackSummarizer(channel, '').write(dayWith()), isNull);
-      expect(channel.summarizedTexts, isEmpty);
+      expect(await TrackSummarizer(model, '').write(dayWith()), isNull);
+      expect(model.texts, isEmpty);
     });
   });
 

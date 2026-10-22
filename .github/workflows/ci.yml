@@ -4,7 +4,7 @@ name: CI
 # app macOS-only, os testes de widget desenham telas que só existem aqui e o
 # `sqlite3` chega por native assets do próprio sistema.
 #
-# **Só na promoção**, como no LuizLaporta e no Portal_LL: a suíte roda na PR de
+# **Só na promoção**: a suíte roda na PR de
 # `validation` para `main`, que é o portão do que fica publicado. A PR de
 # feature entra na `validation` sem passar por aqui — a integração é onde se
 # confere o conjunto, e um runner de macOS custa dez vezes um de Linux por
@@ -21,7 +21,9 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.7'
+          # A mesma versão da máquina que builda o app: o `pubspec.lock` é
+          # resolvido nela, e um Flutter mais velho aqui falha no `pub get`.
+          flutter-version: '3.47.2'
           channel: 'stable'
 
       - run: flutter pub get

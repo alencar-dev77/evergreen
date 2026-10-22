@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 
+import '../core/design/themes/evergreen_tokens.dart';
 import '../core/system/global_shortcut_service.dart';
 import '../core/system/global_shortcut_slot.dart';
 import '../core/system/menu_bar_service.dart';
@@ -18,6 +20,7 @@ import '../core/window/overlay_window.dart';
 import '../features/awake/models/awake_notifications.dart';
 import '../features/awake/presentation/viewmodels/awake_state.dart';
 import '../features/awake/presentation/viewmodels/awake_view_model.dart';
+import '../core/local_model/local_model_gate.dart';
 import '../features/echo/data/echo_summary_runner.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
@@ -30,8 +33,12 @@ import '../features/home/presentation/viewmodels/app_settings_view_model.dart';
 import '../features/leaf/models/leaf_notifications.dart';
 import '../features/leaf/presentation/viewmodels/leaf_view_model.dart';
 import '../features/nest/presentation/viewmodels/nest_view_model.dart';
+import '../features/notch/data/notch_island_channel.dart';
+import '../features/notch/models/notch_activity.dart';
+import '../features/notch/models/notch_settings.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import '../features/track/models/track_week_digest.dart';
+import '../shared/feature_flags.dart';
 import 'providers.dart';
 
 /// Liga os serviços que rodam enquanto o Evergreen estiver aberto.
@@ -57,6 +64,67 @@ class EvergreenBootstrap {
   /// Assinatura do chacoalhar. Ver [_watchNestShake].
   StreamSubscription<void>? _nestShakes;
 
+  /// Assinaturas do arquivo levado até o notch. Ver [_watchNestNotch].
+  StreamSubscription<void>? _nestNotch;
+  StreamSubscription<void>? _nestNotchEnded;
+
+  /// O número do arraste mais recente que chegou ao notch, e o do que abriu a
+  /// prateleira. Um número, e não um "sim ou não": o fim de um arraste só
+  /// pode fechar a prateleira que **ele** abriu — nunca uma que a pessoa
+  /// abriu de propósito pelo atalho. Ver [_closeNestIfUnused].
+  int _notchGesture = 0;
+  int? _nestOpenedByGesture;
+
+  /// Algum arquivo foi solto na prateleira que saiu do notch.
+  ///
+  /// O "soltou" na janela, e não o "passou por cima": a janela 0 inteira é
+  /// destino de arraste, transparente inclusive, e ela está encostada no
+  /// recorte — o primeiro movimento depois de ela aparecer já conta como
+  /// "por cima", antes de o arquivo chegar perto do painel. O "soltou" chega
+  /// antes de o botão subir, e muito antes de cada arquivo ser lido do disco.
+  bool _nestReceivedFromNotch = false;
+
+  StreamSubscription<List<String>>? _nestNotchDrops;
+
+  /// A pilha do notch: quando ela recolhe. Ver [_watchNestPile].
+  StreamSubscription<bool>? _nestPointer;
+  Timer? _pileTimer;
+
+  /// O cursor já passou por cima da pilha desde que ela abriu — a partir daí,
+  /// sair dela recolhe no prazo curto.
+  bool _pileTouched = false;
+
+  /// O último "dentro?" que o lado nativo avisou.
+  bool _pilePointerInside = false;
+
+  /// Qual abertura da pilha é a da vez. Um recolhimento que já estava na fila
+  /// quando a pilha reabriu é de outra abertura, e não esconde nada.
+  int _pileGeneration = 0;
+
+  /// O que a ilha sabe sobre a pilha estar aberta embaixo dela.
+  bool _islandQuiet = false;
+
+  /// O prazo até recolher enquanto o cursor ainda não passou pela pilha.
+  Duration _pileGrace = _pileLeave;
+
+  /// Quanto a pilha espera, com o mouse fora, para voltar ao notch.
+  static const _pileLeave = Duration(milliseconds: 1500);
+
+  /// E quanto ela fica à vista quando foi o `⌘⇧R` que a abriu: o atalho é
+  /// "me mostra o que está no Nest", e quem o apertou está olhando — o mouse
+  /// está longe, em outro app, e um segundo e meio não dá para ler.
+  static const _pileGlance = Duration(seconds: 3);
+
+  /// Assinatura dos botões da ilha do notch. Ver [_watchNotch].
+  StreamSubscription<NotchIslandEvent>? _notchActions;
+
+  /// Assinatura do módulo que a ilha mostra, para a barra de menus não
+  /// repeti-lo. Ver [_watchNotch].
+  StreamSubscription<NotchModule?>? _notchOnShown;
+
+  /// O que a ilha mostra agora, para só mandar ao canal o que mudou.
+  List<NotchActivity> _notchShown = const [];
+
   /// Assinatura dos cliques nas notificações. Ver [_watchNotifications].
   StreamSubscription<EgNotificationResponse>? _notificationResponses;
 
@@ -77,12 +145,20 @@ class EvergreenBootstrap {
     _container.read(nestViewModelProvider.notifier).startListening();
     _watchNestDrops();
     _watchNestShake();
+    _watchNestNotch();
+    _watchNestPile();
+    await _setUpNotch();
     unawaited(
       _container.read(echoRecorderViewModelProvider.notifier).initialize(),
     );
     unawaited(
       EchoSummaryHost.register(_container.read(echoSummaryRunnerProvider)),
     );
+    unawaited(LocalModelHost.register(_container.read(localModelGateProvider)));
+    // O que uma execução anterior carregou no LM Studio e não chegou a
+    // descarregar — o Evergreen caiu no meio de um resumo. O `load` não tem
+    // prazo de inatividade, então ninguém mais o tiraria da memória.
+    unawaited(_container.read(lmStudioLocalModelProvider).sweep());
 
     _watchNotifications();
     // Antes de recuperar a sessão interrompida: recuperá-la pode zerar a
@@ -113,6 +189,7 @@ class EvergreenBootstrap {
     _watchFocusSession();
     _watchAwake();
     _watchEcho();
+    _watchNotch();
     _scheduleBackups();
     _scheduleWeekDigest();
     await _openHubIfRequested();
@@ -279,7 +356,7 @@ class EvergreenBootstrap {
     GlobalShortcutSlot.leaf: () => toggleOverlay(OverlayPanel.leaf),
     GlobalShortcutSlot.awake: () => toggleOverlay(OverlayPanel.awake),
     GlobalShortcutSlot.echo: () => toggleOverlay(OverlayPanel.echo),
-    GlobalShortcutSlot.nest: () => toggleOverlay(OverlayPanel.nest),
+    GlobalShortcutSlot.nest: _toggleNest,
     GlobalShortcutSlot.hub: HubWindow.instance.open,
   };
 
@@ -342,9 +419,14 @@ class EvergreenBootstrap {
             .read(pinOverlayViewModelProvider.notifier)
             .stopWatching();
       case EvergreenModule.nest:
+        // As duas portas juntas: desligar o Nest não pode deixar o notch
+        // chamando uma prateleira apagada.
+        final channel = _container.read(nestChannelProvider);
+        await channel.setShakeEnabled(enabled: false);
+        await channel.setNotchEnabled(enabled: false);
         await _container
-            .read(nestChannelProvider)
-            .setShakeEnabled(enabled: false);
+            .read(notchIslandChannelProvider)
+            .setEnabled(NotchModule.nest, enabled: false);
       case EvergreenModule.focus:
         _container.read(focusTimerViewModelProvider.notifier).stop();
       case EvergreenModule.awake:
@@ -530,7 +612,9 @@ class EvergreenBootstrap {
   /// tela no instante em que soltava (#66).
   Future<void> _bringNestForward() async {
     if (await _isNestOnScreen()) {
-      await OverlayWindow.instance.refocus();
+      // A pilha recebe o arquivo sem pegar o teclado — quem arrastou ainda
+      // está no Finder.
+      await OverlayWindow.instance.refocus(keyboard: !_isPileOnScreen);
       return;
     }
 
@@ -588,6 +672,335 @@ class EvergreenBootstrap {
     await _container
         .read(nestChannelProvider)
         .setShakeEnabled(enabled: settings.useShake);
+
+    final notch = _container.read(notchSettingsRepositoryProvider);
+    await notch.reload();
+    final inNotch = notch.load().isEnabled(NotchModule.nest);
+
+    // As duas metades do Nest no notch andam juntas: a porta (o arquivo levado
+    // até lá) e a pilha que espera nele.
+    await _container
+        .read(nestChannelProvider)
+        .setNotchEnabled(enabled: inNotch);
+    await _container
+        .read(notchIslandChannelProvider)
+        .setEnabled(NotchModule.nest, enabled: inNotch);
+  }
+
+  /// `⌘⇧R` e o item do menu.
+  ///
+  /// Com arquivos esperando e o Nest no notch, o atalho mostra **a pilha, pelo
+  /// notch** — onde ela mora enquanto não é mandada —, e ela volta para lá
+  /// sozinha se o mouse não for até ela. Com a prateleira vazia não há pilha
+  /// para mostrar, e o atalho abre a prateleira de sempre, no centro. Com o
+  /// Nest já na tela, em qualquer formato, fecha.
+  ///
+  /// A decisão inteira acontece **dentro da fila**: dois `⌘⇧R` seguidos, ou um
+  /// atalho chegando com um recolhimento já enfileirado, leriam "não está na
+  /// tela" ao mesmo tempo, e o segundo abriria em vez de fechar.
+  Future<void> _toggleNest() async {
+    if (!_isEnabled(OverlayPanel.nest)) return;
+
+    _queue(() async {
+      if (await _isNestOnScreen()) {
+        await OverlayWindow.instance.hide();
+      } else if (await _canUseNestPile()) {
+        await _openNestPile(keyboard: true, grace: _pileGlance);
+      } else {
+        await _showOverlay(OverlayPanel.nest);
+      }
+    });
+  }
+
+  Future<bool> _canUseNestPile() async {
+    if (_container.read(nestViewModelProvider).isEmpty) return false;
+
+    // Relida: quem liga e desliga o Nest no notch é o Hub, outro engine.
+    final settings = _container.read(notchSettingsRepositoryProvider);
+    await settings.reload();
+    if (!settings.load().isEnabled(NotchModule.nest)) return false;
+
+    return _container.read(notchIslandChannelProvider).hasNotch();
+  }
+
+  /// Abre a pilha do Nest embaixo do notch.
+  ///
+  /// [keyboard] só para o atalho: pelo mouse ou pelo arraste, quem está
+  /// digitando em outro app continua digitando.
+  Future<void> _openNestPile({
+    required bool keyboard,
+    required Duration grace,
+  }) async {
+    if (await _isNestOnScreen()) return;
+
+    _container.read(nestViewModelProvider.notifier).clearSelection();
+    await _showOverlay(OverlayPanel.nest, atNotch: true, keyboard: keyboard);
+    _armPile(grace: grace);
+  }
+
+  /// A pilha está na tela, embaixo do notch — e não a prateleira completa.
+  bool get _isPileOnScreen =>
+      OverlayWindow.instance.visible.value &&
+      OverlayWindow.instance.notchAnchor.value != null &&
+      _container.read(overlayPanelProvider) == OverlayPanel.nest;
+
+  /// Recolhe a pilha para o notch quando o mouse não está nela.
+  ///
+  /// Quem diz "dentro" ou "fora" é o relógio nativo que já segue o cursor para
+  /// o clique atravessar a janela (`NestChannel.onPointerInside`), e com o
+  /// botão apertado conta como dentro — o arquivo a caminho passa por fora da
+  /// pilha. Recolher é só esconder: com arquivos, a ilha do Nest aparece
+  /// sozinha (ver [_watchNotch]).
+  void _watchNestPile() {
+    _nestPointer = _container.read(nestChannelProvider).onPointerInside.listen((
+      inside,
+    ) {
+      _pilePointerInside = inside;
+      if (!_isPileOnScreen) return;
+
+      if (inside) {
+        _pileTouched = true;
+        _pileTimer?.cancel();
+        return;
+      }
+
+      _schedulePileCollapse();
+    });
+  }
+
+  void _armPile({required Duration grace}) {
+    _pileGeneration++;
+    _pileTouched = false;
+    _pileGrace = grace;
+    _schedulePileCollapse();
+  }
+
+  void _schedulePileCollapse() {
+    _pileTimer?.cancel();
+    final generation = _pileGeneration;
+    _pileTimer = Timer(
+      _pileTouched ? _pileLeave : _pileGrace,
+      () => _queue(() => _collapsePile(generation)),
+    );
+  }
+
+  Future<void> _collapsePile(int generation) async {
+    if (generation != _pileGeneration) return;
+    if (!_isPileOnScreen || _pilePointerInside) return;
+
+    await OverlayWindow.instance.hide();
+  }
+
+  /// Põe a prateleira embaixo do notch quando alguém para um arquivo nele.
+  ///
+  /// A terceira porta do Nest, e a única que não precisa de gesto nenhum: o
+  /// arquivo já estava indo para cima. Com a prateleira já na tela, não faz
+  /// nada — o mesmo raciocínio do chacoalhar.
+  void _watchNestNotch() {
+    final channel = _container.read(nestChannelProvider);
+
+    _nestNotch = channel.onNotch.listen((_) {
+      // Numerado aqui, de forma síncrona, e enfileirado já: o fim do arraste
+      // pode chegar antes de qualquer `await` desta abertura, e precisa
+      // encontrá-la na fila à frente dele.
+      final gesture = ++_notchGesture;
+      _queue(() => _openNestAtNotch(gesture));
+    });
+
+    _nestNotchEnded = channel.onNotchDragEnded.listen((_) {
+      final gesture = _notchGesture;
+      unawaited(
+        Future<void>.delayed(
+          _dropSettle,
+        ).then((_) => _queue(() => _closeNestIfUnused(gesture))),
+      );
+    });
+
+    _nestNotchDrops = channel.onDropped.listen((_) {
+      if (_nestOpenedByGesture != null) _nestReceivedFromNotch = true;
+    });
+  }
+
+  /// Põe uma operação de janela na fila — ver [_pending].
+  void _queue(Future<void> Function() operation) {
+    _pending = _pending.then((_) => operation()).catchError((Object _) {});
+  }
+
+  Future<void> _openNestAtNotch(int gesture) async {
+    if (!_isEnabled(OverlayPanel.nest)) return;
+    if (await _isNestOnScreen()) return;
+
+    _nestOpenedByGesture = gesture;
+    _nestReceivedFromNotch = false;
+    _container.read(nestViewModelProvider.notifier).clearSelection();
+    // Sem o teclado: quem arrasta um arquivo do Finder ainda está no Finder.
+    await _showOverlay(OverlayPanel.nest, atNotch: true, keyboard: false);
+    _armPile(grace: _pileLeave);
+  }
+
+  /// Quanto esperar, depois de o botão subir, antes de conferir se o arquivo
+  /// chegou: a entrega do arraste e o aviso de "soltou" correm em caminhos
+  /// diferentes do lado nativo, e o arquivo pode chegar um instante depois.
+  /// A espera fica **fora** da fila de janela, para não atrasar o atalho de
+  /// ninguém.
+  static const _dropSettle = Duration(milliseconds: 300);
+
+  /// Recolhe a prateleira que saiu do notch se o arraste acabou sem soltar
+  /// nada nela.
+  ///
+  /// Quem levou o arquivo até o notch e desistiu — soltou de volta no Finder,
+  /// ou em lugar nenhum — não pediu prateleira nenhuma; deixá-la vazia no topo
+  /// da tela seria cobrar um Esc por um gesto que não aconteceu.
+  ///
+  /// A pergunta é "algum arquivo foi solto nela?", e não "ela tem itens?":
+  /// os itens só entram depois de cada arquivo ser lido do disco, e soltar
+  /// cinquenta arquivos de um volume de rede deixava a prateleira vazia por
+  /// mais tempo que qualquer espera — ela se fechava com tudo chegando.
+  Future<void> _closeNestIfUnused(int gesture) async {
+    if (_nestOpenedByGesture != gesture) return;
+    _nestOpenedByGesture = null;
+
+    if (_nestReceivedFromNotch) return;
+    if (!await _isNestOnScreen()) return;
+    if (!_container.read(nestViewModelProvider).isEmpty) return;
+
+    await OverlayWindow.instance.hide();
+  }
+
+  /// Prepara a ilha do notch: as cores e quem está ligado nela.
+  ///
+  /// A ilha vive fora de qualquer engine e nasce sem saber nada a cada
+  /// lançamento — sem isto, o interruptor diria "ligado" e o notch ficaria
+  /// vazio.
+  Future<void> _setUpNotch() async {
+    final channel = _container.read(notchIslandChannelProvider)..listen();
+    await channel.configure(EvergreenTokens.palette);
+
+    final settings = _container.read(notchSettingsRepositoryProvider).load();
+    for (final module in [NotchModule.echo, NotchModule.focus]) {
+      await channel.setEnabled(module, enabled: settings.isEnabled(module));
+    }
+  }
+
+  /// Mantém a ilha do notch em dia com a reunião e a sessão de foco, e atende
+  /// os botões dela.
+  ///
+  /// Escuta os dois e manda a lista inteira: quem decide qual dos dois aparece é
+  /// a ordem (`NotchActivity.running`) somada a quem está ligado no notch, e
+  /// isso o lado nativo sabe melhor — o Hub o avisa direto.
+  void _watchNotch() {
+    void push() {
+      final running = NotchActivity.running(
+        echo: _container.read(echoRecorderViewModelProvider),
+        focus: _container.read(focusTimerViewModelProvider),
+        // Sem filtrar pelo módulo ligado: quem decide é o lado nativo, que o
+        // `_stopModule` desliga e o `_applyNestSettings` religa — filtrar aqui
+        // deixava a ilha do Nest sem voltar ao religar o módulo.
+        nest: _container.read(nestViewModelProvider),
+        nestOnScreen:
+            OverlayWindow.instance.visible.value &&
+            _container.read(overlayPanelProvider) == OverlayPanel.nest,
+      );
+      // A ilha fica quieta com a pilha aberta embaixo dela: não abre por cima
+      // do cabeçalho nem das pastas.
+      final quiet = _isPileOnScreen;
+      if (quiet != _islandQuiet) {
+        _islandQuiet = quiet;
+        unawaited(
+          _container.read(notchIslandChannelProvider).setQuiet(quiet: quiet),
+        );
+      }
+
+      if (listEquals(running, _notchShown)) return;
+
+      _notchShown = running;
+      unawaited(_container.read(notchIslandChannelProvider).update(running));
+    }
+
+    _container
+      ..listen(echoRecorderViewModelProvider, (_, _) => push())
+      ..listen(focusTimerViewModelProvider, (_, _) => push())
+      ..listen(nestViewModelProvider, (_, _) => push())
+      ..listen(overlayPanelProvider, (_, _) => push());
+    // A janela aparecer e sumir é o que traz a pilha de volta ao notch.
+    OverlayWindow.instance.visible.addListener(push);
+    OverlayWindow.instance.notchAnchor.addListener(push);
+    push();
+
+    final channel = _container.read(notchIslandChannelProvider);
+    _notchActions = channel.onAction.listen(
+      (event) => unawaited(_handleNotchAction(event)),
+    );
+
+    // O relógio que a ilha mostra sai da barra de menus. Ela só avisa a
+    // virada e sobrevive a um hot restart, então quem começa a escutar
+    // pergunta também o que ela mostra agora.
+    _notchOnShown = channel.onShown.listen(_showInMenuBar);
+    unawaited(channel.shown().then(_showInMenuBar));
+  }
+
+  void _showInMenuBar(NotchModule? module) {
+    final action = switch (module) {
+      NotchModule.echo => MenuBarAction.openEcho,
+      NotchModule.focus => MenuBarAction.openFocus,
+      // A pilha do Nest não tem relógio na barra de menus.
+      NotchModule.nest || null => null,
+    };
+    unawaited(MenuBarService.instance.setInNotch(action));
+  }
+
+  Future<void> _handleNotchAction(NotchIslandEvent event) async {
+    switch (event.module) {
+      case NotchModule.echo:
+        final echo = _container.read(echoRecorderViewModelProvider.notifier);
+        switch (event.action) {
+          case NotchAction.pause:
+            await echo.pause();
+          case NotchAction.resume:
+            await echo.resume();
+          case NotchAction.stop:
+            // Parar daqui transcreve em segundo plano, como desligar o
+            // módulo: a reunião aparece no Hub quando estiver pronta, e quem
+            // quiser acompanhar abre o painel.
+            await echo.stopAndTranscribe();
+          case NotchAction.open:
+            await showOverlay(OverlayPanel.echo);
+        }
+
+      case NotchModule.focus:
+        final focus = _container.read(focusTimerViewModelProvider.notifier);
+        switch (event.action) {
+          case NotchAction.pause:
+            focus.pause();
+          case NotchAction.resume:
+            focus.resume();
+          case NotchAction.stop:
+            // Encerrar leva ao painel: é lá que o Focus pergunta o resumo e
+            // oferece a pausa, e uma sessão encerrada sem ninguém ver a
+            // pergunta ficaria esperando por ela até a próxima abertura.
+            focus.stop();
+            await showOverlay(OverlayPanel.focus);
+          case NotchAction.open:
+            await showOverlay(OverlayPanel.focus);
+        }
+
+      case NotchModule.nest:
+        // O mouse em cima da ilha do Nest, ou um clique nela: a pilha sai do
+        // notch, sem pegar o teclado de ninguém.
+        if (event.action == NotchAction.open) {
+          _queue(() async {
+            if (!_isEnabled(OverlayPanel.nest)) return;
+
+            // Com outro painel na frente — a busca do Pin a meio caminho —,
+            // passar o mouse pelo notch não o troca pela pilha.
+            if (await OverlayWindow.instance.isVisible() &&
+                _container.read(overlayPanelProvider) != OverlayPanel.nest) {
+              return;
+            }
+            await _openNestPile(keyboard: false, grace: _pileLeave);
+          });
+        }
+    }
   }
 
   /// Mantém a barra de menus em dia com a gravação do Echo.
@@ -620,8 +1033,24 @@ class EvergreenBootstrap {
   }
 
   /// "Abrir minimizado" desligado significa mostrar o Hub ao iniciar.
+  ///
+  /// Ligado — que é o padrão —, a apresentação de boas-vindas pendente abre o
+  /// Hub mesmo assim. Ela mora no Hub, e o Evergreen não tem janela nem ícone
+  /// no Dock: quem acabou de instalar pelo `.dmg` abria o app e não via nada,
+  /// e a conclusão natural era que ele não tinha aberto. A régua é a da
+  /// própria apresentação (uma vez por build), então quem atualiza também a
+  /// encontra, e quem já a viu segue abrindo minimizado.
   Future<void> _openHubIfRequested() async {
-    if (_container.read(appSettingsViewModelProvider).startMinimized) return;
+    final onboardingPending =
+        FeatureFlags.onboarding &&
+        _container
+            .read(onboardingRepositoryProvider)
+            .shouldShow(_container.read(buildStampProvider));
+
+    if (_container.read(appSettingsViewModelProvider).startMinimized &&
+        !onboardingPending) {
+      return;
+    }
     await HubWindow.instance.open();
   }
 
@@ -640,11 +1069,15 @@ class EvergreenBootstrap {
 
   /// Traz um painel para a frente sem nunca fechá-lo — o caminho do aviso de
   /// fim de sessão, onde esconder a janela seria o oposto do pedido.
-  Future<void> showOverlay(OverlayPanel panel, {Offset? at}) {
+  Future<void> showOverlay(
+    OverlayPanel panel, {
+    Offset? at,
+    bool atNotch = false,
+  }) {
     if (!_isEnabled(panel)) return Future<void>.value();
 
     return _pending = _pending
-        .then((_) => _showOverlay(panel, at: at))
+        .then((_) => _showOverlay(panel, at: at, atNotch: atNotch))
         .catchError((Object _) {});
   }
 
@@ -661,7 +1094,12 @@ class EvergreenBootstrap {
     await _showOverlay(panel);
   }
 
-  Future<void> _showOverlay(OverlayPanel panel, {Offset? at}) async {
+  Future<void> _showOverlay(
+    OverlayPanel panel, {
+    Offset? at,
+    bool atNotch = false,
+    bool keyboard = true,
+  }) async {
     await _prepare(panel);
     _container.read(overlayPanelProvider.notifier).show(panel);
 
@@ -670,11 +1108,19 @@ class EvergreenBootstrap {
     // o atalho leva o painel para onde a pessoa está olhando. A reafirmação
     // também devolve o teclado ao painel: estar visível não é estar com o foco.
     if (await OverlayWindow.instance.isVisible()) {
-      await OverlayWindow.instance.reassert(at: at);
+      await OverlayWindow.instance.reassert(
+        at: at,
+        atNotch: atNotch,
+        keyboard: keyboard,
+      );
       return;
     }
 
-    await OverlayWindow.instance.show(at: at);
+    await OverlayWindow.instance.show(
+      at: at,
+      atNotch: atNotch,
+      keyboard: keyboard,
+    );
   }
 
   Future<void> _prepare(OverlayPanel panel) async {
@@ -715,12 +1161,21 @@ class EvergreenBootstrap {
       case MenuBarAction.openEcho:
         toggleOverlay(OverlayPanel.echo);
       case MenuBarAction.openNest:
-        toggleOverlay(OverlayPanel.nest);
+        unawaited(_toggleNest());
       case MenuBarAction.openHub:
         HubWindow.instance.open();
+      case MenuBarAction.uninstall:
+        unawaited(_askToUninstall());
       case MenuBarAction.quit:
         _quit();
     }
+  }
+
+  /// Leva ao Hub com a pergunta de desinstalar na tela. O destino antes da
+  /// janela, como no "Abrir no Hub" do Echo — ver [HubDestination].
+  Future<void> _askToUninstall() async {
+    await HubDestination.request(HubDestination.uninstall);
+    await HubWindow.instance.open();
   }
 
   Future<void> _quit() async {
@@ -730,6 +1185,16 @@ class EvergreenBootstrap {
     await _notificationResponses?.cancel();
     await _nestDrops?.cancel();
     await _nestShakes?.cancel();
+    await _nestNotch?.cancel();
+    await _nestNotchEnded?.cancel();
+    await _nestNotchDrops?.cancel();
+    await _nestPointer?.cancel();
+    _pileTimer?.cancel();
+    await _notchActions?.cancel();
+    await _notchOnShown?.cancel();
+    // A ilha é uma janela nativa: sem isto ela ficaria no notch até o processo
+    // morrer, que é um instante depois — mas um instante com um relógio parado.
+    await _container.read(notchIslandChannelProvider).update(const []);
     // A trava seria solta pelo sistema de qualquer forma quando o processo
     // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
     await _container.read(awakeViewModelProvider.notifier).turnOff();

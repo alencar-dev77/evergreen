@@ -130,7 +130,7 @@ class _HubIntroState extends State<HubIntro>
     // nasce travada, o nome nasce visível, e a cena só cumpre a pausa antes de
     // sair — o carimbo é gravado do mesmo jeito, senão a abertura voltaria a
     // cada Hub para quem desligou animação.
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (AppDurations.reduced(context)) {
       // Sem `_controller.value = 1`: pôr o controlador no fim dispara o
       // `addStatusListener`, e `onDone` sairia agora e de novo ao fim da
       // pausa. Em movimento reduzido o desenho não olha o controlador.
@@ -151,7 +151,7 @@ class _HubIntroState extends State<HubIntro>
 
   @override
   Widget build(BuildContext context) {
-    final reduced = MediaQuery.disableAnimationsOf(context);
+    final reduced = AppDurations.reduced(context);
 
     return AnimatedBuilder(
       animation: _controller,

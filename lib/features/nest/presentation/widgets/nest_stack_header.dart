@@ -69,9 +69,7 @@ class NestStackHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: eg.text.footnote.copyWith(
-                  color: eg.colors.textTertiary,
-                ),
+                style: eg.text.footnote.copyWith(color: eg.colors.textTertiary),
               ),
             ],
           ),

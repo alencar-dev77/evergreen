@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../../../core/diagnostics/app_log.dart';
 import '../models/awake_mode.dart';
 
 /// Impede o Mac de dormir enquanto estiver ligado.
@@ -77,7 +78,10 @@ class NativeSleepAssertionService implements SleepAssertionService {
       return true;
     } on MissingPluginException {
       return false;
-    } on PlatformException {
+    } on PlatformException catch (error) {
+      // A trava que não pegou deixa o Mac dormir no meio de uma compilação, e
+      // a tela do Awake mostraria "ligado" do mesmo jeito.
+      AppLog.channelError('sleep_assertion', method, error);
       return false;
     }
   }

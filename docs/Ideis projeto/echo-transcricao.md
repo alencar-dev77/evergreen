@@ -59,9 +59,40 @@ pedir um formato que o dispositivo não tem é o tipo de desencontro que faz a
 entrada não entregar nada. A conversão para o formato do transcritor acontece
 depois, igual para as duas faixas.
 
-A entrada sobe com o processamento de voz do sistema ligado, e é por isso que
-ela chega aqui como um canal só em vez do arranjo de três cápsulas do MacBook —
-ver "O que chega no modelo importa mais que o formato do arquivo", adiante.
+A entrada é aberta **crua**, sem o processamento de voz do sistema. Ele esteve
+aqui de agosto a outubro de 2026 e saiu por mexer na reunião dos outros apps —
+ver "Por que o processamento de voz saiu", adiante.
+
+O motor é **religado sozinho** quando o microfone muda de formato no meio da
+gravação. O `AVAudioEngine` para ao receber `AVAudioEngineConfigurationChange`
+e não volta, e a troca acontece sem ninguém mexer em nada: basta o app da
+reunião ligar o processamento de voz dele depois de o Echo começar, e o
+microfone interno passa de um canal para três. Medido: o tap para de receber
+blocos naquele segundo, e o resto da reunião sairia sem a sua voz.
+
+Religar é **subir um motor novo**, não o mesmo: o motor que já rodou guarda o
+formato antigo e continua entregando um canal só, que é uma cápsula crua
+qualquer. O conversor da faixa é refeito quando o formato muda, e a escolha da
+cápsula também. Cada troca deixa a faixa sem blocos pelo tempo de subir o motor
+(150 a 400 ms medidos). Nos testes isso custou uma palavra. O buraco é medido
+pelo relógio de cada bloco e **escrito como silêncio**: a faixa do microfone é
+contígua, e sem o silêncio tudo o que se disse depois da troca ficaria adiantado
+em relação à faixa do sistema. No áudio guardado, que mistura as duas, a
+resposta sairia antes da pergunta.
+
+O religamento só vale para a gravação em que o aviso nasceu (`micGeneration`).
+O `stop` para o microfone antes da primeira espera, e um religamento atrasado
+desiste em vez de subir um motor depois do fim. As faixas são fechadas dentro da
+fila do áudio, e um bloco que chegue depois disso é descartado. Antes, um bloco
+atrasado recriava o arquivo por cima da faixa gravada.
+
+As cápsulas cruas chegam 35 a 40 dB abaixo do canal que o Mac trata, e o
+transcritor perdeu o trecho inteiro gravado assim. Por isso, sempre que a
+entrada tem mais de um canal, a faixa do Echo ganha volume (`EchoMicGain`): o
+ganho segue o pico, nunca estoura, desce na hora e sobe devagar. O teto é de
++30 dB, para não transformar ruído de fundo em chiado. O caso comum de vários
+canais é o microfone interno em cápsulas; uma interface USB de vários canais
+cai na mesma regra. O canal único passa sem ganho nenhum.
 
 #### E a gravação avisa quando uma faixa fica muda
 
@@ -106,14 +137,45 @@ diferentes: é filtro pente, com vales bem no meio da banda da fala. Modelo de
 fala com fonema borrado não erra "um pouco"; ele troca a palavra inteira pela
 vizinha mais provável do idioma.
 
-A entrada agora sobe com `setVoiceProcessingEnabled(true)`, que é o que o Notas
-e o Gravador usam. Ele usa o atraso entre as cápsulas **a favor** (formação de
-feixe), e vem com cancelamento de eco, redução de ruído e ganho automático de
-brinde. O cancelamento de eco faz na origem o trabalho que o `CrossTalkFilter`
-faz no texto — o filtro continua lá, porque nem toda entrada é a interna.
+A resposta de agosto foi ligar `setVoiceProcessingEnabled(true)`. Ele saiu em
+outubro (ver a seção seguinte). Hoje a faixa do microfone nunca soma cápsulas:
+quando o microfone entrega mais de um canal, o Echo **escolhe uma**, a que ouviu
+mais alto no primeiro bloco acima de −54 dBFS, e fica com ela até o fim
+(`EchoStreamOutput.capsule`). Uma cápsula sozinha não tem com quem se defasar.
 
-Se o motor de áudio recusar subir com o processamento ligado, ele desliga e
-tenta de novo: gravar sem beamforming é pior, e é muito melhor que não gravar.
+#### Por que o processamento de voz saiu
+
+> Acrescentado em 20/10/2026, depois de uma reunião em que a pessoa do outro
+> lado disse que a voz de quem gravava estava "longe", e voltou a ouvir nítido
+> no instante em que o Echo foi desligado.
+
+O processamento de voz não fica dentro do app que o liga. Medido num MacBook
+Pro M5, macOS 27, com um segundo processo fazendo o papel do app da reunião:
+
+- **O microfone muda para todo mundo.** Sem ninguém usando o processamento, o
+  microfone interno entrega um canal só, que o próprio Mac já trata (feixe na
+  direção de quem fala, sala abafada). Com um cliente de processamento ativo,
+  ele passa a entregar as três cápsulas cruas a todos os outros apps, e volta a
+  um canal quando o cliente sai. O app da reunião ficava com o som sem
+  tratamento, distante e com a sala junto: era a voz "longe".
+- **O som dos outros apps abaixa**, porque o macOS trata quem liga o
+  processamento como quem está numa chamada. Com `.min`, o piso da API, a queda
+  medida foi de 3 a 9 dB. E a atenuação **não sai junto com o processamento**:
+  o que já estava tocando continuou baixo até o app recomeçar a tocar.
+- **Um app que lê o microfone cru, sem processamento, não muda nada nos outros**:
+  nem no nível do microfone deles, nem no som que sai.
+
+E o que o processamento entregava ao Echo não fez falta. A mesma fala em
+português, tocada no alto-falante e transcrita pelo `SpeechTranscriber`, errou
+uma ou duas palavras em 38 nas quatro situações: com processamento, com o canal
+tratado pelo Mac, com uma cápsula crua e com as três somadas. Num sinal limpo o
+filtro pente das três somadas não apareceu, e a escolha de uma cápsula continua
+sendo a conta certa. O cancelamento de eco segue feito no texto, pelo
+`CrossTalkFilter`.
+
+Uma primeira tentativa de tirá-lo, em agosto, durou um dia: o problema da época
+era só o som abaixando, e o `.min` foi a teste antes de ser descartado. O
+microfone dos outros apps mudando de formato não tinha sido visto.
 
 **2. A reamostragem.** Descer de 48 kHz para 16 kHz é exatamente o tipo de
 conversão em que o filtro importa: o que estiver acima de 8 kHz e não for
@@ -202,7 +264,7 @@ escreveu nas preferências.
 
 ---
 
-## Quem falou, sem modelo de diarização
+## Quem falou: a faixa decide o lado, o modelo separa as vozes
 
 O Echo rotula "Você" e "Reunião" **sem nenhum reconhecimento de voz**, e por
 isso não tem como errar: o rótulo vem de *qual faixa* o trecho veio. Microfone
@@ -213,11 +275,14 @@ no fim. Numa conversa de duas pessoas isso é diarização completa. Numa reuni�
 de seis, dá "eu" e "os outros" — que é a divisão que mais importa quando se
 relê depois.
 
-Separar pessoa A de pessoa B **dentro** do áudio do sistema exigiria embedding
-de voz e clusterização (pyannote, sherpa-onnx), dependência pesada e nenhuma
-delas nativa. E é difícil por um motivo de fundo: o que chega no alto-falante já
-veio misturado. O Meet consegue rotular porque tem o stream separado de cada
-participante; nós estaríamos tentando desfazer uma mistura.
+Separar pessoa A de pessoa B **dentro** do áudio do sistema exige embedding
+de voz e clusterização, e é difícil por um motivo de fundo: o que chega no
+alto-falante já veio misturado. O Meet consegue rotular porque tem o stream
+separado de cada participante; nós desfazemos uma mistura. Por isso foi
+recusado aqui por muito tempo. Desde 14/10/2026 é feito pelo FluidAudio
+(pyannote + WeSpeaker + VBx em CoreML), **por cima** da divisão por faixa, e
+nunca no lugar dela. O lado continua sendo certeza, e "Pessoa 1", "Pessoa 2"
+são palpite, em campos diferentes. Ver `echo-separacao-de-vozes.md`.
 
 ---
 
@@ -316,7 +381,8 @@ Três consequências que a interface precisa tratar, e trata:
 
 ## O que ficou de fora
 
-- **Separar pessoa A de pessoa B** dentro do áudio do sistema (ver acima).
+- **Separar pessoa A de pessoa B ao vivo.** Depois da reunião, sim (ver
+  acima). Durante, não: ver `echo-separacao-de-vozes.md`.
 - **Ignorar conteúdo sigiloso**: não se aplica aqui, mas vale para o Pin.
 - **Transcrever durante a reunião como caminho principal.** A transcrição ao
   vivo existe e é uma preferência, mas é enfeite por construção: o áudio vai

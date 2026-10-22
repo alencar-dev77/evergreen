@@ -12,6 +12,9 @@ import '../../models/cross_talk_filter.dart';
 import '../../models/echo_capabilities.dart';
 import '../../models/echo_spectrum.dart';
 import '../../models/meeting.dart';
+import '../../models/meeting_segment.dart';
+import '../../models/vocabulary_correction.dart';
+import '../../models/voice_separation.dart';
 import 'echo_recorder_state.dart';
 
 final echoRecorderViewModelProvider =
@@ -149,6 +152,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       phase: EchoPhase.recording,
       elapsed: Duration.zero,
       liveText: const [],
+      isTranscribingLive: settings.liveTranscription,
       isPaused: false,
       clearSpectrum: true,
       clearError: true,
@@ -241,18 +245,31 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       // Com a reunião saindo por alto-falante, o microfone escuta de volta o
       // que o computador toca, e a mesma fala aparece nas duas faixas. O filtro
       // devolve a separação de quem falou, que é a razão de existir do módulo.
-      final segments = CrossTalkFilter.clean(
+      //
+      // As trocas do vocabulário vêm depois do filtro: ele compara o texto
+      // das duas faixas como o modelo o ouviu, e uma troca aplicada só de um
+      // lado esconderia o eco dele.
+      //
+      // As vozes entram entre os dois: depois do filtro, para não pintar um
+      // eco que vai sair; antes do vocabulário, porque partir um trecho no
+      // meio de uma troca de pessoa é decisão do relógio das palavras, e a
+      // troca do vocabulário pode fundir duas delas numa.
+      final transcribed = CrossTalkFilter.clean(
         await _channel.transcribe(
           files: files,
           locale: settings.language.locale,
           vocabulary: settings.vocabularyTerms,
         ),
       );
+      final segments = VocabularyCorrection.apply(
+        await _separateVoices(transcribed, files),
+        settings.vocabularyCorrections,
+      );
 
       final startedAt = _startedAt ?? _now();
       final meeting = _repository.insert(
         Meeting(
-          title: _defaultTitle(startedAt),
+          title: Meeting.defaultTitle(startedAt),
           startedAt: startedAt,
           durationMs: files.durationMs,
           language: settings.language,
@@ -316,6 +333,49 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
             ? error.message
             : '${error.message} O áudio foi preservado em disco.',
       );
+    }
+  }
+
+  /// As vozes do outro lado, separadas — ou a transcrição como veio.
+  ///
+  /// Separar é enfeite sobre um texto que já está pronto, e por isso nunca
+  /// derruba a reunião: sem rede para baixar o modelo na primeira vez, ou com
+  /// o modelo falhando, a transcrição é guardada exatamente como era antes de
+  /// o Echo separar vozes, com o outro lado inteiro em "Reunião". Não há aviso
+  /// — a reunião deu certo, e um erro de um detalhe dela não é notícia.
+  ///
+  /// Não pergunta quando não há o que separar: sem faixa do computador, ou
+  /// sem fala nela.
+  ///
+  /// E não espera para sempre. Sem rede, o download do modelo desiste em
+  /// segundos; com uma rede que responde devagar, ele pode ficar minutos
+  /// tentando, e a reunião não pode ficar presa em "Transcrevendo" por isso.
+  /// Passado o [_voicesTimeout], a reunião sai sem vozes. O lado nativo
+  /// continua baixando, e a próxima reunião já encontra o modelo pronto.
+  static const _voicesTimeout = Duration(minutes: 3);
+
+  Future<List<MeetingSegment>> _separateVoices(
+    List<MeetingSegment> segments,
+    RecordingFiles files,
+  ) async {
+    final systemPath = files.systemPath;
+    final hasOthers = segments.any(
+      (segment) => segment.speaker == Speaker.others,
+    );
+    if (systemPath == null || !hasOthers) return segments;
+
+    state = state.copyWith(isSeparatingVoices: true);
+    try {
+      return VoiceSeparation.apply(
+        segments,
+        await _channel.diarize(systemPath).timeout(_voicesTimeout),
+      );
+    } on EchoException {
+      return segments;
+    } on TimeoutException {
+      return segments;
+    } finally {
+      state = state.copyWith(isSeparatingVoices: false);
     }
   }
 
@@ -386,29 +446,5 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       clearError: true,
       clearMeeting: true,
     );
-  }
-
-  /// "Reunião de 14 de agosto, 15:30" — trocável na tela do Hub.
-  String _defaultTitle(DateTime startedAt) {
-    const months = [
-      'janeiro',
-      'fevereiro',
-      'março',
-      'abril',
-      'maio',
-      'junho',
-      'julho',
-      'agosto',
-      'setembro',
-      'outubro',
-      'novembro',
-      'dezembro',
-    ];
-
-    final hour = startedAt.hour.toString().padLeft(2, '0');
-    final minute = startedAt.minute.toString().padLeft(2, '0');
-
-    return 'Reunião de ${startedAt.day} de ${months[startedAt.month - 1]}, '
-        '$hour:$minute';
   }
 }

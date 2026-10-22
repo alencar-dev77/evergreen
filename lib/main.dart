@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import 'app/evergreen_app.dart';
 import 'app/evergreen_bootstrap.dart';
 import 'app/providers.dart';
 import 'core/app_info.dart';
+import 'core/diagnostics/app_log.dart';
 import 'core/storage/app_database.dart';
 import 'core/system/keyboard_state_guard.dart';
 import 'core/window/overlay_window.dart';
@@ -36,6 +39,16 @@ Future<void> main() async {
       // acontece aqui ou é pedido à janela 0 — ver `echoSummaryRunnerProvider`.
       windowKindProvider.overrideWithValue(kind),
     ],
+  );
+
+  // O registro de erros, neste engine. Depois do banco porque a pasta dele é
+  // a do aplicativo; o que falhar antes disso — raro, e quase sempre o próprio
+  // banco — continua indo só para o console, como antes.
+  AppLog.attach(container.read(logStoreProvider), engine: kind.name);
+  ErrorCapture.install(isIgnored: KeyboardStateGuard.isDesync);
+  AppLog.info(
+    'início',
+    'Evergreen ${AppInfo.version} · ${Platform.operatingSystemVersion}',
   );
 
   if (kind == WindowKind.overlay) {

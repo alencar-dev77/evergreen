@@ -34,10 +34,8 @@ class EchoSpectrum {
   /// Todo mundo menos você, pelo áudio do sistema.
   final List<double> system;
 
-  factory EchoSpectrum.fromMap(Map<Object?, Object?> map) => EchoSpectrum(
-    mic: _bands(map['mic']),
-    system: _bands(map['system']),
-  );
+  factory EchoSpectrum.fromMap(Map<Object?, Object?> map) =>
+      EchoSpectrum(mic: _bands(map['mic']), system: _bands(map['system']));
 
   static List<double> _bands(Object? value) => [
     if (value is List)

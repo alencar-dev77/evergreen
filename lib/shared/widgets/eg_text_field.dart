@@ -26,6 +26,7 @@ class EgTextField extends StatefulWidget {
     this.enabled = true,
     this.minLines,
     this.maxLines = 1,
+    this.style,
   });
 
   final TextEditingController controller;
@@ -69,6 +70,14 @@ class EgTextField extends StatefulWidget {
   /// [maxLines] maior que 1 precisa guardar o texto por outro caminho (sair do
   /// campo, tipicamente) em vez de depender do [onSubmitted].
   final int? maxLines;
+
+  /// O degrau da escala em que o texto é escrito — `body` quando omitido.
+  ///
+  /// Para o campo que ocupa o lugar de um título e escreve **o próprio
+  /// título**: o nome da reunião, no cabeçalho da leitura do Echo. Em outro
+  /// tamanho, clicar no nome o faria encolher no instante em que vira campo.
+  /// Um degrau da `EgTypeScale`, nunca um `copyWith` de tamanho.
+  final TextStyle? style;
 
   @override
   State<EgTextField> createState() => _EgTextFieldState();
@@ -183,13 +192,13 @@ class _EgTextFieldState extends State<EgTextField> {
           // Altura fixa só faz sentido na linha única; em campo de várias
           // linhas ela descolaria do texto conforme ele quebra.
           cursorHeight: (widget.maxLines ?? 2) > 1 ? null : 16,
-          style: context.eg.text.body,
+          style: widget.style ?? context.eg.text.body,
           decoration: InputDecoration(
             isDense: true,
             border: InputBorder.none,
             contentPadding: EdgeInsets.zero,
             hintText: widget.hintText,
-            hintStyle: context.eg.text.body.copyWith(
+            hintStyle: (widget.style ?? context.eg.text.body).copyWith(
               color: context.eg.colors.textTertiary,
             ),
           ),

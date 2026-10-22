@@ -2,6 +2,8 @@ import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/storage/disk_usage_service.dart';
+import 'package:evergreen/core/system/uninstall_service.dart';
+import 'package:evergreen/core/window/hub_destination.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/app_settings_view.dart';
@@ -10,7 +12,9 @@ import 'package:evergreen/features/home/presentation/widgets/backup_list.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_settings_view.dart';
 import 'package:evergreen/shared/feature_flags.dart';
 import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
+import 'package:evergreen/shared/widgets/eg_settings_row.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -18,13 +22,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../focus/fake_focus_session_repository.dart';
 import 'backup_fixture.dart';
+import 'fake_diagnostics_service.dart';
 import 'fake_disk_usage_service.dart';
 import '../pin/fake_clipboard_repository.dart';
+import '../pin/fake_pin_image_store.dart';
 
 void main() {
   late SharedPreferences preferences;
   late BackupService backup;
   late FakeDiskUsageService disk;
+  late FakeDiagnosticsService diagnostics;
+  late _FakeUninstallService uninstall;
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
@@ -48,6 +56,8 @@ void main() {
     await AppInfo.load();
     backup = temporaryBackupService();
     disk = FakeDiskUsageService();
+    diagnostics = FakeDiagnosticsService();
+    uninstall = _FakeUninstallService();
   });
 
   Future<void> pumpHub(WidgetTester tester) async {
@@ -61,6 +71,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          pinImageStoreProvider.overrideWithValue(FakePinImageStore()),
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository(),
           ),
@@ -72,6 +83,9 @@ void main() {
           // em teste as duas são temporárias.
           backupServiceProvider.overrideWithValue(backup),
           diskUsageServiceProvider.overrideWithValue(disk),
+          diagnosticsServiceProvider.overrideWithValue(diagnostics),
+          // A de verdade encerra o processo — e a suíte junto.
+          uninstallServiceProvider.overrideWithValue(uninstall),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -236,6 +250,75 @@ void main() {
     });
   });
 
+  group('diagnóstico', () {
+    Future<void> openSettings(WidgetTester tester) async {
+      await pumpHub(tester);
+      await tester.tap(find.text('Aplicativo'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Falhas do macOS'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('copiar põe o relatório na área de transferência e confirma', (
+      tester,
+    ) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      await openSettings(tester);
+      expect(find.textContaining('Nada do que você copiou'), findsOneWidget);
+
+      await tester.tap(find.text('Copiar'));
+      await tester.pump();
+
+      expect(copied, startsWith('## Diagnóstico do Evergreen'));
+      expect(copied, contains('- Chip: Apple M3'));
+      expect(find.text('Diagnóstico copiado.'), findsOneWidget);
+
+      // A confirmação some sozinha, e a descrição volta.
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.textContaining('Nada do que você copiou'), findsOneWidget);
+    });
+
+    testWidgets('as duas pastas abrem no Finder', (tester) async {
+      await openSettings(tester);
+
+      expect(find.text(diagnostics.logLabel), findsOneWidget);
+      Finder revealIn(String row) => find.descendant(
+        of: find.ancestor(
+          of: find.text(row),
+          matching: find.byType(EgSettingsRow),
+        ),
+        matching: find.text('Mostrar no Finder'),
+      );
+
+      await tester.tap(revealIn('Registro de erros'));
+      await tester.pump();
+      expect(diagnostics.logReveals, 1);
+      expect(diagnostics.crashReveals, 0);
+
+      await tester.tap(revealIn('Falhas do macOS'));
+      await tester.pump();
+
+      expect(diagnostics.logReveals, 1);
+      expect(diagnostics.crashReveals, 1);
+    });
+  });
+
   group('backup', () {
     Future<void> openSettings(WidgetTester tester) async {
       await pumpHub(tester);
@@ -315,4 +398,70 @@ void main() {
       expect(find.text('antes de restaurar'), findsOneWidget);
     });
   });
+
+  group('Desinstalar', () {
+    Future<void> openAppSettings(WidgetTester tester) async {
+      await pumpHub(tester);
+      await tester.tap(find.text('Aplicativo').first);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('aparece na tela do aplicativo, e cancelar não apaga nada', (
+      tester,
+    ) async {
+      await openAppSettings(tester);
+
+      expect(find.text('Desinstalar o Evergreen'), findsOneWidget);
+
+      await tester.tap(find.text('Desinstalar').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(EgConfirmDialog), findsOneWidget);
+
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EgConfirmDialog), findsNothing);
+      expect(uninstall.calls, 0);
+    });
+
+    testWidgets('confirmar desinstala', (tester) async {
+      await openAppSettings(tester);
+
+      await tester.tap(find.text('Desinstalar').last);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(EgConfirmDialog),
+          matching: find.text('Desinstalar'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(uninstall.calls, 1);
+    });
+
+    testWidgets('o menu da barra cai na tela do aplicativo com a pergunta', (
+      tester,
+    ) async {
+      // O item do menu roda na janela 0 e deixa o pedido no disco, que é o
+      // que o Hub lê ao nascer.
+      await preferences.setString(
+        'hub.pending_module',
+        HubDestination.uninstall,
+      );
+
+      await pumpHub(tester);
+
+      expect(find.byType(AppSettingsView), findsOneWidget);
+      expect(find.text('Desinstalar o Evergreen?'), findsOneWidget);
+      expect(uninstall.calls, 0, reason: 'perguntar não é desinstalar');
+    });
+  });
+}
+
+class _FakeUninstallService implements UninstallService {
+  int calls = 0;
+
+  @override
+  Future<void> uninstall() async => calls++;
 }

@@ -114,7 +114,7 @@ class _PinResultListState extends State<PinResultList> {
 
   /// Rola o mínimo necessário para trazer a seleção ao viewport.
   void _revealSelection() {
-    if (!_scrollController.hasClients) return;
+    if (!mounted || !_scrollController.hasClients) return;
 
     final row = _rows.indexWhere(
       (row) => row.resultIndex == widget.state.selectedIndex,
@@ -146,8 +146,20 @@ class _PinResultListState extends State<PinResultList> {
       return;
     }
 
+    final clamped = target.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+
+    // `jumpTo`, e não `animateTo` com duração zero: a rolagem animada exige
+    // duração positiva e dispara asserção com zero.
+    if (AppDurations.reduced(context)) {
+      _scrollController.jumpTo(clamped);
+      return;
+    }
+
     _scrollController.animateTo(
-      target.clamp(position.minScrollExtent, position.maxScrollExtent),
+      clamped,
       duration: AppDurations.instant,
       curve: AppDurations.curve,
     );

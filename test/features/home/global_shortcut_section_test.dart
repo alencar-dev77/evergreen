@@ -93,10 +93,9 @@ void main() {
 
     expect(find.text('Aperte a combinação'), findsNothing);
     expect(
-      ModuleSettingsRepository(preferences)
-          .load()
-          .bindingFor(GlobalShortcutSlot.pin)
-          .compact,
+      ModuleSettingsRepository(
+        preferences,
+      ).load().bindingFor(GlobalShortcutSlot.pin).compact,
       '⌘⌥G',
     );
     // E a linha de restaurar aparece, porque agora há um padrão a que voltar.

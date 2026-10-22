@@ -73,21 +73,17 @@ void main() {
 
   group('o estado da reunião', () {
     testWidgets('resumo pronto, só transcrição, resumindo', (tester) async {
-      await pumpList(
-        tester,
-        [
-          meeting(id: 1, title: 'Alinhamento', hour: 10, minutes: 32),
-          meeting(
-            id: 2,
-            title: 'Retro da sprint',
-            hour: 14,
-            minutes: 28,
-            summary: 'Ficou decidido que…',
-          ),
-          meeting(id: 3, title: '1:1', hour: 16, minutes: 25),
-        ],
-        summarizingId: 3,
-      );
+      await pumpList(tester, [
+        meeting(id: 1, title: 'Alinhamento', hour: 10, minutes: 32),
+        meeting(
+          id: 2,
+          title: 'Retro da sprint',
+          hour: 14,
+          minutes: 28,
+          summary: 'Ficou decidido que…',
+        ),
+        meeting(id: 3, title: '1:1', hour: 16, minutes: 25),
+      ], summarizingId: 3);
 
       expect(find.textContaining('só transcrição'), findsOneWidget);
       expect(find.textContaining('resumo pronto'), findsOneWidget);

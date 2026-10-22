@@ -51,6 +51,22 @@ class OverlayWindow {
   /// esconder/exibir a janela; o `OverlayHost` só o escuta.
   final isPanelHidden = ValueNotifier<bool>(false);
 
+  /// O tamanho do recorte da câmera quando o painel saiu dele, ou `null`
+  /// quando o painel está no lugar de sempre.
+  ///
+  /// É o que faz a casca (`EgOverlayShell`) alinhar o painel logo abaixo do
+  /// recorte e entrar crescendo a partir dele. Escrito a cada
+  /// posicionamento, então todo caminho que não pede o notch volta ao centro.
+  final notchAnchor = ValueNotifier<Size?>(null);
+
+  /// A janela está na tela, pelo que este lado sabe — escrito em [show] e
+  /// [hide].
+  ///
+  /// Para quem precisa *reagir* a ela aparecer e sumir (a ilha do notch some
+  /// com o Nest na tela e volta quando ele fecha). Quem precisa da resposta
+  /// certa num instante pergunta ao sistema, por [isVisible].
+  final visible = ValueNotifier<bool>(false);
+
   /// Ferrolho contra o fechamento que o próprio fechamento provoca — ver [hide].
   bool _isHiding = false;
 
@@ -64,6 +80,8 @@ class OverlayWindow {
   void resetForTest() {
     _isHiding = false;
     isPanelHidden.value = false;
+    notchAnchor.value = null;
+    visible.value = false;
   }
 
   /// Visibilidade real, perguntada ao sistema.
@@ -118,7 +136,18 @@ class OverlayWindow {
   /// janela. É o caminho do chacoalhar do Nest: quem está com um arquivo na mão
   /// não deve ter de levá-lo até o centro da tela depois de chamar a
   /// prateleira. Sem [at], nada muda para nenhum painel.
-  Future<void> show({Offset? at}) async {
+  ///
+  /// Com [atNotch], a janela nasce com o topo no topo da tela, centrada no
+  /// recorte da câmera — o caminho do arquivo levado até o notch. Sem recorte,
+  /// cai em [at] e, sem ele, no lugar de sempre.
+  ///
+  /// Com [keyboard] falso a janela aparece sem pegar o teclado — a pilha do
+  /// Nest que sai do notch pelo mouse ou pelo arraste.
+  Future<void> show({
+    Offset? at,
+    bool atNotch = false,
+    bool keyboard = true,
+  }) async {
     // Quem está na frente agora é para quem o auto-colar vai colar depois. O
     // painel não-ativante não tira ninguém da frente, então esta foto tende a
     // continuar valendo quando o item for escolhido — mas ela é tirada aqui,
@@ -126,7 +155,7 @@ class OverlayWindow {
     // resposta é certamente a de antes do atalho.
     await PreviousAppFocusChannel.capture();
 
-    await reposition(at: at);
+    await reposition(at: at, atNotch: atNotch);
 
     // O painel volta a ser desenhado só agora: o quadro gravado na janela
     // escondida é o branco deixado por `hide`, e é ele que aparece no instante
@@ -137,7 +166,8 @@ class OverlayWindow {
     // Pelo canal nativo, e não por `windowManager.show()`: aquele ativa o
     // aplicativo (`NSApp.activate(ignoringOtherApps: true)`) e é a origem do
     // pisca no app anterior. Ver `OverlayWindowChannel`.
-    if (await OverlayWindowChannel.show()) return;
+    visible.value = true;
+    if (await OverlayWindowChannel.show(keyboard: keyboard)) return;
 
     // Sem o lado nativo, o caminho antigo. Ele pisca, mas um pisca é melhor que
     // um atalho que não abre nada.
@@ -157,9 +187,13 @@ class OverlayWindow {
   /// de o painel aparecer, e ela já foi tirada na primeira abertura. Repeti-la
   /// agora fotografaria o próprio Evergreen se a pessoa tivesse clicado no
   /// painel — e o auto-colar do Pin colaria nele mesmo.
-  Future<void> reassert({Offset? at}) async {
-    await reposition(at: at);
-    await OverlayWindowChannel.show();
+  Future<void> reassert({
+    Offset? at,
+    bool atNotch = false,
+    bool keyboard = true,
+  }) async {
+    await reposition(at: at, atNotch: atNotch);
+    await OverlayWindowChannel.show(keyboard: keyboard);
   }
 
   /// Devolve o teclado ao painel que já está na tela, **sem reposicionar**.
@@ -167,7 +201,11 @@ class OverlayWindow {
   /// O [reassert] sem o [reposition]: para o evento que acontece *dentro* do
   /// painel — um arquivo solto na prateleira —, onde o lugar da janela é o que a
   /// pessoa escolheu ao arrastá-la, e não o de sempre.
-  Future<void> refocus() => OverlayWindowChannel.show();
+  ///
+  /// Com [keyboard] falso, só reafirma a janela na frente — a pilha do notch,
+  /// que recebe arquivo sem pegar o teclado de ninguém.
+  Future<void> refocus({bool keyboard = true}) =>
+      OverlayWindowChannel.show(keyboard: keyboard);
 
   /// Esconde o overlay e devolve o foco ao app capturado em `show()`.
   ///
@@ -200,6 +238,10 @@ class OverlayWindow {
 
       await _blankPanel();
       await windowManager.hide();
+      visible.value = false;
+      // Depois de esconder, com o painel já apagado: o próximo painel que
+      // abrir — o Pin pelo atalho — não pode nascer achando que está no notch.
+      notchAnchor.value = null;
 
       if (paste) {
         try {
@@ -241,7 +283,13 @@ class OverlayWindow {
   /// Público porque trocar de painel com a janela já visível também precisa
   /// dele: o cursor pode estar em outro monitor, e reposicionar é mais barato
   /// (e não pisca) comparado a esconder e reexibir a janela.
-  Future<void> reposition({Offset? at}) async {
+  Future<void> reposition({Offset? at, bool atNotch = false}) async {
+    if (atNotch) {
+      final notch = await OverlayWindowChannel.positionAtNotch();
+      notchAnchor.value = notch;
+      if (notch != null) return;
+    }
+
     final display = await _activeDisplay();
     final origin = display.visiblePosition ?? Offset.zero;
     final size = display.visibleSize ?? display.size;
@@ -254,13 +302,17 @@ class OverlayWindow {
 
     if (at != null) {
       await windowManager.setPosition(positionForCursor(at, visible));
-      return;
+    } else {
+      final x = visible.left + (visible.width - _windowSize.width) / 2;
+      final y = _verticalPosition(visible.top, visible.height);
+
+      await windowManager.setPosition(Offset(x, y));
     }
 
-    final x = visible.left + (visible.width - _windowSize.width) / 2;
-    final y = _verticalPosition(visible.top, visible.height);
-
-    await windowManager.setPosition(Offset(x, y));
+    // A âncora sai **depois** de a janela andar: antes, o painel trocava de
+    // formato com a janela ainda encostada no topo da tela, e a prateleira
+    // aparecia por um quadro onde a pilha estava.
+    notchAnchor.value = null;
   }
 
   /// O canto da janela para que o **centro dela** caia em [cursor].
@@ -274,8 +326,18 @@ class OverlayWindow {
   /// direita.
   @visibleForTesting
   static Offset positionForCursor(Offset cursor, Rect visible) => Offset(
-    _clamped(cursor.dx - _windowSize.width / 2, visible.left, visible.width, _windowSize.width),
-    _clamped(cursor.dy - _windowSize.height / 2, visible.top, visible.height, _windowSize.height),
+    _clamped(
+      cursor.dx - _windowSize.width / 2,
+      visible.left,
+      visible.width,
+      _windowSize.width,
+    ),
+    _clamped(
+      cursor.dy - _windowSize.height / 2,
+      visible.top,
+      visible.height,
+      _windowSize.height,
+    ),
   );
 
   /// Preso dentro da área útil: janela que passa da borda leva o painel junto

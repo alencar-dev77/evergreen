@@ -103,6 +103,14 @@ abstract final class AppDurations {
   /// Transições de layout.
   static const medium = Duration(milliseconds: 220);
 
+  /// A prateleira saindo do notch: a pílula preta cresce do recorte até o
+  /// tamanho do painel e se dissolve nele.
+  ///
+  /// No teto da faixa de transição de painel (`motion.md`: 180–260ms), e não no
+  /// [medium]: são dois movimentos num só — crescer e virar painel —, e em
+  /// 220ms o segundo vira um piscar.
+  static const notchReveal = Duration(milliseconds: 260);
+
   /// O assentamento no fim de um movimento que "trava".
   ///
   /// É o único spring do Evergreen, e o `motion.md` libera exatamente um: a
@@ -112,6 +120,26 @@ abstract final class AppDurations {
   static const settle = Duration(milliseconds: 60);
 
   static const curve = Curves.easeOutCubic;
+
+  /// Se o macOS pede para reduzir movimento (Ajustes → Acessibilidade →
+  /// Exibição → Reduzir movimento).
+  ///
+  /// O ponto único dessa decisão: widget nenhum lê o `MediaQuery` por conta
+  /// própria. `maybe`, e não `disableAnimationsOf`, porque um widget testado
+  /// sem `MediaQuery` acima dele não deve quebrar por uma preferência de
+  /// acessibilidade.
+  static bool reduced(BuildContext context) =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  /// A duração de um **deslocamento** — posição, tamanho, rolagem —, que vira
+  /// zero com movimento reduzido.
+  ///
+  /// Só deslocamento: troca de cor e de opacidade continua com a duração dela,
+  /// porque não é movimento — é o que o `accessibility.md` manda pôr no lugar
+  /// do movimento. Encurtar o deslize não basta: reduzir é não deslizar, e o
+  /// estado final, parado, tem de dizer tudo sozinho.
+  static Duration movement(BuildContext context, Duration duration) =>
+      reduced(context) ? Duration.zero : duration;
 }
 
 /// Materiais translúcidos — o "vidro" das superfícies flutuantes.

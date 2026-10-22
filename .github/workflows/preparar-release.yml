@@ -1,0 +1,40 @@
+name: Preparar release
+
+# Botão manual: soma +1 no build number da `validation` — o `CFBundleVersion`
+# do `.dmg` que o `./scripts/release` gera. Roda UMA vez por release, antes de abrir a
+# PR de promoção `validation` -> `main`.
+#
+# Não é automático de propósito. Preparar release é uma decisão, não efeito de
+# merge: entre duas publicações cabem várias PRs, e bumpar por merge faria o
+# número contar merges em vez de releases.
+#
+# E não roda na promoção (`pull_request` pra `main`) porque o commit de versão
+# nasceria na `main`, que então divergiria da `validation` — e mergear `main` de
+# volta é proibido neste fluxo. Na `validation` o número entra uma vez, com a
+# tag `v<versão>+<build>`, e a `main` herda na promoção, como já acontece com o
+# semver. É essa tag que o `./scripts/release` confere e na qual publica o `.dmg`.
+#
+# O botão só aparece depois que este arquivo chegar na branch padrão (`main`):
+# é regra do GitHub pra `workflow_dispatch`. Até lá, use o script:
+#   ./scripts/bump_version --build --push
+on:
+  workflow_dispatch:
+
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # `ref: validation` fixo: o seletor de branch do botão não deve poder
+      # apontar o bump pra outro lugar. O bump é sempre da validation.
+      - uses: actions/checkout@v4
+        with:
+          ref: validation
+          fetch-depth: 0
+
+      - name: Somar +1 no build number
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          ./scripts/bump_version --build --push

@@ -1,10 +1,14 @@
 import ApplicationServices
 import Cocoa
 import CoreGraphics
+import CryptoKit
 import FlutterMacOS
+import ImageIO
 import IOKit.pwr_mgt
 import QuartzCore
 import ServiceManagement
+import UniformTypeIdentifiers
+import UserNotifications
 import desktop_multi_window
 import window_manager
 
@@ -125,6 +129,13 @@ class MainFlutterWindow: NSPanel {
     // O `isOverlay` decide quem **recebe** os avisos de arraste: os dois
     // engines podem chamar o canal, mas quem guarda a prateleira é a janela 0.
     NestChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
+    // Os dois engines falam com a ilha — o Hub liga e desliga os módulos nela,
+    // a janela 0 manda o que está rodando —, mas só a janela 0 atende os
+    // botões dela.
+    NotchIslandChannel.register(with: controller.engine.binaryMessenger, isOverlay: isOverlay)
+    // Quem chama é o Hub, onde mora a confirmação; o processo inteiro termina
+    // dentro do método, então não importa de qual engine o pedido vem.
+    UninstallChannel.register(with: controller.engine.binaryMessenger)
     // Só a janela 0: o centro de notificações tem um delegate por processo, e
     // quem atende o clique são os serviços que vivem nela.
     if isOverlay {
@@ -210,7 +221,11 @@ enum OverlayWindowChannel {
     channel.setMethodCallHandler { call, result in
       switch call.method {
       case "show":
-        show(result: result)
+        let arguments = call.arguments as? [String: Any]
+        show(takeKeyboard: arguments?["keyboard"] as? Bool ?? true, result: result)
+
+      case "positionAtNotch":
+        result(positionAtNotch())
 
       default:
         result(FlutterMethodNotImplemented)
@@ -226,7 +241,12 @@ enum OverlayWindowChannel {
   ///
   /// `makeKey` sem `orderFront` junto: o `makeKeyAndOrderFront` reordena de
   /// novo, com a regra que acabamos de contornar.
-  private static func show(result: @escaping FlutterResult) {
+  ///
+  /// Sem [takeKeyboard], só põe na frente: é a pilha do Nest que sai do notch
+  /// pelo mouse ou pelo arraste — passar por ali não pode roubar as teclas de
+  /// quem está digitando em outro app. Um clique nela a torna key como em
+  /// qualquer painel.
+  private static func show(takeKeyboard: Bool, result: @escaping FlutterResult) {
     guard let panel = panel else {
       result(
         FlutterError(
@@ -238,6 +258,12 @@ enum OverlayWindowChannel {
 
     panel.setIsVisible(true)
     panel.orderFrontRegardless()
+
+    guard takeKeyboard else {
+      result(nil)
+      return
+    }
+
     panel.makeKey()
 
     // A view do Flutter de volta como first responder.
@@ -256,6 +282,33 @@ enum OverlayWindowChannel {
     }
 
     result(nil)
+  }
+
+  /// Põe a janela 0 com o topo encostado no topo da tela, centrada no
+  /// recorte — o lugar de onde a prateleira sai quando o arquivo é levado até
+  /// o notch.
+  ///
+  /// Do lado nativo, e não pelo `setPosition` do `window_manager`, porque a
+  /// conta é toda em cima do recorte, e o recorte só existe aqui: levar a
+  /// geometria até o Dart para ela voltar convertida de origem embaixo para
+  /// origem em cima seria o caminho de um sinal trocado no monitor da direita.
+  ///
+  /// Devolve o tamanho do recorte, que o Dart usa para pôr o painel logo
+  /// abaixo dele — ou `nil` quando não há recorte, e aí quem chamou cai no
+  /// lugar de sempre.
+  private static func positionAtNotch() -> [String: Double]? {
+    guard let panel = panel, let notch = NotchGeometry.current() else { return nil }
+
+    let screen = notch.screen.frame
+    let size = panel.frame.size
+    let x = min(max(notch.rect.midX - size.width / 2, screen.minX), screen.maxX - size.width)
+
+    panel.setFrameOrigin(NSPoint(x: x, y: screen.maxY - size.height))
+
+    return [
+      "width": Double(notch.rect.width),
+      "height": Double(notch.rect.height),
+    ]
   }
 
   /// Código de tecla propositalmente fora do mapa do Flutter — ver
@@ -488,6 +541,15 @@ enum HubWindowChannel {
     frame.origin.x = max(frame.origin.x, visible.minX)
     if !isClosing { originDebt += frame.origin.x - targetX }
 
+    // "Reduzir movimento" do macOS: a janela vai direto ao tamanho final. É a
+    // mesma pergunta que o Dart faz pelo `AppDurations.movement` — aqui ela é
+    // feita do lado nativo porque quem anima é o AppKit.
+    if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+      animatedFrame = nil
+      window.setFrame(frame, display: true)
+      return
+    }
+
     animatedFrame = frame
 
     NSAnimationContext.runAnimationGroup({ context in
@@ -585,7 +647,6 @@ enum LaunchAtLoginChannel {
   }
 
   private static func isEnabled() -> Bool {
-    guard #available(macOS 13.0, *) else { return false }
     return SMAppService.mainApp.status == .enabled
   }
 
@@ -596,8 +657,6 @@ enum LaunchAtLoginChannel {
   /// `/Applications` depois de o item ter sido ligado a partir de outro lugar.
   /// Ver [installPrefix] para o porquê da regra.
   static func adoptInstalledBundle() {
-    guard #available(macOS 13.0, *) else { return }
-
     let path = Bundle.main.bundleURL.path
     guard path.hasPrefix(installPrefix) else { return }
     guard SMAppService.mainApp.status == .enabled else { return }
@@ -631,15 +690,6 @@ enum LaunchAtLoginChannel {
   }
 
   private static func setEnabled(_ enabled: Bool, result: @escaping FlutterResult) {
-    guard #available(macOS 13.0, *) else {
-      result(
-        FlutterError(
-          code: "unsupported_os",
-          message: "Iniciar com o macOS requer macOS 13 ou superior.",
-          details: nil))
-      return
-    }
-
     do {
       if enabled {
         try SMAppService.mainApp.register()
@@ -719,6 +769,16 @@ enum PasteboardWatcherChannel {
         acknowledge(call.arguments as? String)
         result(nil)
 
+      case "writeImage":
+        if writeImage(atPath: call.arguments as? String) {
+          result(nil)
+        } else {
+          result(FlutterError(
+            code: "image_unavailable",
+            message: "A imagem não está mais no disco.",
+            details: nil))
+        }
+
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -761,6 +821,9 @@ enum PasteboardWatcherChannel {
     guard content == nil || pasteboard.string(forType: .string) == content else { return }
 
     lastChangeCount = pasteboard.changeCount
+    // Uma imagem ainda em processamento já foi substituída por esta escrita:
+    // ela não pode chegar depois e subir para o topo como a cópia da vez.
+    generation += 1
   }
 
   private static func poll() {
@@ -771,11 +834,338 @@ enum PasteboardWatcherChannel {
     emitCurrentContent()
   }
 
+  /// Avisa o Dart do que está na área de transferência agora.
+  ///
+  /// Texto sai na hora. Imagem é trabalho de verdade — ler o arquivo do
+  /// Finder (que pode estar no iCloud, ainda por baixar), converter, tirar o
+  /// hash — e por isso vai para uma fila de fundo: na thread principal, uma
+  /// captura 5K travava o painel, os atalhos globais e o resto do AppKit por
+  /// meio segundo. O que se lê do pasteboard é lido aqui, na principal; só o
+  /// processamento sai dela.
   private static func emitCurrentContent() {
-    guard let content = NSPasteboard.general.string(forType: .string) else { return }
-    guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    generation += 1
+    let current = generation
 
-    activeChannel?.invokeMethod("onCopy", arguments: content)
+    switch PinImageCapture.snapshot(of: NSPasteboard.general) {
+    case .nothing:
+      return
+
+    case .text(let content):
+      activeChannel?.invokeMethod("onCopy", arguments: content)
+
+    case .image(let snapshot):
+      imageQueue.async {
+        let payload = PinImageCapture.process(snapshot)
+        DispatchQueue.main.async {
+          // Uma cópia mais nova chegou enquanto esta era processada: ela é
+          // a que vale, e esta já foi substituída no pasteboard.
+          guard current == generation, let payload = payload else { return }
+          activeChannel?.invokeMethod("onCopyImage", arguments: payload)
+        }
+      }
+    }
+  }
+
+  /// A fila do trabalho pesado da imagem — uma só, em série, para duas
+  /// cópias seguidas não disputarem o disco.
+  private static let imageQueue = DispatchQueue(label: "evergreen.pin.image", qos: .utility)
+
+  /// Qual cópia é a de agora — ver [emitCurrentContent].
+  private static var generation = 0
+
+  /// Põe a imagem do arquivo na área de transferência — a imagem em si, e não
+  /// o caminho: colar num e-mail traria o arquivo como anexo, e numa conversa,
+  /// o texto do caminho.
+  ///
+  /// Os bytes originais vão no tipo deles (a foto continua JPEG, o GIF
+  /// continua animado), e PNG e TIFF vão junto para quem só sabe ler esses —
+  /// mas **sob demanda**: convertidos só se o aplicativo de destino pedir.
+  /// Escrever os três de saída custava, numa foto de 12 MP, 70 MB codificados
+  /// na thread principal antes de o ⌘V acontecer.
+  ///
+  /// Marca a escrita como conhecida antes de voltar, pelo mesmo motivo do
+  /// [acknowledge]: sem isso a captura leria a própria escrita como uma cópia
+  /// nova. Aqui não há o que conferir — ninguém escreveu entre as duas linhas.
+  private static func writeImage(atPath path: String?) -> Bool {
+    guard let path = path,
+          let data = FileManager.default.contents(atPath: path),
+          let type = UTType(filenameExtension: (path as NSString).pathExtension),
+          NSImage(data: data) != nil
+    else { return false }
+
+    let original = NSPasteboard.PasteboardType(type.identifier)
+    let provider = PinImageProvider(data: data)
+    let item = NSPasteboardItem()
+    item.setData(data, forType: original)
+    item.setDataProvider(
+      provider,
+      forTypes: [.png, .tiff].filter { $0 != original })
+
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    guard pasteboard.writeObjects([item]) else { return false }
+
+    lastChangeCount = pasteboard.changeCount
+    generation += 1
+    return true
+  }
+}
+
+/// Converte a imagem para o tipo que o aplicativo de destino pedir, na hora
+/// em que ele pedir — ver `PasteboardWatcherChannel.writeImage`.
+final class PinImageProvider: NSObject, NSPasteboardItemDataProvider {
+  init(data: Data) {
+    self.data = data
+  }
+
+  private let data: Data
+
+  func pasteboard(
+    _ pasteboard: NSPasteboard?,
+    item: NSPasteboardItem,
+    provideDataForType type: NSPasteboard.PasteboardType
+  ) {
+    guard let image = NSImage(data: data), let tiff = image.tiffRepresentation else { return }
+
+    if type == .tiff {
+      item.setData(tiff, forType: .tiff)
+    } else if type == .png,
+              let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+      item.setData(png, forType: .png)
+    }
+  }
+}
+
+/// Reconhece uma imagem na área de transferência, e diz de onde ela veio.
+///
+/// A ordem é a decisão:
+///
+/// 1. **O que se pediu para não guardar não é guardado.** Gerenciador de
+///    senha e app que copia algo de passagem marcam a cópia
+///    (`org.nspasteboard.ConcealedType` e as irmãs); uma imagem assim — o QR
+///    de uma chave, uma captura sigilosa — não vira arquivo em disco.
+/// 2. **Um arquivo de imagem copiado no Finder.** O Finder põe a URL do
+///    arquivo, não a imagem — os bytes são lidos do disco, no formato em que
+///    estão. Vem com o nome e o caminho.
+/// 3. **Texto ganha de imagem.** Copiar um trecho do Pages, do Notas ou do
+///    Word põe o texto **e** uma imagem dele; quem copiou um parágrafo quer o
+///    parágrafo. A exceção é o texto que é só o endereço da própria imagem, e
+///    só quando o navegador diz que é — o mesmo endereço em `public.url`, a
+///    origem do Chrome, uma `<img>` no HTML. Sem esse sinal, um link copiado
+///    de um app que põe um ícone junto continua sendo link. O Finder também
+///    põe o ícone de qualquer arquivo como imagem, e é esta regra que faz um
+///    PDF copiado continuar entrando pelo nome.
+/// 4. **Só imagem**: a captura de tela direto para a área de transferência.
+enum PinImageCapture {
+  /// O teto de uma imagem. Acima disso ela não entra: atravessar o canal com
+  /// uma foto RAW de 80 MB a cada cópia seria travar a captura inteira por
+  /// uma imagem que ninguém cola de um gerenciador de área de transferência.
+  static let maxBytes = 25 * 1024 * 1024
+
+  /// Formatos que a tela do Flutter desenha. O resto (HEIC, TIFF, PSD, RAW)
+  /// é convertido na captura: guardado como veio, a linha e o preview ficariam
+  /// sem imagem — e colar continuaria funcionando, o que é pior, porque a
+  /// pessoa não teria como saber o que está colando.
+  private static let drawable: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp"]
+
+  private static let chromiumSource = NSPasteboard.PasteboardType("org.chromium.source-url")
+
+  private static let doNotKeep: Set<String> = [
+    "org.nspasteboard.ConcealedType",
+    "org.nspasteboard.TransientType",
+    "org.nspasteboard.AutoGeneratedType",
+  ]
+
+  /// O que dá para tirar do pasteboard sem custo — na thread principal.
+  enum Snapshot {
+    case nothing
+    case text(String)
+    case image(Pending)
+  }
+
+  /// A imagem ainda por processar: o arquivo a ler, ou os bytes já lidos.
+  struct Pending {
+    let fileURL: URL?
+    let data: Data?
+    let ext: String
+    let source: String?
+  }
+
+  static func snapshot(of pasteboard: NSPasteboard) -> Snapshot {
+    let types = Set((pasteboard.types ?? []).map(\.rawValue))
+    let text = cleaned(pasteboard.string(forType: .string))
+
+    if let file = imageFile(in: pasteboard) {
+      guard types.isDisjoint(with: doNotKeep) else { return .nothing }
+      return .image(Pending(fileURL: file, data: nil, ext: file.pathExtension.lowercased(), source: nil))
+    }
+
+    let source = sourceURL(in: pasteboard, text: text)
+    let bare = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !bare.isEmpty && bare != source { return .text(text) }
+
+    if let (data, ext) = rawImage(in: pasteboard) {
+      guard types.isDisjoint(with: doNotKeep) else { return .nothing }
+      return .image(Pending(fileURL: nil, data: data, ext: ext, source: source))
+    }
+
+    return text.isEmpty ? .nothing : .text(text)
+  }
+
+  /// Ler, normalizar, medir e tirar o hash — fora da thread principal.
+  static func process(_ pending: Pending) -> [String: Any]? {
+    let data: Data
+    if let url = pending.fileURL {
+      guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+            size <= maxBytes,
+            let read = try? Data(contentsOf: url)
+      else { return nil }
+      data = read
+    } else if let raw = pending.data {
+      data = raw
+    } else {
+      return nil
+    }
+
+    guard let (bytes, ext) = drawableData(data, ext: pending.ext),
+          bytes.count <= maxBytes,
+          let (width, height) = dimensions(of: bytes)
+    else { return nil }
+
+    let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+
+    var payload: [String: Any] = [
+      "bytes": FlutterStandardTypedData(bytes: bytes),
+      "hash": hash,
+      "extension": ext,
+      "width": width,
+      "height": height,
+    ]
+    if let url = pending.fileURL {
+      payload["name"] = url.lastPathComponent
+      payload["path"] = url.path
+    }
+    if let source = pending.source { payload["source"] = source }
+
+    return payload
+  }
+
+  /// O texto como o Pin o guarda — e o vazio quando não há texto de
+  /// verdade: uma seleção só de objetos no Pages ou no TextEdit vem como o
+  /// caractere de anexo (`U+FFFC`), que não é nada que alguém queira colar.
+  private static func cleaned(_ text: String?) -> String {
+    guard let text = text else { return "" }
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.replacingOccurrences(of: "\u{FFFC}", with: "")
+      .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : text
+  }
+
+  private static func imageFile(in pasteboard: NSPasteboard) -> URL? {
+    guard let urls = pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]) as? [URL],
+          urls.count == 1,
+          let url = urls.first,
+          let type = UTType(filenameExtension: url.pathExtension),
+          type.conforms(to: .image)
+    else { return nil }
+
+    return url
+  }
+
+  /// Os bytes da imagem, no melhor formato que vier — **TIFF por último**.
+  ///
+  /// O Fotos e alguns navegadores põem o JPEG original e um TIFF ao lado. O
+  /// TIFF primeiro, convertido a PNG, transformava os 3 MB da foto em 30 — e
+  /// o teto a deixava de fora, com o JPEG ali do lado. O GIF antes de tudo
+  /// que não é PNG: é o único jeito de ele continuar animado.
+  private static func rawImage(in pasteboard: NSPasteboard) -> (Data, String)? {
+    let ordered: [(String, String)] = [
+      ("public.png", "png"),
+      ("com.compuserve.gif", "gif"),
+      ("public.jpeg", "jpg"),
+      ("public.heic", "heic"),
+      ("public.tiff", "tiff"),
+    ]
+
+    for (type, ext) in ordered {
+      if let data = pasteboard.data(forType: NSPasteboard.PasteboardType(type)) {
+        return (data, ext)
+      }
+    }
+
+    return nil
+  }
+
+  /// O endereço da página, só quando o navegador diz que a imagem veio dela.
+  private static func sourceURL(in pasteboard: NSPasteboard, text: String) -> String? {
+    if let chromium = webAddress(pasteboard.string(forType: chromiumSource)) {
+      return chromium
+    }
+
+    let declared = webAddress(pasteboard.string(forType: .URL))
+    let typed = webAddress(text)
+    let html = pasteboard.string(forType: .html) ?? ""
+
+    if let typed = typed, typed == declared || html.contains("<img") {
+      return typed
+    }
+    return declared
+  }
+
+  private static func webAddress(_ candidate: String?) -> String? {
+    guard let candidate = candidate else { return nil }
+    let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+    let lower = trimmed.lowercased()
+    guard lower.hasPrefix("http://") || lower.hasPrefix("https://"),
+          !trimmed.contains(where: \.isWhitespace)
+    else { return nil }
+    return trimmed
+  }
+
+  /// Os bytes num formato que a tela desenha, e a extensão deles.
+  ///
+  /// O que já é desenhável fica como veio — converter a foto do Finder
+  /// mudaria o que foi copiado. O resto vira PNG quando tem transparência e
+  /// JPEG quando não tem: um HEIC de 12 MP em PNG passaria do teto.
+  private static func drawableData(_ data: Data, ext: String) -> (Data, String)? {
+    if drawable.contains(ext) { return (data, ext == "jpeg" ? "jpg" : ext) }
+
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+    else { return nil }
+
+    let hasAlpha: Bool
+    switch image.alphaInfo {
+    case .none, .noneSkipFirst, .noneSkipLast: hasAlpha = false
+    default: hasAlpha = true
+    }
+
+    let (type, newExt) = hasAlpha
+      ? (UTType.png.identifier, "png")
+      : (UTType.jpeg.identifier, "jpg")
+
+    let output = NSMutableData()
+    guard let destination = CGImageDestinationCreateWithData(output, type as CFString, 1, nil)
+    else { return nil }
+
+    let options: [CFString: Any] = hasAlpha ? [:] : [kCGImageDestinationLossyCompressionQuality: 0.9]
+    CGImageDestinationAddImage(destination, image, options as CFDictionary)
+    guard CGImageDestinationFinalize(destination) else { return nil }
+
+    return (output as Data, newExt)
+  }
+
+  /// Sem dimensão não é imagem que dê para mostrar nem colar.
+  private static func dimensions(of data: Data) -> (Int, Int)? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+          let width = properties[kCGImagePropertyPixelWidth] as? Int,
+          let height = properties[kCGImagePropertyPixelHeight] as? Int,
+          width > 0, height > 0
+    else { return nil }
+
+    return (width, height)
   }
 }
 
@@ -1032,9 +1422,7 @@ enum PreviousAppFocusChannel {
   /// frente sozinho. `yieldActivation` é o lado certo dessa conversa — somos
   /// nós que estamos entregando o turno, e é isso que o sistema espera ouvir.
   private static func activate(_ app: NSRunningApplication) {
-    if #available(macOS 14.0, *) {
-      NSApp.yieldActivation(to: app)
-    }
+    NSApp.yieldActivation(to: app)
 
     app.activate(options: [])
   }
@@ -1133,5 +1521,126 @@ enum PreviousAppFocusChannel {
     guard let app = capturedApp, !app.isTerminated else { return }
 
     activate(app)
+  }
+}
+
+/// Desinstala o Evergreen: tira dos Ajustes do Sistema, apaga tudo o que ele
+/// guardou, manda o aplicativo para o Lixo e encerra.
+///
+/// Nativo porque três das peças não existem em Dart: o item de início
+/// (`SMAppService`), as permissões (`tccutil`) e o Lixo (`trashItem`). E é um
+/// método só, sem volta ao Dart no meio: o processo termina dentro dele, então
+/// nenhum serviço da janela 0 tem a vez de escrever de novo numa pasta que
+/// acabou de ser apagada.
+///
+/// **A ordem importa.** O `tccutil` acha o aplicativo pelo identificador no
+/// LaunchServices, e com o bundle já no Lixo ele responde "identificador
+/// desconhecido" — então as permissões saem antes de o aplicativo sair do
+/// lugar. Cada passo é tentativa: um que falhe não impede os outros, porque
+/// uma desinstalação pela metade é pior que uma com uma sobra.
+///
+/// O que fica de fora, por não ter API: a linha do Evergreen em Ajustes →
+/// Notificações (o macOS a guarda sozinho, e o app não tem como apagá-la) e os
+/// modelos de voz do `Speech`, que são do sistema e servem a outros apps.
+enum UninstallChannel {
+  private static let channelName = "uninstall"
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "uninstall" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      uninstall()
+    }
+  }
+
+  private static func uninstall() {
+    let fileManager = FileManager.default
+    let bundle = Bundle.main.bundleURL
+    let identifier = Bundle.main.bundleIdentifier ?? "com.alencardev.evergreen"
+
+    // Ajustes → Geral → Itens de início.
+    try? SMAppService.mainApp.unregister()
+
+    // Ajustes → Privacidade e Segurança: Acessibilidade, Microfone, Gravação
+    // de Tela e o resto, de uma vez.
+    run("/usr/bin/tccutil", ["reset", "All", identifier])
+
+    // Assíncronas do lado do sistema: cedo, para terem tempo de sair antes do
+    // `exit`.
+    UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
+    // Esquecido pelo LaunchServices antes de ir para o Lixo, para não sobrar
+    // em "Abrir com".
+    run(
+      "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
+        + "LaunchServices.framework/Support/lsregister",
+      ["-u", bundle.path])
+
+    let trashed = (try? fileManager.trashItem(at: bundle, resultingItemURL: nil)) != nil
+
+    // **As pastas por último**, logo antes do `exit`: o Dart está parado
+    // enquanto este método roda, mas as tarefas do Swift não — o Echo
+    // exportando o áudio de uma reunião recriaria a pasta dele. Quanto menor o
+    // intervalo entre apagar e sair, menor a chance.
+    //
+    // O banco, os backups, as reuniões, as imagens do Pin, o registro, o
+    // áudio em gravação e o que o sistema guarda em nome do app.
+    let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+    let leftovers = [
+      "Application Support/\(identifier)",
+      "Caches/\(identifier)",
+      "HTTPStorages/\(identifier)",
+      "HTTPStorages/\(identifier).binarycookies",
+      "WebKit/\(identifier)",
+      "Saved Application State/\(identifier).savedState",
+      // Os modelos que separam as vozes do Echo. O FluidAudio os guarda numa
+      // pasta dele, sem o nosso identificador — e outro app que use o pacote
+      // dividiria a mesma, por isso só o modelo que o Echo baixa sai.
+      "Application Support/FluidAudio/Models/speaker-diarization",
+    ]
+    for path in leftovers {
+      try? fileManager.removeItem(at: library.appendingPathComponent(path))
+    }
+    removeIfEmpty(library.appendingPathComponent("Application Support/FluidAudio/Models"))
+    removeIfEmpty(library.appendingPathComponent("Application Support/FluidAudio"))
+
+    // As preferências — as do Dart (`shared_preferences`) moram no mesmo
+    // domínio. Pelo `UserDefaults` primeiro, que é quem avisa o `cfprefsd`;
+    // apagar só o arquivo deixaria a cópia dele em memória escrever de volta.
+    UserDefaults.standard.removePersistentDomain(forName: identifier)
+    UserDefaults.standard.synchronize()
+    try? fileManager.removeItem(
+      at: library.appendingPathComponent("Preferences/\(identifier).plist"))
+
+    if !trashed {
+      // Sem permissão para mover (uma pasta de outro usuário, um volume só de
+      // leitura): o Finder mostra o aplicativo, e arrastar para o Lixo é com
+      // quem pediu.
+      NSWorkspace.shared.activateFileViewerSelecting([bundle])
+    }
+
+    exit(0)
+  }
+
+  private static func removeIfEmpty(_ url: URL) {
+    guard let contents = try? FileManager.default.contentsOfDirectory(atPath: url.path),
+          contents.filter({ $0 != ".DS_Store" }).isEmpty
+    else { return }
+    try? FileManager.default.removeItem(at: url)
+  }
+
+  private static func run(_ executable: String, _ arguments: [String]) {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: executable)
+    process.arguments = arguments
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
+    guard (try? process.run()) != nil else { return }
+    process.waitUntilExit()
   }
 }

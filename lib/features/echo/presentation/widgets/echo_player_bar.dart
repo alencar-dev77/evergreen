@@ -4,6 +4,7 @@ import '../../../../core/design/app_metrics.dart';
 import '../../../../core/design/eg_tokens.dart';
 import '../../../../shared/widgets/eg_button.dart';
 import '../../../../shared/widgets/eg_icon.dart';
+import '../../../../shared/widgets/eg_surface.dart';
 import '../viewmodels/echo_playback_view_model.dart';
 
 /// O player da reunião, preso no topo da leitura.
@@ -13,7 +14,7 @@ import '../viewmodels/echo_playback_view_model.dart';
 /// pausar não pode exigir rolar de volta ao começo.
 ///
 /// Uma linha só, do jeito que um player de podcast se lê: voltar, tocar,
-/// avançar, o tempo e a barra. O verde é do botão de tocar, que é a ação
+/// avançar, o tempo, a barra e a velocidade. O verde é do botão de tocar, que é a ação
 /// primária da linha; o resto é neutro.
 class EchoPlayerBar extends StatelessWidget {
   const EchoPlayerBar({
@@ -22,12 +23,14 @@ class EchoPlayerBar extends StatelessWidget {
     required this.onToggle,
     required this.onSkip,
     required this.onSeek,
+    required this.onCycleRate,
   });
 
   final EchoPlaybackState state;
   final VoidCallback onToggle;
   final void Function(Duration offset) onSkip;
   final void Function(int positionMs) onSeek;
+  final VoidCallback onCycleRate;
 
   @override
   Widget build(BuildContext context) {
@@ -70,8 +73,18 @@ class EchoPlayerBar extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Text(clock(state.durationMs), style: context.eg.text.monoSmall),
+        const SizedBox(width: AppSpacing.xs),
+        EchoRateButton(rate: state.rate, onPressed: onCycleRate),
       ],
     );
+  }
+
+  /// `1×`, `1,25×`, `1,5×`, `2×` — com vírgula, como se escreve aqui.
+  static String rateLabel(double rate) {
+    final text = rate == rate.roundToDouble()
+        ? rate.toInt().toString()
+        : rate.toString().replaceAll('.', ',');
+    return '$text×';
   }
 
   /// `12:04`, ou `1:02:09` passando de uma hora.
@@ -170,6 +183,51 @@ class EchoScrubber extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// A velocidade da fala: um clique passa ao degrau seguinte.
+///
+/// Um botão que gira, e não um menu: são quatro degraus, e quem acelera um
+/// áudio aperta até achar o seu — um menu pediria dois cliques para cada
+/// tentativa. Largura fixa, para `1,25×` não empurrar a barra ao lado. Fora
+/// do normal o número acende para o texto principal: é o lembrete de que a
+/// reunião não está tocando no tempo em que aconteceu. Nunca verde — mais
+/// rápido não é "ligado".
+class EchoRateButton extends StatelessWidget {
+  const EchoRateButton({
+    super.key,
+    required this.rate,
+    required this.onPressed,
+  });
+
+  final double rate;
+  final VoidCallback onPressed;
+
+  static const _width = 44.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = EchoPlayerBar.rateLabel(rate);
+    final isNormal = rate == 1;
+
+    return EgInteractiveSurface(
+      onTap: onPressed,
+      style: context.eg.surfaces.ghost,
+      borderRadius: context.eg.shapes.rowAll,
+      width: _width,
+      height: AppBadgeSizes.sm,
+      alignment: Alignment.center,
+      semanticLabel: 'Velocidade $label (S)',
+      builder: (context, state) => Text(
+        label,
+        style: context.eg.text.monoSmall.copyWith(
+          color: isNormal && !state.isHovered && !state.isFocused
+              ? context.eg.colors.textSecondary
+              : context.eg.colors.textPrimary,
+        ),
+      ),
     );
   }
 }

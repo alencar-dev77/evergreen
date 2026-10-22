@@ -20,6 +20,7 @@ class EgShapes {
     required this.radiusControl,
     required this.radiusSegment,
     required this.radiusChip,
+    required this.radiusThumb,
     required this.hairline,
     required this.rowPaddingV,
     required this.rowPaddingH,
@@ -58,6 +59,10 @@ class EgShapes {
   /// A pílula: interruptor mestre, filtro, prazo. Grande o bastante para o
   /// raio bater na metade da altura em qualquer tamanho de pílula.
   final double radiusChip;
+
+  /// A miniatura de imagem na linha de lista, do tamanho de um ícone. O raio
+  /// de qualquer controle, num quadrado de 16 pontos, viraria um círculo.
+  final double radiusThumb;
 
   final double hairline;
 
@@ -100,6 +105,7 @@ class EgShapes {
     radiusControl: _d(a.radiusControl, b.radiusControl, t),
     radiusSegment: _d(a.radiusSegment, b.radiusSegment, t),
     radiusChip: _d(a.radiusChip, b.radiusChip, t),
+    radiusThumb: _d(a.radiusThumb, b.radiusThumb, t),
     hairline: _d(a.hairline, b.hairline, t),
     rowPaddingV: _d(a.rowPaddingV, b.rowPaddingV, t),
     rowPaddingH: _d(a.rowPaddingH, b.rowPaddingH, t),

@@ -20,6 +20,7 @@ class EchoPlaybackState {
     this.positionMs = 0,
     this.isPlaying = false,
     this.isFollowing = true,
+    this.rate = 1,
   });
 
   /// A reunião cujo áudio está carregado; `null` quando não há o que tocar.
@@ -35,12 +36,19 @@ class EchoPlaybackState {
   /// brigar com ela. Volta a valer no play e no clique numa palavra.
   final bool isFollowing;
 
+  /// A velocidade da fala, um dos degraus de [EchoPlaybackViewModel.rates].
+  ///
+  /// Da sessão, não da reunião: quem ouve a 1,5× ouve a próxima também, e
+  /// trocar de reunião não volta ao normal. Fechar o Hub volta.
+  final double rate;
+
   bool get isReady => meetingId != null;
 
   EchoPlaybackState copyWith({
     int? positionMs,
     bool? isPlaying,
     bool? isFollowing,
+    double? rate,
   }) {
     return EchoPlaybackState(
       meetingId: meetingId,
@@ -48,6 +56,7 @@ class EchoPlaybackState {
       positionMs: positionMs ?? this.positionMs,
       isPlaying: isPlaying ?? this.isPlaying,
       isFollowing: isFollowing ?? this.isFollowing,
+      rate: rate ?? this.rate,
     );
   }
 }
@@ -65,6 +74,9 @@ final echoPlaybackViewModelProvider =
 class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
   /// O passo dos botões e das setas.
   static const skip = Duration(seconds: 10);
+
+  /// Os degraus da velocidade, na ordem em que o clique os percorre.
+  static const rates = [1.0, 1.25, 1.5, 2.0];
 
   /// De quanto em quanto tempo se pergunta ao player onde ele está.
   ///
@@ -108,6 +120,27 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
       ),
     );
 
+    // O salto da busca para o áudio no trecho, parado: quem abriu um
+    // resultado quer ouvir *dali*, e o espaço seguinte toca dali. Tocar
+    // sozinho seria áudio começando sem ninguém pedir.
+    ref.listen<EchoJump?>(
+      echoLibraryViewModelProvider.select((library) => library.jump),
+      (_, jump) {
+        // Um pedido novo substitui o anterior, mesmo quando não tem ponto no
+        // áudio (um trecho do resumo) ou é o esquecimento de [select]: sem
+        // isso, o salto de uma reunião que não chegou a carregar ficava à
+        // espera e disparava na próxima vez que ela abrisse pela lista.
+        _pendingJump = jump?.atMs == null ? null : jump;
+        unawaited(_applyJump());
+      },
+    );
+
+    // O player nasce com a leitura, e a leitura nasce *por causa* do salto:
+    // quando a busca abre a região, o pedido já está no estado antes de este
+    // `build` rodar, e o `listen` acima não o veria passar.
+    final standing = ref.read(echoLibraryViewModelProvider).jump;
+    if (standing?.atMs != null) _pendingJump = standing;
+
     ref.listen<EvergreenModule?>(hubDetailProvider, (_, module) {
       if (module != EvergreenModule.echo && state.isPlaying) unawaited(pause());
     });
@@ -123,7 +156,8 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
     if (state.isReady) await _player.unload();
     if (generation != _generation || !ref.mounted) return;
 
-    state = const EchoPlaybackState();
+    final rate = state.rate;
+    state = EchoPlaybackState(rate: rate);
 
     final fileName = meeting?.audioFile;
     if (meeting == null || fileName == null || !_store.exists(fileName)) {
@@ -135,7 +169,33 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
       return;
     }
 
-    state = EchoPlaybackState(meetingId: meeting.id, durationMs: durationMs);
+    // O arquivo novo nasce na velocidade normal; a da sessão vai junto.
+    if (rate != 1) await _player.setRate(rate);
+    if (generation != _generation || !ref.mounted) return;
+
+    state = EchoPlaybackState(
+      meetingId: meeting.id,
+      durationMs: durationMs,
+      rate: rate,
+    );
+
+    // O salto pode ter chegado antes do áudio — a busca escolhe a reunião e
+    // pede o trecho no mesmo gesto, e o arquivo ainda estava carregando.
+    await _applyJump();
+  }
+
+  /// O salto que ainda não foi aplicado, à espera do áudio da reunião dele.
+  EchoJump? _pendingJump;
+
+  Future<void> _applyJump() async {
+    final jump = _pendingJump;
+    final atMs = jump?.atMs;
+    if (jump == null || atMs == null) return;
+    if (!state.isReady || state.meetingId != jump.meetingId) return;
+
+    _pendingJump = null;
+    if (state.isPlaying) await pause();
+    await seekTo(atMs);
   }
 
   Future<void> toggle() => state.isPlaying ? pause() : play();
@@ -182,6 +242,17 @@ class EchoPlaybackViewModel extends Notifier<EchoPlaybackState> {
     if (!ref.mounted) return;
 
     state = state.copyWith(positionMs: clamped, isFollowing: true);
+  }
+
+  /// Passa ao degrau seguinte de [rates]; do último, volta ao normal.
+  Future<void> cycleRate() async {
+    if (!state.isReady) return;
+
+    final index = rates.indexOf(state.rate);
+    final next = rates[(index + 1) % rates.length];
+    state = state.copyWith(rate: next);
+
+    await _player.setRate(next);
   }
 
   void stopFollowing() {

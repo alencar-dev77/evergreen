@@ -31,7 +31,10 @@ class ModuleSettingsViewModel extends Notifier<ModuleSettings> {
     return _repository.load();
   }
 
-  Future<void> setEnabled(EvergreenModule module, {required bool enabled}) async {
+  Future<void> setEnabled(
+    EvergreenModule module, {
+    required bool enabled,
+  }) async {
     final disabled = Set<EvergreenModule>.of(state.disabled);
     if (enabled) {
       disabled.remove(module);
@@ -50,7 +53,10 @@ class ModuleSettingsViewModel extends Notifier<ModuleSettings> {
   /// gravador da tela, que mostra o motivo e continua esperando outra
   /// combinação — recusar e sair obrigaria a começar de novo por um `⌘C`
   /// digitado sem pensar.
-  Future<String?> record(GlobalShortcutSlot slot, ShortcutBinding binding) async {
+  Future<String?> record(
+    GlobalShortcutSlot slot,
+    ShortcutBinding binding,
+  ) async {
     final refusal = ShortcutRules.refuse(
       binding,
       slot: slot,

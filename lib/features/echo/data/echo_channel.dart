@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import '../../../core/diagnostics/app_log.dart';
 import '../models/echo_capabilities.dart';
 import '../models/echo_spectrum.dart';
 import '../models/meeting_segment.dart';
+import '../models/voice_separation.dart';
 
 /// O que sobrou da gravação: os arquivos de áudio, quanto tempo durou e como
 /// cada faixa se saiu.
@@ -241,6 +243,21 @@ class EchoChannel {
         .toList(growable: false);
   }
 
+  /// Quem falou de quando a quando na faixa do computador.
+  ///
+  /// Só o relógio de cada voz — casar com as palavras é o `VoiceSeparation`.
+  /// A primeira chamada baixa o modelo e pode demorar: sem rede ela falha em
+  /// segundos, e com rede lenta pode levar minutos — quem chama põe o teto.
+  /// Falhar aqui nunca é falhar a reunião.
+  Future<List<VoiceTurn>> diarize(String path) async {
+    final result = await _invoke<List<Object?>>('diarize', {'path': path});
+
+    return [
+      for (final raw in result ?? const [])
+        if (raw is Map<Object?, Object?>) ?VoiceTurn.fromMap(raw),
+    ];
+  }
+
   /// Resume **um** bloco de texto. Quem corta em blocos é o Dart.
   Future<String> summarize({
     required String text,
@@ -326,6 +343,8 @@ class EchoChannel {
   /// Varre áudio que uma queda no meio de uma reunião deixou para trás.
   Future<void> cleanOrphanAudio() => _invoke<Object>('cleanOrphanAudio');
 
+  static const _expectedCodes = {'unsupported_os', 'context_window_exceeded'};
+
   Future<T?> _invoke<T>(
     String method, [
     Map<String, Object?>? arguments,
@@ -333,6 +352,12 @@ class EchoChannel {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
     } on PlatformException catch (error) {
+      // Dois códigos são fluxo normal, e não falha: o Mac abaixo do 26, que
+      // responde assim a toda chamada, e o texto grande demais para o modelo,
+      // que o resumo reparte e tenta de novo.
+      if (!_expectedCodes.contains(error.code)) {
+        AppLog.channelError('echo', method, error);
+      }
       throw EchoException(
         error.code,
         error.message ?? 'Falha no canal do Echo.',

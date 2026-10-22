@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import '../models/pin_image.dart';
+
 /// Observa a área de transferência do sistema e emite cada nova cópia.
 ///
 /// Quem observa é o lado nativo (`PasteboardWatcherChannel`, em
@@ -23,11 +25,21 @@ class ClipboardWatcher {
 
   final MethodChannel _channel;
   final _controller = StreamController<String>.broadcast();
+  final _images = StreamController<CapturedImage>.broadcast();
 
   bool _isRunning = false;
 
   /// Emite o conteúdo sempre que a área de transferência muda.
   Stream<String> get onCopy => _controller.stream;
+
+  /// Emite cada imagem copiada — de um arquivo no Finder, de um navegador, de
+  /// uma captura de tela direto para a área de transferência.
+  ///
+  /// Separado de [onCopy] porque é outra coisa que chega: bytes e de onde
+  /// eles vieram, e não um texto. Quem decide se o que foi copiado é imagem
+  /// ou texto é o lado nativo, que vê os tipos do pasteboard — ver
+  /// `PasteboardWatcherChannel.emitCurrentContent`.
+  Stream<CapturedImage> get onImage => _images.stream;
 
   bool get isRunning => _isRunning;
 
@@ -57,7 +69,24 @@ class ClipboardWatcher {
   /// conteúdo novo que o lado nativo confere antes de engolir o evento.
   Future<void> acknowledge(String content) => _invoke('acknowledge', content);
 
+  /// Põe a imagem de [path] na área de transferência — a imagem em si, e não
+  /// o caminho: é o que o aplicativo de destino cola.
+  ///
+  /// O lado nativo marca a própria escrita como conhecida antes de responder,
+  /// então não há [acknowledge] a chamar depois. Devolve `false` quando não
+  /// deu para escrever — o arquivo sumiu, ou não há lado nativo.
+  Future<bool> writeImage(String path) => _invoke('writeImage', path);
+
   Future<void> _handleNativeCall(MethodCall call) async {
+    if (call.method == 'onCopyImage') {
+      final raw = call.arguments;
+      final image = raw is Map<Object?, Object?>
+          ? CapturedImage.fromMap(raw)
+          : null;
+      if (image != null && !_images.isClosed) _images.add(image);
+      return;
+    }
+
     if (call.method != 'onCopy') return;
 
     final content = call.arguments as String?;
@@ -84,5 +113,6 @@ class ClipboardWatcher {
     unawaited(stop());
     _channel.setMethodCallHandler(null);
     _controller.close();
+    _images.close();
   }
 }

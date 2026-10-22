@@ -6,8 +6,19 @@
 	     Um gerenciador de área de transferência precisa registrar atalho global
 	     no sistema e escrever o LaunchAgent de "iniciar com o macOS" — ambos
 	     bloqueados dentro do sandbox. O Evergreen é distribuído fora da App
-	     Store e segue sem qualquer acesso à rede. -->
+	     Store. Para fora da máquina, a única conexão que ele abre é o
+	     download, uma vez, do modelo que separa as vozes do Echo; nada da
+	     máquina é enviado. A outra é local: o servidor do LM Studio em
+	     127.0.0.1:1234, quando a pessoa o escolhe como modelo local — sem
+	     sandbox, ela não pede entitlement de rede. -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<!-- Com o runtime endurecido, que a notarização exige, o microfone é
+	     negado em silêncio a quem não declara este. É a voz de quem usa no
+	     Echo. A captura do áudio do computador (ScreenCaptureKit), o
+	     auto-colar do Pin (Acessibilidade) e o arraste do Nest não pedem
+	     entitlement nenhum: são permissões do sistema, não do runtime. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

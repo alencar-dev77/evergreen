@@ -3,15 +3,17 @@
 # bump_version — bump manual da versão, a rede de segurança pra quando o CI
 # está fora do ar.
 #
-# Normalmente ninguém roda isto: quem bumpa é o `.github/workflows/version-bump.yml`,
-# no merge de uma PR na `validation`, lendo a label `bump:` da própria PR. Mas o
-# workflow depende do GitHub Actions estar rodando, e quando o Actions para
-# (billing, incidente, greve de runner) o merge acontece e o bump não — a versão
-# congela em silêncio.
+# Normalmente ninguém roda isto à mão: quem bumpa o semver é o
+# `.github/workflows/version-bump.yml`, no merge de uma PR na `validation`,
+# lendo a label `bump:` da própria PR, e quem sobe o build é o botão "Preparar
+# release" (`preparar-release.yml`). Os dois chamam este script — é a mesma
+# regra, num lugar só. Mas os dois dependem do GitHub Actions estar rodando, e
+# quando o Actions para (billing, incidente, greve de runner) o merge acontece e
+# o bump não — a versão congela em silêncio.
 #
 # Aqui isso custa mais caro do que parece. O `version:` do `pubspec.yaml` é o que
 # a barra lateral do Hub mostra no rodapé (via `AppInfo`/`package_info_plus`), e
-# o Evergreen é instalado pelo `./run_build_copy`, que copia por cima da cópia
+# o Evergreen é instalado pelo `./scripts/run_build_copy`, que copia por cima da cópia
 # em /Applications. Com a versão congelada, duas instalações diferentes se
 # apresentam com o mesmo número e não há como dizer qual está na máquina — que é
 # justamente a pergunta que se faz quando algo quebrou depois de uma instalação.
@@ -27,12 +29,30 @@
 #     conflitariam no `pubspec.yaml`;
 #   - a versão seria decidida antes de se saber se a PR entra.
 #
+# São DOIS bumps, com gatilhos diferentes, e misturá-los é o erro fácil:
+#
+#   SEMVER (X.Y.Z) — sobe a cada PR mergeada na `validation`, pela label
+#   `bump:patch|minor|major`. Responde "que conjunto de mudanças é este", e é o
+#   que o rodapé do Hub mostra. NÃO mexe no build.
+#
+#   BUILD (+N) — sobe UMA vez por release, antes de promover para a `main`.
+#   Responde "qual publicação é esta": é o `CFBundleVersion` do `.dmg` que o
+#   `./scripts/release` gera, e o que separa duas publicações do mesmo semver (uma
+#   correção do instalador, um `.dmg` refeito). NÃO mexe no semver. Antes, o
+#   `cider bump <nível>` do workflow zerava o build a cada semver, e por isso
+#   todo o histórico até a 0.33.0 é `+1` — um número que não distinguia nada.
+#
+# O build não sobe por PR de propósito: entre duas publicações cabem várias PRs,
+# e o número passaria a contar merges em vez de releases. E não sobe na promoção
+# porque o commit nasceria na `main`, que então divergiria da `validation`.
+#
 # Uso:
-#   ./bump_version                 # nível vem das PRs pendentes (label bump:*)
-#   ./bump_version patch           # nível explícito (patch|minor|major)
-#   ./bump_version --pr 29         # nível vem da label daquela PR
-#   ./bump_version --dry-run       # só mostra o que faria
-#   ./bump_version --push          # commita, tagueia E envia (padrão: não envia)
+#   ./scripts/bump_version                 # nível vem das PRs pendentes (label bump:*)
+#   ./scripts/bump_version patch           # nível explícito (patch|minor|major)
+#   ./scripts/bump_version --pr 29         # nível vem da label daquela PR
+#   ./scripts/bump_version --build         # +1 no build, semver intacto (preparar release)
+#   ./scripts/bump_version --dry-run       # só mostra o que faria
+#   ./scripts/bump_version --push          # commita, tagueia E envia (padrão: não envia)
 #
 # O padrão é NÃO enviar: o script deixa commit e tag prontos e imprime os dois
 # `git push`, pra você conferir antes.
@@ -41,7 +61,8 @@ set -euo pipefail
 
 BRANCH_BUMP="validation"
 
-cd "$(dirname "$0")"
+# Os scripts moram em `scripts/`; tudo daqui para baixo roda da raiz.
+cd "$(dirname "$0")/.."
 
 vermelho() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 verde()    { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -55,17 +76,23 @@ NIVEL=""
 PR_ALVO=""
 DRY_RUN=false
 PUSH=false
+MODO_BUILD=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
     patch|minor|major) NIVEL="$1"; shift ;;
     --pr)              PR_ALVO="${2:-}"; [ -n "$PR_ALVO" ] || erro "--pr exige o número da PR."; shift 2 ;;
+    --build)           MODO_BUILD=true; shift ;;
     --dry-run)         DRY_RUN=true; shift ;;
     --push)            PUSH=true; shift ;;
     -h|--help)         awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0 ;;
     *)                 erro "Argumento desconhecido: $1 (use --help)" ;;
   esac
 done
+
+if [ "$MODO_BUILD" = true ] && { [ -n "$NIVEL" ] || [ -n "$PR_ALVO" ]; }; then
+  erro "--build sobe só o build number; não combine com nível nem com --pr."
+fi
 
 # --- Guardas ----------------------------------------------------------------
 branch_atual="$(git rev-parse --abbrev-ref HEAD)"
@@ -109,7 +136,7 @@ nivel_das_labels() {
   fi
 }
 
-if [ -n "$PR_ALVO" ]; then
+if [ "$MODO_BUILD" = false ] && [ -n "$PR_ALVO" ]; then
   command -v gh >/dev/null || erro "--pr precisa do 'gh' instalado."
   labels="$(gh pr view "$PR_ALVO" --json labels -q '[.labels[].name] | join(" ")')"
   NIVEL="$(nivel_das_labels "$labels")"
@@ -117,10 +144,10 @@ if [ -n "$PR_ALVO" ]; then
   azul "→ PR #$PR_ALVO: label bump:$NIVEL"
 fi
 
-if [ -z "$NIVEL" ]; then
+if [ "$MODO_BUILD" = false ] && [ -z "$NIVEL" ]; then
   # Sem nível explícito: descobre o que foi mergeado na validation desde o
   # último commit de bump — que é justamente o que o CI deixou de processar.
-  command -v gh >/dev/null || erro "Sem 'gh' instalado, informe o nível: ./bump_version patch"
+  command -v gh >/dev/null || erro "Sem 'gh' instalado, informe o nível: ./scripts/bump_version patch"
 
   ultimo_bump="$(git log -1 --format='%cI' --grep='^chore: bump version to' "origin/$BRANCH_BUMP" || true)"
   [ -n "$ultimo_bump" ] || erro "Não achei o último commit de bump. Informe o nível na mão."
@@ -152,29 +179,42 @@ if [ -z "$NIVEL" ]; then
 fi
 
 # --- Cálculo da nova versão -------------------------------------------------
-# Replica o `cider bump <nível>` + `cider bump build` do workflow: o nível sobe,
-# o que vem depois dele zera e o build volta pra 1 (por isso todo o histórico
-# do projeto é `+1`).
+# Os dois bumps são exclusivos: o de nível preserva o build, o --build preserva
+# o semver (ver o cabeçalho).
 atual="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
 [ -n "$atual" ] || erro "Não consegui ler 'version:' do pubspec.yaml."
 
 semver="${atual%%+*}"
+case "$atual" in
+  *+*) build="${atual##*+}" ;;
+  *)   build=0 ;;
+esac
+case "$build" in
+  *[!0-9]*|"") erro "Build number em formato inesperado no pubspec.yaml: $atual" ;;
+esac
+
 IFS='.' read -r MAJOR MINOR PATCH <<< "$semver"
 case "$MAJOR$MINOR$PATCH" in
   *[!0-9]*|"") erro "Versão em formato inesperado no pubspec.yaml: $atual" ;;
 esac
 
-case "$NIVEL" in
-  major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-  minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
-  patch) PATCH=$((PATCH + 1)) ;;
-esac
+if [ "$MODO_BUILD" = true ]; then
+  build=$((build + 1))
+  descricao="build +1 (preparar release)"
+else
+  case "$NIVEL" in
+    major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+    minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+    patch) PATCH=$((PATCH + 1)) ;;
+  esac
+  descricao="bump $NIVEL (build intacto em +$build)"
+fi
 
-nova="$MAJOR.$MINOR.$PATCH+1"
+nova="$MAJOR.$MINOR.$PATCH+$build"
 tag="v$nova"
 
 echo
-azul "→ $atual  ->  $nova   (bump $NIVEL)"
+azul "→ $atual  ->  $nova   ($descricao)"
 azul "→ tag: $tag"
 
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
@@ -212,5 +252,10 @@ else
 fi
 
 echo
-azul "Depois: ./run_build_copy instala a versão nova em /Applications, e o"
-azul "rodapé da barra lateral do Hub passa a mostrar $nova."
+if [ "$MODO_BUILD" = true ]; then
+  azul "Depois: abra a PR $BRANCH_BUMP -> main. O portão 'check-build-bump'"
+  azul "confere que o build cresceu; promovida, o ./scripts/release publica a $nova."
+else
+  azul "Depois: siga integrando. Na hora de promover, rode --build (ou o botão"
+  azul "'Preparar release' na aba Actions) e abra a PR $BRANCH_BUMP -> main."
+fi

@@ -9,6 +9,7 @@ import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/hub_detail_region.dart';
 import 'package:evergreen/features/pin/models/clipboard_item_type.dart';
 import 'package:evergreen/features/track/data/track_repository.dart';
+import 'package:evergreen/features/track/presentation/viewmodels/track_view_model.dart';
 import 'package:evergreen/features/track/presentation/widgets/track_day_list.dart';
 import 'package:evergreen/features/track/presentation/widgets/track_week_strip.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ import '../focus/fake_focus_session_repository.dart';
 import '../pin/fake_clipboard_repository.dart';
 import '../echo/fake_export_service.dart';
 import '../echo/fake_echo_audio.dart';
+import '../pin/fake_pin_image_store.dart';
 
 /// A tela do Track dentro do Hub.
 ///
@@ -99,6 +101,7 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
+          pinImageStoreProvider.overrideWithValue(FakePinImageStore()),
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository([]),
           ),
@@ -260,6 +263,42 @@ void main() {
     expect(find.text('Refatorar o auth'), findsOneWidget);
     // Nem parágrafo, nem aviso de que ele falta: o resumo é enfeite.
     expect(find.textContaining('resumo'), findsNothing);
+  });
+
+  testWidgets('o parágrafo diz quem o escreveu', (tester) async {
+    channel.summaryValue = 'Foi uma manhã de foco.';
+    insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
+
+    await pumpTrack(tester);
+    await tester.tap(inDayList('Hoje'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Resumido por Apple Intelligence'), findsOneWidget);
+  });
+
+  testWidgets('o modelo que voltou escreve o dia na releitura seguinte', (
+    tester,
+  ) async {
+    // O servidor do LM Studio estava desligado: o dia abre sem parágrafo.
+    channel.failWith = const EchoException('unsupported_os', 'indisponível');
+    insertFocus(at(0, 9, 12), const Duration(minutes: 25), 'Refatorar o auth');
+
+    await pumpTrack(tester);
+    await tester.tap(inDayList('Hoje'));
+    await tester.pumpAndSettle();
+    expect(find.text('Foi uma manhã de foco.'), findsNothing);
+
+    // Ligado o servidor, a tela é montada de novo — e o dia aberto tenta outra
+    // vez, sem precisar fechar o Hub.
+    channel
+      ..failWith = null
+      ..summaryValue = 'Foi uma manhã de foco.';
+    ProviderScope.containerOf(
+      tester.element(find.byType(HubDetailRegion)),
+    ).read(trackViewModelProvider.notifier).refresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Foi uma manhã de foco.'), findsOneWidget);
   });
 
   testWidgets('sem nada registrado, a tela diz o que falta acontecer', (

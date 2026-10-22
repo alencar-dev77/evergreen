@@ -65,7 +65,9 @@ class EgTogglePill extends StatelessWidget {
             Text(
               count == 0 ? '—' : _compact(count!),
               style: eg.text.monoSmall.copyWith(
-                color: isOn ? eg.colors.textSecondary : eg.colors.textQuaternary,
+                color: isOn
+                    ? eg.colors.textSecondary
+                    : eg.colors.textQuaternary,
               ),
             ),
           ],

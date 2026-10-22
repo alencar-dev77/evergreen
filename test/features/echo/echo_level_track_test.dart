@@ -10,10 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// continua desenhando dez barrinhas, todas do mesmo tamanho, e só uma captura
 /// de tela denuncia.
 void main() {
-  Future<List<double>> heights(
-    WidgetTester tester,
-    List<double> bands,
-  ) async {
+  Future<List<double>> heights(WidgetTester tester, List<double> bands) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(),

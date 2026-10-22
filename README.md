@@ -1,14 +1,57 @@
 # Evergreen
 
-Suíte pessoal de produtividade para macOS. Tudo local, nada vai para a internet.
+Suíte de produtividade para a barra de menus do macOS. Tudo roda na sua
+máquina: nada do que você copia, anota, grava ou organiza sai dela.
+
+Roda em **Mac com Apple Silicon** (M1 ou mais novo) a partir do **macOS 14**. Mac
+Intel não é suportado: o app nunca foi testado lá, e o que ele faz com IA local
+(o resumo das reuniões e o parágrafo do dia) não roda em Intel.
 
 Sete módulos em um app só: **Pin** (área de transferência), **Focus**
 (cronômetro), **Leaf** (anotações), **Awake** (tela acesa), **Echo** (reuniões),
 **Nest** (prateleira de arquivos) e **Track** (o dia reconstruído).
 
+Código aberto, sob a [GPL-3.0](LICENSE).
+
 ---
 
-## Rodando
+## Instalando
+
+1. Baixe o `Evergreen-<versão>.dmg` da [última versão](https://github.com/alencar-dev77/evergreen/releases/latest).
+   Ele é assinado e notarizado pela Apple, então o macOS o abre sem aviso.
+2. Abra o `.dmg` e arraste o Evergreen para **Aplicativos**. Se você abrir o app
+   direto do `.dmg` ou dos Downloads, ele mesmo oferece se mover para lá.
+3. Procure o **canivete na barra de menus**. O Evergreen não abre janela ao
+   iniciar e não aparece no Dock. As configurações abrem com `⌘⇧,`, ou pelo
+   menu da barra → **Configurações**.
+4. O macOS vai pedir algumas permissões conforme você usa cada módulo — a
+   tabela em [Permissões do macOS](#permissões-do-macos) diz qual é para quê.
+
+Enquanto não houver um `.dmg` publicado, o caminho é compilar a partir do
+código ([Rodando a partir do código](#rodando-a-partir-do-código)).
+
+**Para desinstalar**, use Configurações → Aplicativo → **Desinstalar o Evergreen**: além de
+mandar o app para o Lixo, ele apaga os dados, as preferências, as permissões e
+o item de início. Arrastar só o app para o Lixo deixa os dados para trás.
+
+### O que sai da máquina
+
+Nada do que você usa. O histórico do Pin, as anotações, as reuniões gravadas e
+os arquivos do Nest ficam no disco do seu Mac, e o Evergreen não tem conta,
+servidor nem telemetria. Ele abre só duas conexões:
+
+- **O download, uma vez, do modelo que separa as vozes do Echo**, do Hugging
+  Face, na primeira reunião com fala do outro lado. Só baixa: nada
+  é enviado.
+- **O LM Studio, se você o escolher como modelo local** — e esse fica na própria
+  máquina (`127.0.0.1`), nunca na internet.
+
+Os erros vão para um registro local (ver [Quando algo dá errado](#quando-algo-dá-errado)),
+que nunca leva o que você copiou, anotou ou gravou.
+
+---
+
+## Rodando a partir do código
 
 ```bash
 flutter pub get
@@ -16,13 +59,15 @@ flutter run -d macos
 ```
 
 O Evergreen é um **agente de barra de menus** (`LSUIElement`): ao iniciar, **não
-abre janela nenhuma e não aparece no Dock**. Procure o quadrado verde na barra
+abre janela nenhuma e não aparece no Dock**. Procure o canivete na barra
 superior do macOS.
 
-### Instalando de verdade
+### Instalando a partir do código
+
+Os comandos moram em [`scripts/`](scripts/README.md), cada um explicado lá.
 
 ```bash
-./run_build_copy
+./scripts/run_build_copy
 ```
 
 Builda em release, reassina com uma identidade estável e copia para
@@ -31,13 +76,26 @@ cujo hash muda a cada build — e a cada mudança o macOS descarta as permissõe
 guardadas para o app, entre elas a Acessibilidade que sustenta o auto-colar do
 Pin. O cabeçalho do script explica a ordem em que ele escolhe o certificado.
 
+### Gerando o instalador
+
+```bash
+./scripts/release
+```
+
+Gera `build/release/Evergreen-<versão>.dmg`, assinado com o Developer ID e
+notarizado pela Apple, e o publica no GitHub Release da tag — é o arquivo que
+se manda para outra pessoa. Roda da `main` promovida, com a tag da versão no
+HEAD. A configuração de uma vez por máquina (certificado e credencial da
+notarização) está em
+[docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+
 ---
 
 ## Os módulos
 
 | Módulo | O que faz | Atalho global |
 |---|---|---|
-| **Pin** | Histórico da área de transferência, com busca, apelidos e itens fixados | `⌘⇧C` |
+| **Pin** | Histórico da área de transferência (texto e imagem), com busca, apelidos e itens fixados | `⌘⇧C` |
 | **Focus** | Ciclos de foco e pausa, com o registro do que foi feito em cada sessão | `⌘⇧F` |
 | **Leaf** | Parede de até nove anotações curtas, todas à vista de uma vez | `⌘⇧D` |
 | **Awake** | Impede o Mac de dormir pelo prazo escolhido — a tela, ou só o sistema | `⌘⇧X` |
@@ -58,6 +116,15 @@ para. Nada é apagado: religar devolve tudo como estava.
 O **Echo exige macOS 26** (é de lá que vêm `SpeechAnalyzer` e o modelo de resumo
 local). Abaixo disso o módulo se recusa a gravar e o resto do app segue normal.
 
+O resumo das reuniões e o parágrafo do dia do Track são escritos por um **modelo
+local**. O padrão é o do **Apple Intelligence**, que já vem no sistema. Em
+Configurações → Aplicativo → **Modelo local** dá para trocar por um modelo que
+você tenha baixado no [LM Studio](https://lmstudio.ai) — o Qwen3.5 4B, por
+exemplo, lê uma reunião de uma hora de uma vez. O modelo só ocupa memória
+enquanto escreve, e todo texto diz quem o escreveu ("Resumido por …"). Para não
+precisar abrir o LM Studio, ligue nele o **Serviço Local de LLM** (Developer):
+o servidor sobe com o Mac, leve e sem modelo carregado.
+
 Uma reunião aberta no Hub tem duas faces — resumo e transcrição — e cada uma
 tem os próprios botões de **Copiar** e **Exportar**, ao lado do seletor: eles
 sempre agem sobre a face que está na tela. Copiar leva o texto como ele se lê;
@@ -74,6 +141,20 @@ gravação não para com o painel fechado. A posição não fica guardada: o pr�
 O **Track** não tem atalho nem painel de propósito: ele não grava nada, só lê o
 que os outros seis módulos já gravaram.
 
+### O notch
+
+Em MacBook com o recorte da câmera, o notch ganha dois usos — e, sem nada
+acontecendo, continua sendo só o recorte:
+
+- **A ilha**: enquanto o Echo grava ou o Focus conta, o que está rodando aparece
+  em volta do recorte; com o mouse em cima ela abre, com pausar e parar.
+- **A porta do Nest**: levar um arquivo até o notch no meio do arraste abre,
+  logo abaixo dele, a pilha de arquivos do Nest (tela do Nest → Ajustes →
+  "Abrir pelo notch"). Com arquivos na pilha, fechar o Nest a guarda no notch
+  em vez de sumir com ela.
+
+Em Mac sem recorte nada disso existe, nem as linhas de preferência.
+
 ---
 
 ### Atalhos dentro do painel do Pin
@@ -86,6 +167,7 @@ que os outros seis módulos já gravaram.
 | `⌥1`…`⌥5` | Copia direto o 1º…5º **fixado** e fecha |
 | `←` `→` | Anda pela fila de filtros por tipo |
 | `⌘P` | Fixa/desafixa o item selecionado |
+| `⌘G` | No filtro de CPF ou CNPJ, gera um documento válido e copia |
 | `⌥↑` `⌥↓` | Reordena o fixado selecionado dentro do grupo |
 | `⌘⌫` | Apaga o item selecionado, sem fechar o painel |
 | `⌘R` | Dá um apelido ao item selecionado |
@@ -103,7 +185,11 @@ posições.
 
 Cada item é classificado na captura como **texto**, **link**, **e-mail**,
 **telefone**, **CPF**, **CNPJ** ou **comando**, e o tipo vira uma pílula de
-filtro na busca. Imagens, arquivos e rich text continuam de fora.
+filtro na busca. **Imagens** também entram — uma captura de tela, uma imagem
+copiada do navegador ou um arquivo de imagem copiado no Finder — e colar
+devolve a imagem, não o caminho. Quando a cópia traz texto e imagem juntos (um
+parágrafo do Pages), fica o texto. Arquivos que não são imagem e rich text
+continuam de fora.
 
 #### Apelidos
 
@@ -146,6 +232,25 @@ sem erro: o `⌘V` fica manual, como antes.
 
 ---
 
+## Quando algo dá errado
+
+Nada sai da máquina, então nenhum relatório de falha chega a ninguém sozinho.
+Em vez disso, o Evergreen guarda os próprios erros num registro local
+(`Diagnóstico/`, na pasta do aplicativo) — só o que aconteceu e onde, **nunca**
+o que passou pela área de transferência, o que foi anotado, gravado ou o nome
+de um arquivo.
+
+Configurações → Aplicativo → **Diagnóstico**:
+
+- **Copiar diagnóstico** — põe na área de transferência um texto pronto para
+  colar numa issue: versão, macOS, chip, módulos ligados, permissões, tamanho
+  do banco e as últimas linhas do registro.
+- **Registro de erros** e **Falhas do macOS** — abrem no Finder a pasta do
+  registro e a `~/Library/Logs/DiagnosticReports`, onde o sistema guarda os
+  relatórios (`.ips`) de quando um app fecha sozinho.
+
+---
+
 ## Permissões do macOS
 
 | Permissão | Para quê | Sem ela |
@@ -162,7 +267,7 @@ registro enquanto o app roda de `build/macos/...`, sem assinatura estável e for
 de `/Applications`. Nesse caso o toggle volta sozinho para desligado — é
 intencional: ele reflete o estado real do sistema, não a intenção.
 
-Para testar de verdade, instale com `./run_build_copy` e rode de
+Para testar de verdade, instale com `./scripts/run_build_copy` e rode de
 `/Applications`.
 
 ---
@@ -228,6 +333,10 @@ dos automáticos e a restauração; ficam os **cinco** mais recentes.
 O snapshot é um `VACUUM INTO`: um arquivo único, consistente e compactado, sem
 `-wal` nem `-shm` para acompanhar. Dá para copiar para onde quiser.
 
+O que não mora no banco fica **fora** do backup: as imagens do Pin
+(`Pin/Imagens`) e o áudio das reuniões do Echo (`Reuniões`, guardado por 14
+dias), ambos na pasta do aplicativo.
+
 ---
 
 ## Arquitetura
@@ -237,6 +346,7 @@ lib/
   app/          composição: providers, raiz do app, bootstrap dos serviços
   core/
     design/     tokens: cores, tipografia, métricas, tema
+    diagnostics/ registro de erros local e o texto do "Copiar diagnóstico"
     storage/    banco SQLite, migrações e backup
     system/     barra de menus, atalhos globais, foco do app anterior, autostart
     window/     criação e controle das duas janelas
@@ -245,6 +355,7 @@ lib/
     utils/
   features/
     home/       o Hub e as configurações do aplicativo
+    notch/      a ilha do notch (desenhada pelo Swift) e as preferências dele
     pin/  focus/  leaf/  awake/  echo/  nest/  track/
       data/         repositórios e serviços do módulo
       models/       entidades
@@ -252,6 +363,27 @@ lib/
         viewmodels/ estado e regras (Notifier do Riverpod)
         views/      telas
         widgets/    componentes do módulo
+```
+
+Fora do `lib/`:
+
+```
+macos/Runner/         o lado nativo: um canal Swift por assunto que o Flutter não alcança
+  AppDelegate.swift         ciclo de vida: fechar janela não encerra o app
+  MainFlutterWindow.swift   janela 0, Hub, área de transferência, imagem do Pin, trava do Awake,
+                            iniciar com o macOS e devolver o foco ao app anterior
+  EchoChannel.swift         captura, transcrição e resumo do Echo (macOS 26)
+  EchoPlayerChannel.swift   o player do áudio guardado da reunião
+  NestChannel.swift         arraste do Finder, miniaturas e saída da prateleira
+  NestDragMonitor.swift     chacoalhar o arquivo e levá-lo ao notch
+  NotchIsland.swift         a ilha do notch, uma NSPanel sem Flutter
+  NotificationChannel.swift notificações do sistema
+packages/             hotkey_manager_macos vendorizado, com Package.swift (é o que tira o CocoaPods)
+assets/               ícone da barra de menus (gerado a partir da marca) e imagens do onboarding
+test/                 espelha lib/; goldens/ guarda as imagens de conferência, tools/ os geradores
+docs/Ideis projeto/   decisões de arquitetura, alternativas descartadas e propostas futuras
+docs/                 especificação do redesign "Estufa" e documentos históricos
+.github/workflows/    label de bump na PR, bump da versão no merge e CI na promoção
 ```
 
 As convenções de arquitetura — a regra do MVVM, como adicionar um módulo, o
@@ -284,7 +416,7 @@ As imagens são geradas em [test/goldens/](test/goldens/).
 O `version:` do `pubspec.yaml` é o que a sidebar do Hub mostra no rodapé. Quem
 bumpa é o GitHub Actions no merge de uma PR na `validation`, lendo a label
 `bump:` da própria PR; a `main` herda o número pela PR de promoção. Quando o
-Actions está fora do ar, `./bump_version` faz o mesmo à mão — na `validation`,
+Actions está fora do ar, `./scripts/bump_version` faz o mesmo à mão — na `validation`,
 depois do merge.
 
 O caminho de uma mudança é `feature → validation → main`: a PR de feature pede
@@ -295,6 +427,47 @@ e `flutter test`.
 
 ## O que ainda não está pronto
 
-- **Pin só guarda texto.** Imagens, arquivos e rich text estão no plano.
+- **Pin não guarda arquivos nem rich text.** Texto e imagem já entram; o resto
+  está no plano.
 - **Fixados não se reordenam arrastando.** Por teclado (`⌥↑`/`⌥↓`) já funciona;
   o arrasto com o mouse é que falta.
+
+---
+
+## Contribuindo
+
+Issues com bug, dúvida ou ideia são muito bem-vindas — para bug, cole junto o
+texto do **Copiar diagnóstico** (Configurações → Aplicativo → Diagnóstico).
+
+Para mandar código:
+
+1. Faça um fork e crie a sua branch a partir da `validation`.
+2. Antes de abrir a PR, rode `flutter analyze` e `flutter test` — a suíte só roda
+   no CI na promoção para a `main`, então é a sua máquina que segura a barra.
+3. Abra a PR para a **`validation`**. A label de versão (`bump:patch`,
+   `bump:minor` ou `bump:major`) quem põe é o mantenedor.
+
+As convenções do projeto (arquitetura, regras de UI, por que cada decisão foi
+tomada) estão no [AGENTS.md](AGENTS.md) e em [docs/](docs/). A interface é em
+português do Brasil. Ao contribuir, você concorda em licenciar a sua
+contribuição sob a mesma GPL-3.0 do projeto.
+
+## Apoie o projeto
+
+O Evergreen é gratuito e vai continuar sendo. Se ele te ajuda e você quiser
+contribuir com o desenvolvimento, qualquer valor via **Pix** é bem-vindo, pela chave aleatória:
+
+```
+94e2aa73-999c-4e5f-8cf2-0572f565eeb2
+```
+
+## Licença
+
+Copyright © 2026 Lucas Alencar Simões de Melo.
+
+[GNU General Public License v3.0](LICENSE). Você pode usar, estudar, modificar e
+redistribuir o Evergreen; quem distribuir uma versão modificada precisa
+distribuí-la também sob a GPL-3.0, com o código.
+
+O pacote vendorizado em [`packages/hotkey_manager_macos/`](packages/hotkey_manager_macos/)
+mantém a licença MIT do autor original.

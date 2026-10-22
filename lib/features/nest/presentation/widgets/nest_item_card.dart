@@ -66,10 +66,7 @@ class NestItemCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
         child: Row(
           children: [
-            SizedBox.square(
-              dimension: _thumbnail,
-              child: _preview(context),
-            ),
+            SizedBox.square(dimension: _thumbnail, child: _preview(context)),
             const SizedBox(width: AppSpacing.md),
             Expanded(child: _label(context)),
             const SizedBox(width: AppSpacing.sm),

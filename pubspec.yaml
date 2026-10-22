@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.26.1+1
+version: 0.35.1+2
 
 environment:
   sdk: ^3.11.5
@@ -31,22 +31,26 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  flutter_riverpod: ^3.3.2
-  shared_preferences: ^2.5.5
-  sqlite3: ^3.5.0
+  flutter_riverpod: ^3.4.3
+  shared_preferences: ^2.5.6
+  sqlite3: ^3.7.1
   path_provider: ^2.1.6
   path: ^1.9.1
   window_manager: ^0.5.2
-  tray_manager: ^0.5.3
+  tray_manager: ^0.8.0
   hotkey_manager: ^0.2.3
   screen_retriever: ^0.2.2
   launch_at_startup: ^0.5.1
   intl: ^0.20.3
   desktop_multi_window: ^0.3.0
   package_info_plus: ^9.0.1
+
+# O `hotkey_manager_macos` do pub.dev só traz `.podspec`; a cópia em
+# `packages/` tem um `Package.swift` e é o que tira o CocoaPods da build. Ver
+# `packages/hotkey_manager_macos/README.md`.
+dependency_overrides:
+  hotkey_manager_macos:
+    path: packages/hotkey_manager_macos
 
 dev_dependencies:
   flutter_test:
@@ -58,12 +62,22 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  fake_async: ^1.3.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
+  # A build macOS é só SPM (ver `dependency_overrides`). Fixado aqui, e não no
+  # `flutter config` de cada máquina, para que ninguém regere um `Podfile` sem
+  # saber.
+  config:
+    enable-swift-package-manager: true
+    # Só Apple Silicon: a parte Intel nunca foi testada, e o que o Evergreen faz
+    # com IA local (resumo do Echo, parágrafo do Track) não roda em Mac Intel.
+    # Ver o AGENTS.md (Stack).
+    enable-macos-arm64-only: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

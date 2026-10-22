@@ -113,11 +113,7 @@ class _DialPainter extends CustomPainter {
     final center = size.center(Offset.zero);
     final radius = (size.shortestSide - _stroke) / 2;
 
-    canvas.drawCircle(
-      center,
-      radius - _stroke / 2,
-      Paint()..color = fill,
-    );
+    canvas.drawCircle(center, radius - _stroke / 2, Paint()..color = fill);
 
     final ring = Paint()
       ..style = PaintingStyle.stroke

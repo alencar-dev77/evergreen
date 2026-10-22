@@ -1,4 +1,5 @@
 import 'transcription_language.dart';
+import 'vocabulary_correction.dart';
 
 /// Preferências do módulo Echo.
 class EchoSettings {
@@ -51,11 +52,24 @@ class EchoSettings {
   /// Aceita uma por linha **e** separadas por vírgula, porque as duas maneiras
   /// são o que a pessoa faz sem pensar — e nenhuma das duas é mais certa que a
   /// outra.
-  List<String> get vocabularyTerms => vocabulary
+  ///
+  /// Uma troca (`a zap -> ASAP`) entra aqui pelo lado certo: quem ensinou que
+  /// "a zap" é "ASAP" quer que o modelo espere "ASAP".
+  List<String> get vocabularyTerms => {
+    for (final entry in _vocabularyEntries)
+      VocabularyCorrection.parse(entry)?.written ??
+          (VocabularyCorrection.isCorrection(entry) ? '' : entry),
+  }.where((term) => term.isNotEmpty).toList(growable: false);
+
+  /// As trocas do campo de vocabulário, aplicadas ao texto já transcrito.
+  List<VocabularyCorrection> get vocabularyCorrections => [
+    for (final entry in _vocabularyEntries) ?VocabularyCorrection.parse(entry),
+  ];
+
+  Iterable<String> get _vocabularyEntries => vocabulary
       .split(RegExp(r'[\n,;]'))
       .map((term) => term.trim())
-      .where((term) => term.isNotEmpty)
-      .toList(growable: false);
+      .where((term) => term.isNotEmpty);
 
   /// Quantas reuniões o histórico mantém.
   ///
@@ -98,8 +112,11 @@ class EchoSettings {
       'Escreva em tópicos curtos. Registre decisões, pendências e quem ficou '
       'responsável por cada coisa.';
 
-  /// O exemplo apagado do campo de vocabulário — nomes, não frases.
-  static const vocabularyHint = 'Evergreen, Riverpod, Diletta, Lucas Alencar';
+  /// O exemplo apagado do campo de vocabulário — nomes, não frases, e uma
+  /// troca. Palavras que qualquer um reconhece: o exemplo ensina o formato, e
+  /// um jargão que a pessoa não conhece faz ela parar para entender a palavra
+  /// em vez do formato.
+  static const vocabularyHint = 'Ana Souza, Kubernetes, sprint, gira -> Jira';
 
   EchoSettings copyWith({
     bool? liveTranscription,

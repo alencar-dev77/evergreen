@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/diagnostics/app_log.dart';
 import '../models/nest_transfer_mode.dart';
 
 /// Uma miniatura pronta, para o caminho que a pediu.
@@ -44,6 +45,9 @@ class NestChannel {
   final _thumbnails = StreamController<NestThumbnail>.broadcast();
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
   final _shakes = StreamController<void>.broadcast();
+  final _notch = StreamController<void>.broadcast();
+  final _notchDragEnded = StreamController<void>.broadcast();
+  final _pointerInside = StreamController<bool>.broadcast();
 
   /// Caminhos soltos sobre o painel.
   Stream<List<String>> get onDropped => _dropped.stream;
@@ -59,8 +63,26 @@ class NestChannel {
   /// Alguém chacoalhou um arquivo no meio de um arraste.
   ///
   /// Chega uma vez por aperto de botão: o lado nativo trava depois de avisar,
-  /// senão um chacoalhar viraria três aberturas. Ver `NestShakeMonitor`.
+  /// senão um chacoalhar viraria três aberturas. Ver `NestDragMonitor`.
   Stream<void> get onShake => _shakes.stream;
+
+  /// Alguém parou com um arquivo no notch.
+  ///
+  /// Uma vez por aperto de botão, como o chacoalhar — e os dois nunca no mesmo
+  /// aperto: o primeiro que reconhecer o gesto trava o outro. Ver
+  /// `NestDragMonitor`.
+  Stream<void> get onNotch => _notch.stream;
+
+  /// O arraste que chamou a prateleira pelo notch terminou — solto nela ou em
+  /// qualquer outro lugar.
+  Stream<void> get onNotchDragEnded => _notchDragEnded.stream;
+
+  /// O cursor entrou (`true`) ou saiu (`false`) do painel do Nest na tela.
+  ///
+  /// Com o botão do mouse apertado conta como dentro: no meio de um arraste o
+  /// cursor passa por fora do painel a caminho dele. É o que diz à pilha do
+  /// notch quando recolher.
+  Stream<bool> get onPointerInside => _pointerInside.stream;
 
   /// O arraste que saiu da prateleira terminou: com o que o destino fez, ou
   /// `null` quando ele foi solto em lugar nenhum.
@@ -93,6 +115,16 @@ class NestChannel {
         case 'onShake':
           if (!_shakes.isClosed) _shakes.add(null);
 
+        case 'onNotch':
+          if (!_notch.isClosed) _notch.add(null);
+
+        case 'onNotchDragEnded':
+          if (!_notchDragEnded.isClosed) _notchDragEnded.add(null);
+
+        case 'onPointerInside':
+          final inside = arguments?['inside'] as bool? ?? false;
+          if (!_pointerInside.isClosed) _pointerInside.add(inside);
+
         case 'onThumbnail':
           final path = arguments?['path'] as String?;
           final bytes = arguments?['bytes'] as Uint8List?;
@@ -109,6 +141,11 @@ class NestChannel {
   /// esperando uma preferência que ninguém quer.
   Future<void> setShakeEnabled({required bool enabled}) =>
       _invoke<void>('setShakeEnabled', {'enabled': enabled});
+
+  /// Liga ou desliga a porta do notch. Sem recorte na tela, ligada ou não, ela
+  /// não reconhece nada.
+  Future<void> setNotchEnabled({required bool enabled}) =>
+      _invoke<void>('setNotchEnabled', {'enabled': enabled});
 
   /// Deixa a janela 0 aceitar arquivos.
   ///
@@ -144,10 +181,7 @@ class NestChannel {
   /// de mouse que originou o gesto não há sessão de arraste. O resultado chega
   /// depois, por [onDragOutEnded]. Com [move], o arraste sai como promessa de
   /// arquivo e quem move é o lado nativo — o destino só escolhe a pasta.
-  Future<bool> beginDragOut(
-    List<String> paths, {
-    required bool move,
-  }) async =>
+  Future<bool> beginDragOut(List<String> paths, {required bool move}) async =>
       await _invoke<bool>('beginDrag', {'paths': paths, 'move': move}) ?? false;
 
   /// Pede a miniatura de um arquivo. A resposta chega por [onThumbnail], em
@@ -166,10 +200,14 @@ class NestChannel {
   Future<bool> moveToTrash(String path) async =>
       await _invoke<bool>('moveToTrash', {'path': path}) ?? false;
 
-  Future<T?> _invoke<T>(String method, [Map<String, Object?>? arguments]) async {
+  Future<T?> _invoke<T>(
+    String method, [
+    Map<String, Object?>? arguments,
+  ]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
-    } on PlatformException {
+    } on PlatformException catch (error) {
+      AppLog.channelError('nest', method, error);
       // O lado nativo recusou — pasta que sumiu entre o clique e a chamada,
       // arquivo sem permissão. Quem chama já trata o vazio, e derrubar o painel
       // por causa de um arquivo seria pior que não fazer nada.
@@ -185,6 +223,9 @@ class NestChannel {
     _dropped.close();
     _dragOutEnded.close();
     _shakes.close();
+    _notch.close();
+    _notchDragEnded.close();
+    _pointerInside.close();
     _dragOver.close();
     _thumbnails.close();
   }

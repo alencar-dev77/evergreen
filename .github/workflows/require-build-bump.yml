@@ -1,0 +1,60 @@
+name: Promoção exige build number novo
+
+# Portão: toda PR `validation` -> `main` tem que trazer um build number MAIOR
+# que o que já está na `main`. Sem ele, o botão "Preparar release" é só uma
+# convenção — esquecer de apertá-lo publica um `.dmg` com o mesmo número do
+# anterior, e o "sobre" do app deixa de dizer qual publicação está instalada.
+#
+# Dispara nas DUAS bases e inclui `edited`: trocar a base de uma PR não emite
+# `opened` nem `synchronize`, e sem isso o resultado da base antiga ficaria
+# vermelho pra sempre. `synchronize` entra porque este portão olha o conteúdo
+# do `pubspec.yaml`, que muda quando se empurra o commit de bump.
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+    branches: [main, validation]
+
+jobs:
+  check-build-bump:
+    # PULADO — não verde — quando a PR não mira a `main`: verde aqui afirma
+    # "esta promoção tem publicação nova", e só a PR de release pode afirmar
+    # isso. Job pulado gera check run cinza, que substitui o vermelho de uma
+    # base antiga, e não aloca runner.
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir que o build number cresceu
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+
+          build_de() {
+            case "$1" in
+              *+*) printf '%s' "${1##*+}" ;;
+              *)   printf '0' ;;
+            esac
+          }
+
+          git fetch --quiet --depth=1 origin "$BASE_REF"
+          versao_main="$(git show "FETCH_HEAD:pubspec.yaml" | grep -m1 '^version:' | awk '{print $2}')"
+          versao_prom="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
+
+          build_main="$(build_de "$versao_main")"
+          build_prom="$(build_de "$versao_prom")"
+
+          case "$build_main$build_prom" in
+            *[!0-9]*) echo "::error::Build number ilegível (main='$versao_main', promoção='$versao_prom')."; exit 1 ;;
+          esac
+
+          echo "main:      $versao_main  (build $build_main)"
+          echo "promoção:  $versao_prom  (build $build_prom)"
+
+          if [ "$build_prom" -le "$build_main" ]; then
+            echo "::error::O build number não cresceu ($build_main -> $build_prom). Rode 'Preparar release' na aba Actions (ou ./scripts/bump_version --build --push na validation) antes de promover."
+            exit 1
+          fi
+
+          echo "OK: build number cresceu ($build_main -> $build_prom)."

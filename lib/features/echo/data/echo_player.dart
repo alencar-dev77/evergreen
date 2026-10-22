@@ -25,6 +25,10 @@ abstract interface class EchoPlayer {
 
   Future<void> seek(int positionMs);
 
+  /// A velocidade da fala: `1.0` é a normal. O tom não muda — o
+  /// `AVAudioPlayer` estica o tempo sem deixar a voz aguda.
+  Future<void> setRate(double rate);
+
   Future<EchoPlayerStatus> status();
 
   /// Para e solta o arquivo.
@@ -60,6 +64,9 @@ class ChannelEchoPlayer implements EchoPlayer {
   @override
   Future<void> seek(int positionMs) =>
       _call('seek', {'positionMs': positionMs});
+
+  @override
+  Future<void> setRate(double rate) => _call('rate', {'rate': rate});
 
   @override
   Future<EchoPlayerStatus> status() async {

@@ -216,6 +216,24 @@ class AppDatabase {
     'echo-meetings-audio': '''
     ALTER TABLE echo_meetings ADD COLUMN audio_file TEXT;
     ''',
+    // A imagem copiada no Pin: o que se sabe dela, em JSON — o arquivo na
+    // pasta `Pin/Imagens`, as dimensões, o nome e o caminho de quando veio do
+    // Finder, o site de quando veio do navegador. A imagem em si fica fora do
+    // banco pelo mesmo motivo do áudio do Echo. `NULL` é "não é imagem".
+    'clipboard-image': '''
+    ALTER TABLE clipboard_items ADD COLUMN image TEXT;
+    ''',
+    // Quem escreveu o resumo: "Apple Intelligence", "Qwen3.5 4B". O nome de
+    // exibição na hora do resumo, e não o id — o modelo pode sair do disco
+    // depois, e o resumo continua sabendo de onde veio.
+    //
+    // Até aqui só o Apple Intelligence resumia, então todo resumo que já
+    // existe é dele.
+    'echo-summary-model': '''
+    ALTER TABLE echo_meetings ADD COLUMN summary_model TEXT;
+    UPDATE echo_meetings SET summary_model = 'Apple Intelligence'
+      WHERE summary IS NOT NULL AND TRIM(summary) <> '';
+    ''',
   };
 
   /// Abre (ou reaproveita) a conexão com o banco.

@@ -27,9 +27,18 @@ class MeetingTurn {
     required this.text,
     this.endMs = 0,
     this.pieces = const [],
+    this.voice,
   });
 
   final Speaker speaker;
+
+  /// A voz do outro lado, quando a reunião as separou — ver
+  /// [MeetingSegment.voice]. Duas vozes diferentes são dois turnos, mesmo
+  /// sem silêncio entre elas: é a troca de pessoa que fecha um parágrafo.
+  final int? voice;
+
+  /// O rótulo de quem falou, como a tela e o documento o leem.
+  String labelFor(String userName) => speaker.labelFor(userName, voice: voice);
 
   /// Quando a fala começou — o horário do primeiro pedaço.
   final int startMs;
@@ -87,6 +96,7 @@ class MeetingTurn {
     final turns = <MeetingTurn>[];
 
     Speaker? speaker;
+    int? voice;
     var startMs = 0;
     var endMs = 0;
     final buffer = <String>[];
@@ -99,6 +109,7 @@ class MeetingTurn {
       turns.add(
         MeetingTurn(
           speaker: atual,
+          voice: voice,
           startMs: startMs,
           endMs: endMs,
           text: _join(buffer),
@@ -113,12 +124,14 @@ class MeetingTurn {
       final text = segment.text.trim();
       if (text.isEmpty) continue;
 
-      final trocouDePessoa = segment.speaker != speaker;
+      final trocouDePessoa =
+          segment.speaker != speaker || segment.voice != voice;
       final houveSilencio = segment.startMs - endMs > _gapMs;
 
       if (trocouDePessoa || houveSilencio) {
         flush();
         speaker = segment.speaker;
+        voice = segment.voice;
         startMs = segment.startMs;
       }
 

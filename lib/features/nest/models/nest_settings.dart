@@ -16,7 +16,7 @@ class NestSettings {
   /// Deixar o chacoalhar chamar a prateleira no meio de um arraste.
   ///
   /// Ligado por padrão. Só vale com arquivo na mão — chacoalhar o mouse à toa
-  /// não abre nada. Ver `NestShakeMonitor`.
+  /// não abre nada. Ver `NestDragMonitor`.
   final bool useShake;
 
   /// As pastas favoritas, na ordem em que a lista as mostra — que é a ordem dos

@@ -31,18 +31,21 @@ void main() {
       expect(binding.spoken, 'Command Option →');
     });
 
-    test('a igualdade não depende da ordem em que as teclas foram apertadas', () {
-      expect(
-        _binding(PhysicalKeyboardKey.keyC, {
-          ShortcutModifier.meta,
-          ShortcutModifier.shift,
-        }),
-        _binding(PhysicalKeyboardKey.keyC, {
-          ShortcutModifier.shift,
-          ShortcutModifier.meta,
-        }),
-      );
-    });
+    test(
+      'a igualdade não depende da ordem em que as teclas foram apertadas',
+      () {
+        expect(
+          _binding(PhysicalKeyboardKey.keyC, {
+            ShortcutModifier.meta,
+            ShortcutModifier.shift,
+          }),
+          _binding(PhysicalKeyboardKey.keyC, {
+            ShortcutModifier.shift,
+            ShortcutModifier.meta,
+          }),
+        );
+      },
+    );
   });
 
   group('ida e volta do disco', () {
@@ -72,7 +75,8 @@ void main() {
   });
 
   group('o que pode virar atalho global', () {
-    String? refuse(ShortcutBinding binding, {
+    String? refuse(
+      ShortcutBinding binding, {
       Map<GlobalShortcutSlot, ShortcutBinding> taken = const {},
     }) => ShortcutRules.refuse(
       binding,
@@ -107,17 +111,20 @@ void main() {
       );
     });
 
-    test('⇧ e ⌥ juntos não bastam: sem ⌘ nem ⌃ a combinação é um caractere', () {
-      expect(
-        refuse(
-          _binding(PhysicalKeyboardKey.keyK, {
-            ShortcutModifier.shift,
-            ShortcutModifier.option,
-          }),
-        ),
-        contains('⌘ ou ⌃'),
-      );
-    });
+    test(
+      '⇧ e ⌥ juntos não bastam: sem ⌘ nem ⌃ a combinação é um caractere',
+      () {
+        expect(
+          refuse(
+            _binding(PhysicalKeyboardKey.keyK, {
+              ShortcutModifier.shift,
+              ShortcutModifier.option,
+            }),
+          ),
+          contains('⌘ ou ⌃'),
+        );
+      },
+    );
 
     test('tecla que não serve de tecla final é recusada', () {
       expect(

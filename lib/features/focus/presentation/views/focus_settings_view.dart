@@ -15,6 +15,8 @@ import '../viewmodels/focus_history_view_model.dart';
 import '../viewmodels/focus_settings_view_model.dart';
 import '../widgets/focus_history_list.dart';
 import '../widgets/focus_summary.dart';
+import '../../../notch/models/notch_settings.dart';
+import '../../../notch/presentation/widgets/notch_toggle_row.dart';
 
 /// Tela do Focus dentro do Hub.
 ///
@@ -162,6 +164,15 @@ class _FocusSettingsViewState extends ConsumerState<FocusSettingsView> {
                 value: settings.alertOnScreen,
                 onChanged: viewModel.setAlertOnScreen,
               ),
+              if (NotchToggleRow.isAvailable(ref))
+                const NotchToggleRow(
+                  module: NotchModule.focus,
+                  label: 'Mostrar no notch',
+                  description:
+                      'O tempo que falta fica ao lado do notch enquanto a '
+                      'sessão corre. Com o mouse em cima, ele abre para pausar '
+                      'ou encerrar.',
+                ),
             ],
           ),
           EgSettingsCard(

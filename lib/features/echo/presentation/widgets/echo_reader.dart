@@ -13,6 +13,7 @@ import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
 import '../viewmodels/echo_library_view_model.dart';
 import '../viewmodels/echo_playback_view_model.dart';
 import 'echo_meeting_detail.dart';
+import 'echo_meeting_title.dart';
 import 'echo_player_bar.dart';
 import '../../../../core/design/eg_tokens.dart';
 
@@ -53,11 +54,12 @@ class EchoReader extends ConsumerWidget {
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            meeting.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: context.eg.text.panelTitle,
+          // Pela reunião: trocar de reunião com o nome em edição guarda o que
+          // foi escrito na de antes, em vez de levá-lo para a seguinte.
+          EchoMeetingTitle(
+            key: ValueKey(meeting.id),
+            meeting: meeting,
+            onRename: (title) => viewModel.rename(meeting.id!, title),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
@@ -65,9 +67,12 @@ class EchoReader extends ConsumerWidget {
               DayLabel.of(meeting.startedAt),
               DayLabel.time(meeting.startedAt),
               DurationFormat.compact(meeting.duration),
-              // O que a gravação pegou. Não é "quantas vozes": o Echo separa
-              // faixas, não pessoas, e dizer "3 vozes" prometeria um
-              // reconhecimento que ele não faz — ver `Speaker`.
+              // O que a gravação pegou. Não é "quantas vozes": as faixas são
+              // certeza, e as vozes do outro lado são palpite de timbre —
+              // "3 vozes" aqui seria afirmar o palpite como fato, e erraria
+              // na primeira reunião em que duas pessoas soam parecido. A
+              // transcrição mostra "Pessoa 1", "Pessoa 2" ao lado do que cada
+              // uma disse, que é onde o palpite pode ser conferido.
               if (!meeting.isEmpty)
                 meeting.hasMyVoice ? 'sua voz e a reunião' : 'só a reunião',
             ].join(' · '),
@@ -82,6 +87,7 @@ class EchoReader extends ConsumerWidget {
               onToggle: () => unawaited(player.toggle()),
               onSkip: (offset) => unawaited(player.skipBy(offset)),
               onSeek: (ms) => unawaited(player.seekTo(ms)),
+              onCycleRate: () => unawaited(player.cycleRate()),
             ),
           ],
         ],
@@ -91,6 +97,8 @@ class EchoReader extends ConsumerWidget {
         onSeek: (ms) => unawaited(player.seekTo(ms)),
         onUserScroll: player.stopFollowing,
         meeting: meeting,
+        query: library.query,
+        jump: library.jump,
         userName: ref.watch(
           appSettingsViewModelProvider.select((settings) => settings.userName),
         ),

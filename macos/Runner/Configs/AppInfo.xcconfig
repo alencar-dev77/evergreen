@@ -11,4 +11,4 @@ PRODUCT_NAME = Evergreen
 PRODUCT_BUNDLE_IDENTIFIER = com.alencardev.evergreen
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 Lucas Alencar. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Lucas Alencar Simões de Melo. Licenciado sob a GPL-3.0.

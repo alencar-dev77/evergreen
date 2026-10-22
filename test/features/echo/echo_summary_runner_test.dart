@@ -5,16 +5,19 @@ import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_channel.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/features/echo/data/echo_summary_runner.dart';
+import 'package:evergreen/features/echo/models/echo_capabilities.dart';
 import 'package:evergreen/features/echo/models/echo_settings.dart';
 import 'package:evergreen/features/echo/models/meeting.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
 import 'package:evergreen/features/echo/models/transcription_language.dart';
 import 'package:evergreen/features/echo/presentation/viewmodels/echo_library_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../../core/local_model/fake_lm_studio_http.dart';
 import 'fake_echo_channel.dart';
 import 'fake_export_service.dart';
 import 'fake_echo_audio.dart';
@@ -39,9 +42,10 @@ void main() {
   late int meetingId;
 
   /// O engine da janela 0: é dele que sai o runner que faz o trabalho.
-  ProviderContainer openBackground() {
+  ProviderContainer openBackground({List<Override> extra = const []}) {
     final container = ProviderContainer(
       overrides: [
+        ...extra,
         sharedPreferencesProvider.overrideWithValue(preferences),
         echoAudioStoreProvider.overrideWithValue(FakeEchoAudioStore()),
         echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
@@ -299,8 +303,124 @@ void main() {
 
       expect(channel.summarizedTexts, hasLength(1));
       expect(repository.findById(longMeetingId)!.hasSummary, isTrue);
+      expect(
+        repository.findById(longMeetingId)!.summaryModel,
+        'Apple Intelligence',
+      );
+    });
+
+    test(
+      'com o LM Studio, a reunião vai inteira e o modelo sai da memória',
+      () async {
+        await preferences.setString('app.local_model_source', 'lm_studio');
+        await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+        await preferences.setString('app.local_model_name', 'Qwen3.5 4B');
+        final http = FakeLmStudioHttp();
+        final lmStudio = openBackground(
+          extra: [
+            lmStudioHttpProvider.overrideWithValue(http),
+            localModelIdleGraceProvider.overrideWithValue(Duration.zero),
+          ],
+        );
+
+        await lmStudio.read(echoSummaryRunnerProvider).start(longMeetingId);
+        await pumpEventQueue();
+
+        // Um bloco só nos 32k, nenhum pelo canal do Apple Intelligence.
+        expect(http.chats, hasLength(1));
+        expect(channel.summarizedTexts, isEmpty);
+        expect(http.chats.single['max_output_tokens'], 1500);
+
+        final meeting = repository.findById(longMeetingId)!;
+        expect(meeting.summary, 'resumo');
+        expect(meeting.summaryModel, 'Qwen3.5 4B');
+        expect(http.loads, 1);
+        expect(http.loaded, isEmpty);
+      },
+    );
+
+    test('resposta vazia é erro, e o resumo que existia fica', () async {
+      repository.setSummary(
+        longMeetingId,
+        'o resumo de antes',
+        prompt: 'p',
+        model: 'Apple Intelligence',
+      );
+      await preferences.setString('app.local_model_source', 'lm_studio');
+      await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+      // Um modelo que gastou o teto inteiro pensando.
+      final http = FakeLmStudioHttp()..chatAnswer = '<think>pensando…';
+      final lmStudio = openBackground(
+        extra: [
+          lmStudioHttpProvider.overrideWithValue(http),
+          localModelIdleGraceProvider.overrideWithValue(Duration.zero),
+        ],
+      );
+      final runner = lmStudio.read(echoSummaryRunnerProvider);
+
+      await runner.start(longMeetingId);
+      await pumpEventQueue();
+
+      expect((await runner.status()).errorMessage, isNotNull);
+      final meeting = repository.findById(longMeetingId)!;
+      expect(meeting.summary, 'o resumo de antes');
+      expect(meeting.summaryModel, 'Apple Intelligence');
+      expect(http.loaded, isEmpty);
+    });
+
+    test('com o servidor desligado, "Resumir" mostra o erro', () async {
+      await preferences.setString('app.local_model_source', 'lm_studio');
+      await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+      final http = FakeLmStudioHttp()..offline = true;
+      final lmStudio = openBackground(
+        extra: [
+          lmStudioHttpProvider.overrideWithValue(http),
+          localModelIdleGraceProvider.overrideWithValue(Duration.zero),
+        ],
+      );
+      final runner = lmStudio.read(echoSummaryRunnerProvider);
+
+      await runner.start(longMeetingId);
+      await pumpEventQueue();
+
+      expect(
+        (await runner.status()).errorMessage,
+        'O servidor do LM Studio está desligado.',
+      );
+      expect(channel.summarizedTexts, isEmpty);
+      expect(repository.findById(longMeetingId)!.hasSummary, isFalse);
     });
   });
+
+  test(
+    'com o LM Studio escolhido, resumir não depende do Apple Intelligence',
+    () async {
+      channel.capabilitiesValue = const EchoCapabilities(
+        microphone: PermissionStatus.granted,
+        screenRecording: PermissionStatus.granted,
+        summaries: SummaryAvailability.appleIntelligenceNotEnabled,
+      );
+      final hub = openHub();
+      addTearDown(hub.dispose);
+      final library = hub.read(echoLibraryViewModelProvider.notifier);
+
+      await library.load();
+      expect(
+        hub.read(echoLibraryViewModelProvider).summaries.isAvailable,
+        isFalse,
+      );
+
+      await preferences.setString('app.local_model_source', 'lm_studio');
+      await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+      await library.load();
+
+      // O "Resumir" aparece, e o aviso de ligar o Apple Intelligence some.
+      expect(
+        hub.read(echoLibraryViewModelProvider).summaries.isAvailable,
+        isTrue,
+      );
+    },
+  );
 
   test('a falha do modelo fica guardada até alguém abrir a janela', () async {
     channel.failWith = const EchoException(
@@ -407,6 +527,97 @@ void main() {
       for (final instructions in channel.summarizedInstructions) {
         expect(instructions, contains('não as atribua a ninguém'));
       }
+    });
+
+    test(
+      'as vozes separadas chegam numeradas, e a regra diz o que são',
+      () async {
+        final voicesId = repository
+            .insert(
+              Meeting(
+                title: 'Planejamento',
+                startedAt: DateTime(2026, 10, 2, 14),
+                durationMs: const Duration(minutes: 5).inMilliseconds,
+                language: TranscriptionLanguage.ptBR,
+                segments: const [
+                  MeetingSegment(
+                    speaker: Speaker.others,
+                    startMs: 0,
+                    endMs: 3000,
+                    text: 'Quem fica com o relatório?',
+                    voice: 1,
+                  ),
+                  MeetingSegment(
+                    speaker: Speaker.others,
+                    startMs: 3000,
+                    endMs: 6000,
+                    text: 'Eu fico.',
+                    voice: 2,
+                  ),
+                ],
+              ),
+            )
+            .id!;
+
+        await background.read(echoSummaryRunnerProvider).start(voicesId);
+        await pumpEventQueue();
+
+        expect(
+          channel.summarizedTexts.single,
+          'Pessoa 1: Quem fica com o relatório?\nPessoa 2: Eu fico.',
+        );
+        final instructions = channel.summarizedInstructions.single;
+        expect(instructions, contains('são 2 vozes diferentes'));
+        expect(instructions, contains('O número não é nome'));
+        // No lugar da regra sem vozes, e não ao lado: as duas se contradiziam.
+        expect(instructions, isNot(contains('não as atribua a ninguém')));
+      },
+    );
+
+    test('as vozes chegam a cada bloco, numeradas da mesma forma', () async {
+      // O bloco é onde "Pessoa 2 fica com o relatório" vira "alguém fica com
+      // o relatório" — o passo final só lê o que o bloco escreveu.
+      channel.contextSizeValue = null;
+      final longId = repository
+          .insert(
+            Meeting(
+              title: 'Longa com vozes',
+              startedAt: DateTime(2026, 10, 2, 9),
+              durationMs: const Duration(minutes: 40).inMilliseconds,
+              language: TranscriptionLanguage.ptBR,
+              segments: [
+                for (var i = 0; i < 120; i++)
+                  MeetingSegment(
+                    speaker: Speaker.others,
+                    startMs: i * 1000,
+                    endMs: i * 1000 + 900,
+                    text: 'Fala $i sobre o roadmap e as metas do trimestre.',
+                    voice: i % 3 + 1,
+                  ),
+              ],
+            ),
+          )
+          .id!;
+
+      await background.read(echoSummaryRunnerProvider).start(longId);
+      await pumpEventQueue();
+
+      expect(channel.summarizedInstructions.length, greaterThan(2));
+      for (final instructions in channel.summarizedInstructions) {
+        expect(instructions, contains('são 3 vozes diferentes'));
+        expect(instructions, contains('mantenha o rótulo ao lado'));
+      }
+      expect(channel.summarizedTexts.first, contains('Pessoa 3: Fala 2'));
+    });
+
+    test('sem vozes separadas, a regra das vozes não vai', () async {
+      await background.read(echoSummaryRunnerProvider).start(meetingId);
+      await pumpEventQueue();
+
+      expect(
+        channel.summarizedInstructions.single,
+        isNot(contains('vozes diferentes')),
+      );
     });
 
     test('com nome, ele vai no rótulo e na instrução', () async {

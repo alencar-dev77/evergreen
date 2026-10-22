@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/local_model/local_model.dart';
 import '../models/app_settings.dart';
 
 /// Persistência das preferências do aplicativo.
@@ -15,6 +16,9 @@ class AppSettingsRepository {
   static const _launchAtLoginKey = 'app.launch_at_login';
   static const _startMinimizedKey = 'app.start_minimized';
   static const _automaticBackupKey = 'app.automatic_backup';
+  static const _localModelSourceKey = 'app.local_model_source';
+  static const _localModelIdKey = 'app.local_model_id';
+  static const _localModelNameKey = 'app.local_model_name';
 
   AppSettings load() {
     const defaults = AppSettings();
@@ -27,6 +31,11 @@ class AppSettingsRepository {
           _prefs.getBool(_startMinimizedKey) ?? defaults.startMinimized,
       automaticBackup:
           _prefs.getBool(_automaticBackupKey) ?? defaults.automaticBackup,
+      localModel: LocalModelChoice(
+        source: LocalModelSource.fromId(_prefs.getString(_localModelSourceKey)),
+        modelId: _prefs.getString(_localModelIdKey) ?? '',
+        modelName: _prefs.getString(_localModelNameKey) ?? '',
+      ),
     );
   }
 
@@ -36,6 +45,27 @@ class AppSettingsRepository {
       _prefs.setBool(_launchAtLoginKey, settings.launchAtLogin),
       _prefs.setBool(_startMinimizedKey, settings.startMinimized),
       _prefs.setBool(_automaticBackupKey, settings.automaticBackup),
+      _saveLocalModel(settings.localModel),
+    ]);
+  }
+
+  /// Só o que difere do padrão vai para o disco: com o Apple Intelligence as
+  /// três chaves somem, e uma versão que mude o padrão alcança quem nunca
+  /// escolheu nada.
+  Future<void> _saveLocalModel(LocalModelChoice choice) async {
+    if (choice.source == LocalModelSource.apple) {
+      await Future.wait([
+        _prefs.remove(_localModelSourceKey),
+        _prefs.remove(_localModelIdKey),
+        _prefs.remove(_localModelNameKey),
+      ]);
+      return;
+    }
+
+    await Future.wait([
+      _prefs.setString(_localModelSourceKey, choice.source.id),
+      _prefs.setString(_localModelIdKey, choice.modelId),
+      _prefs.setString(_localModelNameKey, choice.modelName),
     ]);
   }
 

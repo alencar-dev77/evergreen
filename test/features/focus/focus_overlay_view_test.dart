@@ -68,33 +68,31 @@ void main() {
   /// painel —, e dali nenhuma tecla voltava a descer: o Esc, o space e o Enter
   /// paravam juntos. Nas outras plataformas o campo não larga nada, e o teste
   /// passaria sem testar.
-  testWidgets(
-    'clicar fora do campo não emudece o Esc do painel',
-    (tester) async {
-      final closing = <String>[];
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      const channel = MethodChannel('previous_app_focus');
-      messenger.setMockMethodCallHandler(channel, (call) async {
-        closing.add(call.method);
-        return null;
-      });
-      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-      OverlayWindow.instance.resetForTest();
+  testWidgets('clicar fora do campo não emudece o Esc do painel', (
+    tester,
+  ) async {
+    final closing = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    const channel = MethodChannel('previous_app_focus');
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      closing.add(call.method);
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    OverlayWindow.instance.resetForTest();
 
-      await pumpOverlay(tester);
+    await pumpOverlay(tester);
 
-      // Um clique dentro do painel, fora do campo: o número da contagem.
-      await tester.tapAt(tester.getCenter(find.text('25:00')));
-      await tester.pumpAndSettle();
+    // Um clique dentro do painel, fora do campo: o número da contagem.
+    await tester.tapAt(tester.getCenter(find.text('25:00')));
+    await tester.pumpAndSettle();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
 
-      expect(closing, contains('beginHide'));
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+    expect(closing, contains('beginHide'));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a tela de partida propõe a sessão e pergunta a atividade', (
     tester,

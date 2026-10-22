@@ -68,10 +68,7 @@ class EgStatusStrip extends StatelessWidget {
           Text(label, style: eg.text.bodyEmphasis),
           if (value != null) ...[
             const SizedBox(width: AppSpacing.sm),
-            Text(
-              value!,
-              style: eg.text.mono.copyWith(color: tone.labelOf(eg)),
-            ),
+            Text(value!, style: eg.text.mono.copyWith(color: tone.labelOf(eg))),
           ],
           if (detail != null) ...[
             const SizedBox(width: AppSpacing.sm),

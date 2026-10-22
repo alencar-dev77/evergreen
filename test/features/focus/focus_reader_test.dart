@@ -16,6 +16,7 @@ import '../pin/fake_clipboard_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_focus_session_repository.dart';
+import '../pin/fake_pin_image_store.dart';
 
 /// A sessão do histórico na região de leitura do Hub.
 ///
@@ -79,6 +80,7 @@ void main() {
           focusSessionRepositoryProvider.overrideWithValue(repository),
           sharedPreferencesProvider.overrideWithValue(preferences),
           // O Hub abre no Pin, e a tela dele conta os itens por tipo.
+          pinImageStoreProvider.overrideWithValue(FakePinImageStore()),
           clipboardRepositoryProvider.overrideWithValue(
             FakeClipboardRepository(),
           ),

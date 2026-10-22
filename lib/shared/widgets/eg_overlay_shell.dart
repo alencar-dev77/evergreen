@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/design/app_metrics.dart';
+import '../../core/design/eg_tokens.dart';
+import '../../core/window/overlay_window.dart';
 
 /// A casca dos painéis flutuantes do Evergreen — Pin, Focus, Leaf, Awake e
 /// Echo.
@@ -39,6 +41,11 @@ import '../../core/design/app_metrics.dart';
 /// - **O painel é centralizado na janela.** Quem se posiciona na tela é a
 ///   janela; centralizar aqui é o que faz painéis de alturas diferentes
 ///   nascerem no mesmo ponto da tela.
+/// - **Menos quando ele sai do notch** (`OverlayWindow.notchAnchor`, hoje só a
+///   prateleira do Nest): aí ele encosta logo abaixo do recorte, e a entrada
+///   não é o fade — é uma pílula preta que nasce do recorte, cresce até o
+///   tamanho do painel e se dissolve nele. É o que diz de onde a prateleira
+///   veio; um fade no topo da tela pareceria um painel que errou de lugar.
 /// - **O teclado não sai do painel.** No macOS um `TextField` larga o foco a
 ///   cada clique fora dele, e o foco largado cai no escopo da rota — que fica
 ///   *acima* do `Shortcuts` do módulo. Dali nenhuma tecla volta a descer: o
@@ -67,6 +74,7 @@ class EgOverlayShell extends StatefulWidget {
     this.focusNode,
     this.draggable = false,
     this.dismissOnBlur = true,
+    this.notchAttached = false,
   });
 
   /// O painel.
@@ -115,6 +123,11 @@ class EgOverlayShell extends StatefulWidget {
   /// pediu.
   final bool dismissOnBlur;
 
+  /// Saindo do notch, o painel encosta **no topo da tela**, sem o respiro de
+  /// baixo da barra de menus: é ele que desenha a faixa do recorte, e assim
+  /// continua o recorte em vez de pousar embaixo dele. Hoje, a pilha do Nest.
+  final bool notchAttached;
+
   /// Margem para o macOS terminar a troca de foco antes de confirmarmos um
   /// blur. Curta o bastante para o fechamento continuar parecendo instantâneo.
   static const _blurGracePeriod = Duration(milliseconds: 150);
@@ -124,7 +137,7 @@ class EgOverlayShell extends StatefulWidget {
 }
 
 class _EgOverlayShellState extends State<EgOverlayShell>
-    with WindowListener, SingleTickerProviderStateMixin {
+    with WindowListener, TickerProviderStateMixin {
   late final _entrance = AnimationController(
     vsync: this,
     duration: AppDurations.entrance,
@@ -134,6 +147,13 @@ class _EgOverlayShellState extends State<EgOverlayShell>
   late final _entranceOpacity = CurvedAnimation(
     parent: _entrance,
     curve: Curves.easeOut,
+  );
+
+  /// A entrada pelo notch. Nasce em 1 pelo mesmo motivo do [_entrance].
+  late final _notchReveal = AnimationController(
+    vsync: this,
+    duration: AppDurations.notchReveal,
+    value: 1,
   );
 
   /// O escopo do painel. Explícito, e não o implícito do `FocusScope`, porque
@@ -164,16 +184,37 @@ class _EgOverlayShellState extends State<EgOverlayShell>
     // janela já na tela — não há `didBecomeKey`, então não há `onWindowFocus`
     // nem `onShow`, e o módulo novo apareceria mudo.
     _recoverFocus();
+
+    // A entrada pelo notch começa quando a âncora **aparece**, e não no foco
+    // da janela: com outro painel já na tela, a prateleira chamada pelo notch
+    // nasce sem `onWindowFocus`, e o foco não diz se o painel veio do notch.
+    //
+    // E também quando o painel já monta com a âncora posta — a janela
+    // escondida pode só desenhar depois de a âncora chegar. Não há âncora
+    // velha para enganar esta conta: `OverlayWindow.hide` a apaga.
+    _hadNotch = OverlayWindow.instance.notchAnchor.value != null;
+    if (_hadNotch) _notchReveal.forward(from: 0);
+    OverlayWindow.instance.notchAnchor.addListener(_onNotchAnchor);
+  }
+
+  bool _hadNotch = false;
+
+  void _onNotchAnchor() {
+    final hasNotch = OverlayWindow.instance.notchAnchor.value != null;
+    if (hasNotch && !_hadNotch) _notchReveal.forward(from: 0);
+    _hadNotch = hasNotch;
   }
 
   @override
   void dispose() {
     FocusManager.instance.removeListener(_onFocusChanged);
+    OverlayWindow.instance.notchAnchor.removeListener(_onNotchAnchor);
     windowManager.removeListener(this);
     _fallback.dispose();
     _scope.dispose();
     _entranceOpacity.dispose();
     _entrance.dispose();
+    _notchReveal.dispose();
     super.dispose();
   }
 
@@ -209,7 +250,10 @@ class _EgOverlayShellState extends State<EgOverlayShell>
 
   @override
   void onWindowFocus() {
-    _entrance.forward(from: 0);
+    // Saindo do notch, quem faz a entrada é a pílula — ver [_onNotchAnchor].
+    if (OverlayWindow.instance.notchAnchor.value == null) {
+      _entrance.forward(from: 0);
+    }
     widget.onShow?.call();
     // Depois do módulo: se ele recolocou o cursor num campo, não há o que
     // recuperar; se não recolocou, a casca não deixa a janela sem teclado.
@@ -259,23 +303,178 @@ class _EgOverlayShellState extends State<EgOverlayShell>
     // O escopo é o chão do teclado deste painel — ver a classe.
     panel = FocusScope(node: _scope, child: panel);
 
+    panel = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      onPanStart: widget.draggable
+          ? (_) => unawaited(windowManager.startDragging())
+          : null,
+      child: panel,
+    );
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onClose,
-      child: Align(
-        alignment: Alignment.center,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {},
-            onPanStart: widget.draggable
-                ? (_) => unawaited(windowManager.startDragging())
-                : null,
-            child: panel,
-          ),
-        ),
+      child: ValueListenableBuilder<Size?>(
+        valueListenable: OverlayWindow.instance.notchAnchor,
+        child: panel,
+        builder: (context, notch, panel) {
+          if (notch == null) {
+            return Align(
+              alignment: Alignment.center,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xxl),
+                child: panel,
+              ),
+            );
+          }
+
+          return Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.xxl,
+                widget.notchAttached ? 0 : notch.height + _NotchReveal.gap,
+                AppSpacing.xxl,
+                AppSpacing.xxl,
+              ),
+              child: _NotchReveal(
+                animation: _notchReveal,
+                notch: notch,
+                attached: widget.notchAttached,
+                child: panel!,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
+}
+
+/// A prateleira saindo do notch.
+///
+/// Uma pílula preta, da cor do recorte, nasce com a largura dele e encostada
+/// no topo da tela, cresce até o tamanho do painel e se dissolve nele enquanto
+/// o painel aparece por baixo. O painel não se mexe: quem se move é a pílula,
+/// então nada de layout é refeito durante a entrada e a prateleira já recebe
+/// arquivo no primeiro quadro.
+///
+/// Sem animação para quem pediu para reduzir movimento.
+class _NotchReveal extends StatelessWidget {
+  const _NotchReveal({
+    required this.animation,
+    required this.notch,
+    required this.child,
+    this.attached = false,
+  });
+
+  /// O respiro entre a barra de menus e o topo do painel.
+  static const gap = AppSpacing.sm;
+
+  final Animation<double> animation;
+  final Size notch;
+  final Widget child;
+
+  /// O painel encosta no topo da tela e já desenha a faixa do recorte — ver
+  /// `EgOverlayShell.notchAttached`.
+  final bool attached;
+
+  @override
+  Widget build(BuildContext context) {
+    if (AppDurations.reduced(context)) return child;
+
+    final eg = context.eg;
+
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        if (animation.value >= 1) return child!;
+
+        final t = AppDurations.curve.transform(animation.value);
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Opacity(
+              opacity: const Interval(0.35, 1).transform(t),
+              child: child,
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _NotchPillPainter(
+                    t: t,
+                    notch: notch,
+                    attached: attached,
+                    color: eg.colors.notch,
+                    radius: eg.shapes.radiusPanel,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A pílula de [_NotchReveal], desenhada em volta do painel e para cima dele —
+/// até o topo da tela, que é onde o recorte está.
+class _NotchPillPainter extends CustomPainter {
+  const _NotchPillPainter({
+    required this.t,
+    required this.notch,
+    required this.attached,
+    required this.color,
+    required this.radius,
+  });
+
+  final double t;
+  final Size notch;
+
+  /// O painel começa no topo da tela, e não abaixo da barra de menus.
+  final bool attached;
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Cheia até a metade, e daí se apaga enquanto o painel acende: a pílula
+    // vira a prateleira em vez de sumir na frente dela.
+    final opacity = t < 0.5 ? 1.0 : 1 - (t - 0.5) / 0.5;
+    if (opacity <= 0) return;
+
+    final width = lerpDouble(notch.width, size.width, t);
+    final top = attached ? 0.0 : -(_NotchReveal.gap + notch.height);
+    final bottom = lerpDouble(
+      attached ? notch.height : -_NotchReveal.gap,
+      size.height,
+      t,
+    );
+    final corner = Radius.circular(lerpDouble(notch.height / 3, radius, t));
+
+    final pill = RRect.fromLTRBAndCorners(
+      (size.width - width) / 2,
+      top,
+      (size.width + width) / 2,
+      bottom,
+      bottomLeft: corner,
+      bottomRight: corner,
+    );
+
+    canvas.drawRRect(pill, Paint()..color = color.withValues(alpha: opacity));
+  }
+
+  static double lerpDouble(double a, double b, double t) => a + (b - a) * t;
+
+  @override
+  bool shouldRepaint(_NotchPillPainter old) =>
+      old.t != t ||
+      old.notch != notch ||
+      old.attached != attached ||
+      old.color != color ||
+      old.radius != radius;
 }

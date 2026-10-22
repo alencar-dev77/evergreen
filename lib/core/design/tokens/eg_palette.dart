@@ -49,11 +49,13 @@ class EgPalette {
     required this.textQuaternary,
     required this.textDisabled,
     required this.textSelection,
+    required this.findMark,
     required this.error,
     required this.warning,
     required this.shadow,
     required this.shadowContact,
     required this.scrim,
+    required this.notch,
   });
 
   /// O topo do degradê da janela — o "chão" de tudo que não é superfície.
@@ -147,12 +149,27 @@ class EgPalette {
   final Color textDisabled;
   final Color textSelection;
 
+  /// O fundo do termo buscado, dentro de um texto que se lê — a leitura da
+  /// reunião enquanto a busca do Echo está de pé.
+  ///
+  /// Fundo, e não a cor da letra como o grifo das listas: na transcrição o
+  /// verde da letra já quer dizer "isto já foi dito", e as duas marcas
+  /// precisam caber na mesma palavra. Neutro, e não âmbar como o "buscar" do
+  /// macOS: o âmbar daqui é [ember], que é trabalho em curso.
+  final Color findMark;
+
   final Color error;
   final Color warning;
 
   final Color shadow;
   final Color shadowContact;
   final Color scrim;
+
+  /// O preto do recorte da câmera. Não é um degrau de neutro: é a cor do
+  /// hardware, e quem a usa é a ilha do notch, que precisa continuar o recorte
+  /// sem emenda — um `canvasDeep` ao lado do preto do vidro desenha a borda que
+  /// a ilha existe para não ter.
+  final Color notch;
 
   static EgPalette lerp(EgPalette a, EgPalette b, double t) => EgPalette(
     canvas: Color.lerp(a.canvas, b.canvas, t)!,
@@ -185,10 +202,12 @@ class EgPalette {
     textQuaternary: Color.lerp(a.textQuaternary, b.textQuaternary, t)!,
     textDisabled: Color.lerp(a.textDisabled, b.textDisabled, t)!,
     textSelection: Color.lerp(a.textSelection, b.textSelection, t)!,
+    findMark: Color.lerp(a.findMark, b.findMark, t)!,
     error: Color.lerp(a.error, b.error, t)!,
     warning: Color.lerp(a.warning, b.warning, t)!,
     shadow: Color.lerp(a.shadow, b.shadow, t)!,
     shadowContact: Color.lerp(a.shadowContact, b.shadowContact, t)!,
     scrim: Color.lerp(a.scrim, b.scrim, t)!,
+    notch: Color.lerp(a.notch, b.notch, t)!,
   );
 }

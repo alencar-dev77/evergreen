@@ -20,14 +20,44 @@ class Meeting {
     required this.segments,
     this.summary,
     this.summaryPrompt,
+    this.summaryModel,
     this.isKept = false,
     this.audioFile,
   });
 
   final int? id;
 
-  /// Nome dado pela pessoa, ou a data por extenso enquanto ela não deu nenhum.
+  /// Nome dado pela pessoa, ou a data por extenso enquanto ela não deu nenhum
+  /// ([defaultTitle]).
   final String title;
+
+  /// "Reunião de 14 de agosto, 15:30": o nome com que a reunião nasce, e o que
+  /// ela volta a ter quando a pessoa apaga o que deu.
+  ///
+  /// A data e a hora, e não "Reunião 12": é o que a pessoa lembra de uma
+  /// reunião que ainda não nomeou — "a de terça de manhã".
+  static String defaultTitle(DateTime startedAt) {
+    const months = [
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
+    ];
+
+    final hour = startedAt.hour.toString().padLeft(2, '0');
+    final minute = startedAt.minute.toString().padLeft(2, '0');
+
+    return 'Reunião de ${startedAt.day} de ${months[startedAt.month - 1]}, '
+        '$hour:$minute';
+  }
 
   final DateTime startedAt;
   final int durationMs;
@@ -51,6 +81,13 @@ class Meeting {
   /// a pessoa não escreveu instrução nenhuma, o que fica gravado é a padrão do
   /// aplicativo, que foi a que de fato valeu.
   final String? summaryPrompt;
+
+  /// Quem escreveu o resumo — "Apple Intelligence", "Qwen3.5 4B".
+  ///
+  /// O **nome de exibição na hora do resumo**, e não o id: o modelo pode ser
+  /// apagado do LM Studio depois, e o resumo continua sabendo de onde veio.
+  /// `null` só quando não há resumo.
+  final String? summaryModel;
 
   /// Guardada contra a limpeza automática do histórico.
   ///
@@ -78,6 +115,10 @@ class Meeting {
   bool get hasSummaryPrompt =>
       hasSummary && (summaryPrompt ?? '').trim().isNotEmpty;
 
+  /// Só quando há resumo **e** se sabe quem o escreveu.
+  bool get hasSummaryModel =>
+      hasSummary && (summaryModel ?? '').trim().isNotEmpty;
+
   bool get isEmpty => segments.isEmpty;
 
   /// Se a sua voz entrou na gravação.
@@ -85,10 +126,17 @@ class Meeting {
   /// O Echo grava duas faixas — o microfone, que é você, e o áudio do Mac, que
   /// é todo mundo menos você — e uma delas pode vir vazia: reunião em que você
   /// só ouviu, ou microfone sem permissão. É a única coisa que se pode dizer
-  /// com honestidade sobre "vozes" nesta gravação; **quantas** pessoas falaram
-  /// do outro lado o Echo não sabe, e nunca soube.
+  /// com certeza sobre "vozes" nesta gravação. **Quantas** pessoas falaram do
+  /// outro lado é palpite do modelo de diarização — ver [voiceCount].
   bool get hasMyVoice =>
       segments.any((segment) => segment.speaker == Speaker.me);
+
+  /// Quantas vozes o Echo separou do outro lado, ou zero quando não separou.
+  ///
+  /// Zero não quer dizer "ninguém falou": quer dizer que a reunião ficou com o
+  /// outro lado inteiro em "Reunião" — uma voz só, a separação que falhou, ou
+  /// reunião de antes de o Echo separar vozes.
+  int get voiceCount => {for (final segment in segments) ?segment.voice}.length;
 
   /// A transcrição inteira como texto corrido, que é o que vai para o resumo.
   ///
@@ -102,9 +150,7 @@ class Meeting {
   /// este rótulo é a única coisa que o faz escrever "Lucas ficou de revisar" em
   /// vez de "a pessoa ficou de revisar".
   String plainText({String userName = ''}) => segments
-      .map(
-        (segment) => '${segment.speaker.labelFor(userName)}: ${segment.text}',
-      )
+      .map((segment) => '${segment.labelFor(userName)}: ${segment.text}')
       .join('\n');
 
   Meeting copyWith({
@@ -112,6 +158,7 @@ class Meeting {
     String? title,
     String? summary,
     String? summaryPrompt,
+    String? summaryModel,
     bool? isKept,
     List<MeetingSegment>? segments,
     String? audioFile,
@@ -126,6 +173,7 @@ class Meeting {
       segments: segments ?? this.segments,
       summary: summary ?? this.summary,
       summaryPrompt: summaryPrompt ?? this.summaryPrompt,
+      summaryModel: summaryModel ?? this.summaryModel,
       isKept: isKept ?? this.isKept,
       audioFile: clearAudio ? null : audioFile ?? this.audioFile,
     );

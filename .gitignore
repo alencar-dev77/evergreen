@@ -28,6 +28,9 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
+# O editor roda `pub get` dentro de cada pacote vendorizado; quem resolve as
+# versões é o `pubspec.lock` da raiz.
+/packages/*/pubspec.lock
 .pub-cache/
 .pub/
 /build/
