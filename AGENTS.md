@@ -20,7 +20,11 @@ outro projeto — entra no repositório, nem em comentário. Contribuição de f
 chega por fork e PR para a `validation`; por isso o `version-bump.yml` usa
 `pull_request_target` (num fork, o `pull_request` só lê e o bump não subiria),
 e é seguro só enquanto ele fizer checkout da `validation` pós-merge, nunca do
-head da PR.
+head da PR. A armadilha do `pull_request_target`: ele roda o **arquivo do
+workflow que está na `main`**, não o da `validation` — mudança no
+`version-bump.yml` só vale depois da promoção. Por isso o que dá para pôr no
+`bump_version` (que sai do checkout da `validation`) mora nele: o título da PR
+para o CHANGELOG ele mesmo lê do evento.
 
 **A [PRIVACY.md](PRIVACY.md) é uma promessa, e muda antes do código.** Ela diz
 o que cada módulo guarda, onde, por quanto tempo, e o que sai do app (o
@@ -802,8 +806,11 @@ UI e microcopy em português (pt-BR).
   sustenta o auto-colar do Pin.
 - `./scripts/release` — o `.dmg` para distribuir: build release, assinatura Developer
   ID com runtime endurecido, notarização do `.app` e do `.dmg` e upload no
-  GitHub Release da tag `v<semver>+<build>` (exige árvore limpa e o código
-  igual ao da tag — a `main` promovida serve).
+  GitHub Release da tag `v<semver>+<build>`. **Publica só da `main`**, igual
+  à do GitHub, limpa e com o código da tag: a `validation` é integração, e um
+  `.dmg` dela seria código que a suíte não conferiu como conjunto. O
+  `release-so-da-main.yml` faz a mesma conferência no GitHub e devolve a
+  rascunho o release criado pela página com uma tag que não é da `main`.
   `--sem-publicar` para no `.dmg`; `--sem-notarizar` só assina e monta, para
   conferir a janela. Pede o certificado e a credencial do `notarytool` no
   chaveiro — o passo a passo está em

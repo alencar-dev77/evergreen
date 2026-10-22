@@ -60,8 +60,11 @@ existem (ver #127), só o `--sem-notarizar` roda — e o `.dmg` que sai dele o
 macOS de outra pessoa bloqueia; dá para abrir em Ajustes do Sistema →
 Privacidade e Segurança → "Abrir Mesmo Assim".
 
-Para publicar, o script exige árvore limpa e o código igual ao da tag da
-versão. O caminho de uma versão nova:
+Para publicar, o script exige estar na **`main`**, igual à do GitHub, com a
+árvore limpa e o código igual ao da tag da versão: o que vai para quem baixa só
+sai da `main`. Um release criado à mão pela página do GitHub com uma tag que não
+é da `main` volta a rascunho sozinho (`release-so-da-main.yml`). O caminho de uma
+versão nova:
 
 1. **Preparar release** — o botão na aba Actions (ou
    `./scripts/bump_version --build --push` na `validation`) soma +1 no build e
@@ -106,7 +109,8 @@ para você conferir antes.
 
 O bump de semver também escreve o [CHANGELOG.md](../CHANGELOG.md), no mesmo
 commit: uma seção com a versão nova e uma linha por PR, que é o título dela (o
-`--pr` e o modo sem argumento o buscam sozinhos; o `--nota` o dá à mão). O
+`--pr` e o modo sem argumento o buscam sozinhos, no Actions ele vem do evento
+da PR, e o `--nota` o dá à mão). O
 `--build` não escreve nada.
 
 ---
