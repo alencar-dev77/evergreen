@@ -131,6 +131,7 @@ class EvergreenBootstrap {
 
   /// Assinatura dos avisos do atualizador. Ver [_watchUpdates].
   StreamSubscription<UpdateState>? _updates;
+  StreamSubscription<void>? _installRequests;
 
   /// Relógio do resumo da semana. Ver [_scheduleWeekDigest].
   Timer? _weekTimer;
@@ -1205,7 +1206,43 @@ class EvergreenBootstrap {
     );
 
     _updates = service.changes.listen(apply);
+    _installRequests = service.installRequests.listen(
+      (_) => unawaited(_prepareInstall()),
+    );
     unawaited(service.state().then(apply));
+  }
+
+  /// O Sparkle vai fechar o app para instalar a versão nova: antes, o que o
+  /// "Encerrar" guardaria.
+  ///
+  /// Com uma reunião do Echo gravando ou transcrevendo, a instalação espera
+  /// ela terminar — fechar agora cortaria a reunião no meio, e quem clicou em
+  /// "Atualizar" no Hub não estava vendo o painel do Echo.
+  Future<void> _prepareInstall() async {
+    final service = _container.read(updateServiceProvider);
+
+    bool meetingInProgress() {
+      final echo = _container.read(echoRecorderViewModelProvider);
+      return echo.isRecording || echo.isBusy;
+    }
+
+    if (meetingInProgress()) {
+      await service.waitForMeeting();
+      final finished = Completer<void>();
+      final subscription = _container.listen(echoRecorderViewModelProvider, (
+        _,
+        _,
+      ) {
+        if (!meetingInProgress() && !finished.isCompleted) {
+          finished.complete();
+        }
+      });
+      await finished.future;
+      subscription.close();
+    }
+
+    await _keepWhatQuittingKeeps();
+    await service.proceedInstall();
   }
 
   /// Leva ao Hub com as novidades da versão nova na tela. O destino antes da
@@ -1220,6 +1257,17 @@ class EvergreenBootstrap {
   Future<void> _askToUninstall() async {
     await HubDestination.request(HubDestination.uninstall);
     await HubWindow.instance.open();
+  }
+
+  /// O que fechar o app não pode perder — no "Encerrar" e antes de o Sparkle
+  /// fechá-lo para instalar uma versão nova.
+  Future<void> _keepWhatQuittingKeeps() async {
+    // A ilha é uma janela nativa: sem isto ela ficaria no notch até o processo
+    // morrer, que é um instante depois — mas um instante com um relógio parado.
+    await _container.read(notchIslandChannelProvider).update(const []);
+    // A trava seria solta pelo sistema de qualquer forma quando o processo
+    // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
+    await _container.read(awakeViewModelProvider.notifier).turnOff();
   }
 
   Future<void> _quit() async {
@@ -1237,12 +1285,8 @@ class EvergreenBootstrap {
     _pileTimer?.cancel();
     await _notchActions?.cancel();
     await _notchOnShown?.cancel();
-    // A ilha é uma janela nativa: sem isto ela ficaria no notch até o processo
-    // morrer, que é um instante depois — mas um instante com um relógio parado.
-    await _container.read(notchIslandChannelProvider).update(const []);
-    // A trava seria solta pelo sistema de qualquer forma quando o processo
-    // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
-    await _container.read(awakeViewModelProvider.notifier).turnOff();
+    await _installRequests?.cancel();
+    await _keepWhatQuittingKeeps();
     await GlobalShortcutService.instance.dispose();
     await MenuBarService.instance.dispose();
     exit(0);

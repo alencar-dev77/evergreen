@@ -42,7 +42,8 @@
 	     release publicado da main. A consulta só lê: não leva perfil do sistema
 	     (SUEnableSystemProfiling) nem dado de quem usa. Ligada de fábrica, sem a
 	     pergunta do Sparkle na segunda abertura; desliga em Configurações →
-	     Aplicativo → Atualizações, e desligada não sai requisição nenhuma. -->
+	     Aplicativo → Atualizações; desligada, só sai a procura que a pessoa pedir
+	     no "Procurar". -->
 	<key>SUFeedURL</key>
 	<string>https://github.com/alencar-dev77/evergreen/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>

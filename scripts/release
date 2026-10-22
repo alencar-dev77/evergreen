@@ -216,11 +216,21 @@ ditto "$BUILT_APP" "$APP"
 # dos minutos de notarização.
 SPARKLE_BIN="build/macos/SourcePackages/artifacts/sparkle/Sparkle/bin"
 SPARKLE_ACCOUNT="${EVERGREEN_SPARKLE_ACCOUNT:-evergreen}"
-if [[ "$PUBLISH" == "1" ]] \
-  && ! "$SPARKLE_BIN/generate_keys" --account "$SPARKLE_ACCOUNT" -p > /dev/null 2>&1; then
-  echo "❌ A chave das atualizações (Sparkle, conta \"$SPARKLE_ACCOUNT\") não está" >&2
-  echo "   no chaveiro. Ver docs/Ideis projeto/atualizacao-sparkle.md." >&2
-  exit 1
+if [[ "$PUBLISH" == "1" ]]; then
+  KEYCHAIN_KEY="$("$SPARKLE_BIN/generate_keys" --account "$SPARKLE_ACCOUNT" -p 2>/dev/null || true)"
+  if [[ -z "$KEYCHAIN_KEY" ]]; then
+    echo "❌ A chave das atualizações (Sparkle, conta \"$SPARKLE_ACCOUNT\") não está" >&2
+    echo "   no chaveiro. Ver docs/Ideis projeto/atualizacao-sparkle.md." >&2
+    exit 1
+  fi
+  # Existir não basta: uma chave gerada de novo noutra máquina assinaria um
+  # appcast que todo Evergreen instalado recusaria, calado.
+  APP_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP/Contents/Info.plist")"
+  if [[ "$KEYCHAIN_KEY" != "$APP_KEY" ]]; then
+    echo "❌ A chave do chaveiro não é a SUPublicEDKey do app: quem já instalou" >&2
+    echo "   recusaria esta versão. Importe a chave certa (generate_keys -f)." >&2
+    exit 1
+  fi
 fi
 
 # --- 3. Assinatura -----------------------------------------------------------
@@ -414,7 +424,9 @@ if [[ "$PUBLISH" == "1" ]]; then
     macos/Runner.xcodeproj/project.pbxproj)"
   # As mesmas notas do release, em HTML: título de versão, lista e parágrafo.
   NOTES_HTML="$(awk '
-    function esc(t) { gsub(/&/, "\\&amp;", t); gsub(/</, "\\&lt;", t); gsub(/>/, "\\&gt;", t); return t }
+    # A marcação do Markdown (crase, negrito) sai: as notas são lidas como
+    # texto, e um `v0.x` apareceria com as crases.
+    function esc(t) { gsub(/`|\*\*/, "", t); gsub(/&/, "\\&amp;", t); gsub(/</, "\\&lt;", t); gsub(/>/, "\\&gt;", t); return t }
     /^## / { if (open) { print "</ul>"; open = 0 } print "<h3>" esc(substr($0, 4)) "</h3>"; next }
     /^- /  { if (!open) { print "<ul>"; open = 1 } print "<li>" esc(substr($0, 3)) "</li>"; next }
     /^$/   { next }
