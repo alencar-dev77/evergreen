@@ -118,11 +118,27 @@ if [[ "$PUBLISH" == "1" ]]; then
     echo "   (ou no merge na validation) — faça git fetch --tags." >&2
     exit 1
   fi
+  # **O que vai para quem baixa só sai da `main`.** A `validation` é onde as
+  # PRs se juntam, e é só na promoção que o CI roda a suíte inteira: um `.dmg`
+  # dela seria código que ninguém conferiu como conjunto. Por isso não basta
+  # estar numa tag — é a `main`, e a do GitHub, não uma cópia local adiantada
+  # ou atrasada. O `release-so-da-main.yml` confere o mesmo do lado do GitHub,
+  # para um release criado pela página.
+  if [[ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]]; then
+    echo "❌ Publicar só da main (você está em $(git rev-parse --abbrev-ref HEAD))." >&2
+    echo "   git checkout main && git pull && git fetch --tags" >&2
+    exit 1
+  fi
+  git fetch --quiet origin main
+  if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+    echo "❌ A main local não é a do GitHub. Faça git pull (e não publique" >&2
+    echo "   commit que ainda não subiu)." >&2
+    exit 1
+  fi
   # O código, e não o commit: a tag nasce no bump da `validation`, e a `main`
   # promovida é um merge por cima dele — outro commit, mesma árvore.
   if ! git diff --quiet "$TAG" HEAD; then
-    echo "❌ O código do HEAD não é o da tag $TAG. Publique da main" >&2
-    echo "   promovida, ou faça git checkout $TAG." >&2
+    echo "❌ O código da main não é o da tag $TAG. A versão foi promovida?" >&2
     exit 1
   fi
 fi

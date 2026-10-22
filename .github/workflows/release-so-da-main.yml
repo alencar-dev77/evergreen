@@ -1,0 +1,47 @@
+name: Release só da main
+
+# O que vai para quem baixa só sai da `main` — a `validation` é integração, e é
+# só na promoção que o CI roda a suíte inteira. O `./scripts/release` já se
+# recusa a publicar de outro lugar; este workflow é a mesma trava do lado do
+# GitHub, para o release criado pela página (o botão "Draft a new release"
+# aceita qualquer tag).
+#
+# A pergunta é sobre o **código**, não o commit: a tag nasce no bump da
+# `validation`, e a `main` promovida é um merge por cima dele — outro commit,
+# mesma árvore. Então o release vale se algum commit da `main` tem a árvore da
+# tag. Se não tem, ele volta a rascunho (some da página e do "latest") e o job
+# falha, para o aviso chegar por e-mail.
+#
+# Como todo workflow de evento de release, ele roda o arquivo que está na
+# `main`: passa a valer depois da promoção que o trouxer.
+on:
+  release:
+    types: [published]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Conferir que a tag é código da main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          git fetch --quiet --tags origin
+          tree="$(git rev-parse "refs/tags/$TAG^{tree}")"
+
+          if git log origin/main --format=%T | grep -qxF "$tree"; then
+            echo "✓ $TAG é código da main."
+            exit 0
+          fi
+
+          gh release edit "$TAG" --draft=true
+          echo "::error::$TAG não é código da main — o release voltou a rascunho. Promova a validation e publique da main (./scripts/release)."
+          exit 1

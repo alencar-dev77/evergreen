@@ -806,8 +806,11 @@ UI e microcopy em português (pt-BR).
   sustenta o auto-colar do Pin.
 - `./scripts/release` — o `.dmg` para distribuir: build release, assinatura Developer
   ID com runtime endurecido, notarização do `.app` e do `.dmg` e upload no
-  GitHub Release da tag `v<semver>+<build>` (exige árvore limpa e o código
-  igual ao da tag — a `main` promovida serve).
+  GitHub Release da tag `v<semver>+<build>`. **Publica só da `main`**, igual
+  à do GitHub, limpa e com o código da tag: a `validation` é integração, e um
+  `.dmg` dela seria código que a suíte não conferiu como conjunto. O
+  `release-so-da-main.yml` faz a mesma conferência no GitHub e devolve a
+  rascunho o release criado pela página com uma tag que não é da `main`.
   `--sem-publicar` para no `.dmg`; `--sem-notarizar` só assina e monta, para
   conferir a janela. Pede o certificado e a credencial do `notarytool` no
   chaveiro — o passo a passo está em
