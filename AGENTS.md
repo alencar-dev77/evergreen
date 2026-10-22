@@ -14,6 +14,14 @@ sem atalho global e sem painel).
 
 Domain: produtividade pessoal / utilitário de sistema para macOS.
 
+**Código aberto, sob a GPL-3.0** ([LICENSE](LICENSE)), num repositório público:
+nada que seja de uma pessoa — caminho de máquina, e-mail, credencial, nome de
+outro projeto — entra no repositório, nem em comentário. Contribuição de fora
+chega por fork e PR para a `validation`; por isso o `version-bump.yml` usa
+`pull_request_target` (num fork, o `pull_request` só lê e o bump não subiria),
+e é seguro só enquanto ele fizer checkout da `validation` pós-merge, nunca do
+head da PR.
+
 A visão de origem (filosofia, referências, a lista de módulos sonhados) está em
 [docs/Ideis projeto/ideia.md](docs/Ideis%20projeto/ideia.md). Propostas de
 módulo **ainda sem código**, cada uma com o porquê e o custo nativo: Snap,
@@ -230,8 +238,9 @@ e esconder ícones da barra de menus
   barra aparece em todas e a ilha só numa. **Sem recorte, nada disto existe**:
   nem a ilha, nem a porta do Nest, nem as linhas de preferência. Ver
   [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
-- **A distribuição é um `.dmg` assinado com o Developer ID da conta do Luiz
-  Fernando Bargas (time `W3TC63GH63`) e notarizado** — `./scripts/release`. O runtime
+- **A distribuição é um `.dmg` assinado com um Developer ID e notarizado** —
+  `./scripts/release`, que acha o certificado e a credencial no chaveiro de
+  quem publica; nada disso mora no repositório. O runtime
   endurecido é obrigatório para notarizar, e ele **nega o que não está
   declarado sem dar erro**: o microfone do Echo só funciona por causa do
   `com.apple.security.device.audio-input` no `Release.entitlements`. Recurso
@@ -780,7 +789,7 @@ UI e microcopy em português (pt-BR).
 
 # Branches
 
-O caminho é o do LuizLaporta e do Portal_LL: **a feature entra na `validation`,
+O caminho: **a feature entra na `validation`,
 a `validation` é promovida para a `main`.** Cada PR passa por um portão só, e
 os dois portões perguntam coisas diferentes.
 
@@ -794,7 +803,7 @@ os dois portões perguntam coisas diferentes.
   publicação, não por PR — o build responde "qual `.dmg` é este", e contaria
   merges se subisse a cada um. Até a 0.33.0 todo build era `+1`, porque o
   `cider bump <nível>` o zerava; os dois workflows agora chamam o mesmo
-  `bump_version`, como no rookplace-app e no rookplace-portal.
+  `bump_version`.
 - **`validation` → `main`.** É a PR de promoção, e é ela que roda `flutter
   analyze` e `flutter test` (`ci.yml`) — a integração é onde se confere o
   conjunto, e um runner de macOS custa dez vezes um de Linux por minuto — e
