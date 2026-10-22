@@ -133,10 +133,7 @@ abstract final class PinSearch {
     if (title != null) return PinSearchMatch(score: title);
 
     // Fora da linha exibida, só o literal — ver a tabela na classe.
-    final rest = _scoreContiguous(
-      item.searchableContent.toLowerCase(),
-      query,
-    );
+    final rest = _scoreContiguous(item.searchableContent.toLowerCase(), query);
     if (rest != null) return PinSearchMatch(score: rest);
 
     return null;

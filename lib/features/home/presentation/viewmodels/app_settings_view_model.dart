@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/local_model/local_model.dart';
 import '../../../../core/system/startup_service.dart';
 import '../../data/app_settings_repository.dart';
 import '../../models/app_settings.dart';
@@ -48,6 +49,23 @@ class AppSettingsViewModel extends Notifier<AppSettings> {
 
   Future<void> setAutomaticBackup(bool value) =>
       _update(state.copyWith(automaticBackup: value));
+
+  /// Quem escreve os textos do Evergreen. Voltar ao Apple Intelligence esquece
+  /// o modelo do LM Studio: o padrão não grava nada.
+  Future<void> setLocalModel(LocalModelChoice choice) =>
+      _update(state.copyWith(localModel: choice));
+
+  /// Trocar a origem. O LM Studio começa sem modelo, e quem o escolhe é a
+  /// tela, com o primeiro que o servidor listar (`LocalModelViewModel`).
+  Future<void> setLocalModelSource(LocalModelSource source) {
+    if (source == state.localModel.source) return Future.value();
+
+    return setLocalModel(
+      source == LocalModelSource.apple
+          ? LocalModelChoice.apple
+          : const LocalModelChoice(source: LocalModelSource.lmStudio),
+    );
+  }
 
   /// Relê as preferências do disco e adota o que achar.
   ///

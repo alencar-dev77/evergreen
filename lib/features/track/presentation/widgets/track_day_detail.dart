@@ -44,10 +44,7 @@ class TrackDayDetail extends StatelessWidget {
   List<Widget> _blocks(BuildContext context) {
     if (day.isEmpty) {
       return [
-        Text(
-          'Nada foi registrado neste dia.',
-          style: context.eg.text.caption,
-        ),
+        Text('Nada foi registrado neste dia.', style: context.eg.text.caption),
       ];
     }
 
@@ -123,6 +120,17 @@ class TrackDayDetail extends StatelessWidget {
 
     return [
       Text(summary.text!, style: context.eg.text.reading),
+      // Todo texto escrito por um modelo diz qual modelo o escreveu — a mesma
+      // assinatura do resumo do Echo.
+      if (summary.model.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Resumido por ${summary.model}',
+          style: context.eg.text.caption.copyWith(
+            color: context.eg.colors.textTertiary,
+          ),
+        ),
+      ],
       const SizedBox(height: AppSpacing.xxl),
     ];
   }

@@ -1,3 +1,4 @@
+import 'package:evergreen/features/track/data/track_summarizer.dart';
 import 'package:evergreen/features/track/data/track_summary_cache.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,19 +14,43 @@ void main() {
 
   final terca = DateTime(2026, 8, 18);
 
+  TrackParagraph p(String text) => TrackParagraph(text, 'Apple Intelligence');
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     cache = TrackSummaryCache(await SharedPreferences.getInstance());
   });
 
-  test('devolve o que guardou, para a mesma assinatura', () async {
-    await cache.write(terca, '2/50', 'Foi um dia de duas sessões.');
+  test(
+    'devolve o que guardou, para a mesma assinatura, com o modelo',
+    () async {
+      await cache.write(
+        terca,
+        '2/50',
+        const TrackParagraph('Foi um dia de duas sessões.', 'Qwen3.5 4B'),
+      );
 
-    expect(cache.read(terca, '2/50'), 'Foi um dia de duas sessões.');
-  });
+      final read = cache.read(terca, '2/50');
+      expect(read?.text, 'Foi um dia de duas sessões.');
+      expect(read?.model, 'Qwen3.5 4B');
+    },
+  );
+
+  test(
+    'parágrafo guardado antes do modelo existir volta sem assinatura',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.track.summaries':
+            '{"2026-08-18": {"s": "2/50", "t": "Um dia antigo."}}',
+      });
+      final old = TrackSummaryCache(await SharedPreferences.getInstance());
+
+      expect(old.read(terca, '2/50')?.model, '');
+    },
+  );
 
   test('assinatura diferente é dia diferente, e o texto não serve', () async {
-    await cache.write(terca, '2/50', 'Foi um dia de duas sessões.');
+    await cache.write(terca, '2/50', p('Foi um dia de duas sessões.'));
 
     // Uma sessão a mais entrou depois que o parágrafo foi escrito: ele passaria
     // a contradizer os números ao lado dele na tela.
@@ -38,7 +63,7 @@ void main() {
 
   test('guarda os últimos dias e esquece os mais antigos', () async {
     for (var day = 1; day <= TrackSummaryCache.maxDays + 3; day++) {
-      await cache.write(DateTime(2026, 8, day), 'sig', 'dia $day');
+      await cache.write(DateTime(2026, 8, day), 'sig', p('dia $day'));
     }
 
     // O plist não pode virar um depósito de parágrafos de meses atrás — e um
@@ -46,9 +71,9 @@ void main() {
     // zera toda segunda.
     expect(cache.read(DateTime(2026, 8, 1), 'sig'), isNull);
     expect(cache.read(DateTime(2026, 8, 3), 'sig'), isNull);
-    expect(cache.read(DateTime(2026, 8, 4), 'sig'), 'dia 4');
+    expect(cache.read(DateTime(2026, 8, 4), 'sig')?.text, 'dia 4');
     expect(
-      cache.read(DateTime(2026, 8, TrackSummaryCache.maxDays + 3), 'sig'),
+      cache.read(DateTime(2026, 8, TrackSummaryCache.maxDays + 3), 'sig')?.text,
       'dia ${TrackSummaryCache.maxDays + 3}',
     );
   });
@@ -61,7 +86,7 @@ void main() {
 
     expect(broken.read(terca, '2/50'), isNull);
     // E continua servindo para escrever por cima.
-    await broken.write(terca, '2/50', 'agora sim');
-    expect(broken.read(terca, '2/50'), 'agora sim');
+    await broken.write(terca, '2/50', p('agora sim'));
+    expect(broken.read(terca, '2/50')?.text, 'agora sim');
   });
 }

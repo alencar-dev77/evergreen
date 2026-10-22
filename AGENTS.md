@@ -141,7 +141,8 @@ e esconder ícones da barra de menus
   "Pessoa 1", "Pessoa 2") é palpite, e por isso mora num campo à parte. É
   enfeite: falhou, a reunião sai com o outro lado em "Reunião", sem aviso. O
   modelo é baixado do Hugging Face uma vez, e é a única conexão que o
-  Evergreen abre. Ao vivo não separa. Ver
+  Evergreen abre para fora da máquina (a outra é o `127.0.0.1` do LM Studio,
+  ver o modelo local abaixo). Ao vivo não separa. Ver
   [docs/Ideis projeto/echo-separacao-de-vozes.md](docs/Ideis%20projeto/echo-separacao-de-vozes.md).
   **O microfone é aberto cru, nunca com `setVoiceProcessingEnabled`.** O
   processamento de voz não fica dentro do Echo: enquanto ele está ligado, o
@@ -590,10 +591,43 @@ e esconder ícones da barra de menus
   vive no plist (`TrackSummaryCache`), com assinatura do dia, e não no banco.
   Não entra no backup porque se refaz sozinho — e é o que
   mantém o Track sem tabela própria mesmo guardando alguma coisa.
-- Módulo que usa o modelo local (`FoundationModels`, pelo canal do Echo) trata a
-  resposta dele como **enfeite**: abaixo do macOS 26 ou sem Apple Intelligence o
-  canal responde `unsupported_os`, e a tela precisa ficar inteira sem o texto —
-  sem aviso, sem espaço reservado, sem bloquear o que já está desenhado.
+- Módulo que usa o modelo local trata a resposta dele como **enfeite**: abaixo
+  do macOS 26, sem Apple Intelligence ou com o servidor do LM Studio desligado o
+  modelo responde `unsupported_os`, e a tela precisa ficar inteira sem o texto —
+  sem aviso, sem espaço reservado, sem bloquear o que já está desenhado. **Não
+  há volta silenciosa para o Apple Intelligence**: quem escolheu o LM Studio
+  espera o LM Studio.
+- **O modelo local é escolhível, e tem uma porta só: o `LocalModelGate`, na
+  janela 0** (`lib/core/local_model/`). O padrão é o Apple Intelligence
+  (`AppleLocalModel`, o canal do Echo de sempre); a alternativa é um modelo do
+  LM Studio (`LmStudioLocalModel`), em HTTP de Dart puro preso a
+  `127.0.0.1:1234` — **sem campo de endereço**, porque um endereço errado
+  mandaria uma reunião para fora da máquina — e pela API **nativa**
+  (`/api/v1/models`, `load`, `unload`, `chat`), que é a que deixa escolher o
+  contexto (32k) e descarregar quando se quer. Três regras do portão: **um por
+  aplicativo** (o Track pede do Hub pelo `LocalModelHost`, no arranjo do
+  `EchoSummaryHost`, senão o Track descarregaria o modelo no meio do resumo do
+  Echo); **um pedido por vez**, carregando uma vez para a fila e descarregando
+  quando ela esvazia (num resumo em blocos, depois do último); e **só
+  descarrega o que ele mesmo carregou** — o modelo que a pessoa abriu à mão no
+  LM Studio continua aberto, e o bloco segue o contexto daquela instância. O
+  `load` nativo não tem prazo de inatividade, então o Evergreen anota o que
+  carregou (`app.local_model_loaded_instance`) e a abertura seguinte
+  descarrega o que uma queda deixou (`sweep`). Quem chama — o
+  `LocalEchoSummaryRunner` e o `TrackSummarizer` — não sabe qual modelo
+  responde; o tamanho do bloco vem de `contextTokens` da sessão aberta. O
+  servidor nunca é ligado sozinho: o "Ligar" da tela do aplicativo é o único
+  ponto em que o Evergreen abre o processo de outro programa (`lms server
+  start`). Com o LM Studio escolhido, o Hub pergunta ao servidor de cinco em
+  cinco segundos quem está na memória, e a bolinha do rodapé da barra lateral
+  acende verde enquanto houver um modelo carregado. Ver
+  [docs/Ideis projeto/modelo-local-escolhivel.md](docs/Ideis%20projeto/modelo-local-escolhivel.md).
+- **Todo texto escrito por um modelo diz quem o escreveu.** O resumo do Echo
+  grava o **nome de exibição** na hora (`summary_model`, nunca o id — o modelo
+  pode sair do disco depois), e a leitura e a exportação mostram "Resumido
+  por …"; o parágrafo do Track guarda o modelo no cache, e a escolha entra na
+  assinatura do dia, então trocar de modelo refaz o parágrafo. Texto novo de
+  modelo que apareça em outro módulo grava quem o escreveu do mesmo jeito.
 - **Conteúdo longo para ler abre na região do Hub — nunca em janela nova nem em
   diálogo modal.** É o padrão do aplicativo, e vale para módulo existente ou
   novo: o módulo abre a região (`hubDetailProvider.open`), guarda no próprio

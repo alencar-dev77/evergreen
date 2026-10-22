@@ -1,3 +1,4 @@
+import '../../../core/local_model/local_model.dart';
 
 /// Preferências do Evergreen como aplicativo — as que não pertencem a módulo
 /// nenhum.
@@ -7,6 +8,7 @@ class AppSettings {
     this.launchAtLogin = false,
     this.startMinimized = true,
     this.automaticBackup = true,
+    this.localModel = LocalModelChoice.apple,
   });
 
   /// Como a pessoa se chama.
@@ -39,17 +41,25 @@ class AppSettings {
   /// volta, então o padrão que protege é o que fica ligado.
   final bool automaticBackup;
 
+  /// Quem escreve o resumo do Echo e o parágrafo do Track.
+  ///
+  /// Mora aqui, e não na tela do Echo, porque o Track também usa. O padrão é
+  /// o Apple Intelligence: quem não mexe em nada não vê diferença.
+  final LocalModelChoice localModel;
+
   AppSettings copyWith({
     String? userName,
     bool? launchAtLogin,
     bool? startMinimized,
     bool? automaticBackup,
+    LocalModelChoice? localModel,
   }) {
     return AppSettings(
       userName: userName ?? this.userName,
       launchAtLogin: launchAtLogin ?? this.launchAtLogin,
       startMinimized: startMinimized ?? this.startMinimized,
       automaticBackup: automaticBackup ?? this.automaticBackup,
+      localModel: localModel ?? this.localModel,
     );
   }
 }

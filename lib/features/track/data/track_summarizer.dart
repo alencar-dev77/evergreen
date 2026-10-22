@@ -2,16 +2,30 @@ import 'package:flutter/foundation.dart';
 
 import '../../../shared/utils/day_label.dart';
 import '../../../shared/utils/duration_format.dart';
-import '../../echo/data/echo_channel.dart';
+import '../../../core/local_model/local_model.dart';
 import '../models/track_day.dart';
+
+/// O parágrafo de um dia, com quem o escreveu.
+@immutable
+class TrackParagraph {
+  const TrackParagraph(this.text, this.model);
+
+  final String text;
+
+  /// "Apple Intelligence", "Qwen3.5 4B" — o que a tela mostra em "Resumido
+  /// por".
+  final String model;
+}
 
 /// O parágrafo em linguagem natural que abre o dia.
 ///
-/// Usa o mesmo modelo local do Echo — `FoundationModels`, pelo canal
-/// `macos/Runner/EchoChannel.swift` —, e por isso herda o piso de macOS 26 dele.
+/// Usa o mesmo modelo local do Echo, o que a pessoa escolheu na tela do
+/// aplicativo — o Apple Intelligence (macOS 26) ou um modelo do LM Studio —,
+/// pedido ao portão da janela 0 (`LocalModelGate`).
 ///
 /// **O módulo não depende disso.** Abaixo do macOS 26, sem Apple Intelligence
-/// disponível, ou se qualquer coisa der errado no caminho, o Track mostra os
+/// disponível, com o servidor do LM Studio desligado, ou se qualquer coisa der
+/// errado no caminho, o Track mostra os
 /// números e as listas normalmente e só não escreve o parágrafo: o resumo é
 /// enfeite, o dado é o produto.
 ///
@@ -26,9 +40,13 @@ import '../models/track_day.dart';
 /// registra o que ninguém escolheu registrar, e um resumo é exatamente o
 /// contrário. Ver [TrackEntry.summary].
 class TrackSummarizer {
-  const TrackSummarizer(this._channel, this._userName);
+  const TrackSummarizer(this._model, this._userName);
 
-  final EchoChannel _channel;
+  final LocalModelClient _model;
+
+  /// Três frases não passam disso — e um modelo pequeno às vezes não para de
+  /// gerar.
+  static const maxAnswerTokens = 300;
 
   /// Como chamar quem viveu o dia. Vazio, o parágrafo diz "a pessoa".
   final String _userName;
@@ -49,21 +67,23 @@ class TrackSummarizer {
   }
 
   /// Escreve o parágrafo do dia, ou `null` quando não dá para escrever.
-  Future<String?> write(TrackDay day) async {
+  Future<TrackParagraph?> write(TrackDay day) async {
     final facts = factsOf(day);
     if (facts == null) return null;
 
     try {
-      final text = await _channel.summarize(
+      final answer = await _model.answer(
         text: facts,
         instructions: instructionsFor(_userName),
+        maxTokens: maxAnswerTokens,
       );
-      final trimmed = text.trim();
+      final trimmed = answer.text.trim();
 
-      return trimmed.isEmpty ? null : trimmed;
-    } on EchoException {
-      // O caso previsto: `unsupportedOS`, modelo indisponível, janela de
-      // contexto. A tela continua inteira sem o parágrafo.
+      return trimmed.isEmpty ? null : TrackParagraph(trimmed, answer.model);
+    } on LocalModelException {
+      // O caso previsto: `unsupportedOS`, servidor desligado, modelo
+      // indisponível, janela de contexto. A tela continua inteira sem o
+      // parágrafo.
       return null;
     } catch (_) {
       // E o caso imprevisto. A captura larga é deliberada: nenhuma falha do

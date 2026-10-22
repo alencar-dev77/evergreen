@@ -104,9 +104,7 @@ class EgSettingsRow extends StatelessWidget {
               // é o que impede o texto de encostar no divisor.
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-                child: _LabelAndControl(
-                  children: [_label(context), trailing],
-                ),
+                child: _LabelAndControl(children: [_label(context), trailing]),
               ),
             ),
     );
@@ -226,7 +224,10 @@ class _RenderLabelAndControl extends RenderBox
 
       // Centrados um no outro: o controle é a resposta do rótulo, e responde
       // na altura dele, não no topo da linha.
-      _offsetOf(label).offset = Offset(0, (size.height - label.size.height) / 2);
+      _offsetOf(label).offset = Offset(
+        0,
+        (size.height - label.size.height) / 2,
+      );
       _offsetOf(control).offset = Offset(
         available - control.size.width,
         (size.height - control.size.height) / 2,
@@ -238,10 +239,7 @@ class _RenderLabelAndControl extends RenderBox
     control.layout(BoxConstraints(maxWidth: available), parentUsesSize: true);
 
     size = constraints.constrain(
-      Size(
-        available,
-        label.size.height + AppSpacing.sm + control.size.height,
-      ),
+      Size(available, label.size.height + AppSpacing.sm + control.size.height),
     );
 
     // Encostado à esquerda, debaixo do rótulo que ele responde — a mesma

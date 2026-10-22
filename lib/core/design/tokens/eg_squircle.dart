@@ -48,9 +48,8 @@ abstract final class EgSquircle {
   /// Acima do limiar ele já vem com o fator de continuidade aplicado, de modo
   /// que um `ClipRRect` com este raio encoste no `ShapeDecoration` do mesmo
   /// token em vez de destoar dele por um pixel.
-  static BorderRadius radius(double value) => BorderRadius.circular(
-    value < threshold ? value : value * _continuity,
-  );
+  static BorderRadius radius(double value) =>
+      BorderRadius.circular(value < threshold ? value : value * _continuity);
 
   /// A forma de um raio que já veio pronto — o caminho de quem recebeu um
   /// `BorderRadius` do tema e precisa desenhá-lo com `ShapeDecoration`.

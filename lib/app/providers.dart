@@ -22,6 +22,11 @@ import '../features/echo/data/echo_channel.dart';
 import '../features/echo/data/echo_player.dart';
 import '../features/echo/data/echo_repository.dart';
 import '../features/echo/data/echo_settings_repository.dart';
+import '../core/local_model/apple_local_model.dart';
+import '../core/local_model/lm_studio_http.dart';
+import '../core/local_model/lm_studio_local_model.dart';
+import '../core/local_model/local_model.dart';
+import '../core/local_model/local_model_gate.dart';
 import '../features/echo/data/echo_summary_runner.dart';
 import '../features/focus/data/focus_run_repository.dart';
 import '../features/focus/data/focus_session_repository.dart';
@@ -336,8 +341,58 @@ final echoSummaryRunnerProvider = Provider<EchoSummaryRunner>((ref) {
     repository: ref.watch(echoRepositoryProvider),
     settings: ref.watch(echoSettingsRepositoryProvider),
     appSettings: ref.watch(appSettingsRepositoryProvider),
-    channel: ref.watch(echoChannelProvider),
+    gate: ref.watch(localModelGateProvider),
   );
+});
+
+/// A conversa HTTP com o servidor do LM Studio, presa a `127.0.0.1:1234`.
+///
+/// Provider porque o teste troca pela imitação — no relógio falso do teste de
+/// widget a resposta de um socket nunca chega.
+final lmStudioHttpProvider = Provider<LmStudioHttp>((ref) {
+  final http = DartLmStudioHttp();
+  ref.onDispose(http.close);
+  return http;
+});
+
+/// Os modelos do LM Studio: carregar, escrever, descarregar.
+final lmStudioLocalModelProvider = Provider<LmStudioLocalModel>(
+  (ref) => LmStudioLocalModel(
+    api: LmStudioApi(ref.watch(lmStudioHttpProvider)),
+    ledger: PrefsLmStudioLedger(ref.watch(sharedPreferencesProvider)),
+  ),
+);
+
+/// A única porta para o modelo local — ver [LocalModelGate].
+///
+/// Só a janela 0 deve ler este provider: o portão é um por aplicativo, e um
+/// segundo no Hub descarregaria o modelo de baixo do primeiro. O Hub fala com
+/// ele pelo [localModelClientProvider].
+final localModelGateProvider = Provider<LocalModelGate>((ref) {
+  final appSettings = ref.watch(appSettingsRepositoryProvider);
+  final apple = AppleLocalModel(ref.watch(echoChannelProvider));
+  final lmStudio = ref.watch(lmStudioLocalModelProvider);
+
+  return LocalModelGate(
+    choice: () async {
+      await appSettings.reload();
+      return appSettings.load().localModel;
+    },
+    backendFor: (source) => switch (source) {
+      LocalModelSource.apple => apple,
+      LocalModelSource.lmStudio => lmStudio,
+    },
+  );
+});
+
+/// Pedir um texto ao modelo escolhido — o portão na janela 0, o canal até ele
+/// no Hub. Quem pede não sabe a diferença.
+final localModelClientProvider = Provider<LocalModelClient>((ref) {
+  if (ref.watch(windowKindProvider) == WindowKind.hub) {
+    return const WindowLocalModelClient();
+  }
+
+  return ref.watch(localModelGateProvider);
 });
 
 /// A leitura agregada que o Track faz das tabelas dos outros módulos.
@@ -353,7 +408,7 @@ final trackRepositoryProvider = Provider<TrackRepository>(
 /// disponível.
 final trackSummarizerProvider = Provider<TrackSummarizer>(
   (ref) => TrackSummarizer(
-    ref.watch(echoChannelProvider),
+    ref.watch(localModelClientProvider),
     ref.watch(appSettingsRepositoryProvider).load().userName,
   ),
 );

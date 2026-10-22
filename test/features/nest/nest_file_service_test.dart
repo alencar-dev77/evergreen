@@ -41,16 +41,19 @@ void main() {
       expect(await service.inspect(p.join(origin.path, 'fantasma')), isNull);
     });
 
-    test('pasta não é medida — o cartão mostra "Pasta", não um número', () async {
-      final path = p.join(origin.path, 'álbum');
-      Directory(path).createSync();
-      File(p.join(path, 'foto.jpg')).writeAsStringSync('12345');
+    test(
+      'pasta não é medida — o cartão mostra "Pasta", não um número',
+      () async {
+        final path = p.join(origin.path, 'álbum');
+        Directory(path).createSync();
+        File(p.join(path, 'foto.jpg')).writeAsStringSync('12345');
 
-      final item = await service.inspect(path);
+        final item = await service.inspect(path);
 
-      expect(item!.isDirectory, isTrue);
-      expect(item.sizeInBytes, 0);
-    });
+        expect(item!.isDirectory, isTrue);
+        expect(item.sizeInBytes, 0);
+      },
+    );
   });
 
   group('copiar', () {
@@ -105,7 +108,9 @@ void main() {
 
   group('nome já ocupado', () {
     test('vira "nome 2", como no Finder — nada é sobrescrito', () async {
-      File(p.join(target.path, 'nota.txt')).writeAsStringSync('o que já estava');
+      File(
+        p.join(target.path, 'nota.txt'),
+      ).writeAsStringSync('o que já estava');
       final item = await writeFile('nota.txt', 'o que chegou');
 
       final transfer = await service.send(

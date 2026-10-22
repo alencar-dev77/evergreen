@@ -85,7 +85,8 @@ class SqliteClipboardRepository implements ClipboardRepository {
 
     return {
       for (final type in ClipboardItemType.values)
-        type: rows
+        type:
+            rows
                 .where((row) => row['type'] == type.name)
                 .map((row) => row['total'] as int)
                 .firstOrNull ??

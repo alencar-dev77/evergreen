@@ -150,11 +150,13 @@ void main() {
       saved.id!,
       '- decidimos começar',
       prompt: 'Escreva em tópicos curtos.',
+      model: 'Apple Intelligence',
     );
 
     final loaded = repository.findById(saved.id!)!;
     expect(loaded.summary, '- decidimos começar');
     expect(loaded.segments, hasLength(2));
+    expect(loaded.summaryModel, 'Apple Intelligence');
   });
 
   test(
@@ -169,6 +171,7 @@ void main() {
         saved.id!,
         '- decidimos começar',
         prompt: 'Escreva em tópicos curtos.',
+        model: 'Apple Intelligence',
       );
 
       var loaded = repository.findById(saved.id!)!;
@@ -181,11 +184,14 @@ void main() {
         saved.id!,
         'Um parágrafo corrido.',
         prompt: 'Escreva um parágrafo só.',
+        model: 'Qwen3.5 4B',
       );
 
       loaded = repository.findById(saved.id!)!;
       expect(loaded.summary, 'Um parágrafo corrido.');
       expect(loaded.summaryPrompt, 'Escreva um parágrafo só.');
+      // Quem escreveu acompanha o texto, como a instrução.
+      expect(loaded.summaryModel, 'Qwen3.5 4B');
     },
   );
 

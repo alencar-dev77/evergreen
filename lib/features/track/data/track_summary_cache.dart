@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'track_summarizer.dart';
+
 /// Guarda o parágrafo que o modelo local escreveu sobre um dia.
 ///
 /// **Não é uma tabela, e é de propósito.** O Track não escreve no banco: ele é
@@ -31,24 +33,37 @@ class TrackSummaryCache {
 
   static const _signatureField = 's';
   static const _textField = 't';
+  static const _modelField = 'm';
 
   /// O parágrafo guardado para [date], se ele ainda descrever o dia.
   ///
-  /// [signature] é a do dia agora (ver `TrackDay.signature`): um resumo escrito
-  /// antes da última sessão de foco fala de um dia que não é mais este, e um
-  /// resumo que contradiz os números ao lado é pior que resumo nenhum.
-  String? read(DateTime date, String signature) {
+  /// [signature] é a do dia agora (ver `TrackDay.signature`), com o modelo
+  /// escolhido dentro: um resumo escrito antes da última sessão de foco fala de
+  /// um dia que não é mais este, e um resumo que contradiz os números ao lado
+  /// é pior que resumo nenhum. Trocar de modelo também refaz o parágrafo.
+  TrackParagraph? read(DateTime date, String signature) {
     final entry = _all()[_dayKey(date)];
     if (entry is! Map) return null;
     if (entry[_signatureField] != signature) return null;
 
     final text = entry[_textField];
-    return text is String && text.trim().isNotEmpty ? text : null;
+    if (text is! String || text.trim().isEmpty) return null;
+
+    final model = entry[_modelField];
+    return TrackParagraph(text, model is String ? model : '');
   }
 
-  Future<void> write(DateTime date, String signature, String text) {
+  Future<void> write(
+    DateTime date,
+    String signature,
+    TrackParagraph paragraph,
+  ) {
     final all = _all()
-      ..[_dayKey(date)] = {_signatureField: signature, _textField: text};
+      ..[_dayKey(date)] = {
+        _signatureField: signature,
+        _textField: paragraph.text,
+        _modelField: paragraph.model,
+      };
 
     return _prefs.setString(_key, jsonEncode(_trimmed(all)));
   }

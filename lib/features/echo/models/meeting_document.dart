@@ -102,12 +102,21 @@ abstract final class MeetingDocument {
     // tela: depois do texto, como nota de rodapé. Um resumo exportado sem a
     // instrução que o produziu é um texto sobre o qual não se pode mais
     // perguntar "por que ele ficou assim?".
-    if (kind == MeetingDocumentKind.summary && meeting.hasSummaryPrompt) {
+    final provenance = [
+      if (meeting.hasSummaryModel)
+        'Resumido por ${meeting.summaryModel!.trim()}',
+      if (meeting.hasSummaryPrompt)
+        'Instrução deste resumo: ${meeting.summaryPrompt!.trim()}',
+    ];
+    if (kind == MeetingDocumentKind.summary && provenance.isNotEmpty) {
       buffer
         ..writeln()
         ..writeln('---')
-        ..writeln()
-        ..writeln('Instrução deste resumo: ${meeting.summaryPrompt!.trim()}');
+        ..writeln();
+      for (final (index, line) in provenance.indexed) {
+        if (index > 0) buffer.writeln();
+        buffer.writeln(line);
+      }
     }
 
     return buffer.toString();
@@ -119,8 +128,7 @@ abstract final class MeetingDocument {
   /// escrito, e "Hoje" num arquivo não quer dizer nada no dia seguinte.
   static String header(Meeting meeting) {
     final at = meeting.startedAt;
-    final date =
-        '${_pad(at.day)}/${_pad(at.month)}/${at.year}';
+    final date = '${_pad(at.day)}/${_pad(at.month)}/${at.year}';
 
     return [
       date,

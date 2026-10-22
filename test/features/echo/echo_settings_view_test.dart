@@ -146,10 +146,7 @@ void main() {
 
     await pumpSettings(tester, channel: channel);
 
-    expect(
-      find.textContaining('não tem modelo para'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('não tem modelo para'), findsOneWidget);
   });
 
   testWidgets('sem resposta do sistema, a tela não acusa falta de idioma', (

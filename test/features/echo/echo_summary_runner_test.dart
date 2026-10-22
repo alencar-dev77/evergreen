@@ -11,10 +11,12 @@ import 'package:evergreen/features/echo/models/meeting_segment.dart';
 import 'package:evergreen/features/echo/models/transcription_language.dart';
 import 'package:evergreen/features/echo/presentation/viewmodels/echo_library_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../../core/local_model/fake_lm_studio_http.dart';
 import 'fake_echo_channel.dart';
 import 'fake_export_service.dart';
 import 'fake_echo_audio.dart';
@@ -39,9 +41,10 @@ void main() {
   late int meetingId;
 
   /// O engine da janela 0: é dele que sai o runner que faz o trabalho.
-  ProviderContainer openBackground() {
+  ProviderContainer openBackground({List<Override> extra = const []}) {
     final container = ProviderContainer(
       overrides: [
+        ...extra,
         sharedPreferencesProvider.overrideWithValue(preferences),
         echoAudioStoreProvider.overrideWithValue(FakeEchoAudioStore()),
         echoPlayerProvider.overrideWithValue(FakeEchoPlayer()),
@@ -299,6 +302,83 @@ void main() {
 
       expect(channel.summarizedTexts, hasLength(1));
       expect(repository.findById(longMeetingId)!.hasSummary, isTrue);
+      expect(
+        repository.findById(longMeetingId)!.summaryModel,
+        'Apple Intelligence',
+      );
+    });
+
+    test(
+      'com o LM Studio, a reunião vai inteira e o modelo sai da memória',
+      () async {
+        await preferences.setString('app.local_model_source', 'lm_studio');
+        await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+        await preferences.setString('app.local_model_name', 'Qwen3.5 4B');
+        final http = FakeLmStudioHttp();
+        final lmStudio = openBackground(
+          extra: [lmStudioHttpProvider.overrideWithValue(http)],
+        );
+
+        await lmStudio.read(echoSummaryRunnerProvider).start(longMeetingId);
+        await pumpEventQueue();
+
+        // Um bloco só nos 32k, nenhum pelo canal do Apple Intelligence.
+        expect(http.chats, hasLength(1));
+        expect(channel.summarizedTexts, isEmpty);
+        expect(http.chats.single['max_output_tokens'], 1500);
+
+        final meeting = repository.findById(longMeetingId)!;
+        expect(meeting.summary, 'resumo');
+        expect(meeting.summaryModel, 'Qwen3.5 4B');
+        expect(http.loads, 1);
+        expect(http.loaded, isEmpty);
+      },
+    );
+
+    test('resposta vazia é erro, e o resumo que existia fica', () async {
+      repository.setSummary(
+        longMeetingId,
+        'o resumo de antes',
+        prompt: 'p',
+        model: 'Apple Intelligence',
+      );
+      await preferences.setString('app.local_model_source', 'lm_studio');
+      await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+      // Um modelo que gastou o teto inteiro pensando.
+      final http = FakeLmStudioHttp()..chatAnswer = '<think>pensando…';
+      final lmStudio = openBackground(
+        extra: [lmStudioHttpProvider.overrideWithValue(http)],
+      );
+      final runner = lmStudio.read(echoSummaryRunnerProvider);
+
+      await runner.start(longMeetingId);
+      await pumpEventQueue();
+
+      expect((await runner.status()).errorMessage, isNotNull);
+      final meeting = repository.findById(longMeetingId)!;
+      expect(meeting.summary, 'o resumo de antes');
+      expect(meeting.summaryModel, 'Apple Intelligence');
+      expect(http.loaded, isEmpty);
+    });
+
+    test('com o servidor desligado, "Resumir" mostra o erro', () async {
+      await preferences.setString('app.local_model_source', 'lm_studio');
+      await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+      final http = FakeLmStudioHttp()..offline = true;
+      final lmStudio = openBackground(
+        extra: [lmStudioHttpProvider.overrideWithValue(http)],
+      );
+      final runner = lmStudio.read(echoSummaryRunnerProvider);
+
+      await runner.start(longMeetingId);
+      await pumpEventQueue();
+
+      expect(
+        (await runner.status()).errorMessage,
+        'O servidor do LM Studio está desligado.',
+      );
+      expect(channel.summarizedTexts, isEmpty);
+      expect(repository.findById(longMeetingId)!.hasSummary, isFalse);
     });
   });
 

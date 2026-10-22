@@ -92,7 +92,10 @@ void main() {
       // plano. É metade da assinatura de seleção do "Estufa" — a outra metade
       // é a superfície elevada, e nenhuma das duas é cor.
       expect(style.foregroundFor(rest), eg.colors.textSecondary);
-      expect(style.foregroundFor(rest, isSelected: true), eg.colors.textPrimary);
+      expect(
+        style.foregroundFor(rest, isSelected: true),
+        eg.colors.textPrimary,
+      );
 
       // Uma coluna sem noção de seleção devolve o mesmo conteúdo de sempre.
       final primary = eg.surfaces.primary;

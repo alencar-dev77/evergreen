@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/local_model/local_model.dart';
 import '../../../../shared/utils/day_bounds.dart';
 import '../../data/track_repository.dart';
 import '../../data/track_summarizer.dart';
@@ -18,13 +19,18 @@ import '../../models/track_range.dart';
 /// (nada — nem aviso, nem espaço reservado).
 @immutable
 class TrackSummary {
-  const TrackSummary._(this.text, this.signature, {required this.isWriting});
+  const TrackSummary._(
+    this.text,
+    this.signature, {
+    required this.isWriting,
+    this.model = '',
+  });
 
   const TrackSummary.writing(String signature)
     : this._(null, signature, isWriting: true);
 
-  const TrackSummary.written(String text, String signature)
-    : this._(text, signature, isWriting: false);
+  const TrackSummary.written(String text, String signature, {String model = ''})
+    : this._(text, signature, isWriting: false, model: model);
 
   const TrackSummary.unavailable(String signature)
     : this._(null, signature, isWriting: false);
@@ -32,8 +38,11 @@ class TrackSummary {
   final String? text;
   final bool isWriting;
 
+  /// Quem escreveu o parágrafo — "Resumido por …". Vazio quando não se sabe.
+  final String model;
+
   /// A assinatura do dia no momento em que este parágrafo foi pedido — ver
-  /// `TrackDay.signature`. É o que faz um resumo envelhecido ser descartado em
+  /// [TrackViewModel._signatureOf]. É o que faz um resumo envelhecido ser descartado em
   /// vez de continuar na tela contradizendo os números ao lado.
   final String signature;
 
@@ -212,25 +221,47 @@ class TrackViewModel extends Notifier<TrackState> {
   /// já passou não muda mais, e o Hub abre e fecha dezenas de vezes por dia —
   /// reabrir ontem não pode custar uma escrita nova do modelo toda vez.
   Future<void> _write(TrackDay day) async {
-    final signature = day.signature;
+    final signature = _signatureOf(day);
     _setSummary(day.date, TrackSummary.writing(signature));
 
-    final text = await _summarizer.write(day);
+    final paragraph = await _summarizer.write(day);
     // A tela pode ter trocado de recorte — ou a janela ter fechado — enquanto o
     // modelo escrevia.
     if (!ref.mounted) return;
 
     _setSummary(
       day.date,
-      text == null
+      paragraph == null
           ? TrackSummary.unavailable(signature)
-          : TrackSummary.written(text, signature),
+          : TrackSummary.written(
+              paragraph.text,
+              signature,
+              model: paragraph.model,
+            ),
     );
 
     // Só o que deu certo é guardado: "o modelo não estava disponível" é uma
     // condição da máquina naquele instante, não um fato sobre o dia, e guardá-la
     // faria a tela desistir de tentar de novo na próxima abertura.
-    if (text != null) unawaited(_cache.write(day.date, signature, text));
+    if (paragraph != null) {
+      unawaited(_cache.write(day.date, signature, paragraph));
+    }
+  }
+
+  /// A assinatura do dia (`TrackDay.signature`) com o modelo escolhido dentro.
+  ///
+  /// Trocar de modelo refaz o parágrafo: quem escolheu outro modelo quer ler o
+  /// dia escrito por ele, e não o texto antigo assinado pelo anterior. A
+  /// escolha é gravada neste mesmo engine (a tela do aplicativo é do Hub), então
+  /// ler o disco basta.
+  String _signatureOf(TrackDay day) {
+    final choice = ref.read(appSettingsRepositoryProvider).load().localModel;
+
+    // Com o padrão, a assinatura de antes: o cache de quem nunca escolheu
+    // outro modelo continua valendo.
+    return choice.source == LocalModelSource.apple
+        ? day.signature
+        : '${day.signature}|${choice.key}';
   }
 
   void _setSummary(DateTime date, TrackSummary summary) {
@@ -285,10 +316,15 @@ class TrackViewModel extends Notifier<TrackState> {
     for (final day in days) {
       if (restored.containsKey(day.date)) continue;
 
-      final text = _cache.read(day.date, day.signature);
-      if (text == null) continue;
+      final signature = _signatureOf(day);
+      final paragraph = _cache.read(day.date, signature);
+      if (paragraph == null) continue;
 
-      restored[day.date] = TrackSummary.written(text, day.signature);
+      restored[day.date] = TrackSummary.written(
+        paragraph.text,
+        signature,
+        model: paragraph.model,
+      );
     }
 
     return restored;
@@ -299,13 +335,13 @@ class TrackViewModel extends Notifier<TrackState> {
   /// Um resumo que diz "três sessões" ao lado de uma lista com quatro é pior
   /// que resumo nenhum — e é exatamente o que acontece quando uma sessão é
   /// registrada com o Hub aberto.
-  static Map<DateTime, TrackSummary> _pruneSummaries(
+  Map<DateTime, TrackSummary> _pruneSummaries(
     Map<DateTime, TrackSummary> summaries,
     List<TrackDay> days,
   ) {
     if (summaries.isEmpty) return summaries;
 
-    final signatures = {for (final day in days) day.date: day.signature};
+    final signatures = {for (final day in days) day.date: _signatureOf(day)};
 
     return {
       for (final entry in summaries.entries)
