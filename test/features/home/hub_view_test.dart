@@ -150,39 +150,37 @@ void main() {
     /// clique num campo de preferência deixava a janela sem Esc até ser
     /// reaberta. Nas outras plataformas o campo não larga nada, e o teste
     /// passaria sem testar.
-    testWidgets(
-      'depois de sair de um campo, o Esc ainda esconde a janela',
-      (tester) async {
-        final lookups = watchWindowLookups();
-        await pumpHub(tester);
+    testWidgets('depois de sair de um campo, o Esc ainda esconde a janela', (
+      tester,
+    ) async {
+      final lookups = watchWindowLookups();
+      await pumpHub(tester);
 
-        // O Echo é a única tela do Hub com campo de texto — e ele mora na aba
-        // de ajustes, que não é a que abre: quem abre o Echo vem ver as
-        // reuniões.
-        await tester.tap(find.text('Echo').first);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Ajustes'));
-        await tester.pumpAndSettle();
-        final field = find.byType(TextField).first;
-        await tester.dragUntilVisible(
-          field,
-          find.byType(SingleChildScrollView).first,
-          const Offset(0, -80),
-        );
-        await tester.tap(field);
-        await tester.pumpAndSettle();
+      // O Echo é a única tela do Hub com campo de texto — e ele mora na aba
+      // de ajustes, que não é a que abre: quem abre o Echo vem ver as
+      // reuniões.
+      await tester.tap(find.text('Echo').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ajustes'));
+      await tester.pumpAndSettle();
+      final field = find.byType(TextField).first;
+      await tester.dragUntilVisible(
+        field,
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -80),
+      );
+      await tester.tap(field);
+      await tester.pumpAndSettle();
 
-        // Um clique em qualquer outro lugar da janela tira o cursor do campo.
-        await tester.tap(find.text('Evergreen').first);
-        await tester.pumpAndSettle();
+      // Um clique em qualquer outro lugar da janela tira o cursor do campo.
+      await tester.tap(find.text('Evergreen').first);
+      await tester.pumpAndSettle();
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
 
-        expect(lookups, contains('getWindowDefinition'));
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-    );
+      expect(lookups, contains('getWindowDefinition'));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('com a região aberta, fecha a região e a janela fica', (
       tester,

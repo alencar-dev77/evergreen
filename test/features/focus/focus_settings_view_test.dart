@@ -210,7 +210,8 @@ void main() {
     expect(
       repository.loadRecent(),
       hasLength(2),
-      reason: 'a lista só mostra a semana corrente — a linha fica no disco '
+      reason:
+          'a lista só mostra a semana corrente — a linha fica no disco '
           'para o Track',
     );
   });

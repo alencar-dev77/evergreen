@@ -19,7 +19,12 @@ abstract interface class EchoRepository {
   /// Um parâmetro só, e obrigatório, porque texto e instrução são o mesmo
   /// fato: um resumo cuja instrução não foi registrada é o que esta coluna
   /// existe para acabar.
-  void setSummary(int id, String summary, {required String prompt});
+  void setSummary(
+    int id,
+    String summary, {
+    required String prompt,
+    required String model,
+  });
 
   void setTitle(int id, String title);
 
@@ -52,7 +57,7 @@ class SqliteEchoRepository implements EchoRepository {
 
   static const _columns =
       'id, title, started_at, duration_ms, language, transcript, summary, '
-      'summary_prompt, is_kept, audio_file';
+      'summary_prompt, summary_model, is_kept, audio_file';
 
   @override
   List<Meeting> loadAll({int limit = 200}) {
@@ -80,8 +85,8 @@ class SqliteEchoRepository implements EchoRepository {
       '''
       INSERT INTO echo_meetings
         (title, started_at, duration_ms, language, transcript, summary,
-         summary_prompt, is_kept, audio_file)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+         summary_prompt, summary_model, is_kept, audio_file)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       ''',
       [
         meeting.title,
@@ -91,6 +96,7 @@ class SqliteEchoRepository implements EchoRepository {
         meeting.encodeSegments(),
         meeting.summary,
         meeting.summaryPrompt,
+        meeting.summaryModel,
         meeting.isKept ? 1 : 0,
         meeting.audioFile,
       ],
@@ -100,10 +106,16 @@ class SqliteEchoRepository implements EchoRepository {
   }
 
   @override
-  void setSummary(int id, String summary, {required String prompt}) {
+  void setSummary(
+    int id,
+    String summary, {
+    required String prompt,
+    required String model,
+  }) {
     _db.execute(
-      'UPDATE echo_meetings SET summary = ?, summary_prompt = ? WHERE id = ?;',
-      [summary, prompt, id],
+      'UPDATE echo_meetings '
+      'SET summary = ?, summary_prompt = ?, summary_model = ? WHERE id = ?;',
+      [summary, prompt, model, id],
     );
   }
 
@@ -197,6 +209,7 @@ class SqliteEchoRepository implements EchoRepository {
     segments: Meeting.decodeSegments(row['transcript'] as String?),
     summary: row['summary'] as String?,
     summaryPrompt: row['summary_prompt'] as String?,
+    summaryModel: row['summary_model'] as String?,
     isKept: (row['is_kept'] as int? ?? 0) == 1,
     audioFile: row['audio_file'] as String?,
   );

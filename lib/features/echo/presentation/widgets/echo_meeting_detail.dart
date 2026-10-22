@@ -383,11 +383,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
   /// foi feito não tem o que copiar, e oferecer o botão assim mesmo seria
   /// prometer uma cópia vazia.
   bool get _hasDocument =>
-      MeetingDocument.body(
-        widget.meeting,
-        _tab,
-        userName: widget.userName,
-      ) !=
+      MeetingDocument.body(widget.meeting, _tab, userName: widget.userName) !=
       null;
 
   void _selectTab(MeetingDocumentKind kind) {
@@ -453,6 +449,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _summaryText(),
+        if (meeting.hasSummaryModel) _author(meeting.summaryModel!),
         if (meeting.hasSummaryPrompt) _prompt(meeting.summaryPrompt!),
       ],
     );
@@ -502,6 +499,18 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
       'Ainda sem resumo. Ele é feito nesta máquina, a partir da '
       'transcrição, e leva alguns segundos.',
       style: context.eg.text.caption,
+    );
+  }
+
+  /// Quem escreveu o resumo acima — colado nele, como uma assinatura.
+  ///
+  /// Todo texto que um modelo escreve diz qual modelo o escreveu: com mais de
+  /// um à escolha, dois resumos da mesma reunião podem ter vindo de lugares
+  /// diferentes, e a diferença entre eles começa por aí.
+  Widget _author(String model) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: Text('Resumido por $model', style: context.eg.text.caption),
     );
   }
 
@@ -565,9 +574,7 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
             turn: turns[index],
             marks: _marksOf(index, turns[index].text),
             userName: widget.userName,
-            spoken: position == null
-                ? 0
-                : turns[index].spokenCount(position),
+            spoken: position == null ? 0 : turns[index].spokenCount(position),
             onSeek: isPlayable ? widget.onSeek : null,
           ),
           if (index != turns.length - 1) const SizedBox(height: AppSpacing.xl),

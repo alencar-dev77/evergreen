@@ -47,32 +47,36 @@ void main() {
       expect(preferences.getKeys(), isEmpty);
     });
 
-    test('desligar grava; religar apaga a chave em vez de gravar true', () async {
-      final repository = ModuleSettingsRepository(preferences);
+    test(
+      'desligar grava; religar apaga a chave em vez de gravar true',
+      () async {
+        final repository = ModuleSettingsRepository(preferences);
 
-      await repository.setEnabled(EvergreenModule.echo, enabled: false);
-      expect(repository.load().isEnabled(EvergreenModule.echo), isFalse);
-      expect(preferences.getKeys(), contains('module.echo.enabled'));
+        await repository.setEnabled(EvergreenModule.echo, enabled: false);
+        expect(repository.load().isEnabled(EvergreenModule.echo), isFalse);
+        expect(preferences.getKeys(), contains('module.echo.enabled'));
 
-      await repository.setEnabled(EvergreenModule.echo, enabled: true);
-      expect(repository.load().isEnabled(EvergreenModule.echo), isTrue);
-      // Ligado é a ausência da chave: é o que faz um módulo novo nascer ligado
-      // sem migração nenhuma.
-      expect(preferences.getKeys(), isEmpty);
-    });
+        await repository.setEnabled(EvergreenModule.echo, enabled: true);
+        expect(repository.load().isEnabled(EvergreenModule.echo), isTrue);
+        // Ligado é a ausência da chave: é o que faz um módulo novo nascer ligado
+        // sem migração nenhuma.
+        expect(preferences.getKeys(), isEmpty);
+      },
+    );
 
     test('módulo desligado sai dos atalhos que vão para o sistema', () {
       const settings = ModuleSettings(disabled: {EvergreenModule.nest});
 
-      expect(settings.activeBindings.keys, isNot(contains(GlobalShortcutSlot.nest)));
+      expect(
+        settings.activeBindings.keys,
+        isNot(contains(GlobalShortcutSlot.nest)),
+      );
       // Mas a tecla continua sendo dele, para ninguém tomá-la enquanto isso.
       expect(settings.allBindings.keys, contains(GlobalShortcutSlot.nest));
     });
 
     test('o atalho do Hub nunca sai: é a porta para religar o resto', () {
-      final settings = ModuleSettings(
-        disabled: EvergreenModule.values.toSet(),
-      );
+      final settings = ModuleSettings(disabled: EvergreenModule.values.toSet());
 
       expect(settings.activeBindings.keys, [GlobalShortcutSlot.hub]);
     });
@@ -104,12 +108,18 @@ void main() {
 
       expect(await model(scope).record(GlobalShortcutSlot.pin, livre), isNull);
 
-      expect(scope.read(moduleSettingsViewModelProvider).bindingFor(
-        GlobalShortcutSlot.pin,
-      ), livre);
-      expect(ModuleSettingsRepository(preferences).load().bindingFor(
-        GlobalShortcutSlot.pin,
-      ), livre);
+      expect(
+        scope
+            .read(moduleSettingsViewModelProvider)
+            .bindingFor(GlobalShortcutSlot.pin),
+        livre,
+      );
+      expect(
+        ModuleSettingsRepository(
+          preferences,
+        ).load().bindingFor(GlobalShortcutSlot.pin),
+        livre,
+      );
     });
 
     test('a recusa não grava nada', () async {
@@ -123,9 +133,9 @@ void main() {
 
       expect(refusal, contains('do Echo'));
       expect(
-        scope.read(moduleSettingsViewModelProvider).bindingFor(
-          GlobalShortcutSlot.pin,
-        ),
+        scope
+            .read(moduleSettingsViewModelProvider)
+            .bindingFor(GlobalShortcutSlot.pin),
         GlobalShortcutSlot.pin.fallback,
       );
       expect(preferences.getKeys(), isEmpty);
@@ -136,23 +146,22 @@ void main() {
 
       await model(scope).record(GlobalShortcutSlot.pin, livre);
       expect(
-        scope.read(moduleSettingsViewModelProvider).isCustom(
-          GlobalShortcutSlot.pin,
-        ),
+        scope
+            .read(moduleSettingsViewModelProvider)
+            .isCustom(GlobalShortcutSlot.pin),
         isTrue,
       );
 
-      await model(scope).record(
-        GlobalShortcutSlot.pin,
-        GlobalShortcutSlot.pin.fallback,
-      );
+      await model(
+        scope,
+      ).record(GlobalShortcutSlot.pin, GlobalShortcutSlot.pin.fallback);
 
       // Sem isto o slot ficaria "trocado" mostrando exatamente o padrão, com um
       // botão "Restaurar" que não faria diferença nenhuma.
       expect(
-        scope.read(moduleSettingsViewModelProvider).isCustom(
-          GlobalShortcutSlot.pin,
-        ),
+        scope
+            .read(moduleSettingsViewModelProvider)
+            .isCustom(GlobalShortcutSlot.pin),
         isFalse,
       );
       expect(preferences.getKeys(), isEmpty);
@@ -165,9 +174,9 @@ void main() {
       await model(scope).restoreDefault(GlobalShortcutSlot.pin);
 
       expect(
-        scope.read(moduleSettingsViewModelProvider).bindingFor(
-          GlobalShortcutSlot.pin,
-        ),
+        scope
+            .read(moduleSettingsViewModelProvider)
+            .bindingFor(GlobalShortcutSlot.pin),
         GlobalShortcutSlot.pin.fallback,
       );
       expect(preferences.getKeys(), isEmpty);
@@ -177,10 +186,9 @@ void main() {
       final scope = container();
       await model(scope).setEnabled(EvergreenModule.echo, enabled: false);
 
-      final refusal = await model(scope).record(
-        GlobalShortcutSlot.pin,
-        GlobalShortcutSlot.echo.fallback,
-      );
+      final refusal = await model(
+        scope,
+      ).record(GlobalShortcutSlot.pin, GlobalShortcutSlot.echo.fallback);
 
       // Deixar tomar faria os dois disputarem a mesma tecla no dia em que o
       // Echo voltasse a ligar.
@@ -211,10 +219,9 @@ void main() {
     test('a recusa não manda ninguém reaplicar nada', () async {
       final scope = container();
 
-      await model(scope).record(
-        GlobalShortcutSlot.pin,
-        GlobalShortcutSlot.echo.fallback,
-      );
+      await model(
+        scope,
+      ).record(GlobalShortcutSlot.pin, GlobalShortcutSlot.echo.fallback);
 
       expect(notifier.reapplied, isZero);
     });

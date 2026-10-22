@@ -85,23 +85,24 @@ class EgTypeScale {
   final TextStyle mono;
   final TextStyle monoSmall;
 
-  static EgTypeScale lerp(EgTypeScale a, EgTypeScale b, double t) => EgTypeScale(
-    display: TextStyle.lerp(a.display, b.display, t)!,
-    title: TextStyle.lerp(a.title, b.title, t)!,
-    panelTitle: TextStyle.lerp(a.panelTitle, b.panelTitle, t)!,
-    body: TextStyle.lerp(a.body, b.body, t)!,
-    bodyEmphasis: TextStyle.lerp(a.bodyEmphasis, b.bodyEmphasis, t)!,
-    bodyStrong: TextStyle.lerp(a.bodyStrong, b.bodyStrong, t)!,
-    bodyCompact: TextStyle.lerp(a.bodyCompact, b.bodyCompact, t)!,
-    reading: TextStyle.lerp(a.reading, b.reading, t)!,
-    footnote: TextStyle.lerp(a.footnote, b.footnote, t)!,
-    caption: TextStyle.lerp(a.caption, b.caption, t)!,
-    overline: TextStyle.lerp(a.overline, b.overline, t)!,
-    keycap: TextStyle.lerp(a.keycap, b.keycap, t)!,
-    button: TextStyle.lerp(a.button, b.button, t)!,
-    timer: TextStyle.lerp(a.timer, b.timer, t)!,
-    timerSmall: TextStyle.lerp(a.timerSmall, b.timerSmall, t)!,
-    mono: TextStyle.lerp(a.mono, b.mono, t)!,
-    monoSmall: TextStyle.lerp(a.monoSmall, b.monoSmall, t)!,
-  );
+  static EgTypeScale lerp(EgTypeScale a, EgTypeScale b, double t) =>
+      EgTypeScale(
+        display: TextStyle.lerp(a.display, b.display, t)!,
+        title: TextStyle.lerp(a.title, b.title, t)!,
+        panelTitle: TextStyle.lerp(a.panelTitle, b.panelTitle, t)!,
+        body: TextStyle.lerp(a.body, b.body, t)!,
+        bodyEmphasis: TextStyle.lerp(a.bodyEmphasis, b.bodyEmphasis, t)!,
+        bodyStrong: TextStyle.lerp(a.bodyStrong, b.bodyStrong, t)!,
+        bodyCompact: TextStyle.lerp(a.bodyCompact, b.bodyCompact, t)!,
+        reading: TextStyle.lerp(a.reading, b.reading, t)!,
+        footnote: TextStyle.lerp(a.footnote, b.footnote, t)!,
+        caption: TextStyle.lerp(a.caption, b.caption, t)!,
+        overline: TextStyle.lerp(a.overline, b.overline, t)!,
+        keycap: TextStyle.lerp(a.keycap, b.keycap, t)!,
+        button: TextStyle.lerp(a.button, b.button, t)!,
+        timer: TextStyle.lerp(a.timer, b.timer, t)!,
+        timerSmall: TextStyle.lerp(a.timerSmall, b.timerSmall, t)!,
+        mono: TextStyle.lerp(a.mono, b.mono, t)!,
+        monoSmall: TextStyle.lerp(a.monoSmall, b.monoSmall, t)!,
+      );
 }

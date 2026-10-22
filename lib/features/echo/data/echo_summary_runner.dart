@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/local_model/local_model.dart';
+import '../../../core/local_model/local_model_gate.dart';
 import '../../home/data/app_settings_repository.dart';
 import '../models/echo_summary_status.dart';
 import '../models/meeting.dart';
@@ -29,11 +31,10 @@ abstract interface class EchoSummaryRunner {
 
   /// Desiste do resumo em curso. Sem nada em curso, não faz nada.
   ///
-  /// **Desistir é entre blocos, não no meio de um.** A chamada ao modelo é uma
-  /// só, do outro lado do canal, e o `FoundationModels` não a interrompe: o
-  /// bloco que já está com ele termina e é descartado. Numa reunião longa isso
-  /// é o que a pessoa quer de qualquer forma — ela desiste porque são doze
-  /// blocos pela frente, não porque o atual demora.
+  /// **Com o Apple Intelligence, desistir é entre blocos, não no meio de um.**
+  /// A chamada ao modelo é uma só, do outro lado do canal, e o
+  /// `FoundationModels` não a interrompe: o bloco que já está com ele termina e
+  /// é descartado. O LM Studio larga o bloco no meio — a conexão é fechada.
   ///
   /// Nada é gravado: a reunião fica exatamente como estava, com o resumo antigo
   /// se havia um. Cancelar não é apagar.
@@ -52,11 +53,11 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
     required EchoRepository repository,
     required EchoSettingsRepository settings,
     required AppSettingsRepository appSettings,
-    required EchoChannel channel,
+    required LocalModelGate gate,
   }) : _repository = repository,
        _settings = settings,
        _appSettings = appSettings,
-       _channel = channel;
+       _gate = gate;
 
   /// Instrução dos resumos de bloco.
   ///
@@ -147,7 +148,14 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   final EchoRepository _repository;
   final EchoSettingsRepository _settings;
   final AppSettingsRepository _appSettings;
-  final EchoChannel _channel;
+  final LocalModelGate _gate;
+
+  /// O teto de cada resposta do modelo.
+  ///
+  /// Um resumo de reunião cabe folgado; um modelo pequeno às vezes não para de
+  /// gerar, e sem teto ele escreveria até a janela acabar. O Apple
+  /// Intelligence não recebe o teto — ver `AppleLocalModel`.
+  static const maxAnswerTokens = 1500;
 
   EchoSummaryStatus _status = const EchoSummaryStatus();
 
@@ -159,6 +167,10 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   /// booleano: entre o cancelamento e o retorno do bloco, a pessoa pode ter
   /// pedido um resumo novo, e o antigo não pode confundir o dela com o seu.
   int _generation = 0;
+
+  /// O aviso de desistência do resumo de agora — o que deixa o LM Studio
+  /// largar o bloco no meio em vez de terminá-lo para ninguém.
+  LocalModelCancellation? _cancellation;
 
   /// A falha é **entregue uma vez** e some.
   ///
@@ -182,6 +194,7 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
     if (!_status.isRunning) return;
 
     _generation++;
+    _cancellation?.cancel();
     // A tela precisa parar de mostrar "Resumindo…" agora, e não quando o bloco
     // em curso voltar do modelo — que é o que a pessoa acabou de dizer que não
     // quer mais esperar.
@@ -210,15 +223,14 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
       block: '$blockInstructions $rules',
     );
 
-    final contextTokens = await _channel.summaryContextSize();
-    final chunks = SummaryChunker.chunk(
-      meeting.plainText(userName: userName),
-      maxChars: SummaryChunker.maxCharsFor(contextTokens),
-    );
-    if (chunks.isEmpty) return;
+    final text = meeting.plainText(userName: userName);
+    if (text.trim().isEmpty) return;
 
-    _status = EchoSummaryStatus(meetingId: meetingId, total: chunks.length);
-    unawaited(_run(meetingId, chunks, prompts, ++_generation));
+    // Um bloco até a sessão abrir: quantos blocos são depende da janela do
+    // modelo, e só se sabe a janela com o modelo carregado.
+    _status = EchoSummaryStatus(meetingId: meetingId, total: 1);
+    final cancellation = _cancellation = LocalModelCancellation();
+    unawaited(_run(meetingId, text, prompts, ++_generation, cancellation));
   }
 
   /// Este trabalho ainda é o trabalho de agora?
@@ -227,115 +239,127 @@ class LocalEchoSummaryRunner implements EchoSummaryRunner {
   /// Em dois passos quando o texto não cabe de uma vez: cada bloco vira um
   /// resumo neutro, e o passo final junta os resumos aplicando a instrução que
   /// a pessoa escreveu. Com um bloco só, o passo final é o único que existe.
+  ///
+  /// Tudo dentro de **um** pedido ao portão: o modelo é carregado uma vez para
+  /// a reunião inteira e descarregado depois do passo final, nunca a cada
+  /// bloco.
   Future<void> _run(
     int meetingId,
-    List<String> chunks,
+    String text,
     _Prompts prompts,
     int generation,
+    LocalModelCancellation cancellation,
   ) async {
     try {
-      final summary = chunks.length == 1
-          ? await _summarize(
-              chunks.single,
-              prompts.finalStep,
-              prompts,
-              generation,
-            )
-          : await _summarizeInBlocks(chunks, prompts, generation);
+      final (summary, model) = await _gate.run((session) async {
+        if (!_isCurrent(generation)) throw const _Cancelled();
+
+        final job = _Job(session, prompts, generation, cancellation);
+        final chunks = SummaryChunker.chunk(
+          text,
+          maxChars: SummaryChunker.maxCharsFor(session.contextTokens),
+        );
+        _status = EchoSummaryStatus(meetingId: meetingId, total: chunks.length);
+
+        final summary = chunks.length == 1
+            ? await _summarize(chunks.single, prompts.finalStep, job)
+            : await _summarizeInBlocks(chunks, job);
+
+        return (summary, session.displayName);
+      });
 
       // Grava a instrução que a pessoa escolheu, não as regras do aplicativo:
       // a tela a mostra como "Instrução deste resumo" para ser copiada de
       // volta às preferências, e as regras iriam junto, dobradas.
-      _repository.setSummary(meetingId, summary, prompt: prompts.written);
+      _repository.setSummary(
+        meetingId,
+        summary,
+        prompt: prompts.written,
+        model: model,
+      );
       _status = const EchoSummaryStatus();
     } on _Cancelled {
       // Nada a gravar e nada a dizer: o `cancel` já limpou o estado, e a pessoa
       // sabe o que pediu. Um aviso de "cancelado" seria o aplicativo repetindo
       // de volta o próprio clique dela.
       return;
-    } on EchoException catch (error) {
+    } on LocalModelException catch (error) {
       if (!_isCurrent(generation)) return;
       _status = EchoSummaryStatus(errorMessage: error.message);
     } catch (error) {
       // Nada aqui roda sob uma tela: uma exceção não prevista escapando de um
       // `unawaited` derrubaria o engine que segura a gravação, o cronômetro e
       // a captura do clipboard. O resumo é a única coisa que pode falhar.
+      // O pedido que o cancelamento interrompeu também cai aqui, e sai calado.
       if (!_isCurrent(generation)) return;
       _status = EchoSummaryStatus(errorMessage: 'O resumo falhou: $error');
     }
   }
 
-  Future<String> _summarizeInBlocks(
-    List<String> chunks,
-    _Prompts prompts,
-    int generation,
-  ) async {
+  Future<String> _summarizeInBlocks(List<String> chunks, _Job job) async {
     final partials = <String>[];
 
     for (var index = 0; index < chunks.length; index++) {
       // A checagem vem antes de anunciar o bloco: sem ela, um resumo cancelado
       // continuaria escrevendo "bloco 4 de 12" por cima do estado limpo, e a
       // tela voltaria a dizer que está resumindo.
-      if (!_isCurrent(generation)) throw const _Cancelled();
+      if (!_isCurrent(job.generation)) throw const _Cancelled();
 
       _status = EchoSummaryStatus(
         meetingId: _status.meetingId,
         done: index + 1,
         total: chunks.length,
       );
-      partials.add(
-        await _summarize(chunks[index], prompts.block, prompts, generation),
-      );
+      partials.add(await _summarize(chunks[index], job.prompts.block, job));
     }
 
-    return _summarize(
-      partials.join('\n\n'),
-      prompts.finalStep,
-      prompts,
-      generation,
-    );
+    return _summarize(partials.join('\n\n'), job.prompts.finalStep, job);
   }
 
   /// Uma chamada ao modelo, com a saída para o texto que não coube.
   ///
   /// O estouro de janela é o único erro que dá para resolver aqui: repartir o
   /// bloco ao meio e resumir as metades chega no mesmo lugar, só mais devagar.
-  Future<String> _summarize(
-    String text,
-    String instructions,
-    _Prompts prompts,
-    int generation,
-  ) async {
-    if (!_isCurrent(generation)) throw const _Cancelled();
+  Future<String> _summarize(String text, String instructions, _Job job) async {
+    if (!_isCurrent(job.generation)) throw const _Cancelled();
 
     final String answer;
     try {
-      answer = await _channel.summarize(text: text, instructions: instructions);
-    } on EchoException catch (error) {
+      answer = await job.session.generate(
+        text: text,
+        instructions: instructions,
+        maxTokens: maxAnswerTokens,
+        cancellation: job.cancellation,
+      );
+    } on LocalModelException catch (error) {
       if (!error.isContextWindowExceeded || text.length < 500) rethrow;
 
       final halves = SummaryChunker.chunk(text, maxChars: text.length ~/ 2);
       final partials = <String>[];
       for (final half in halves) {
-        partials.add(
-          await _summarize(half, prompts.block, prompts, generation),
-        );
+        partials.add(await _summarize(half, job.prompts.block, job));
       }
 
-      return _summarize(
-        partials.join('\n\n'),
-        instructions,
-        prompts,
-        generation,
-      );
+      return _summarize(partials.join('\n\n'), instructions, job);
     }
 
     // De novo na volta: o bloco levou minutos com o modelo, e é justamente
     // nesse intervalo que a desistência acontece.
-    if (!_isCurrent(generation)) throw const _Cancelled();
+    if (!_isCurrent(job.generation)) throw const _Cancelled();
 
     return answer;
   }
+}
+
+/// O que acompanha cada chamada de um resumo: a sessão aberta, as instruções e
+/// como saber se ele ainda é o de agora.
+class _Job {
+  const _Job(this.session, this.prompts, this.generation, this.cancellation);
+
+  final LocalModelSession session;
+  final _Prompts prompts;
+  final int generation;
+  final LocalModelCancellation cancellation;
 }
 
 /// As instruções de um resumo: a que a pessoa escreveu, e as duas que vão de
@@ -356,7 +380,7 @@ class _Prompts {
 /// A desistência, subindo pela pilha do trabalho até quem sabe descartá-lo.
 ///
 /// Privada e sem mensagem: ela nunca chega a uma tela — quem a captura é o
-/// [LocalEchoSummaryRunner._run], que sai calado. Não é um [EchoException]
+/// [LocalEchoSummaryRunner._run], que sai calado. Não é um [LocalModelException]
 /// porque não é uma falha: a diferença entre "não deu" e "não quis" é toda a
 /// diferença para quem está olhando.
 class _Cancelled implements Exception {

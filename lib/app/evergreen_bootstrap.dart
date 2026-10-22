@@ -20,6 +20,7 @@ import '../core/window/overlay_window.dart';
 import '../features/awake/models/awake_notifications.dart';
 import '../features/awake/presentation/viewmodels/awake_state.dart';
 import '../features/awake/presentation/viewmodels/awake_view_model.dart';
+import '../core/local_model/local_model_gate.dart';
 import '../features/echo/data/echo_summary_runner.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_view_model.dart';
@@ -153,6 +154,11 @@ class EvergreenBootstrap {
     unawaited(
       EchoSummaryHost.register(_container.read(echoSummaryRunnerProvider)),
     );
+    unawaited(LocalModelHost.register(_container.read(localModelGateProvider)));
+    // O que uma execução anterior carregou no LM Studio e não chegou a
+    // descarregar — o Evergreen caiu no meio de um resumo. O `load` não tem
+    // prazo de inatividade, então ninguém mais o tiraria da memória.
+    unawaited(_container.read(lmStudioLocalModelProvider).sweep());
 
     _watchNotifications();
     // Antes de recuperar a sessão interrompida: recuperá-la pode zerar a
@@ -804,9 +810,9 @@ class EvergreenBootstrap {
     _nestNotchEnded = channel.onNotchDragEnded.listen((_) {
       final gesture = _notchGesture;
       unawaited(
-        Future<void>.delayed(_dropSettle).then(
-          (_) => _queue(() => _closeNestIfUnused(gesture)),
-        ),
+        Future<void>.delayed(
+          _dropSettle,
+        ).then((_) => _queue(() => _closeNestIfUnused(gesture))),
       );
     });
 

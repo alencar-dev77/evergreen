@@ -80,8 +80,7 @@ abstract final class ModuleSettingsHost {
 
   /// O atendente deste engine, quando ele é a janela 0. Ver
   /// [ChannelModuleSettingsNotifier._send].
-  static Future<void> Function(String method, Object? arguments)?
-  _localHandler;
+  static Future<void> Function(String method, Object? arguments)? _localHandler;
 
   static Future<void> Function(String method, Object? arguments)?
   get localHandler => _localHandler;

@@ -106,22 +106,18 @@ void main() {
   /// O Echo não tem campo de texto — quem segura o teclado é o próprio painel
   /// —, então o clique não tem como levar o foco embora. O teste prende isso
   /// com um teste, e não com herança de casca, como nos outros quatro painéis.
-  testWidgets(
-    'clicar no painel não emudece o Esc',
-    (tester) async {
-      final closing = watchClosing();
-      await pumpPanel(tester);
+  testWidgets('clicar no painel não emudece o Esc', (tester) async {
+    final closing = watchClosing();
+    await pumpPanel(tester);
 
-      await tester.tapAt(tester.getCenter(find.text('Antes de gravar')));
-      await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(find.text('Antes de gravar')));
+    await tester.pumpAndSettle();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
 
-      expect(closing, contains('beginHide'));
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+    expect(closing, contains('beginHide'));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('separando as vozes, o painel diz o que está fazendo', (
     tester,
@@ -159,10 +155,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Separando as vozes'), findsNothing);
-    expect(
-      container.read(echoRecorderViewModelProvider).phase,
-      EchoPhase.done,
-    );
+    expect(container.read(echoRecorderViewModelProvider).phase, EchoPhase.done);
   });
 
   /// O painel do Echo é o único que fica na frente de uma reunião em curso, e

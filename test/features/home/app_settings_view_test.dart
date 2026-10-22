@@ -406,7 +406,9 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('aparece na tela do aplicativo, e cancelar não apaga nada', (tester) async {
+    testWidgets('aparece na tela do aplicativo, e cancelar não apaga nada', (
+      tester,
+    ) async {
       await openAppSettings(tester);
 
       expect(find.text('Desinstalar o Evergreen'), findsOneWidget);

@@ -43,40 +43,40 @@ void main() {
   /// uma linha de luz que deixou de acender não quebram teste nenhum de
   /// comportamento — quebram esta imagem.
   testWidgets('matriz de estado dos componentes', (tester) async {
-      tester.view.physicalSize = const Size(2000, 1240);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.reset);
+    tester.view.physicalSize = const Size(2000, 1240);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(),
-          home: ColoredBox(
-            color: EgTokens.evergreen().colors.canvas,
-            child: const _StateMatrixGallery(),
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.build(),
+        home: ColoredBox(
+          color: EgTokens.evergreen().colors.canvas,
+          child: const _StateMatrixGallery(),
         ),
-      );
+      ),
+    );
 
-      // Hover e pressed em componentes diferentes, no mesmo quadro: são dois
-      // ponteiros independentes, e é assim que a imagem mostra os dois estados
-      // sem precisar de dois goldens.
-      final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await hover.addPointer(
-        location: tester.getCenter(find.byKey(const Key('toggle-hover'))),
-      );
-      addTearDown(hover.removePointer);
+    // Hover e pressed em componentes diferentes, no mesmo quadro: são dois
+    // ponteiros independentes, e é assim que a imagem mostra os dois estados
+    // sem precisar de dois goldens.
+    final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await hover.addPointer(
+      location: tester.getCenter(find.byKey(const Key('toggle-hover'))),
+    );
+    addTearDown(hover.removePointer);
 
-      final press = await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('button-pressed'))),
-      );
+    final press = await tester.startGesture(
+      tester.getCenter(find.byKey(const Key('button-pressed'))),
+    );
 
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
-      await expectLater(
-        find.byType(_StateMatrixGallery),
-        matchesGoldenFile('goldens/design_state_matrix.png'),
-      );
+    await expectLater(
+      find.byType(_StateMatrixGallery),
+      matchesGoldenFile('goldens/design_state_matrix.png'),
+    );
 
     await press.up();
     await tester.pumpAndSettle();

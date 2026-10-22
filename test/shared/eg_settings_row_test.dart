@@ -91,7 +91,8 @@ void main() {
       await pumpCard(tester, [
         EgSettingsRow(
           label: 'Idioma da transcrição',
-          description: 'No idioma errado, a transcrição não sai pior: sai '
+          description:
+              'No idioma errado, a transcrição não sai pior: sai '
               'inútil.',
           trailing: languages(),
         ),

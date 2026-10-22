@@ -20,6 +20,7 @@ class Meeting {
     required this.segments,
     this.summary,
     this.summaryPrompt,
+    this.summaryModel,
     this.isKept = false,
     this.audioFile,
   });
@@ -81,6 +82,13 @@ class Meeting {
   /// aplicativo, que foi a que de fato valeu.
   final String? summaryPrompt;
 
+  /// Quem escreveu o resumo — "Apple Intelligence", "Qwen3.5 4B".
+  ///
+  /// O **nome de exibição na hora do resumo**, e não o id: o modelo pode ser
+  /// apagado do LM Studio depois, e o resumo continua sabendo de onde veio.
+  /// `null` só quando não há resumo.
+  final String? summaryModel;
+
   /// Guardada contra a limpeza automática do histórico.
   ///
   /// Mesma ideia do item fixado no Pin: o teto de reuniões só come o que é
@@ -106,6 +114,10 @@ class Meeting {
   /// texto que ele produziu não descreve nada.
   bool get hasSummaryPrompt =>
       hasSummary && (summaryPrompt ?? '').trim().isNotEmpty;
+
+  /// Só quando há resumo **e** se sabe quem o escreveu.
+  bool get hasSummaryModel =>
+      hasSummary && (summaryModel ?? '').trim().isNotEmpty;
 
   bool get isEmpty => segments.isEmpty;
 
@@ -146,6 +158,7 @@ class Meeting {
     String? title,
     String? summary,
     String? summaryPrompt,
+    String? summaryModel,
     bool? isKept,
     List<MeetingSegment>? segments,
     String? audioFile,
@@ -160,6 +173,7 @@ class Meeting {
       segments: segments ?? this.segments,
       summary: summary ?? this.summary,
       summaryPrompt: summaryPrompt ?? this.summaryPrompt,
+      summaryModel: summaryModel ?? this.summaryModel,
       isKept: isKept ?? this.isKept,
       audioFile: clearAudio ? null : audioFile ?? this.audioFile,
     );

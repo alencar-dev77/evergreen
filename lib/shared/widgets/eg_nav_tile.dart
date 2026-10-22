@@ -90,7 +90,9 @@ class EgNavTile extends StatelessWidget {
               size: AppIconSizes.lg,
               color:
                   iconColor ??
-                  (isSelected ? eg.colors.accentLight : eg.colors.textSecondary),
+                  (isSelected
+                      ? eg.colors.accentLight
+                      : eg.colors.textSecondary),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -98,9 +100,10 @@ class EgNavTile extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: (isSelected ? eg.text.bodyStrong : eg.text.body).copyWith(
-                  color: style.foregroundFor(state, isSelected: isSelected),
-                ),
+                style: (isSelected ? eg.text.bodyStrong : eg.text.body)
+                    .copyWith(
+                      color: style.foregroundFor(state, isSelected: isSelected),
+                    ),
               ),
             ),
             if (shortcut != null)
