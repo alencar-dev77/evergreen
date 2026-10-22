@@ -27,11 +27,11 @@ lugares:
 | **Pin** | O que você copia (texto e imagem), com a data e o tipo | Os 200 itens mais recentes (ajustável); os fixados ficam até você tirar |
 | **Focus** | As sessões de foco: início, duração e o que você escreveu sobre elas | As últimas 4 semanas |
 | **Leaf** | As anotações da parede, no máximo nove | Até você apagar |
-| **Awake** | Quando a trava foi ligada e por quanto tempo | Até você desinstalar |
+| **Awake** | Quando a trava foi ligada e por quanto tempo | As últimas 4 semanas |
 | **Echo** | A transcrição, o resumo e o título de cada reunião | As 100 mais recentes (ajustável); as marcadas com estrela ficam |
 | **Echo** | O áudio da reunião | 14 dias, ou menos se a reunião sair antes; a estrela guarda |
 | **Echo** | O resumo e a transcrição que você exportar, em `Exportações/` | Até você apagar o arquivo |
-| **Nest** | Quando você enviou arquivos da prateleira e quantos eram — nunca o nome nem o caminho | Até você desinstalar |
+| **Nest** | Quando você enviou arquivos da prateleira e quantos eram — nunca o nome nem o caminho | As últimas 4 semanas |
 | **Nest** | As pastas favoritas, com o caminho delas | Até você tirar da lista |
 | **Track** | O parágrafo que o modelo local escreve sobre cada dia; o resto ele lê dos outros módulos | Até o dia mudar ou o parágrafo ser refeito |
 | **Aplicativo** | As preferências e o nome que você escolher informar | Até você mudar |
@@ -93,8 +93,8 @@ deles é responsabilidade de quem grava.
 ## Apagar tudo
 
 - O Pin, o Focus, o Leaf e o Echo têm como apagar o próprio histórico, na tela
-  de cada um. O registro do Awake e o do Nest não têm: eles só contam quando e
-  quanto, e saem ao desinstalar.
+  de cada um. O registro do Awake e o do Nest se apagam sozinhos depois de 4
+  semanas: eles só contam quando e quanto, para o Track.
 - **Configurações → Aplicativo → Desinstalar o Evergreen** apaga os dados, as
   preferências, as permissões e o próprio app. Arrastar só o app para o Lixo
   deixa os dados no disco.

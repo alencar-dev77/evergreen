@@ -615,7 +615,11 @@ e esconder ícones da barra de menus
   porque não tinha tabela. Agora grava uma linha por trava solta (`quando`,
   `quanto`, `o quê`), e só isso: o painel continua respondendo "está ligado?", e
   o histórico é do Track. A trava que ainda está de pé não vira linha, porque
-  ainda não tem duração.
+  ainda não tem duração. **E a linha dura o que o Track lê**: o Awake e o Nest
+  guardam as mesmas `FocusSessionRepository.keptWeeks` semanas do Focus,
+  limpando na própria escrita. Módulo que grave só para o Track faz igual —
+  linha que ninguém lê não fica no disco, e a [PRIVACY.md](PRIVACY.md) promete
+  o prazo.
 - O parágrafo que o modelo local escreve sobre um dia é **cache, não dado**: ele
   vive no plist (`TrackSummaryCache`), com assinatura do dia, e não no banco.
   Não entra no backup porque se refaz sozinho — e é o que
