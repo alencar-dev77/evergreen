@@ -86,8 +86,8 @@ class LocalModelSection extends ConsumerWidget {
           // login, leve e sem modelo nenhum, e o Evergreen carrega só quando
           // vai escrever.
           description:
-              'Para não precisar ligar, ative no LM Studio o servidor ao '
-              'iniciar o Mac.',
+              'Para não precisar ligar, ative no LM Studio o Serviço Local '
+              'de LLM (em Developer).',
           trailing: EgButton.secondary(
             label: 'Ligar',
             isLoading: status.isStarting,

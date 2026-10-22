@@ -52,8 +52,10 @@ janela; o que mudou é que a janela vem da sessão aberta.
   exigência seja desligada — o Evergreen não guarda token.
 - **O servidor nunca é ligado sozinho.** "Ligar" roda `~/.lmstudio/bin/lms
   server start`, e só no clique. Quem quer usar sem abrir o LM Studio liga nele
-  a opção que sobe o servidor com o login — o servidor é leve e não carrega
-  modelo nenhum sozinho.
+  **Developer → Serviço LLM Local (headless) → Habilitar Serviço Local de
+  LLM**: o servidor sobe com o Mac, sem a janela, e não carrega modelo nenhum
+  sozinho. O "JIT auto-evict" e o TTL de inatividade de lá não alcançam o
+  Evergreen, que carrega explicitamente e descarrega sozinho.
 - **Falha calada, sem volta ao Apple Intelligence.** Servidor desligado, modelo
   apagado ou prazo esgotado se comportam como o `unsupported_os`: o Track
   perde o parágrafo, o "Resumir" do Echo mostra o erro. Um texto escrito por
