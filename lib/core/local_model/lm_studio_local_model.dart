@@ -170,6 +170,10 @@ class LmStudioApi {
   /// Lança [LmStudioUnreachable] com o servidor desligado.
   Future<List<LmStudioModel>> models() async {
     final response = await _http.get('/api/v1/models', timeout: _listTimeout);
+    // A lista é a primeira coisa que se pede, e o único 404 que significa
+    // outra coisa que "modelo apagado": a API nativa não existe neste LM
+    // Studio.
+    if (response.status == 404) throw outdated;
     _check(response);
 
     return LmStudioModel.listFromJson(response.json);
@@ -246,6 +250,17 @@ class LmStudioApi {
     ].join('\n');
   }
 
+  static const unauthorized = LocalModelException(
+    LocalModelException.unauthorized,
+    'O servidor do LM Studio pede um token de API. Desligue essa exigência '
+    'nas configurações do servidor.',
+  );
+
+  static const outdated = LocalModelException(
+    LocalModelException.outdated,
+    'Atualize o LM Studio para a versão 0.4 ou mais nova.',
+  );
+
   /// O que estourou a janela, em qualquer redação que o servidor use.
   static final _overflow = RegExp(
     r'context|n_ctx|too (long|many tokens)|exceed',
@@ -257,6 +272,8 @@ class LmStudioApi {
   /// não coube — repartir o texto não resolveria nada.
   static void _check(LmStudioResponse response, {bool canOverflow = true}) {
     if (response.isOk) return;
+
+    if (response.status == 401 || response.status == 403) throw unauthorized;
 
     final message = errorMessageOf(response.json);
     if (canOverflow && _overflow.hasMatch(message)) {

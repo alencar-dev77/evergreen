@@ -33,6 +33,7 @@ class DiagnosticSnapshot {
     required this.screenRecording,
     required this.databaseBytes,
     required this.logTail,
+    this.localModel = 'Apple Intelligence',
   });
 
   final String appVersion;
@@ -50,6 +51,10 @@ class DiagnosticSnapshot {
   final int? databaseBytes;
 
   final List<String> logTail;
+
+  /// Quem escreve os resumos — "Apple Intelligence", "LM Studio · Qwen3.5 4B".
+  /// Nome de modelo, nunca texto de quem usa.
+  final String localModel;
 }
 
 /// O texto que o "Copiar diagnóstico" põe na área de transferência.
@@ -68,6 +73,7 @@ abstract final class DiagnosticReport {
       ..writeln(
         '- Banco: ${snapshot.databaseBytes == null ? 'não deu para medir' : ByteSize.compact(snapshot.databaseBytes!)}',
       )
+      ..writeln('- Modelo local: ${snapshot.localModel}')
       ..writeln()
       ..writeln('### Módulos')
       ..writeln();

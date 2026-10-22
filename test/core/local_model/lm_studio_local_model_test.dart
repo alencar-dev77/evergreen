@@ -5,6 +5,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_lm_studio_http.dart';
 
+/// Um servidor que responde sempre o mesmo código.
+class _StatusHttp implements LmStudioHttp {
+  _StatusHttp(this.status);
+
+  final int status;
+
+  @override
+  Future<LmStudioResponse> get(
+    String path, {
+    required Duration timeout,
+  }) async => LmStudioResponse(status, null);
+
+  @override
+  Future<LmStudioResponse> post(
+    String path,
+    Map<String, Object?> body, {
+    required Duration timeout,
+    LocalModelCancellation? cancellation,
+  }) async => LmStudioResponse(status, null);
+}
+
 class _MemoryLedger implements LmStudioLedger {
   String? value;
 
@@ -138,6 +159,34 @@ void main() {
             (error) => error.isContextWindowExceeded,
             'estouro',
             isTrue,
+          ),
+        ),
+      );
+    });
+
+    test('servidor com token de API é recusa, não "desligado"', () async {
+      final locked = _StatusHttp(401);
+
+      await expectLater(
+        LmStudioApi(locked).models(),
+        throwsA(
+          isA<LocalModelException>().having(
+            (error) => error.code,
+            'code',
+            LocalModelException.unauthorized,
+          ),
+        ),
+      );
+    });
+
+    test('LM Studio sem a API nativa pede atualização', () async {
+      await expectLater(
+        LmStudioApi(_StatusHttp(404)).models(),
+        throwsA(
+          isA<LocalModelException>().having(
+            (error) => error.code,
+            'code',
+            LocalModelException.outdated,
           ),
         ),
       );

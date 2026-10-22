@@ -47,6 +47,10 @@ class TrackSummary {
   final String signature;
 
   bool get hasText => text != null;
+
+  /// O modelo não escreveu — uma condição da máquina naquele instante (o
+  /// servidor do LM Studio desligado, por exemplo), e não um fato sobre o dia.
+  bool get isUnavailable => !isWriting && !hasText;
 }
 
 /// O que a tela do Track mostra.
@@ -159,12 +163,21 @@ class TrackViewModel extends Notifier<TrackState> {
     return _read(TrackRange.week);
   }
 
-  void refresh() => state = _read(
-    state.range,
-    weeksAgo: state.weeksAgo,
-    selectedDate: state.selectedDate,
-    summaries: state.summaries,
-  );
+  void refresh() {
+    state = _read(
+      state.range,
+      weeksAgo: state.weeksAgo,
+      selectedDate: state.selectedDate,
+      summaries: state.summaries,
+    );
+
+    // O dia que estava aberto perdeu o "não deu" na releitura: pede de novo,
+    // senão ele ficaria sem parágrafo até a pessoa escolher outro dia e voltar.
+    final day = state.selected;
+    if (day != null && !state.summaries.containsKey(day.date)) {
+      unawaited(_write(day));
+    }
+  }
 
   void setRange(TrackRange range) {
     if (range == state.range) return;
@@ -330,7 +343,10 @@ class TrackViewModel extends Notifier<TrackState> {
     return restored;
   }
 
-  /// Descarta o parágrafo de um dia que mudou desde que ele foi escrito.
+  /// Descarta o parágrafo de um dia que mudou desde que ele foi escrito — e o
+  /// "não deu" de antes, para a próxima seleção tentar de novo: sem isso, quem
+  /// liga o servidor do LM Studio e volta ao Track só veria o parágrafo
+  /// fechando e reabrindo o Hub.
   ///
   /// Um resumo que diz "três sessões" ao lado de uma lista com quatro é pior
   /// que resumo nenhum — e é exatamente o que acontece quando uma sessão é
@@ -345,7 +361,8 @@ class TrackViewModel extends Notifier<TrackState> {
 
     return {
       for (final entry in summaries.entries)
-        if (signatures[entry.key] == entry.value.signature)
+        if (signatures[entry.key] == entry.value.signature &&
+            !entry.value.isUnavailable)
           entry.key: entry.value,
     };
   }

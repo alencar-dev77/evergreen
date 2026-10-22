@@ -176,6 +176,56 @@ void main() {
     },
   );
 
+  group('com folga antes de descarregar', () {
+    late LocalModelGate patient;
+
+    setUp(() {
+      final lmStudio = LmStudioLocalModel(
+        api: LmStudioApi(http),
+        ledger: _MemoryLedger(),
+      );
+      patient = LocalModelGate(
+        idleGrace: const Duration(milliseconds: 50),
+        choice: () async => choice,
+        backendFor: (source) => switch (source) {
+          LocalModelSource.apple => apple,
+          LocalModelSource.lmStudio => lmStudio,
+        },
+      );
+      addTearDown(patient.dispose);
+    });
+
+    Future<LocalModelAnswer> askPatient(String text) =>
+        patient.answer(text: text, instructions: 'Resuma.', maxTokens: 200);
+
+    test(
+      'pedidos em sequência reaproveitam o modelo, e ele sai depois',
+      () async {
+        await askPatient('segunda');
+        await askPatient('terça');
+        await askPatient('quarta');
+
+        // Passeando pelos dias do Track: uma carga só.
+        expect(http.loads, 1);
+        expect(http.loaded, isNotEmpty);
+
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        expect(http.unloads, 1);
+        expect(http.loaded, isEmpty);
+      },
+    );
+
+    test('trocar de modelo na folga fecha o anterior', () async {
+      await askPatient('um');
+      choice = LocalModelChoice.apple;
+
+      final answer = await askPatient('dois');
+
+      expect(answer.model, 'Apple Intelligence');
+      expect(http.loaded, isEmpty);
+    });
+  });
+
   test('a escolha é lida a cada abertura', () async {
     choice = LocalModelChoice.apple;
     expect((await ask('um')).model, 'Apple Intelligence');

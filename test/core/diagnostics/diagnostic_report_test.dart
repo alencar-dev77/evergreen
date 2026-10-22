@@ -12,6 +12,7 @@ void main() {
     screenRecording: DiagnosticPermission.unknown,
     databaseBytes: 2048,
     logTail: ['linha 1', '    #0 pilha'],
+    localModel: 'LM Studio · Qwen3.5 4B',
   );
 
   test('identidade, módulos, permissões e o registro num bloco de código', () {
@@ -21,6 +22,7 @@ void main() {
     expect(text, contains('- Versão: 0.31.5'));
     expect(text, contains('- macOS: Version 26.1 (Build 25B78)'));
     expect(text, contains('- Chip: Apple M3 Pro'));
+    expect(text, contains('- Modelo local: LM Studio · Qwen3.5 4B'));
     expect(text, contains('- Pin: ligado'));
     expect(text, contains('- Echo: desligado'));
     expect(text, contains('- Acessibilidade: concedida'));

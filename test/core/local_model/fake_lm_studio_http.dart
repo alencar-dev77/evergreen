@@ -29,6 +29,10 @@ class FakeLmStudioHttp implements LmStudioHttp {
   /// Servidor desligado: toda chamada é recusada.
   bool offline = false;
 
+  /// Código fixo para toda resposta — 401 de um servidor com token, por
+  /// exemplo. `null` é o servidor normal.
+  int? status;
+
   /// A memória do servidor: chave do modelo → contexto da instância.
   final loaded = <String, int>{};
 
@@ -54,6 +58,7 @@ class FakeLmStudioHttp implements LmStudioHttp {
   @override
   Future<LmStudioResponse> get(String path, {required Duration timeout}) async {
     if (offline) throw const LmStudioUnreachable();
+    if (status != null) return LmStudioResponse(status!, null);
     if (path != '/api/v1/models') return const LmStudioResponse(404, null);
 
     return LmStudioResponse(200, {

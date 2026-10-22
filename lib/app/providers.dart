@@ -128,6 +128,7 @@ final diagnosticsServiceProvider = Provider<DiagnosticsService>(
     modules: () => ref.read(moduleSettingsRepositoryProvider).load(),
     accessibility: PreviousAppFocusChannel.hasAccessibilityPermission,
     echoCapabilities: () => ref.read(echoChannelProvider).capabilities(),
+    localModel: () => ref.read(appSettingsRepositoryProvider).load().localModel,
   ),
 );
 
@@ -373,7 +374,8 @@ final localModelGateProvider = Provider<LocalModelGate>((ref) {
   final apple = AppleLocalModel(ref.watch(echoChannelProvider));
   final lmStudio = ref.watch(lmStudioLocalModelProvider);
 
-  return LocalModelGate(
+  final gate = LocalModelGate(
+    idleGrace: ref.watch(localModelIdleGraceProvider),
     choice: () async {
       await appSettings.reload();
       return appSettings.load().localModel;
@@ -383,7 +385,15 @@ final localModelGateProvider = Provider<LocalModelGate>((ref) {
       LocalModelSource.lmStudio => lmStudio,
     },
   );
+  ref.onDispose(gate.dispose);
+  return gate;
 });
+
+/// A folga do portão antes de descarregar — ver [LocalModelGate.idleGrace].
+/// Provider para o teste pôr zero e ver a descarga na hora.
+final localModelIdleGraceProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 20),
+);
 
 /// Pedir um texto ao modelo escolhido — o portão na janela 0, o canal até ele
 /// no Hub. Quem pede não sabe a diferença.
