@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+#
+# documentos — gera os PDFs dos documentos do Evergreen pelo LibreOffice.
+#
+# A fonte de verdade é o texto no repositório: a `LICENSE` e o `PRIVACY.md`,
+# que o GitHub mostra como estão. O PDF é só a cópia para quem quer o
+# documento solto — anexado ao GitHub Release, mandado junto com o `.dmg`. Por
+# isso ele não é commitado: um PDF no repositório seria um segundo texto, e o
+# dia em que alguém mexesse num e esquecesse o outro, os dois diriam coisas
+# diferentes.
+#
+# Termos de uso não existem, e não é esquecimento: a GPL-3.0 já é o acordo de
+# quem usa o código, e as seções 15 e 16 dela são o "sem garantia" que um termo
+# de uso traria. Um segundo documento só poderia repetir a licença ou
+# contradizê-la.
+#
+# O LibreOffice 26 lê Markdown direto (`--convert-to pdf`), sem conversor no
+# meio. Ele roda com um perfil próprio, numa pasta temporária: com o LibreOffice
+# aberto, o `soffice` de linha de comando entrega o pedido para a janela que já
+# existe e volta sem gerar nada.
+#
+# Uso: ./scripts/documentos              # gera em build/documentos
+#      ./scripts/documentos <pasta>      # gera em outra pasta
+#
+set -euo pipefail
+
+# Os scripts moram em `scripts/`; tudo daqui para baixo roda da raiz.
+cd "$(dirname "$0")/.."
+
+OUT_DIR="${1:-build/documentos}"
+
+SOFFICE="$(command -v soffice || true)"
+if [[ -z "$SOFFICE" && -x /Applications/LibreOffice.app/Contents/MacOS/soffice ]]; then
+  SOFFICE=/Applications/LibreOffice.app/Contents/MacOS/soffice
+fi
+if [[ -z "$SOFFICE" ]]; then
+  echo "❌ LibreOffice não encontrado. Instale com: brew install --cask libreoffice" >&2
+  exit 1
+fi
+
+# O nome do PDF sai do nome do arquivo convertido, então cada fonte é copiada
+# para uma pasta de trabalho já com o nome que quem baixa vai ver.
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+cp PRIVACY.md "$WORK/Evergreen - Política de privacidade.md"
+# A licença é texto puro: com a extensão `.txt` o LibreOffice a lê como texto,
+# e não tenta achar Markdown no meio dela.
+cp LICENSE "$WORK/Evergreen - Licença GPL-3.0.txt"
+
+mkdir -p "$OUT_DIR"
+
+echo "📄 Gerando os PDFs…"
+"$SOFFICE" \
+  "-env:UserInstallation=file://$WORK/perfil" \
+  --headless --convert-to pdf --outdir "$OUT_DIR" \
+  "$WORK"/*.md "$WORK"/*.txt > /dev/null 2>&1
+
+for pdf in "Evergreen - Política de privacidade.pdf" "Evergreen - Licença GPL-3.0.pdf"; do
+  if [[ ! -s "$OUT_DIR/$pdf" ]]; then
+    echo "❌ O LibreOffice não gerou \"$pdf\"." >&2
+    exit 1
+  fi
+  echo "   $OUT_DIR/$pdf"
+done
+
+echo "✅ Pronto."

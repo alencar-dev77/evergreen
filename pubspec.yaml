@@ -87,6 +87,10 @@ flutter:
   assets:
     - assets/icons/
     - assets/onboarding/
+    # As licenças que a tela "Licenças" mostra e o Flutter não junta sozinho:
+    # a do próprio Evergreen e a dos pacotes Swift (ver `LicenseCatalog`).
+    - LICENSE
+    - assets/licenses/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

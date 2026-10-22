@@ -24,6 +24,7 @@ import '../widgets/global_shortcut_section.dart';
 import '../widgets/local_model_section.dart';
 import '../viewmodels/backup_view_model.dart';
 import '../viewmodels/diagnostics_view_model.dart';
+import '../viewmodels/hub_detail_view_model.dart';
 import '../viewmodels/disk_usage_view_model.dart';
 import '../widgets/backup_list.dart';
 import '../widgets/uninstall_section.dart';
@@ -134,6 +135,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
         ),
         const _RestoreSection(),
         const _DiagnosticsSection(),
+        const _AboutSection(),
         const UninstallSection(),
       ],
     );
@@ -396,6 +398,38 @@ class _DiagnosticsSection extends ConsumerWidget {
           trailing: EgButton.secondary(
             label: 'Mostrar no Finder',
             onPressed: () => unawaited(viewModel.revealCrashReports()),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// O que o Evergreen é, como software: a licença dele e a de quem ele usa.
+///
+/// Logo acima do desinstalar, que é a ação destrutiva e fecha a tela. As
+/// licenças abrem na região de leitura, como uma reunião do Echo.
+class _AboutSection extends ConsumerWidget {
+  const _AboutSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOpen = ref.watch(appDetailProvider) == AppDetail.licenses;
+
+    return EgSettingsCard(
+      title: 'Sobre',
+      children: [
+        EgSettingsRow(
+          label: 'Licenças',
+          description:
+              'O Evergreen é código aberto, sob a GPL-3.0. Aqui também estão '
+              'as licenças dos componentes que ele usa.',
+          trailing: EgButton.secondary(
+            label: isOpen ? 'Fechar' : 'Ver',
+            onPressed: () {
+              final detail = ref.read(appDetailProvider.notifier);
+              isOpen ? detail.close() : detail.open(AppDetail.licenses);
+            },
           ),
         ),
       ],

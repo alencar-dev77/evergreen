@@ -22,6 +22,23 @@ chega por fork e PR para a `validation`; por isso o `version-bump.yml` usa
 e é seguro só enquanto ele fizer checkout da `validation` pós-merge, nunca do
 head da PR.
 
+**A [PRIVACY.md](PRIVACY.md) é uma promessa, e muda antes do código.** Ela diz
+o que cada módulo guarda, por quanto tempo, e as únicas conexões para fora (o
+download do modelo de vozes e o `127.0.0.1` do LM Studio). Módulo que passe a
+guardar outra coisa, prazo que mude, ou qualquer conexão nova — a verificação
+de versão do Sparkle inclusive — entra nela na mesma PR. **E a mudança na política
+nunca é silenciosa**: quem mexe nela — gente ou agente — avisa, na conversa e
+na descrição da PR, o que foi **acrescentado** ou **alterado** e por quê, e
+atualiza a data de "Última atualização" no topo dela. É o que deixa quem mantém
+decidir se a promessa nova é uma que se quer fazer, em vez de descobri-la
+depois no repositório. Termos de uso não
+existem de propósito: a GPL-3.0 já é o acordo, com o "sem garantia" dela. As
+licenças de quem o Evergreen usa aparecem dentro do app (Aplicativo → Sobre →
+Licenças, `LicenseCatalog`); as de pacote Dart entram sozinhas, e as de pacote
+Swift (FluidAudio, HotKey) moram em `assets/licenses/` — pacote Swift novo
+traz a dele para lá. Os PDFs da licença e da política saem do
+`./scripts/documentos`, pelo LibreOffice, e não são commitados.
+
 A visão de origem (filosofia, referências, a lista de módulos sonhados) está em
 [docs/Ideis projeto/ideia.md](docs/Ideis%20projeto/ideia.md). Propostas de
 módulo **ainda sem código**, cada uma com o porquê e o custo nativo: Snap,
@@ -651,7 +668,9 @@ e esconder ícones da barra de menus
   selecionada. Hoje: `EchoReader` (a reunião) e `FocusReader` (a sessão do
   histórico) — o Focus era um diálogo modal até a v0.4, e o modal escurecia o
   histórico atrás, prendia o teclado e obrigava a fechar para olhar a linha
-  vizinha. Modal continua sendo a forma certa de **uma pergunta de sim ou não**
+  vizinha. A tela do aplicativo também abre a dela (`LicensesReader`), mas
+  por outro provider, o `appDetailProvider`: ela não é um módulo, e a região
+  de um módulo é identificada pelo módulo. Modal continua sendo a forma certa de **uma pergunta de sim ou não**
   (`EgConfirmDialog`), e só disso.
 - Quem faz a janela crescer para caber a região é o
   `HubWindowChannel.setDetailWidth` — dividir a largura que já existe foi
@@ -782,6 +801,8 @@ UI e microcopy em português (pt-BR).
   conferir a janela. Pede o certificado e a credencial do `notarytool` no
   chaveiro — o passo a passo está em
   [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+- `./scripts/documentos` — os PDFs da `LICENSE` e da `PRIVACY.md`, pelo
+  LibreOffice, em `build/documentos`. O `release` o chama e anexa os PDFs.
 - `./scripts/bump_version` — a regra do bump, num lugar só: o `version-bump.yml` o
   chama com o nível da label, o `preparar-release.yml` com `--build`, e à mão
   ele é a rede para quando o Actions está fora do ar. Roda na `validation`,
@@ -811,6 +832,17 @@ os dois portões perguntam coisas diferentes.
   pede label: ela carrega um número que já foi decidido, e bumpar dos dois
   lados daria dois números para o mesmo código. Promovida, o `./scripts/release`
   publica o `.dmg` na tag.
+
+**O título da PR é a linha do changelog, e quem lê é quem usa o app.** No
+merge na `validation`, o `bump_version` escreve o título no
+[CHANGELOG.md](CHANGELOG.md), e o `./scripts/release` publica essas linhas como
+notas do GitHub Release. Por isso o título é simples e objetivo: em português,
+dizendo o que mudou para quem usa e não como foi feito, numa linha, sem
+prefixo de commit (`feat:` e `fix(echo):` ficam nos commits) e sem nome de
+classe, arquivo ou branch. "Exportar a reunião em PDF", não "feat(echo):
+ExportService ganha PdfWriter". Mudança que quem usa não vê (CI, refatoração,
+teste) também ganha uma linha — e ela diz isso: "Ajustes internos no
+instalador".
 
 A consequência a saber: **entre a feature e a promoção, o que segura a barra é
 rodar `flutter analyze` e `flutter test` na máquina** antes de abrir a PR. O CI

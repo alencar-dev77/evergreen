@@ -33,8 +33,9 @@ jobs:
 
       - name: Determine bump type from PR label
         id: bump
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
-          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
           if echo "$LABELS" | grep -q "bump:major"; then
             echo "type=major" >> "$GITHUB_OUTPUT"
           elif echo "$LABELS" | grep -q "bump:minor"; then
@@ -54,9 +55,18 @@ jobs:
       # implementações da mesma regra, e o defeito morava justamente aí: o
       # `cider bump <nível>` zerava o build antes do `cider bump build`, então
       # todo bump saía `+1` e o número não distinguia publicação nenhuma.
+      #
+      # O título da PR vira a linha do CHANGELOG.md. Ele entra por variável de
+      # ambiente, nunca interpolado no `run`: o título é texto de quem abriu a
+      # PR — num fork, um desconhecido —, e um `${{ }}` dentro do script seria
+      # código dele rodando com o token de escrita.
       - name: Bump version, commit, tag and push
         if: steps.bump.outputs.type != 'none'
+        env:
+          NIVEL: ${{ steps.bump.outputs.type }}
+          TITULO: ${{ github.event.pull_request.title }}
+          NUMERO: ${{ github.event.pull_request.number }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          ./scripts/bump_version "${{ steps.bump.outputs.type }}" --push
+          ./scripts/bump_version "$NIVEL" --nota "$TITULO (#$NUMERO)" --push

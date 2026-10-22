@@ -36,6 +36,10 @@ o item de início. Arrastar só o app para o Lixo deixa os dados para trás.
 
 ### O que sai da máquina
 
+A versão completa, módulo por módulo e com os prazos, está na
+[política de privacidade](PRIVACY.md). O que mudou em cada versão está nas
+[novidades](CHANGELOG.md).
+
 Nada do que você usa. O histórico do Pin, as anotações, as reuniões gravadas e
 os arquivos do Nest ficam no disco do seu Mac, e o Evergreen não tem conta,
 servidor nem telemetria. Ele abre só duas conexões:
@@ -470,4 +474,6 @@ redistribuir o Evergreen; quem distribuir uma versão modificada precisa
 distribuí-la também sob a GPL-3.0, com o código.
 
 O pacote vendorizado em [`packages/hotkey_manager_macos/`](packages/hotkey_manager_macos/)
-mantém a licença MIT do autor original.
+mantém a licença MIT do autor original. As licenças de todos os componentes que
+o Evergreen usa estão dentro do app, em Configurações → Aplicativo → Sobre →
+**Licenças**.
