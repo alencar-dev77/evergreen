@@ -3,16 +3,19 @@ import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/storage/disk_usage_service.dart';
 import 'package:evergreen/core/system/uninstall_service.dart';
+import 'package:evergreen/core/system/update_service.dart';
 import 'package:evergreen/core/window/hub_destination.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/app_settings_view.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/home/presentation/widgets/backup_list.dart';
+import 'package:evergreen/features/home/presentation/widgets/hub_update.dart';
 import 'package:evergreen/features/pin/presentation/views/pin_settings_view.dart';
 import 'package:evergreen/shared/feature_flags.dart';
 import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
 import 'package:evergreen/shared/widgets/eg_settings_row.dart';
+import 'package:evergreen/shared/widgets/eg_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +26,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../focus/fake_focus_session_repository.dart';
 import 'backup_fixture.dart';
 import 'fake_diagnostics_service.dart';
+import 'fake_update_service.dart';
 import 'fake_disk_usage_service.dart';
 import '../pin/fake_clipboard_repository.dart';
 import '../pin/fake_pin_image_store.dart';
@@ -33,6 +37,7 @@ void main() {
   late FakeDiskUsageService disk;
   late FakeDiagnosticsService diagnostics;
   late _FakeUninstallService uninstall;
+  late FakeUpdateService updates;
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
@@ -58,6 +63,7 @@ void main() {
     disk = FakeDiskUsageService();
     diagnostics = FakeDiagnosticsService();
     uninstall = _FakeUninstallService();
+    updates = FakeUpdateService();
   });
 
   Future<void> pumpHub(WidgetTester tester) async {
@@ -86,6 +92,7 @@ void main() {
           diagnosticsServiceProvider.overrideWithValue(diagnostics),
           // A de verdade encerra o processo — e a suíte junto.
           uninstallServiceProvider.overrideWithValue(uninstall),
+          updateServiceProvider.overrideWithValue(updates),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -399,10 +406,168 @@ void main() {
     });
   });
 
+  group('Atualizações', () {
+    Future<void> openAppSettings(WidgetTester tester) async {
+      await pumpHub(tester);
+      await tester.tap(find.text('Aplicativo').first);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a preferência e o "procurar agora" falam com o Sparkle', (
+      tester,
+    ) async {
+      updates.current = const UpdateState(
+        available: true,
+        automaticChecks: true,
+        canCheck: true,
+      );
+      await openAppSettings(tester);
+
+      expect(
+        find.text('Procurar atualizações automaticamente'),
+        findsOneWidget,
+      );
+      expect(find.text('Ainda não procurou.'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.text('Procurar atualizações automaticamente'),
+      );
+      final toggle = find.ancestor(
+        of: find.text('Procurar atualizações automaticamente'),
+        matching: find.byType(EgSettingsRow),
+      );
+      await tester.tap(
+        find.descendant(of: toggle, matching: find.byType(EgToggle)),
+      );
+      await tester.pumpAndSettle();
+      expect(updates.current.automaticChecks, isFalse);
+
+      await tester.ensureVisible(find.text('Procurar'));
+      await tester.tap(find.text('Procurar'));
+      await tester.pumpAndSettle();
+      expect(updates.checks, 1);
+    });
+
+    testWidgets('a versão nova acende o "Aplicativo" e abre as novidades', (
+      tester,
+    ) async {
+      updates.current = UpdateState(
+        available: true,
+        automaticChecks: true,
+        canCheck: true,
+        phase: UpdatePhase.available,
+        version: '1.0.3',
+        notes: UpdateNote.parse(
+          '<h3>1.0.3</h3><ul><li>Filtros numa linha</li></ul>',
+        ),
+      );
+      await pumpHub(tester);
+
+      // A bolinha mora no botão que leva à tela do aplicativo.
+      expect(
+        find.bySemanticsLabel(RegExp('Aplicativo, versão 1.0.3 disponível')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Aplicativo').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Versão 1.0.3 disponível'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Ver novidades'));
+      await tester.tap(find.text('Ver novidades'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsOneWidget);
+      expect(find.text('Filtros numa linha'), findsOneWidget);
+
+      // Esc é "agora não": o cartão fecha e a versão continua anunciada.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsNothing);
+      expect(find.text('Versão 1.0.3 disponível'), findsOneWidget);
+
+      // Clicar fora do cartão também.
+      await tester.ensureVisible(find.text('Ver novidades'));
+      await tester.tap(find.text('Ver novidades'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsNothing);
+
+      // E dentro dele, não.
+      await tester.tap(find.text('Ver novidades'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Filtros numa linha'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsOneWidget);
+      await tester.tap(find.text('Agora não'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HubUpdate), findsNothing);
+
+      await tester.ensureVisible(find.text('Ver novidades'));
+      await tester.tap(find.text('Ver novidades'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Atualizar e reiniciar'));
+      await tester.pumpAndSettle();
+      expect(updates.installs, 1);
+    });
+
+    testWidgets('o menu da barra leva direto às novidades', (tester) async {
+      updates.current = const UpdateState(
+        available: true,
+        phase: UpdatePhase.available,
+        version: '1.0.3',
+      );
+      // O item do menu roda na janela 0 e deixa o pedido no disco.
+      await preferences.setString('hub.pending_module', HubDestination.update);
+      await pumpHub(tester);
+
+      expect(find.byType(HubUpdate), findsOneWidget);
+    });
+
+    testWidgets('baixando, o botão mostra o andamento e o Esc não fecha', (
+      tester,
+    ) async {
+      updates.current = const UpdateState(
+        available: true,
+        phase: UpdatePhase.downloading,
+        version: '1.0.3',
+        progress: 0.42,
+      );
+      // O item do menu roda na janela 0 e deixa o pedido no disco.
+      await preferences.setString('hub.pending_module', HubDestination.update);
+      await pumpHub(tester);
+
+      expect(find.text('Baixando… 42%'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.byType(HubUpdate), findsOneWidget);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      expect(find.byType(HubUpdate), findsOneWidget);
+
+      // A releitura de meio em meio segundo fica pendente: o teste a desliga
+      // tirando a árvore.
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('numa build de desenvolvimento, diz que não se atualiza', (
+      tester,
+    ) async {
+      updates.current = const UpdateState();
+      await openAppSettings(tester);
+
+      expect(find.text('Esta cópia não se atualiza sozinha'), findsOneWidget);
+      expect(find.text('Procurar'), findsNothing);
+    });
+  });
+
   group('Desinstalar', () {
     Future<void> openAppSettings(WidgetTester tester) async {
       await pumpHub(tester);
       await tester.tap(find.text('Aplicativo').first);
+      await tester.pumpAndSettle();
+      // É a última seção da tela, abaixo da dobra.
+      await tester.ensureVisible(find.text('Desinstalar').last);
       await tester.pumpAndSettle();
     }
 

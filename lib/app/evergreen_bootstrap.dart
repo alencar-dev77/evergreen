@@ -12,6 +12,7 @@ import '../core/system/global_shortcut_slot.dart';
 import '../core/system/menu_bar_service.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
+import '../core/system/update_service.dart';
 import '../core/system/startup_service.dart';
 import '../core/window/hub_destination.dart';
 import '../core/window/hub_window.dart';
@@ -128,6 +129,10 @@ class EvergreenBootstrap {
   /// Assinatura dos cliques nas notificações. Ver [_watchNotifications].
   StreamSubscription<EgNotificationResponse>? _notificationResponses;
 
+  /// Assinatura dos avisos do atualizador. Ver [_watchUpdates].
+  StreamSubscription<UpdateState>? _updates;
+  StreamSubscription<void>? _installRequests;
+
   /// Relógio do resumo da semana. Ver [_scheduleWeekDigest].
   Timer? _weekTimer;
 
@@ -190,6 +195,7 @@ class EvergreenBootstrap {
     _watchAwake();
     _watchEcho();
     _watchNotch();
+    _watchUpdates();
     _scheduleBackups();
     _scheduleWeekDigest();
     await _openHubIfRequested();
@@ -1041,6 +1047,16 @@ class EvergreenBootstrap {
   /// própria apresentação (uma vez por build), então quem atualiza também a
   /// encontra, e quem já a viu segue abrindo minimizado.
   Future<void> _openHubIfRequested() async {
+    // Acabou de se atualizar pelo "Atualizar e reiniciar": o Hub abre, e com
+    // ele a abertura animada da build nova. Quem escreve a chave é o
+    // `UpdaterChannel`, antes de o app fechar; ela vale uma abertura só.
+    final preferences = _container.read(sharedPreferencesProvider);
+    if (preferences.getBool(openHubAfterUpdateKey) ?? false) {
+      await preferences.remove(openHubAfterUpdateKey);
+      await HubWindow.instance.open();
+      return;
+    }
+
     final onboardingPending =
         FeatureFlags.onboarding &&
         _container
@@ -1150,6 +1166,8 @@ class EvergreenBootstrap {
 
   void _handleMenuAction(MenuBarAction action) {
     switch (action) {
+      case MenuBarAction.update:
+        unawaited(_showUpdate());
       case MenuBarAction.openPin:
         toggleOverlay(OverlayPanel.pin);
       case MenuBarAction.openFocus:
@@ -1171,6 +1189,69 @@ class EvergreenBootstrap {
     }
   }
 
+  /// A chave que o `UpdaterChannel.swift` grava antes de o app fechar para se
+  /// atualizar (com o prefixo `flutter.` do `shared_preferences`).
+  static const openHubAfterUpdateKey = 'app.open_hub_after_update';
+
+  /// Põe a versão nova no menu da barra, e a tira quando ela some.
+  ///
+  /// A janela 0 é a única que o lado nativo avisa (`onState`): é o engine que
+  /// nunca morre, e é ela que cuida do menu.
+  void _watchUpdates() {
+    final service = _container.read(updateServiceProvider);
+    void apply(UpdateState state) => unawaited(
+      MenuBarService.instance.setUpdateVersion(
+        state.hasUpdate ? state.version : null,
+      ),
+    );
+
+    _updates = service.changes.listen(apply);
+    _installRequests = service.installRequests.listen(
+      (_) => unawaited(_prepareInstall()),
+    );
+    unawaited(service.state().then(apply));
+  }
+
+  /// O Sparkle vai fechar o app para instalar a versão nova: antes, o que o
+  /// "Encerrar" guardaria.
+  ///
+  /// Com uma reunião do Echo gravando ou transcrevendo, a instalação espera
+  /// ela terminar — fechar agora cortaria a reunião no meio, e quem clicou em
+  /// "Atualizar" no Hub não estava vendo o painel do Echo.
+  Future<void> _prepareInstall() async {
+    final service = _container.read(updateServiceProvider);
+
+    bool meetingInProgress() {
+      final echo = _container.read(echoRecorderViewModelProvider);
+      return echo.isRecording || echo.isBusy;
+    }
+
+    if (meetingInProgress()) {
+      await service.waitForMeeting();
+      final finished = Completer<void>();
+      final subscription = _container.listen(echoRecorderViewModelProvider, (
+        _,
+        _,
+      ) {
+        if (!meetingInProgress() && !finished.isCompleted) {
+          finished.complete();
+        }
+      });
+      await finished.future;
+      subscription.close();
+    }
+
+    await _keepWhatQuittingKeeps();
+    await service.proceedInstall();
+  }
+
+  /// Leva ao Hub com as novidades da versão nova na tela. O destino antes da
+  /// janela — ver [HubDestination].
+  Future<void> _showUpdate() async {
+    await HubDestination.request(HubDestination.update);
+    await HubWindow.instance.open();
+  }
+
   /// Leva ao Hub com a pergunta de desinstalar na tela. O destino antes da
   /// janela, como no "Abrir no Hub" do Echo — ver [HubDestination].
   Future<void> _askToUninstall() async {
@@ -1178,11 +1259,23 @@ class EvergreenBootstrap {
     await HubWindow.instance.open();
   }
 
+  /// O que fechar o app não pode perder — no "Encerrar" e antes de o Sparkle
+  /// fechá-lo para instalar uma versão nova.
+  Future<void> _keepWhatQuittingKeeps() async {
+    // A ilha é uma janela nativa: sem isto ela ficaria no notch até o processo
+    // morrer, que é um instante depois — mas um instante com um relógio parado.
+    await _container.read(notchIslandChannelProvider).update(const []);
+    // A trava seria solta pelo sistema de qualquer forma quando o processo
+    // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
+    await _container.read(awakeViewModelProvider.notifier).turnOff();
+  }
+
   Future<void> _quit() async {
     _backupTimer?.cancel();
     _weekTimer?.cancel();
     _suspensionGuard?.cancel();
     await _notificationResponses?.cancel();
+    await _updates?.cancel();
     await _nestDrops?.cancel();
     await _nestShakes?.cancel();
     await _nestNotch?.cancel();
@@ -1192,12 +1285,8 @@ class EvergreenBootstrap {
     _pileTimer?.cancel();
     await _notchActions?.cancel();
     await _notchOnShown?.cancel();
-    // A ilha é uma janela nativa: sem isto ela ficaria no notch até o processo
-    // morrer, que é um instante depois — mas um instante com um relógio parado.
-    await _container.read(notchIslandChannelProvider).update(const []);
-    // A trava seria solta pelo sistema de qualquer forma quando o processo
-    // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
-    await _container.read(awakeViewModelProvider.notifier).turnOff();
+    await _installRequests?.cancel();
+    await _keepWhatQuittingKeeps();
     await GlobalShortcutService.instance.dispose();
     await MenuBarService.instance.dispose();
     exit(0);

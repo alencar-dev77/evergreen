@@ -5,11 +5,12 @@ import 'shortcut_binding.dart';
 
 /// Ações que o menu da barra de status pode disparar.
 ///
-/// A ordem dos valores é a ordem do menu: a lista dos módulos, as
-/// preferências, e as duas saídas — desinstalar e encerrar. Um módulo
+/// A ordem dos valores é a ordem do menu: a versão nova (quando há), a lista
+/// dos módulos, as preferências, e as duas saídas — desinstalar e encerrar. Um módulo
 /// desligado sai da lista e os de baixo sobem — o menu mostra o que a pessoa
 /// usa, não o catálogo.
 enum MenuBarAction {
+  update('Atualizar o Evergreen…', null),
   openPin('Pin', GlobalShortcutSlot.pin),
   openFocus('Focus', GlobalShortcutSlot.focus),
   openLeaf('Leaf', GlobalShortcutSlot.leaf),
@@ -34,7 +35,8 @@ enum MenuBarAction {
   final GlobalShortcutSlot? slot;
 
   /// Abre um módulo — e por isso entra e sai do menu com ele.
-  bool get isModule => this != openHub && this != uninstall && this != quit;
+  bool get isModule =>
+      this != update && this != openHub && this != uninstall && this != quit;
 
   /// Como o item se apresenta no menu, dada a combinação em vigor.
   ///
@@ -136,6 +138,19 @@ class MenuBarContent {
   /// dois pontos idênticos lado a lado não diriam qual é qual.
   static const recordingMark = '◉';
 
+  /// A bolinha da versão nova, no item do menu — o mesmo desenho da que
+  /// acende o botão "Aplicativo" no Hub. Só no item, nunca no título: lá o
+  /// ponto cheio é o do Awake.
+  static const updateMark = '●';
+
+  /// A versão nova anunciada pelo Sparkle ("1.0.3"), ou `null` sem nenhuma.
+  ///
+  /// Vira o primeiro item do menu, logo abaixo do "Evergreen", com a bolinha
+  /// que no Hub acende o botão "Aplicativo". Não vai para o título ao lado do
+  /// ícone: ali o `●` já quer dizer "o Awake está ligado", e uma versão nova não
+  /// é algo que precisa ser lembrado a cada olhada para a barra.
+  String? updateVersion;
+
   /// O texto ao lado do ícone; vazio quando nada está rodando.
   String title() {
     final parts = <String>[
@@ -150,6 +165,15 @@ class MenuBarContent {
 
   List<MenuBarEntry> entries() => [
     const MenuBarEntry.item('Evergreen'),
+    if (updateVersion case final version?) ...[
+      // As reticências, como no desinstalar: o clique abre o Hub nas
+      // novidades, e é lá que se confirma.
+      MenuBarEntry.item(
+        '$updateMark Atualizar para a $version…',
+        action: MenuBarAction.update,
+      ),
+      const MenuBarEntry.separator(),
+    ],
     for (final action in modules) _entryFor(action),
     _entryFor(MenuBarAction.openHub),
     const MenuBarEntry.separator(),
@@ -283,6 +307,14 @@ class MenuBarService {
   Future<void> setSessionLabel(String? label) async {
     _content.sessionLabel = label;
     _applyTitle();
+  }
+
+  /// Anuncia a versão nova no menu — ver [MenuBarContent.updateVersion].
+  Future<void> setUpdateVersion(String? version) async {
+    if (_content.updateVersion == version) return;
+    _content.updateVersion = version;
+
+    _menu?.show(_content.entries());
   }
 
   /// Anuncia a trava do Awake: o ponto no título e o tempo restante no menu.

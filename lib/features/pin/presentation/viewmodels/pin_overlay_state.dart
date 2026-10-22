@@ -98,8 +98,8 @@ class PinOverlayState {
   /// Tipos que existem no histórico agora, na ordem do enum.
   ///
   /// A fila de pílulas sai daqui, e não de `ClipboardItemType.values`: um
-  /// filtro que não tem o que mostrar é uma promessa vazia — e as sete pílulas
-  /// de uma vez não caberiam nos 420px do painel.
+  /// filtro que não tem o que mostrar é uma promessa vazia — e as pílulas
+  /// sobrariam numa fila que não precisa delas.
   final List<ClipboardItemType> availableTypes;
 
   /// Índice da seleção dentro de [results].

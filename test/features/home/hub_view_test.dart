@@ -8,6 +8,7 @@ import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/viewmodels/hub_detail_view_model.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
+import 'package:evergreen/features/home/presentation/widgets/licenses_reader.dart';
 import 'package:evergreen/features/home/presentation/widgets/module_switch.dart';
 import 'package:evergreen/shared/widgets/eg_screen_header.dart';
 import 'package:evergreen/shared/widgets/eg_toggle.dart';
@@ -23,6 +24,7 @@ import '../echo/fake_echo_channel.dart';
 import '../pin/fake_clipboard_repository.dart';
 import 'backup_fixture.dart';
 import 'fake_diagnostics_service.dart';
+import 'fake_license_catalog.dart';
 import 'fake_disk_usage_service.dart';
 import 'fake_module_settings_notifier.dart';
 import '../echo/fake_export_service.dart';
@@ -95,6 +97,7 @@ void main() {
           diagnosticsServiceProvider.overrideWithValue(
             FakeDiagnosticsService(),
           ),
+          licenseCatalogProvider.overrideWithValue(const FakeLicenseCatalog()),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -226,6 +229,61 @@ void main() {
 
     await tester.tap(find.text('Aplicativo'));
     await tester.pumpAndSettle();
+  });
+
+  group('licenças', () {
+    Future<void> openLicenses(WidgetTester tester) async {
+      await pumpHub(tester);
+      // A janela já crescida para caber a região: no app quem a cresce é o
+      // lado nativo, que num teste não existe.
+      tester.view.physicalSize = const Size(1460, 680);
+      await tester.tap(find.text('Aplicativo'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Ver'));
+      await tester.tap(find.text('Ver'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('abrem na região de leitura da tela do aplicativo', (
+      tester,
+    ) async {
+      await openLicenses(tester);
+
+      expect(find.byType(LicensesReader), findsOneWidget);
+      expect(
+        find.textContaining('usa 2 componentes de outras pessoas'),
+        findsOneWidget,
+      );
+
+      // Um componente por vez: abrir o segundo fecha o primeiro.
+      await tester.tap(find.text('flutter_riverpod'));
+      await tester.pumpAndSettle();
+      expect(find.text('MIT License'), findsOneWidget);
+
+      await tester.tap(find.text('FluidAudio'));
+      await tester.pumpAndSettle();
+      expect(find.text('MIT License'), findsNothing);
+      expect(find.text('Apache License'), findsOneWidget);
+    });
+
+    testWidgets('o Esc fecha a região, e trocar de tela também', (
+      tester,
+    ) async {
+      await openLicenses(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(LicensesReader), findsNothing);
+
+      await tester.tap(find.text('Ver'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pin').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aplicativo'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LicensesReader), findsNothing);
+    });
   });
 
   /// A tela de um módulo curto (o Awake) tem menos conteúdo que a janela, e a

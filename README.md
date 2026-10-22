@@ -30,21 +30,35 @@ Código aberto, sob a [GPL-3.0](LICENSE).
 Enquanto não houver um `.dmg` publicado, o caminho é compilar a partir do
 código ([Rodando a partir do código](#rodando-a-partir-do-código)).
 
+**Atualizações** chegam sozinhas: uma vez por dia o Evergreen procura versão
+nova e, se houver, pergunta se pode instalar — as permissões continuam valendo.
+Dá para procurar na hora, ou desligar a procura, em Configurações → Aplicativo →
+**Atualizações**.
+
 **Para desinstalar**, use Configurações → Aplicativo → **Desinstalar o Evergreen**: além de
 mandar o app para o Lixo, ele apaga os dados, as preferências, as permissões e
 o item de início. Arrastar só o app para o Lixo deixa os dados para trás.
 
 ### O que sai da máquina
 
+A versão completa, módulo por módulo e com os prazos, está na
+[política de privacidade](PRIVACY.md). O que mudou em cada versão está nas
+[novidades](CHANGELOG.md).
+
 Nada do que você usa. O histórico do Pin, as anotações, as reuniões gravadas e
 os arquivos do Nest ficam no disco do seu Mac, e o Evergreen não tem conta,
-servidor nem telemetria. Ele abre só duas conexões:
+servidor nem telemetria. Só quatro coisas saem dele:
 
 - **O download, uma vez, do modelo que separa as vozes do Echo**, do Hugging
   Face, na primeira reunião com fala do outro lado. Só baixa: nada
   é enviado.
+- **O modelo de transcrição do idioma**, que o macOS baixa da Apple a pedido do
+  Echo, na primeira reunião naquele idioma. Nenhum áudio é enviado.
 - **O LM Studio, se você o escolher como modelo local** — e esse fica na própria
   máquina (`127.0.0.1`), nunca na internet.
+- **A procura por versão nova**, uma vez por dia: o Evergreen lê no GitHub qual é
+  a última versão. Não leva nada seu, pergunta antes de baixar, e desliga em
+  Configurações → Aplicativo → **Atualizações**.
 
 Os erros vão para um registro local (ver [Quando algo dá errado](#quando-algo-dá-errado)),
 que nunca leva o que você copiou, anotou ou gravou.
@@ -255,7 +269,7 @@ Configurações → Aplicativo → **Diagnóstico**:
 
 | Permissão | Para quê | Sem ela |
 |---|---|---|
-| **Acessibilidade** | Atalhos globais e o auto-colar do Pin | Os atalhos não disparam; o auto-colar só copia |
+| **Acessibilidade** | O auto-colar do Pin (desligado por padrão) | O auto-colar só copia |
 | **Microfone** e **Gravação de tela** | O Echo captura as duas faixas de áudio | O Echo não grava |
 
 Ficam em Ajustes → Privacidade e Segurança.
@@ -470,4 +484,6 @@ redistribuir o Evergreen; quem distribuir uma versão modificada precisa
 distribuí-la também sob a GPL-3.0, com o código.
 
 O pacote vendorizado em [`packages/hotkey_manager_macos/`](packages/hotkey_manager_macos/)
-mantém a licença MIT do autor original.
+mantém a licença MIT do autor original. As licenças de todos os componentes que
+o Evergreen usa estão dentro do app, em Configurações → Aplicativo → Sobre →
+**Licenças**.

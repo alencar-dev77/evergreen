@@ -36,6 +36,8 @@
 		A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */; };
 		A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */; };
 		A1E0C40012B4E0A100EC4101 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = A1E0C40012B4E0A100EC4102 /* FluidAudio */; };
+		A1E0C40012B4E0A100EC4201 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1E0C40012B4E0A100EC4202 /* Sparkle */; };
+		A1E0C40012B4E0A100EC4204 /* UpdaterChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4205 /* UpdaterChannel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +96,7 @@
 		A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationChannel.swift; sourceTree = "<group>"; };
 		A1E0C50012B4E0A100EC400A /* AppLocationGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocationGuard.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoPlayerChannel.swift; sourceTree = "<group>"; };
+		A1E0C40012B4E0A100EC4205 /* UpdaterChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchIsland.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -111,6 +114,7 @@
 			files = (
 				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
 				A1E0C40012B4E0A100EC4101 /* FluidAudio in Frameworks */,
+				A1E0C40012B4E0A100EC4201 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -190,6 +194,7 @@
 				A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */,
 				A1E0C50012B4E0A100EC400A /* AppLocationGuard.swift */,
 				A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */,
+				A1E0C40012B4E0A100EC4205 /* UpdaterChannel.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -238,6 +243,7 @@
 			packageProductDependencies = (
 				78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */,
 				A1E0C40012B4E0A100EC4102 /* FluidAudio */,
+				A1E0C40012B4E0A100EC4202 /* Sparkle */,
 			);
 			productName = Runner;
 			productReference = 33CC10ED2044A3C60003C045 /* Evergreen.app */;
@@ -286,6 +292,7 @@
 			packageReferences = (
 				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
 				A1E0C40012B4E0A100EC4103 /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				A1E0C40012B4E0A100EC4203 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = 33CC10EE2044A3C60003C045 /* Products */;
 			projectDirPath = "";
@@ -379,6 +386,7 @@
 				A1E0C40012B4E0A100EC4009 /* NotificationChannel.swift in Sources */,
 				A1E0C50012B4E0A100EC4009 /* AppLocationGuard.swift in Sources */,
 				A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */,
+				A1E0C40012B4E0A100EC4204 /* UpdaterChannel.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);
@@ -756,6 +764,14 @@
 				version = 0.17.7;
 			};
 		};
+		A1E0C40012B4E0A100EC4203 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.6;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -767,6 +783,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A1E0C40012B4E0A100EC4103 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
+		};
+		A1E0C40012B4E0A100EC4202 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1E0C40012B4E0A100EC4203 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

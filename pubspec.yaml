@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.35.1+2
+version: 1.1.1+3
 
 environment:
   sdk: ^3.11.5
@@ -87,6 +87,10 @@ flutter:
   assets:
     - assets/icons/
     - assets/onboarding/
+    # As licenças que a tela "Licenças" mostra e o Flutter não junta sozinho:
+    # a do próprio Evergreen e a dos pacotes Swift (ver `LicenseCatalog`).
+    - LICENSE
+    - assets/licenses/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

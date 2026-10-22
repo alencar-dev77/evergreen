@@ -9,6 +9,7 @@ import '../core/storage/app_database.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
 import '../core/system/uninstall_service.dart';
+import '../core/system/update_service.dart';
 import '../core/storage/backup_service.dart';
 import '../core/storage/disk_usage_service.dart';
 import '../core/storage/export_service.dart';
@@ -35,6 +36,7 @@ import '../core/app_info.dart';
 import '../core/diagnostics/log_store.dart';
 import '../core/system/previous_app_focus_channel.dart';
 import '../features/home/data/diagnostics_service.dart';
+import '../features/home/data/license_catalog.dart';
 import '../features/home/data/app_settings_repository.dart';
 import '../features/home/data/hub_intro_repository.dart';
 import '../features/home/data/module_settings_repository.dart';
@@ -121,6 +123,12 @@ final logStoreProvider = Provider<LogStore>((ref) {
 });
 
 /// O que o "Copiar diagnóstico" junta, na tela do aplicativo.
+/// As licenças do Evergreen e de tudo o que vai dentro dele — a tela
+/// "Licenças", na região de leitura da tela do aplicativo.
+final licenseCatalogProvider = Provider<LicenseCatalog>(
+  (ref) => const FlutterLicenseCatalog(),
+);
+
 final diagnosticsServiceProvider = Provider<DiagnosticsService>(
   (ref) => LocalDiagnosticsService(
     log: ref.watch(logStoreProvider),
@@ -136,6 +144,11 @@ final diagnosticsServiceProvider = Provider<DiagnosticsService>(
 /// [UninstallService] para o porquê da interface.
 final uninstallServiceProvider = Provider<UninstallService>(
   (ref) => ChannelUninstallService(),
+);
+
+/// A atualização pelo Sparkle — a seção "Atualizações" da tela do aplicativo.
+final updateServiceProvider = Provider<UpdateService>(
+  (ref) => ChannelUpdateService(),
 );
 
 /// Quanto a pasta do aplicativo ocupa — o banco e as subpastas ao lado dele.

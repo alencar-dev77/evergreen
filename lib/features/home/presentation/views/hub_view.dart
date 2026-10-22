@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/system/update_service.dart';
 import '../../../../core/design/app_metrics.dart';
 import '../../../../core/window/hub_window.dart';
 import '../../../../core/window/hub_window_channel.dart';
@@ -28,7 +29,10 @@ import '../viewmodels/app_settings_view_model.dart';
 import '../viewmodels/hub_intro_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 import '../viewmodels/onboarding_view_model.dart';
+import '../viewmodels/updates_view_model.dart';
 import '../widgets/hub_detail_region.dart';
+import '../widgets/hub_update.dart';
+import '../widgets/licenses_reader.dart';
 import '../widgets/hub_intro.dart';
 import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
@@ -59,6 +63,14 @@ class HubView extends ConsumerStatefulWidget {
   @override
   ConsumerState<HubView> createState() => _HubViewState();
 }
+
+/// Se há alguma região de leitura aberta — de um módulo ou da tela do
+/// aplicativo. É o que a janela escuta para crescer e voltar.
+final _regionOpenProvider = Provider.autoDispose<bool>(
+  (ref) =>
+      ref.watch(hubDetailProvider) != null ||
+      ref.watch(appDetailProvider) != null,
+);
 
 class _HubViewState extends ConsumerState<HubView> {
   /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
@@ -112,6 +124,14 @@ class _HubViewState extends ConsumerState<HubView> {
     final moduleId = await HubDestination.take();
     if (moduleId == null || !mounted) return;
 
+    if (moduleId == HubDestination.update) {
+      // A versão nova mora na tela do aplicativo; a de novidades abre por cima
+      // dela, e "Agora não" devolve a pessoa para lá.
+      _select(null);
+      ref.read(updatePresentationProvider.notifier).open();
+      return;
+    }
+
     if (moduleId == HubDestination.uninstall) {
       _select(null);
       // Depois do quadro: a pergunta abre por cima da tela do aplicativo, e
@@ -135,6 +155,7 @@ class _HubViewState extends ConsumerState<HubView> {
     // Trocar de módulo fecha a região: uma reunião aberta ao lado das
     // preferências do Pin seria a leitura de um módulo dentro de outro.
     ref.read(hubDetailProvider.notifier).close();
+    ref.read(appDetailProvider.notifier).close();
     setState(() => _selected = module);
   }
 
@@ -178,6 +199,10 @@ class _HubViewState extends ConsumerState<HubView> {
       ref.read(hubDetailProvider.notifier).close();
       return;
     }
+    if (ref.read(appDetailProvider) != null) {
+      ref.read(appDetailProvider.notifier).close();
+      return;
+    }
 
     unawaited(HubWindow.hideSelf());
   }
@@ -186,9 +211,9 @@ class _HubViewState extends ConsumerState<HubView> {
   Widget build(BuildContext context) {
     // A janela acompanha a região: cresce ao abrir, volta ao fechar. Fora do
     // `build` (num `listen`) porque isto é efeito, não desenho.
-    ref.listen<EvergreenModule?>(hubDetailProvider, (previous, next) {
+    ref.listen<bool>(_regionOpenProvider, (previous, next) {
       HubWindowChannel.setDetailWidth(
-        next == null ? 0 : HubDetailRegion.preferredWidth,
+        next ? HubDetailRegion.preferredWidth : 0,
       );
     });
 
@@ -204,10 +229,70 @@ class _HubViewState extends ConsumerState<HubView> {
           // A apresentação vem antes da abertura animada na pilha porque a
           // abertura é quem cobre tudo: a marca entra, a marca sai, e o que
           // estava embaixo dela é a primeira coisa que a pessoa vê.
+          if (ref.watch(updatePresentationProvider)) _update(),
           if (ref.watch(onboardingViewModelProvider).visible) _onboarding(),
           if (ref.watch(hubIntroViewModelProvider))
             HubIntro(onDone: _introDone),
         ],
+      ),
+    );
+  }
+
+  /// O cartão de novidades da versão nova, por cima do Hub escurecido.
+  ///
+  /// Os atalhos ficam aqui pelo mesmo motivo da apresentação: com o cartão na
+  /// tela, o Esc é "agora não", e não pode chegar ao `_handleEscape`, que
+  /// esconderia a janela.
+  Widget _update() {
+    final updates = ref.watch(updatesViewModelProvider).value;
+    final presentation = ref.read(updatePresentationProvider.notifier);
+    final model = ref.read(updatesViewModelProvider.notifier);
+
+    // Sem versão para mostrar (a tela foi pedida antes de o estado chegar, ou
+    // a versão sumiu), não há o que desenhar: o Hub de baixo continua.
+    if (updates == null || updates.version == null) {
+      return const SizedBox.shrink();
+    }
+
+    final busy = updates.phase.isBusy;
+    final failed = updates.phase == UpdatePhase.error;
+
+    return CallbackShortcuts(
+      bindings: {
+        if (!busy && !failed)
+          const SingleActivator(LogicalKeyboardKey.enter): () =>
+              unawaited(model.install()),
+        // Baixando ou instalando não há volta: fechar a tela no meio deixaria
+        // a pessoa sem saber por que o app sumiu.
+        if (!busy)
+          const SingleActivator(LogicalKeyboardKey.escape): presentation.close,
+      },
+      child: FocusScope(
+        child: Focus(
+          autofocus: true,
+          child: Stack(
+            children: [
+              // O Hub escurecido atrás, como no `EgConfirmDialog`. Clicar nele
+              // é "agora não" — menos enquanto baixa ou instala, pelo mesmo
+              // motivo do Esc.
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: busy ? null : presentation.close,
+                  child: ColoredBox(color: context.eg.colors.scrim),
+                ),
+              ),
+              Center(
+                child: HubUpdate(
+                  state: updates,
+                  currentVersion: AppInfo.version,
+                  onInstall: () => unawaited(model.install()),
+                  onClose: presentation.close,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -248,7 +333,11 @@ class _HubViewState extends ConsumerState<HubView> {
 
   Widget _hub() {
     final detail = ref.watch(hubDetailProvider);
+    final appDetail = ref.watch(appDetailProvider);
     final isDetailOpen = detail != null && detail == _selected;
+    // A tela do aplicativo é o `null` da barra lateral, e a região dela vem de
+    // outro provider — ver [appDetailProvider].
+    final isAppDetailOpen = _selected == null && appDetail != null;
 
     return CallbackShortcuts(
       bindings: {
@@ -306,6 +395,10 @@ class _HubViewState extends ConsumerState<HubView> {
                       Expanded(child: _detail()),
                       if (isDetailOpen)
                         _region(detail, _regionWidth(constraints.maxWidth)),
+                      if (isAppDetailOpen)
+                        LicensesReader(
+                          width: _regionWidth(constraints.maxWidth),
+                        ),
                     ],
                   ),
                 ),

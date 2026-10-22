@@ -20,7 +20,29 @@ outro projeto — entra no repositório, nem em comentário. Contribuição de f
 chega por fork e PR para a `validation`; por isso o `version-bump.yml` usa
 `pull_request_target` (num fork, o `pull_request` só lê e o bump não subiria),
 e é seguro só enquanto ele fizer checkout da `validation` pós-merge, nunca do
-head da PR.
+head da PR. A armadilha do `pull_request_target`: ele roda o **arquivo do
+workflow que está na `main`**, não o da `validation` — mudança no
+`version-bump.yml` só vale depois da promoção. Por isso o que dá para pôr no
+`bump_version` (que sai do checkout da `validation`) mora nele: o título da PR
+para o CHANGELOG ele mesmo lê do evento.
+
+**A [PRIVACY.md](PRIVACY.md) é uma promessa, e muda antes do código.** Ela diz
+o que cada módulo guarda, onde, por quanto tempo, e o que sai do app (o
+download do modelo de vozes, o modelo de transcrição que o macOS baixa a
+pedido do Echo, o `127.0.0.1` do LM Studio e a procura diária por versão nova
+do Sparkle). Módulo que passe a guardar outra coisa, prazo que mude, permissão
+nova ou qualquer conexão nova entra nela na mesma PR. **E a mudança na política
+nunca é silenciosa**: quem mexe nela — gente ou agente — avisa, na conversa e
+na descrição da PR, o que foi **acrescentado** ou **alterado** e por quê, e
+atualiza a data de "Última atualização" no topo dela. É o que deixa quem mantém
+decidir se a promessa nova é uma que se quer fazer, em vez de descobri-la
+depois no repositório. Termos de uso não
+existem de propósito: a GPL-3.0 já é o acordo, com o "sem garantia" dela. As
+licenças de quem o Evergreen usa aparecem dentro do app (Aplicativo → Sobre →
+Licenças, `LicenseCatalog`); as de pacote Dart entram sozinhas, e as de pacote
+Swift (FluidAudio, HotKey, Sparkle) moram em `assets/licenses/` — pacote Swift novo
+traz a dele para lá. Os PDFs da licença e da política saem do
+`./scripts/documentos`, pelo LibreOffice, e não são commitados.
 
 A visão de origem (filosofia, referências, a lista de módulos sonhados) está em
 [docs/Ideis projeto/ideia.md](docs/Ideis%20projeto/ideia.md). Propostas de
@@ -148,9 +170,10 @@ e esconder ícones da barra de menus
   A faixa diz o lado, e isso é certeza; a voz (`MeetingSegment.voice`, que vira
   "Pessoa 1", "Pessoa 2") é palpite, e por isso mora num campo à parte. É
   enfeite: falhou, a reunião sai com o outro lado em "Reunião", sem aviso. O
-  modelo é baixado do Hugging Face uma vez, e é a única conexão que o
-  Evergreen abre para fora da máquina (a outra é o `127.0.0.1` do LM Studio,
-  ver o modelo local abaixo). Ao vivo não separa. Ver
+  modelo é baixado do Hugging Face uma vez (as outras saídas — o modelo de
+  transcrição, que quem baixa é o macOS a pedido do Echo, e a procura diária
+  por versão nova do Sparkle — estão na [PRIVACY.md](PRIVACY.md); o
+  `127.0.0.1` do LM Studio não sai da máquina). Ao vivo não separa. Ver
   [docs/Ideis projeto/echo-separacao-de-vozes.md](docs/Ideis%20projeto/echo-separacao-de-vozes.md).
   **O microfone é aberto cru, nunca com `setVoiceProcessingEnabled`.** O
   processamento de voz não fica dentro do Echo: enquanto ele está ligado, o
@@ -251,6 +274,26 @@ e esconder ícones da barra de menus
   oferece mover o app, e a apresentação de boas-vindas pendente abre o Hub
   mesmo com "Abrir minimizado" — sem isso quem instalava não via nada. Ver
   [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+- **O Sparkle atualiza o app** (SPM direto no `Runner`, como o FluidAudio;
+  `UpdaterChannel.swift`). Três regras. **Quem o Sparkle compara é o build**
+  (`sparkle:version` contra o `CFBundleVersion`), não o semver — por isso o
+  build só cresce, uma vez por publicação, e o `require-build-bump.yml` é o
+  que garante que uma versão nova seja vista como nova. **O feed é o
+  `appcast.xml` anexado ao release** (`releases/latest/download/appcast.xml`),
+  que o `./scripts/release` gera e assina com a chave EdDSA do chaveiro de
+  quem publica; a pública mora no `Info.plist` (`SUPublicEDKey`). Perder a
+  chave privada é não conseguir mais atualizar quem já instalou — ela tem
+  cópia de segurança fora da máquina. E **a preferência é do Sparkle**
+  (`automaticallyChecksForUpdates`), não do `AppSettings`: uma cópia nossa
+  seria uma segunda fonte para a pergunta que decide se algo sai do app. O
+  atualizador é um por processo, nasce com a janela 0 e não existe em build de
+  desenvolvimento (`#if DEBUG`). **A interface é nossa** (`UpdateDriver`, um
+  `SPUUserDriver` próprio): a versão nova vira item no menu da barra, tecla
+  com bolinha no botão "Aplicativo" e o cartão `HubUpdate` por cima do Hub
+  (pergunta de sim ou não, então fecha ao clicar fora), nunca a janela do
+  Sparkle, que tiraria o foco de quem está trabalhando. Os executáveis de dentro do `Sparkle.framework`
+  (XPC, `Autoupdate`, `Updater.app`) são assinados um a um no `release`. Ver
+  [docs/Ideis projeto/atualizacao-sparkle.md](docs/Ideis%20projeto/atualizacao-sparkle.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
   persistência simples, paths do sistema, formatação de data/hora e a versão
   que o rodapé da sidebar do Hub mostra (`lib/core/app_info.dart`).
@@ -595,7 +638,11 @@ e esconder ícones da barra de menus
   porque não tinha tabela. Agora grava uma linha por trava solta (`quando`,
   `quanto`, `o quê`), e só isso: o painel continua respondendo "está ligado?", e
   o histórico é do Track. A trava que ainda está de pé não vira linha, porque
-  ainda não tem duração.
+  ainda não tem duração. **E a linha dura o que o Track lê**: o Awake e o Nest
+  guardam as mesmas `FocusSessionRepository.keptWeeks` semanas do Focus,
+  limpando na própria escrita. Módulo que grave só para o Track faz igual —
+  linha que ninguém lê não fica no disco, e a [PRIVACY.md](PRIVACY.md) promete
+  o prazo.
 - O parágrafo que o modelo local escreve sobre um dia é **cache, não dado**: ele
   vive no plist (`TrackSummaryCache`), com assinatura do dia, e não no banco.
   Não entra no backup porque se refaz sozinho — e é o que
@@ -651,7 +698,9 @@ e esconder ícones da barra de menus
   selecionada. Hoje: `EchoReader` (a reunião) e `FocusReader` (a sessão do
   histórico) — o Focus era um diálogo modal até a v0.4, e o modal escurecia o
   histórico atrás, prendia o teclado e obrigava a fechar para olhar a linha
-  vizinha. Modal continua sendo a forma certa de **uma pergunta de sim ou não**
+  vizinha. A tela do aplicativo também abre a dela (`LicensesReader`), mas
+  por outro provider, o `appDetailProvider`: ela não é um módulo, e a região
+  de um módulo é identificada pelo módulo. Modal continua sendo a forma certa de **uma pergunta de sim ou não**
   (`EgConfirmDialog`), e só disso.
 - Quem faz a janela crescer para caber a região é o
   `HubWindowChannel.setDetailWidth` — dividir a largura que já existe foi
@@ -776,12 +825,17 @@ UI e microcopy em português (pt-BR).
   sustenta o auto-colar do Pin.
 - `./scripts/release` — o `.dmg` para distribuir: build release, assinatura Developer
   ID com runtime endurecido, notarização do `.app` e do `.dmg` e upload no
-  GitHub Release da tag `v<semver>+<build>` (exige árvore limpa e o código
-  igual ao da tag — a `main` promovida serve).
+  GitHub Release da tag `v<semver>+<build>`. **Publica só da `main`**, igual
+  à do GitHub, limpa e com o código da tag: a `validation` é integração, e um
+  `.dmg` dela seria código que a suíte não conferiu como conjunto. O
+  `release-so-da-main.yml` faz a mesma conferência no GitHub e devolve a
+  rascunho o release criado pela página com uma tag que não é da `main`.
   `--sem-publicar` para no `.dmg`; `--sem-notarizar` só assina e monta, para
   conferir a janela. Pede o certificado e a credencial do `notarytool` no
   chaveiro — o passo a passo está em
   [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+- `./scripts/documentos` — os PDFs da `LICENSE` e da `PRIVACY.md`, pelo
+  LibreOffice, em `build/documentos`. O `release` o chama e anexa os PDFs.
 - `./scripts/bump_version` — a regra do bump, num lugar só: o `version-bump.yml` o
   chama com o nível da label, o `preparar-release.yml` com `--build`, e à mão
   ele é a rede para quando o Actions está fora do ar. Roda na `validation`,
@@ -811,6 +865,17 @@ os dois portões perguntam coisas diferentes.
   pede label: ela carrega um número que já foi decidido, e bumpar dos dois
   lados daria dois números para o mesmo código. Promovida, o `./scripts/release`
   publica o `.dmg` na tag.
+
+**O título da PR é a linha do changelog, e quem lê é quem usa o app.** No
+merge na `validation`, o `bump_version` escreve o título no
+[CHANGELOG.md](CHANGELOG.md), e o `./scripts/release` publica essas linhas como
+notas do GitHub Release. Por isso o título é simples e objetivo: em português,
+dizendo o que mudou para quem usa e não como foi feito, numa linha, sem
+prefixo de commit (`feat:` e `fix(echo):` ficam nos commits) e sem nome de
+classe, arquivo ou branch. "Exportar a reunião em PDF", não "feat(echo):
+ExportService ganha PdfWriter". Mudança que quem usa não vê (CI, refatoração,
+teste) também ganha uma linha — e ela diz isso: "Ajustes internos no
+instalador".
 
 A consequência a saber: **entre a feature e a promoção, o que segura a barra é
 rodar `flutter analyze` e `flutter test` na máquina** antes de abrir a PR. O CI

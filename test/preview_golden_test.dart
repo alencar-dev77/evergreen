@@ -4,6 +4,7 @@ library;
 import 'dart:ui' as ui;
 
 import 'package:evergreen/app/providers.dart';
+import 'package:evergreen/core/system/update_service.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
@@ -25,6 +26,7 @@ import 'package:evergreen/features/focus/models/focus_session_note.dart';
 import 'package:evergreen/features/focus/presentation/viewmodels/focus_timer_view_model.dart';
 import 'package:evergreen/features/focus/presentation/views/focus_overlay_view.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
+import 'package:evergreen/features/home/presentation/widgets/hub_update.dart';
 import 'package:evergreen/features/home/presentation/views/hub_view.dart';
 import 'package:evergreen/features/leaf/models/leaf_note.dart';
 import 'package:evergreen/features/leaf/presentation/viewmodels/leaf_view_model.dart';
@@ -62,6 +64,8 @@ import 'golden_fonts.dart';
 import 'features/echo/fake_export_service.dart';
 import 'features/echo/fake_echo_audio.dart';
 import 'features/home/fake_diagnostics_service.dart';
+import 'features/home/fake_license_catalog.dart';
+import 'features/home/fake_update_service.dart';
 import 'features/home/fake_disk_usage_service.dart';
 import 'features/pin/fake_pin_image_store.dart';
 
@@ -454,6 +458,18 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          licenseCatalogProvider.overrideWithValue(const FakeLicenseCatalog()),
+          // Como na versão publicada: a seção inteira, com a última procura.
+          updateServiceProvider.overrideWithValue(
+            FakeUpdateService(
+              UpdateState(
+                available: true,
+                automaticChecks: true,
+                canCheck: true,
+                lastCheck: DateTime.now().subtract(const Duration(hours: 3)),
+              ),
+            ),
+          ),
           pinImageStoreProvider.overrideWithValue(pinImages),
           clipboardRepositoryProvider.overrideWithValue(repository),
           focusSessionRepositoryProvider.overrideWithValue(sessions),
@@ -688,6 +704,60 @@ void main() {
     await expectLater(
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_app_settings.png'),
+    );
+  });
+
+  /// A versão nova, num cartão por cima do Hub: o que muda e o botão de
+  /// atualizar.
+  testWidgets('Hub — atualização', (tester) async {
+    await pump(
+      tester,
+      Builder(
+        builder: (context) => Center(
+          child: HubUpdate(
+            state: UpdateState(
+              available: true,
+              phase: UpdatePhase.available,
+              version: '1.0.3',
+              notes: UpdateNote.parse(
+                '<h3>1.0.3 — 23/10/2026</h3><ul>'
+                '<li>Atualizações pelo próprio app (#137)</li>'
+                '<li>Os filtros do Pin cabem numa linha só (#136)</li></ul>'
+                '<h3>1.0.0 — 22/10/2026</h3><p>A V1.</p><ul>'
+                '<li>Política de privacidade e licenças dentro do app (#134)</li>'
+                '</ul>',
+              ),
+            ),
+            currentVersion: '1.0.2',
+            onInstall: () {},
+            onClose: () {},
+          ),
+        ),
+      ),
+      const Size(1000, 1160),
+    );
+
+    await expectLater(
+      find.byType(HubUpdate),
+      matchesGoldenFile('goldens/hub_update.png'),
+    );
+  });
+
+  /// As licenças, abertas na região de leitura da tela do aplicativo.
+  testWidgets('Hub — licenças', (tester) async {
+    await pump(tester, const HubView(), _hubWindowWithRegion);
+
+    await tester.tap(find.text('Aplicativo'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ver'));
+    await tester.tap(find.text('Ver'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evergreen').last);
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_licenses.png'),
     );
   });
 
