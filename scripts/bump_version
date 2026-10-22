@@ -51,8 +51,17 @@
 #   ./scripts/bump_version patch           # nível explícito (patch|minor|major)
 #   ./scripts/bump_version --pr 29         # nível vem da label daquela PR
 #   ./scripts/bump_version --build         # +1 no build, semver intacto (preparar release)
+#   ./scripts/bump_version patch --nota "Texto (#12)"   # a linha do CHANGELOG.md
 #   ./scripts/bump_version --dry-run       # só mostra o que faria
 #   ./scripts/bump_version --push          # commita, tagueia E envia (padrão: não envia)
+#
+# O bump de semver também escreve o CHANGELOG.md, no mesmo commit: uma seção
+# com a versão nova e uma linha por PR, o título dela. É o texto que quem usa o
+# app lê (o `./scripts/release` o põe nas notas do GitHub Release), e por isso
+# o título da PR é escrito para essa pessoa — a regra está no AGENTS.md. O
+# prefixo de commit (`feat:`, `fix(echo):`) sai sozinho, para o caso de ele
+# escapar. De onde vem a linha: `--nota`, o título da `--pr`, ou os títulos das
+# PRs pendentes. O `--build` não escreve nada: a publicação não é novidade.
 #
 # O padrão é NÃO enviar: o script deixa commit e tag prontos e imprime os dois
 # `git push`, pra você conferir antes.
@@ -77,12 +86,16 @@ PR_ALVO=""
 DRY_RUN=false
 PUSH=false
 MODO_BUILD=false
+NOTAS=""
+NL=$'\n'
 
 while [ $# -gt 0 ]; do
   case "$1" in
     patch|minor|major) NIVEL="$1"; shift ;;
     --pr)              PR_ALVO="${2:-}"; [ -n "$PR_ALVO" ] || erro "--pr exige o número da PR."; shift 2 ;;
     --build)           MODO_BUILD=true; shift ;;
+    --nota)            [ -n "${2:-}" ] || erro "--nota exige o texto."
+                       NOTAS="${NOTAS:+$NOTAS$NL}$2"; shift 2 ;;
     --dry-run)         DRY_RUN=true; shift ;;
     --push)            PUSH=true; shift ;;
     -h|--help)         awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0 ;;
@@ -90,8 +103,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if [ "$MODO_BUILD" = true ] && { [ -n "$NIVEL" ] || [ -n "$PR_ALVO" ]; }; then
-  erro "--build sobe só o build number; não combine com nível nem com --pr."
+if [ "$MODO_BUILD" = true ] && { [ -n "$NIVEL" ] || [ -n "$PR_ALVO" ] || [ -n "$NOTAS" ]; }; then
+  erro "--build sobe só o build number; não combine com nível, --pr nem --nota."
 fi
 
 # --- Guardas ----------------------------------------------------------------
@@ -140,6 +153,9 @@ if [ "$MODO_BUILD" = false ] && [ -n "$PR_ALVO" ]; then
   command -v gh >/dev/null || erro "--pr precisa do 'gh' instalado."
   labels="$(gh pr view "$PR_ALVO" --json labels -q '[.labels[].name] | join(" ")')"
   NIVEL="$(nivel_das_labels "$labels")"
+  if [ -z "$NOTAS" ]; then
+    NOTAS="$(gh pr view "$PR_ALVO" --json title -q .title) (#$PR_ALVO)"
+  fi
   [ -n "$NIVEL" ] || erro "A PR #$PR_ALVO não tem label bump:patch/minor/major."
   azul "→ PR #$PR_ALVO: label bump:$NIVEL"
 fi
@@ -170,6 +186,9 @@ if [ "$MODO_BUILD" = false ] && [ -z "$NIVEL" ]; then
   echo
 
   NIVEL="$(nivel_das_labels "$(printf '%s' "$pendentes" | cut -f2 | tr '\n' ' ')")"
+  if [ -z "$NOTAS" ]; then
+    NOTAS="$(printf '%s\n' "$pendentes" | awk -F'\t' '{ print $3 " (#" $1 ")" }')"
+  fi
   [ -n "$NIVEL" ] || erro "Nenhuma das PRs pendentes tem label bump:*. Informe o nível na mão."
 
   # Um bump só pra todas as pendentes, com o nível mais forte entre elas: as
@@ -231,6 +250,38 @@ fi
 tmp="$(mktemp)"
 sed "s|^version: .*|version: $nova|" pubspec.yaml > "$tmp"
 mv "$tmp" pubspec.yaml
+
+# Uma linha do CHANGELOG.md por nota: sem o prefixo de commit e com a primeira
+# letra maiúscula. Em Perl, e não no `${x^}` do bash: o bash do macOS é o 3.2,
+# que não tem, e o `\u` do Perl sabe que "é" vira "É".
+linhas_do_changelog() {
+  printf '%s\n' "$1" \
+    | perl -CSD -ne 's/^\s+|\s+$//g; s/^[a-z]+(\([^)]*\))?!?:\s*//; next unless length; print "- \u$_\n"'
+}
+
+if [ "$MODO_BUILD" = false ]; then
+  marca="<!-- novidades: o bump_version escreve abaixo desta linha -->"
+  grep -qF "$marca" CHANGELOG.md || erro "CHANGELOG.md sem a linha '$marca'."
+
+  if [ -z "$NOTAS" ]; then
+    amarelo "⚠️  Sem --nota: a $MAJOR.$MINOR.$PATCH entra no CHANGELOG.md sem linha."
+  fi
+
+  secao="$(mktemp)"
+  {
+    printf '## %s — %s\n' "$MAJOR.$MINOR.$PATCH" "$(date +%d/%m/%Y)"
+    [ -z "$NOTAS" ] || { echo; linhas_do_changelog "$NOTAS"; }
+  } > "$secao"
+
+  tmp="$(mktemp)"
+  awk -v marca="$marca" -v secao="$secao" '
+    { print }
+    $0 == marca { print ""; while ((getline linha < secao) > 0) print linha }
+  ' CHANGELOG.md > "$tmp"
+  mv "$tmp" CHANGELOG.md
+  rm -f "$secao"
+  git add CHANGELOG.md
+fi
 
 git add pubspec.yaml
 git commit --quiet -m "chore: bump version to $nova"

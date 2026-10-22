@@ -35,6 +35,7 @@ import '../core/app_info.dart';
 import '../core/diagnostics/log_store.dart';
 import '../core/system/previous_app_focus_channel.dart';
 import '../features/home/data/diagnostics_service.dart';
+import '../features/home/data/license_catalog.dart';
 import '../features/home/data/app_settings_repository.dart';
 import '../features/home/data/hub_intro_repository.dart';
 import '../features/home/data/module_settings_repository.dart';
@@ -121,6 +122,12 @@ final logStoreProvider = Provider<LogStore>((ref) {
 });
 
 /// O que o "Copiar diagnóstico" junta, na tela do aplicativo.
+/// As licenças do Evergreen e de tudo o que vai dentro dele — a tela
+/// "Licenças", na região de leitura da tela do aplicativo.
+final licenseCatalogProvider = Provider<LicenseCatalog>(
+  (ref) => const FlutterLicenseCatalog(),
+);
+
 final diagnosticsServiceProvider = Provider<DiagnosticsService>(
   (ref) => LocalDiagnosticsService(
     log: ref.watch(logStoreProvider),

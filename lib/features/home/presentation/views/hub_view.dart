@@ -29,6 +29,7 @@ import '../viewmodels/hub_intro_view_model.dart';
 import '../viewmodels/module_settings_view_model.dart';
 import '../viewmodels/onboarding_view_model.dart';
 import '../widgets/hub_detail_region.dart';
+import '../widgets/licenses_reader.dart';
 import '../widgets/hub_intro.dart';
 import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
@@ -59,6 +60,14 @@ class HubView extends ConsumerStatefulWidget {
   @override
   ConsumerState<HubView> createState() => _HubViewState();
 }
+
+/// Se há alguma região de leitura aberta — de um módulo ou da tela do
+/// aplicativo. É o que a janela escuta para crescer e voltar.
+final _regionOpenProvider = Provider.autoDispose<bool>(
+  (ref) =>
+      ref.watch(hubDetailProvider) != null ||
+      ref.watch(appDetailProvider) != null,
+);
 
 class _HubViewState extends ConsumerState<HubView> {
   /// Módulo aberto, ou `null` para a tela do próprio aplicativo.
@@ -135,6 +144,7 @@ class _HubViewState extends ConsumerState<HubView> {
     // Trocar de módulo fecha a região: uma reunião aberta ao lado das
     // preferências do Pin seria a leitura de um módulo dentro de outro.
     ref.read(hubDetailProvider.notifier).close();
+    ref.read(appDetailProvider.notifier).close();
     setState(() => _selected = module);
   }
 
@@ -178,6 +188,10 @@ class _HubViewState extends ConsumerState<HubView> {
       ref.read(hubDetailProvider.notifier).close();
       return;
     }
+    if (ref.read(appDetailProvider) != null) {
+      ref.read(appDetailProvider.notifier).close();
+      return;
+    }
 
     unawaited(HubWindow.hideSelf());
   }
@@ -186,9 +200,9 @@ class _HubViewState extends ConsumerState<HubView> {
   Widget build(BuildContext context) {
     // A janela acompanha a região: cresce ao abrir, volta ao fechar. Fora do
     // `build` (num `listen`) porque isto é efeito, não desenho.
-    ref.listen<EvergreenModule?>(hubDetailProvider, (previous, next) {
+    ref.listen<bool>(_regionOpenProvider, (previous, next) {
       HubWindowChannel.setDetailWidth(
-        next == null ? 0 : HubDetailRegion.preferredWidth,
+        next ? HubDetailRegion.preferredWidth : 0,
       );
     });
 
@@ -248,7 +262,11 @@ class _HubViewState extends ConsumerState<HubView> {
 
   Widget _hub() {
     final detail = ref.watch(hubDetailProvider);
+    final appDetail = ref.watch(appDetailProvider);
     final isDetailOpen = detail != null && detail == _selected;
+    // A tela do aplicativo é o `null` da barra lateral, e a região dela vem de
+    // outro provider — ver [appDetailProvider].
+    final isAppDetailOpen = _selected == null && appDetail != null;
 
     return CallbackShortcuts(
       bindings: {
@@ -306,6 +324,10 @@ class _HubViewState extends ConsumerState<HubView> {
                       Expanded(child: _detail()),
                       if (isDetailOpen)
                         _region(detail, _regionWidth(constraints.maxWidth)),
+                      if (isAppDetailOpen)
+                        LicensesReader(
+                          width: _regionWidth(constraints.maxWidth),
+                        ),
                     ],
                   ),
                 ),

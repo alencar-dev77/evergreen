@@ -62,6 +62,7 @@ import 'golden_fonts.dart';
 import 'features/echo/fake_export_service.dart';
 import 'features/echo/fake_echo_audio.dart';
 import 'features/home/fake_diagnostics_service.dart';
+import 'features/home/fake_license_catalog.dart';
 import 'features/home/fake_disk_usage_service.dart';
 import 'features/pin/fake_pin_image_store.dart';
 
@@ -454,6 +455,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          licenseCatalogProvider.overrideWithValue(const FakeLicenseCatalog()),
           pinImageStoreProvider.overrideWithValue(pinImages),
           clipboardRepositoryProvider.overrideWithValue(repository),
           focusSessionRepositoryProvider.overrideWithValue(sessions),
@@ -688,6 +690,24 @@ void main() {
     await expectLater(
       find.byType(HubView),
       matchesGoldenFile('goldens/hub_app_settings.png'),
+    );
+  });
+
+  /// As licenças, abertas na região de leitura da tela do aplicativo.
+  testWidgets('Hub — licenças', (tester) async {
+    await pump(tester, const HubView(), _hubWindowWithRegion);
+
+    await tester.tap(find.text('Aplicativo'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ver'));
+    await tester.tap(find.text('Ver'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evergreen').last);
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(HubView),
+      matchesGoldenFile('goldens/hub_licenses.png'),
     );
   });
 

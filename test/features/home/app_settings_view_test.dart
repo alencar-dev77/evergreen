@@ -404,6 +404,9 @@ void main() {
       await pumpHub(tester);
       await tester.tap(find.text('Aplicativo').first);
       await tester.pumpAndSettle();
+      // É a última seção da tela, abaixo da dobra.
+      await tester.ensureVisible(find.text('Desinstalar').last);
+      await tester.pumpAndSettle();
     }
 
     testWidgets('aparece na tela do aplicativo, e cancelar não apaga nada', (

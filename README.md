@@ -36,13 +36,19 @@ o item de início. Arrastar só o app para o Lixo deixa os dados para trás.
 
 ### O que sai da máquina
 
+A versão completa, módulo por módulo e com os prazos, está na
+[política de privacidade](PRIVACY.md). O que mudou em cada versão está nas
+[novidades](CHANGELOG.md).
+
 Nada do que você usa. O histórico do Pin, as anotações, as reuniões gravadas e
 os arquivos do Nest ficam no disco do seu Mac, e o Evergreen não tem conta,
-servidor nem telemetria. Ele abre só duas conexões:
+servidor nem telemetria. Só três coisas saem dele:
 
 - **O download, uma vez, do modelo que separa as vozes do Echo**, do Hugging
   Face, na primeira reunião com fala do outro lado. Só baixa: nada
   é enviado.
+- **O modelo de transcrição do idioma**, que o macOS baixa da Apple a pedido do
+  Echo, na primeira reunião naquele idioma. Nenhum áudio é enviado.
 - **O LM Studio, se você o escolher como modelo local** — e esse fica na própria
   máquina (`127.0.0.1`), nunca na internet.
 
@@ -255,7 +261,7 @@ Configurações → Aplicativo → **Diagnóstico**:
 
 | Permissão | Para quê | Sem ela |
 |---|---|---|
-| **Acessibilidade** | Atalhos globais e o auto-colar do Pin | Os atalhos não disparam; o auto-colar só copia |
+| **Acessibilidade** | O auto-colar do Pin (desligado por padrão) | O auto-colar só copia |
 | **Microfone** e **Gravação de tela** | O Echo captura as duas faixas de áudio | O Echo não grava |
 
 Ficam em Ajustes → Privacidade e Segurança.
@@ -470,4 +476,6 @@ redistribuir o Evergreen; quem distribuir uma versão modificada precisa
 distribuí-la também sob a GPL-3.0, com o código.
 
 O pacote vendorizado em [`packages/hotkey_manager_macos/`](packages/hotkey_manager_macos/)
-mantém a licença MIT do autor original.
+mantém a licença MIT do autor original. As licenças de todos os componentes que
+o Evergreen usa estão dentro do app, em Configurações → Aplicativo → Sobre →
+**Licenças**.

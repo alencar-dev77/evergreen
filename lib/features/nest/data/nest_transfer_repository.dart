@@ -1,5 +1,6 @@
 import 'package:sqlite3/sqlite3.dart';
 
+import '../../focus/data/focus_session_repository.dart';
 import '../models/nest_transfer.dart';
 
 /// Contrato de persistência do que o Nest organizou.
@@ -29,7 +30,9 @@ abstract interface class NestTransferRepository {
 /// escreve o parágrafo do dia. A linha guarda quando, quantos e se copiou ou
 /// moveu. Nada mais existe para ser guardado.
 ///
-/// Sem limpeza automática, como o Awake: são quatro números por transferência.
+/// Guarda as mesmas semanas do Focus ([FocusSessionRepository.keptWeeks]),
+/// como o Awake: o Track é o único leitor e não volta mais que isso, e a
+/// política de privacidade promete o prazo. A limpeza vai junto da escrita.
 class SqliteNestTransferRepository implements NestTransferRepository {
   SqliteNestTransferRepository(this._db);
 
@@ -50,8 +53,13 @@ class SqliteNestTransferRepository implements NestTransferRepository {
         transfer.mode.name,
       ],
     );
+    final id = _db.lastInsertRowId;
 
-    return _db.lastInsertRowId;
+    _db.execute('DELETE FROM nest_transfers WHERE moved_at < ?;', [
+      FocusSessionRepository.keptSince(transfer.at).millisecondsSinceEpoch,
+    ]);
+
+    return id;
   }
 
   @override

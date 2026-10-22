@@ -10,7 +10,8 @@
 #   4. Notariza o .app e grampeia o ticket nele.
 #   5. Monta o .dmg (fundo, ícone à esquerda, Aplicativos à direita).
 #   6. Assina, notariza e grampeia o .dmg.
-#   7. Confere com o Gatekeeper e sobe o .dmg no GitHub Release da tag.
+#   7. Confere com o Gatekeeper e sobe o .dmg no GitHub Release da tag, com
+#      as notas tiradas do CHANGELOG.md e os PDFs do ./scripts/documentos.
 #
 # Por que os dois notarizados, e não só o .dmg
 # --------------------------------------------
@@ -323,11 +324,44 @@ if [[ "$NOTARIZE" == "1" ]]; then
 fi
 
 if [[ "$PUBLISH" == "1" ]]; then
+  # As notas são o CHANGELOG.md: tudo o que entrou desde a última versão
+  # publicada — entre duas publicações cabem várias versões de semver, e quem
+  # baixa quer saber de todas. Sem release anterior, vai o arquivo inteiro.
+  NOTES="$OUT_DIR/notas.md"
+  PREVIOUS="$(gh release list --limit 20 --json tagName -q '.[].tagName' \
+    | grep -vxF "$TAG" | head -1 || true)"
+  PREVIOUS="${PREVIOUS#v}"
+  PREVIOUS="${PREVIOUS%%+*}"
+  awk -v previous="$PREVIOUS" '
+    /^## / { inside = 1; if (previous != "" && $2 == previous) exit }
+    inside { print }
+  ' CHANGELOG.md > "$NOTES"
+  if [[ ! -s "$NOTES" ]]; then
+    # O caso comum é uma republicação do mesmo semver (só o build subiu): a
+    # seção dele já saiu nas notas da anterior.
+    echo "⚠️  Nada no CHANGELOG.md desde a $PREVIOUS (publicada antes, ou só o build" >&2
+    echo "   subiu); as notas saem do GitHub." >&2
+  fi
+
+  # Os documentos vão junto, em PDF, para quem quer guardá-los ao lado do
+  # instalador. Sem o LibreOffice o release sai sem eles: o texto continua no
+  # repositório, que é a fonte.
+  DOCS=()
+  if ./scripts/documentos "$OUT_DIR/documentos" > /dev/null; then
+    DOCS=("$OUT_DIR/documentos"/*.pdf)
+  else
+    echo "⚠️  Sem os PDFs dos documentos (./scripts/documentos falhou)." >&2
+  fi
+
   echo "🚀 Publicando no GitHub Release $TAG…"
   if gh release view "$TAG" > /dev/null 2>&1; then
-    gh release upload "$TAG" "$DMG" --clobber
+    gh release upload "$TAG" "$DMG" ${DOCS[@]+"${DOCS[@]}"} --clobber
+  elif [[ -s "$NOTES" ]]; then
+    gh release create "$TAG" "$DMG" ${DOCS[@]+"${DOCS[@]}"} \
+      --title "Evergreen $FULL_VERSION" --notes-file "$NOTES"
   else
-    gh release create "$TAG" "$DMG" --title "Evergreen $FULL_VERSION" --generate-notes
+    gh release create "$TAG" "$DMG" ${DOCS[@]+"${DOCS[@]}"} \
+      --title "Evergreen $FULL_VERSION" --generate-notes
   fi
 fi
 
