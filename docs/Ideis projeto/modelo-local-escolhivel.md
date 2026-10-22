@@ -28,7 +28,9 @@ janela; o que mudou é que a janela vem da sessão aberta.
 - **Um portão por aplicativo, na janela 0** (`LocalModelGate`). O Echo resume na
   janela 0 e o Track pede do Hub; dois portões descarregariam o modelo um de
   baixo do outro. Um pedido por vez, uma carga para a fila inteira, descarga
-  quando ela esvazia.
+  **20 s depois** de ela esvaziar: o Track pede um parágrafo por dia clicado,
+  e sem a folga cada clique carregaria e descarregaria o modelo inteiro.
+  Trocar de modelo durante a folga fecha o anterior.
 - **Só descarrega o que carregou.** Se o modelo já estava na memória (a pessoa
   abriu à mão no LM Studio), o Evergreen usa aquela instância, com o contexto
   dela, e não a fecha.
@@ -43,10 +45,17 @@ janela; o que mudou é que a janela vem da sessão aberta.
   descarrega (`LmStudioLocalModel.sweep`).
 - **Preso a `127.0.0.1:1234`, sem campo de endereço.** O que passa por ali é a
   transcrição de uma reunião.
+- **O "Resumir" do Echo não pergunta ao Apple Intelligence** quando a escolha
+  é o LM Studio — antes ele sumia num Mac sem Apple Intelligence ligado.
+- **Recusa não é "desligado".** LM Studio anterior ao 0.4 (sem `/api/v1`, 404
+  na lista) pede atualização; servidor com token de API (401/403) pede que a
+  exigência seja desligada — o Evergreen não guarda token.
 - **O servidor nunca é ligado sozinho.** "Ligar" roda `~/.lmstudio/bin/lms
   server start`, e só no clique. Quem quer usar sem abrir o LM Studio liga nele
-  a opção que sobe o servidor com o login — o servidor é leve e não carrega
-  modelo nenhum sozinho.
+  **Developer → Serviço LLM Local (headless) → Habilitar Serviço Local de
+  LLM**: o servidor sobe com o Mac, sem a janela, e não carrega modelo nenhum
+  sozinho. O "JIT auto-evict" e o TTL de inatividade de lá não alcançam o
+  Evergreen, que carrega explicitamente e descarrega sozinho.
 - **Falha calada, sem volta ao Apple Intelligence.** Servidor desligado, modelo
   apagado ou prazo esgotado se comportam como o `unsupported_os`: o Track
   perde o parágrafo, o "Resumir" do Echo mostra o erro. Um texto escrito por

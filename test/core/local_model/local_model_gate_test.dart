@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:evergreen/core/local_model/lm_studio_http.dart';
 import 'package:evergreen/core/local_model/lm_studio_local_model.dart';
 import 'package:evergreen/core/local_model/local_model.dart';
 import 'package:evergreen/core/local_model/local_model_gate.dart';
@@ -175,6 +176,73 @@ void main() {
       expect(apple.opens, 0);
     },
   );
+
+  group('com folga antes de descarregar', () {
+    late LocalModelGate patient;
+
+    setUp(() {
+      final lmStudio = LmStudioLocalModel(
+        api: LmStudioApi(http),
+        ledger: _MemoryLedger(),
+      );
+      patient = LocalModelGate(
+        idleGrace: const Duration(milliseconds: 50),
+        choice: () async => choice,
+        backendFor: (source) => switch (source) {
+          LocalModelSource.apple => apple,
+          LocalModelSource.lmStudio => lmStudio,
+        },
+      );
+      addTearDown(patient.dispose);
+    });
+
+    Future<LocalModelAnswer> askPatient(String text) =>
+        patient.answer(text: text, instructions: 'Resuma.', maxTokens: 200);
+
+    test(
+      'pedidos em sequência reaproveitam o modelo, e ele sai depois',
+      () async {
+        await askPatient('segunda');
+        await askPatient('terça');
+        await askPatient('quarta');
+
+        // Passeando pelos dias do Track: uma carga só.
+        expect(http.loads, 1);
+        expect(http.loaded, isNotEmpty);
+
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        expect(http.unloads, 1);
+        expect(http.loaded, isEmpty);
+      },
+    );
+
+    test('o modelo ejetado na folga não prende os pedidos seguintes', () async {
+      await askPatient('um');
+      // Ejetado no LM Studio: o chat responde 404.
+      http.loaded.clear();
+      http.chatFailure = const LmStudioResponse(404, null);
+
+      await expectLater(
+        askPatient('dois'),
+        throwsA(isA<LocalModelException>()),
+      );
+
+      // O seguinte abre uma sessão nova — e carrega de novo.
+      final answer = await askPatient('três');
+      expect(answer.text, 'resumo');
+      expect(http.loads, 2);
+    });
+
+    test('trocar de modelo na folga fecha o anterior', () async {
+      await askPatient('um');
+      choice = LocalModelChoice.apple;
+
+      final answer = await askPatient('dois');
+
+      expect(answer.model, 'Apple Intelligence');
+      expect(http.loaded, isEmpty);
+    });
+  });
 
   test('a escolha é lida a cada abertura', () async {
     choice = LocalModelChoice.apple;

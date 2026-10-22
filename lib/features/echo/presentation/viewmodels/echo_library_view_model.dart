@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/local_model/local_model.dart';
 import '../../../../core/storage/export_service.dart';
 import '../../../home/presentation/viewmodels/app_settings_view_model.dart';
 import '../../data/echo_channel.dart';
@@ -220,6 +221,14 @@ class EchoLibraryViewModel extends Notifier<EchoLibraryState> {
       summaries = (await _channel.capabilities()).summaries;
     } on EchoException {
       summaries = SummaryAvailability.unavailable;
+    }
+    // O que o canal responde é sobre o Apple Intelligence. Com o LM Studio
+    // escolhido, ele não é quem resume: um Mac sem Apple Intelligence ligado
+    // esconderia o "Resumir" de quem escolheu outro modelo justamente por
+    // isso. Se o servidor estiver desligado, o erro aparece no clique.
+    final choice = ref.read(appSettingsRepositoryProvider).load().localModel;
+    if (choice.source == LocalModelSource.lmStudio) {
+      summaries = SummaryAvailability.available;
     }
 
     state = state.copyWith(

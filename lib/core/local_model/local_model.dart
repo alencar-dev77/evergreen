@@ -92,6 +92,13 @@ class LocalModelException implements Exception {
   static const timeout = 'timeout';
   static const failed = 'failed';
 
+  /// O servidor exige token de API — ligado nas configurações do servidor do
+  /// LM Studio. O Evergreen não guarda token: ele só fala com a máquina.
+  static const unauthorized = 'unauthorized';
+
+  /// LM Studio anterior ao 0.4, sem a API nativa `/api/v1`.
+  static const outdated = 'outdated';
+
   final String code;
   final String message;
 

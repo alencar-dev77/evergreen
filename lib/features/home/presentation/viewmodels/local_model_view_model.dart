@@ -24,6 +24,10 @@ enum LmStudioServerState {
   /// Instalado, e o servidor está desligado.
   offline,
 
+  /// O servidor respondeu, mas recusou: pede token de API, ou é um LM Studio
+  /// sem a API nativa. O motivo vai em [LocalModelStatus.refusal].
+  refused,
+
   online,
 }
 
@@ -33,9 +37,13 @@ class LocalModelStatus {
     this.server = LmStudioServerState.idle,
     this.models = const [],
     this.isStarting = false,
+    this.refusal,
   });
 
   final LmStudioServerState server;
+
+  /// Por que o servidor recusou — só com [LmStudioServerState.refused].
+  final String? refusal;
 
   /// Só os que escrevem texto — os de embedding ficam de fora.
   final List<LmStudioModel> models;
@@ -52,11 +60,19 @@ class LocalModelStatus {
     LmStudioServerState? server,
     List<LmStudioModel>? models,
     bool? isStarting,
+    String? refusal,
   }) {
+    final next = server ?? this.server;
+
     return LocalModelStatus(
-      server: server ?? this.server,
+      server: next,
       models: models ?? this.models,
       isStarting: isStarting ?? this.isStarting,
+      // A recusa vive enquanto o estado for de recusa — trocar só o
+      // `isStarting` não pode apagá-la.
+      refusal: next == LmStudioServerState.refused
+          ? refusal ?? this.refusal
+          : null,
     );
   }
 }
@@ -126,6 +142,19 @@ class LocalModelViewModel extends Notifier<LocalModelStatus> {
       _pickFirstIfNoneChosen(models);
     } on LmStudioUnreachable {
       _set(state.copyWith(server: LmStudioServerState.offline, models: []));
+    } on LocalModelException catch (error) {
+      final refused =
+          error.code == LocalModelException.unauthorized ||
+          error.code == LocalModelException.outdated;
+      _set(
+        state.copyWith(
+          server: refused
+              ? LmStudioServerState.refused
+              : LmStudioServerState.offline,
+          models: [],
+          refusal: refused ? error.message : null,
+        ),
+      );
     } on Object {
       // Roda num relógio, sem tela embaixo para pegar o erro: qualquer
       // resposta que não se entende vale como servidor fora, e a próxima

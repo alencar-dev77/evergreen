@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
 
+import '../diagnostics/app_log.dart';
 import 'local_model.dart';
 
 /// A única porta para o modelo local — e ela mora na janela 0.
@@ -20,15 +21,33 @@ class LocalModelGate implements LocalModelClient {
   LocalModelGate({
     required Future<LocalModelChoice> Function() choice,
     required LocalModelBackend Function(LocalModelSource source) backendFor,
+    this.idleGrace = Duration.zero,
   }) : _choice = choice,
        _backendFor = backendFor;
 
   final Future<LocalModelChoice> Function() _choice;
   final LocalModelBackend Function(LocalModelSource source) _backendFor;
 
+  /// Quanto a sessão espera, com a fila vazia, antes de devolver a memória.
+  ///
+  /// Quem passeia pelos dias do Track pede um parágrafo por clique, e sem
+  /// folga cada clique carregaria e descarregaria 3 GB. Com ela, os pedidos
+  /// que chegam em sequência reaproveitam o modelo, e ele sai da memória
+  /// pouco depois do último. Zero é fechar na hora — o que os testes usam.
+  final Duration idleGrace;
+
+  static const _quiet = {
+    LocalModelException.unsupported,
+    LocalModelException.contextWindowExceeded,
+    'model_unavailable',
+    'summary_failed',
+  };
+
   Future<void> _tail = Future.value();
   int _pending = 0;
   LocalModelSession? _session;
+  LocalModelChoice? _sessionChoice;
+  Timer? _idle;
 
   /// Põe [work] na fila e devolve o que ele devolver.
   ///
@@ -36,6 +55,7 @@ class LocalModelGate implements LocalModelClient {
   /// usar um modelo que pode já ter saído da memória.
   Future<T> run<T>(Future<T> Function(LocalModelSession session) work) {
     _pending++;
+    _idle?.cancel();
     final result = _tail.then((_) => _execute(work));
     // A fila anda mesmo quando um pedido falha: o erro é de quem pediu.
     _tail = result.then<void>((_) {}, onError: (Object _) {});
@@ -47,24 +67,72 @@ class LocalModelGate implements LocalModelClient {
     Future<T> Function(LocalModelSession session) work,
   ) async {
     try {
-      final session = _session ??= await _open();
-      return await work(session);
+      return await work(await _sessionFor(await _choice()));
+    } on LocalModelException catch (error) {
+      // Modelo que sumiu (ejetado no LM Studio durante a folga, servidor que
+      // caiu): a sessão não vale mais, e o pedido seguinte abre outra em vez
+      // de bater na mesma porta até a folga acabar.
+      if (error.code == LocalModelException.unsupported) await _close();
+
+      // O que é fluxo não vai ao registro: o servidor desligado, o Apple
+      // Intelligence desligado e o texto que não coube acontecem toda hora e
+      // já têm tratamento — o canal do Echo, inclusive, já registra o dele. O
+      // resto — prazo, recusa, LM Studio antigo — é o que se procura num
+      // diagnóstico. Só o código.
+      if (!_quiet.contains(error.code)) {
+        AppLog.info('local_model', 'falhou: ${error.code}');
+      }
+      rethrow;
     } finally {
       _pending--;
-      if (_pending == 0) {
-        final session = _session;
-        _session = null;
-        await session?.close();
-      }
+      if (_pending == 0) await _release();
     }
   }
 
-  /// A escolha é lida a cada abertura: ela é gravada no Hub, e a janela 0 só
-  /// a vê relendo o disco.
-  Future<LocalModelSession> _open() async {
-    final choice = await _choice();
+  /// A sessão aberta, se ela ainda é do modelo escolhido; senão, uma nova.
+  ///
+  /// A escolha é lida a cada pedido: ela é gravada no Hub, e a janela 0 só a
+  /// vê relendo o disco. Trocar de modelo durante a folga fecha o anterior.
+  Future<LocalModelSession> _sessionFor(LocalModelChoice choice) async {
+    final open = _session;
+    if (open != null && _sessionChoice == choice) return open;
 
-    return _backendFor(choice.source).open(choice);
+    await _close();
+    final session = await _backendFor(choice.source).open(choice);
+    _session = session;
+    _sessionChoice = choice;
+
+    return session;
+  }
+
+  Future<void> _release() async {
+    if (idleGrace == Duration.zero) {
+      await _close();
+      return;
+    }
+
+    _idle = Timer(idleGrace, () {
+      // Pela fila, para não fechar debaixo de um pedido que acabou de entrar.
+      // Com `onError`, como no `run`: um fechamento que falha não pode deixar
+      // a fila presa no erro dele.
+      _tail = _tail
+          .then((_) async {
+            if (_pending == 0) await _close();
+          })
+          .then<void>((_) {}, onError: (Object _) {});
+    });
+  }
+
+  /// Para o relógio da folga. A sessão aberta fica: quem sai é o
+  /// aplicativo, e o que ele deixar no LM Studio a varredura da próxima
+  /// abertura tira.
+  void dispose() => _idle?.cancel();
+
+  Future<void> _close() async {
+    final session = _session;
+    _session = null;
+    _sessionChoice = null;
+    await session?.close();
   }
 
   @override

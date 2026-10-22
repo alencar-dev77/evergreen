@@ -3,6 +3,7 @@ import 'dart:io';
 import '../../../core/app_info.dart';
 import '../../../core/diagnostics/diagnostic_report.dart';
 import '../../../core/diagnostics/log_store.dart';
+import '../../../core/local_model/local_model.dart';
 import '../../../core/storage/disk_usage_service.dart';
 import '../../echo/models/echo_capabilities.dart';
 import '../models/evergreen_module.dart';
@@ -40,7 +41,9 @@ class LocalDiagnosticsService implements DiagnosticsService {
     required ModuleSettings Function() modules,
     required Future<bool> Function() accessibility,
     required Future<EchoCapabilities> Function() echoCapabilities,
-  }) : _log = log,
+    LocalModelChoice Function()? localModel,
+  }) : _localModel = localModel,
+       _log = log,
        _disk = disk,
        _modules = modules,
        _accessibility = accessibility,
@@ -51,6 +54,7 @@ class LocalDiagnosticsService implements DiagnosticsService {
   final ModuleSettings Function() _modules;
   final Future<bool> Function() _accessibility;
   final Future<EchoCapabilities> Function() _echoCapabilities;
+  final LocalModelChoice Function()? _localModel;
 
   /// Quantas linhas do registro vão junto. O bastante para dois ou três erros
   /// com a pilha, e pouco o bastante para caber numa issue sem rolar.
@@ -83,7 +87,20 @@ class LocalDiagnosticsService implements DiagnosticsService {
       screenRecording: screenRecording,
       databaseBytes: await _databaseBytes(),
       logTail: await _logTail(),
+      localModel: _localModelLabel(),
     );
+  }
+
+  String _localModelLabel() {
+    final choice = _localModel?.call() ?? LocalModelChoice.apple;
+
+    return switch (choice.source) {
+      LocalModelSource.apple => LocalModelChoice.appleName,
+      LocalModelSource.lmStudio =>
+        choice.isIncomplete
+            ? 'LM Studio, sem modelo escolhido'
+            : 'LM Studio · ${choice.displayName}',
+    };
   }
 
   Future<List<String>> _logTail() async {

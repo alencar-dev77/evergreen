@@ -82,12 +82,24 @@ class LocalModelSection extends ConsumerWidget {
       LmStudioServerState.offline => [
         EgSettingsRow(
           label: 'Servidor do LM Studio desligado',
-          description: 'Sem ele, o resumo e o parágrafo do dia não saem.',
+          // A saída de verdade é não precisar do botão: o servidor sobe com o
+          // login, leve e sem modelo nenhum, e o Evergreen carrega só quando
+          // vai escrever.
+          description:
+              'Para não precisar ligar, ative no LM Studio o Serviço Local '
+              'de LLM (em Developer).',
           trailing: EgButton.secondary(
             label: 'Ligar',
             isLoading: status.isStarting,
             onPressed: () => unawaited(viewModel.startServer()),
           ),
+        ),
+      ],
+      LmStudioServerState.refused => [
+        EgSettingsRow(
+          label: 'O LM Studio recusou a conexão',
+          description: status.refusal,
+          trailing: const SizedBox.shrink(),
         ),
       ],
       LmStudioServerState.online when status.models.isEmpty => [

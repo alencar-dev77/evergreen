@@ -169,6 +169,33 @@ void main() {
     expect(find.text('Qwen3.5 4B'), findsOneWidget);
   });
 
+  testWidgets('servidor que pede token diz isso, e não "desligado"', (
+    tester,
+  ) async {
+    await setUpWith(lmStudio);
+    http.status = 401;
+    await pumpAppSettings(tester);
+
+    expect(find.text('O LM Studio recusou a conexão'), findsOneWidget);
+    expect(find.textContaining('token de API'), findsOneWidget);
+    expect(find.text('Servidor do LM Studio desligado'), findsNothing);
+  });
+
+  testWidgets('ligar um servidor que pede token mantém o motivo na tela', (
+    tester,
+  ) async {
+    await setUpWith(lmStudio);
+    http.offline = true;
+    await pumpAppSettings(tester);
+
+    http.status = 401;
+    await tester.tap(find.text('Ligar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('O LM Studio recusou a conexão'), findsOneWidget);
+    expect(find.textContaining('token de API'), findsOneWidget);
+  });
+
   testWidgets('sem o LM Studio instalado, a linha diz isso sem botão', (
     tester,
   ) async {

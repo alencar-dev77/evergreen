@@ -5,6 +5,7 @@ import 'package:evergreen/core/storage/app_database.dart';
 import 'package:evergreen/features/echo/data/echo_channel.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/features/echo/data/echo_summary_runner.dart';
+import 'package:evergreen/features/echo/models/echo_capabilities.dart';
 import 'package:evergreen/features/echo/models/echo_settings.dart';
 import 'package:evergreen/features/echo/models/meeting.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
@@ -316,7 +317,10 @@ void main() {
         await preferences.setString('app.local_model_name', 'Qwen3.5 4B');
         final http = FakeLmStudioHttp();
         final lmStudio = openBackground(
-          extra: [lmStudioHttpProvider.overrideWithValue(http)],
+          extra: [
+            lmStudioHttpProvider.overrideWithValue(http),
+            localModelIdleGraceProvider.overrideWithValue(Duration.zero),
+          ],
         );
 
         await lmStudio.read(echoSummaryRunnerProvider).start(longMeetingId);
@@ -347,7 +351,10 @@ void main() {
       // Um modelo que gastou o teto inteiro pensando.
       final http = FakeLmStudioHttp()..chatAnswer = '<think>pensando…';
       final lmStudio = openBackground(
-        extra: [lmStudioHttpProvider.overrideWithValue(http)],
+        extra: [
+          lmStudioHttpProvider.overrideWithValue(http),
+          localModelIdleGraceProvider.overrideWithValue(Duration.zero),
+        ],
       );
       final runner = lmStudio.read(echoSummaryRunnerProvider);
 
@@ -366,7 +373,10 @@ void main() {
       await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
       final http = FakeLmStudioHttp()..offline = true;
       final lmStudio = openBackground(
-        extra: [lmStudioHttpProvider.overrideWithValue(http)],
+        extra: [
+          lmStudioHttpProvider.overrideWithValue(http),
+          localModelIdleGraceProvider.overrideWithValue(Duration.zero),
+        ],
       );
       final runner = lmStudio.read(echoSummaryRunnerProvider);
 
@@ -381,6 +391,36 @@ void main() {
       expect(repository.findById(longMeetingId)!.hasSummary, isFalse);
     });
   });
+
+  test(
+    'com o LM Studio escolhido, resumir não depende do Apple Intelligence',
+    () async {
+      channel.capabilitiesValue = const EchoCapabilities(
+        microphone: PermissionStatus.granted,
+        screenRecording: PermissionStatus.granted,
+        summaries: SummaryAvailability.appleIntelligenceNotEnabled,
+      );
+      final hub = openHub();
+      addTearDown(hub.dispose);
+      final library = hub.read(echoLibraryViewModelProvider.notifier);
+
+      await library.load();
+      expect(
+        hub.read(echoLibraryViewModelProvider).summaries.isAvailable,
+        isFalse,
+      );
+
+      await preferences.setString('app.local_model_source', 'lm_studio');
+      await preferences.setString('app.local_model_id', 'qwen3.5-4b-mlx');
+      await library.load();
+
+      // O "Resumir" aparece, e o aviso de ligar o Apple Intelligence some.
+      expect(
+        hub.read(echoLibraryViewModelProvider).summaries.isAvailable,
+        isTrue,
+      );
+    },
+  );
 
   test('a falha do modelo fica guardada até alguém abrir a janela', () async {
     channel.failWith = const EchoException(
