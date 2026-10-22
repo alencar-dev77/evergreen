@@ -515,6 +515,13 @@ e esconder ícones da barra de menus
   o `NestFileService`, pelo motivo de sempre — no relógio falso do teste de
   widget a resposta de uma escrita em disco nunca chega. Ver
   [docs/Ideis projeto/echo-copiar-e-exportar.md](docs/Ideis%20projeto/echo-copiar-e-exportar.md).
+- **Desinstalar é um canal nativo só** (`UninstallChannel`): item de início,
+  permissões (`tccutil`, antes de o app sair do lugar), as pastas com o
+  identificador em `~/Library`, as preferências e o app para o Lixo, terminando
+  em `exit(0)` sem voltar ao Dart. Lugar novo no disco que não seja uma pasta
+  com o identificador em `~/Library` precisa entrar na lista dele (o modelo do
+  FluidAudio já entrou), senão sobra no disco de quem desinstalou. Ver
+  [docs/Ideis projeto/desinstalar.md](docs/Ideis%20projeto/desinstalar.md).
 - **Erro vai para o registro local, e o registro não leva nada de quem usa.**
   `AppLog` (`lib/core/diagnostics/app_log.dart`) escreve em `Diagnóstico/`, na
   pasta do aplicativo (três arquivos de 1 MB, só a janela 0 roda a rotação —

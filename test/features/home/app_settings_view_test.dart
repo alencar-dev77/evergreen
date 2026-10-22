@@ -2,6 +2,8 @@ import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/app_info.dart';
 import 'package:evergreen/core/storage/backup_service.dart';
 import 'package:evergreen/core/storage/disk_usage_service.dart';
+import 'package:evergreen/core/system/uninstall_service.dart';
+import 'package:evergreen/core/window/hub_destination.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/features/home/models/evergreen_module.dart';
 import 'package:evergreen/features/home/presentation/views/app_settings_view.dart';
@@ -30,6 +32,7 @@ void main() {
   late BackupService backup;
   late FakeDiskUsageService disk;
   late FakeDiagnosticsService diagnostics;
+  late _FakeUninstallService uninstall;
 
   setUp(() async {
     // Duas chaves, dois caminhos de primeira vez que este teste não quer: a
@@ -54,6 +57,7 @@ void main() {
     backup = temporaryBackupService();
     disk = FakeDiskUsageService();
     diagnostics = FakeDiagnosticsService();
+    uninstall = _FakeUninstallService();
   });
 
   Future<void> pumpHub(WidgetTester tester) async {
@@ -80,6 +84,8 @@ void main() {
           backupServiceProvider.overrideWithValue(backup),
           diskUsageServiceProvider.overrideWithValue(disk),
           diagnosticsServiceProvider.overrideWithValue(diagnostics),
+          // A de verdade encerra o processo — e a suíte junto.
+          uninstallServiceProvider.overrideWithValue(uninstall),
         ],
         child: MaterialApp(theme: AppTheme.build(), home: const HubView()),
       ),
@@ -392,4 +398,68 @@ void main() {
       expect(find.text('antes de restaurar'), findsOneWidget);
     });
   });
+
+  group('Desinstalar', () {
+    Future<void> openAppSettings(WidgetTester tester) async {
+      await pumpHub(tester);
+      await tester.tap(find.text('Aplicativo').first);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('aparece na tela do aplicativo, e cancelar não apaga nada', (tester) async {
+      await openAppSettings(tester);
+
+      expect(find.text('Desinstalar o Evergreen'), findsOneWidget);
+
+      await tester.tap(find.text('Desinstalar').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(EgConfirmDialog), findsOneWidget);
+
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EgConfirmDialog), findsNothing);
+      expect(uninstall.calls, 0);
+    });
+
+    testWidgets('confirmar desinstala', (tester) async {
+      await openAppSettings(tester);
+
+      await tester.tap(find.text('Desinstalar').last);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(EgConfirmDialog),
+          matching: find.text('Desinstalar'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(uninstall.calls, 1);
+    });
+
+    testWidgets('o menu da barra cai na tela do aplicativo com a pergunta', (
+      tester,
+    ) async {
+      // O item do menu roda na janela 0 e deixa o pedido no disco, que é o
+      // que o Hub lê ao nascer.
+      await preferences.setString(
+        'hub.pending_module',
+        HubDestination.uninstall,
+      );
+
+      await pumpHub(tester);
+
+      expect(find.byType(AppSettingsView), findsOneWidget);
+      expect(find.text('Desinstalar o Evergreen?'), findsOneWidget);
+      expect(uninstall.calls, 0, reason: 'perguntar não é desinstalar');
+    });
+  });
+}
+
+class _FakeUninstallService implements UninstallService {
+  int calls = 0;
+
+  @override
+  Future<void> uninstall() async => calls++;
 }

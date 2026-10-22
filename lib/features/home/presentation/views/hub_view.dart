@@ -34,6 +34,7 @@ import '../widgets/hub_onboarding.dart';
 import '../widgets/module_placeholder.dart';
 import '../widgets/module_sidebar.dart';
 import '../widgets/module_switch.dart';
+import '../widgets/uninstall_section.dart';
 import '../../../../core/app_info.dart';
 import '../../../../shared/widgets/eg_pill.dart';
 import '../../../../shared/widgets/eg_screen_header.dart';
@@ -110,6 +111,17 @@ class _HubViewState extends ConsumerState<HubView> {
   Future<void> _goToRequested() async {
     final moduleId = await HubDestination.take();
     if (moduleId == null || !mounted) return;
+
+    if (moduleId == HubDestination.uninstall) {
+      _select(null);
+      // Depois do quadro: a pergunta abre por cima da tela do aplicativo, e
+      // não da tela em que o Hub estava antes de trocar. Pergunta repetida é
+      // barrada dentro do `confirmUninstall`.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(confirmUninstall(context, ref));
+      });
+      return;
+    }
 
     final module = EvergreenModule.values
         .where((candidate) => candidate.id == moduleId)

@@ -1141,9 +1141,18 @@ class EvergreenBootstrap {
         unawaited(_toggleNest());
       case MenuBarAction.openHub:
         HubWindow.instance.open();
+      case MenuBarAction.uninstall:
+        unawaited(_askToUninstall());
       case MenuBarAction.quit:
         _quit();
     }
+  }
+
+  /// Leva ao Hub com a pergunta de desinstalar na tela. O destino antes da
+  /// janela, como no "Abrir no Hub" do Echo — ver [HubDestination].
+  Future<void> _askToUninstall() async {
+    await HubDestination.request(HubDestination.uninstall);
+    await HubWindow.instance.open();
   }
 
   Future<void> _quit() async {

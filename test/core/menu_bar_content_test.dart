@@ -12,7 +12,7 @@ void main() {
     for (final entry in content.entries()) entry.label,
   ];
 
-  test('nasce com todos os módulos, as preferências e o encerrar', () {
+  test('nasce com todos os módulos, as preferências e as duas saídas', () {
     final entries = MenuBarContent().entries();
 
     expect(entries.first, const MenuBarEntry.item('Evergreen'));
@@ -29,17 +29,19 @@ void main() {
         MenuBarAction.openNest,
         MenuBarAction.openHub,
         null,
+        MenuBarAction.uninstall,
         MenuBarAction.quit,
       ],
     );
-    expect(entries[entries.length - 2].isSeparator, isTrue);
+    expect(entries[entries.length - 3].isSeparator, isTrue);
   });
 
-  test('cada item leva a tecla em vigor; o encerrar não tem', () {
+  test('cada item leva a tecla em vigor; as saídas não têm', () {
     final content = MenuBarContent();
 
     expect(labels(content), contains('Pin   ⌘⇧C'));
     expect(labels(content), contains('Encerrar Evergreen'));
+    expect(labels(content), contains('Desinstalar Evergreen…'));
   });
 
   test('módulo desligado sai do menu e a tecla regravada aparece', () {
@@ -64,6 +66,14 @@ void main() {
     );
     expect(pin.label, isNot(contains('⌘⇧C')));
     expect(pin.label, 'Pin   ⌘⌥V');
+  });
+
+  test('com todos os módulos desligados, as saídas continuam', () {
+    final content = MenuBarContent()..modules = [];
+
+    final actions = [for (final entry in content.entries()) entry.action];
+    expect(actions, contains(MenuBarAction.uninstall));
+    expect(actions, contains(MenuBarAction.quit));
   });
 
   test('com o Awake ligado, o item diz quanto falta', () {

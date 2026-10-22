@@ -6,8 +6,9 @@ import 'shortcut_binding.dart';
 /// Ações que o menu da barra de status pode disparar.
 ///
 /// A ordem dos valores é a ordem do menu: a lista dos módulos, as
-/// preferências, e encerrar. Um módulo desligado sai da lista e os de baixo
-/// sobem — o menu mostra o que a pessoa usa, não o catálogo.
+/// preferências, e as duas saídas — desinstalar e encerrar. Um módulo
+/// desligado sai da lista e os de baixo sobem — o menu mostra o que a pessoa
+/// usa, não o catálogo.
 enum MenuBarAction {
   openPin('Pin', GlobalShortcutSlot.pin),
   openFocus('Focus', GlobalShortcutSlot.focus),
@@ -16,6 +17,7 @@ enum MenuBarAction {
   openEcho('Echo', GlobalShortcutSlot.echo),
   openNest('Nest', GlobalShortcutSlot.nest),
   openHub('Preferências', GlobalShortcutSlot.hub),
+  uninstall('Desinstalar Evergreen…', null),
   quit('Encerrar Evergreen', null);
 
   const MenuBarAction(this.label, this.slot);
@@ -30,6 +32,9 @@ enum MenuBarAction {
   /// nunca chegou a aparecer neste menu, ficar meses com `⌘⇧S` escrito num
   /// lugar e outra tecla registrada no sistema.
   final GlobalShortcutSlot? slot;
+
+  /// Abre um módulo — e por isso entra e sai do menu com ele.
+  bool get isModule => this != openHub && this != uninstall && this != quit;
 
   /// Como o item se apresenta no menu, dada a combinação em vigor.
   ///
@@ -86,8 +91,7 @@ class MenuBarContent {
   /// só são lidas alguns passos depois na inicialização. Um menu que nascesse
   /// vazio esperando o disco piscaria a cada abertura do app.
   List<MenuBarAction> modules = MenuBarAction.values
-      .where((action) => action != MenuBarAction.openHub)
-      .where((action) => action != MenuBarAction.quit)
+      .where((action) => action.isModule)
       .toList();
 
   /// As combinações em vigor, para escrever ao lado de cada item.
@@ -149,6 +153,9 @@ class MenuBarContent {
     for (final action in modules) _entryFor(action),
     _entryFor(MenuBarAction.openHub),
     const MenuBarEntry.separator(),
+    // As reticências avisam que o clique ainda pergunta: ele abre o Hub na
+    // confirmação, porque desinstalar não acontece num clique só.
+    _entryFor(MenuBarAction.uninstall),
     _entryFor(MenuBarAction.quit),
   ];
 

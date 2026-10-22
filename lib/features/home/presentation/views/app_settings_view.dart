@@ -25,6 +25,7 @@ import '../viewmodels/backup_view_model.dart';
 import '../viewmodels/diagnostics_view_model.dart';
 import '../viewmodels/disk_usage_view_model.dart';
 import '../widgets/backup_list.dart';
+import '../widgets/uninstall_section.dart';
 import '../../../../core/design/eg_tokens.dart';
 
 /// Preferências do Evergreen como aplicativo.
@@ -129,6 +130,7 @@ class _AppSettingsViewState extends ConsumerState<AppSettingsView> {
         ),
         const _RestoreSection(),
         const _DiagnosticsSection(),
+        const UninstallSection(),
       ],
     );
   }
