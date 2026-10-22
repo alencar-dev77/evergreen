@@ -40,5 +40,8 @@ class AppDetailViewModel extends Notifier<AppDetail?> {
 
   void open(AppDetail detail) => state = detail;
 
+  /// Abre [detail], ou fecha se ele já estava aberto — o botão do cartão.
+  void toggle(AppDetail detail) => state = state == detail ? null : detail;
+
   void close() => state = null;
 }

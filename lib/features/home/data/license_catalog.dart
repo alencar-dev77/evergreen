@@ -26,6 +26,9 @@ class FlutterLicenseCatalog implements LicenseCatalog {
 
   static const evergreen = 'Evergreen';
 
+  /// O nome do app no `pubspec.yaml`, que é como o registro o chama.
+  static const _rootPackage = 'evergreen';
+
   static const _native = {
     'FluidAudio': 'assets/licenses/FluidAudio.txt',
     'HotKey': 'assets/licenses/HotKey.txt',
@@ -43,6 +46,11 @@ class FlutterLicenseCatalog implements LicenseCatalog {
       if (text.isEmpty) continue;
 
       for (final package in entry.packages) {
+        // O pacote do próprio app, que o registro também traz (a `LICENSE`
+        // está na raiz): ele entra uma vez só, no topo, com o nome de
+        // exibição.
+        if (package == _rootPackage) continue;
+
         final known = texts.putIfAbsent(package, () => []);
         // O mesmo texto chega mais de uma vez quando um pacote o repete em
         // mais de um arquivo — uma vez basta.

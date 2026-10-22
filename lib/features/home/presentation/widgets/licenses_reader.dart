@@ -28,7 +28,8 @@ class LicensesReader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final licenses = ref.watch(licensesProvider);
-    final components = licenses.value?.length;
+    final value = licenses.value;
+    final components = value == null ? null : thirdPartyCount(value);
 
     return HubDetailRegion(
       width: width,
@@ -41,9 +42,8 @@ class LicensesReader extends ConsumerWidget {
           Text(
             components == null
                 ? 'O Evergreen é código aberto, sob a GPL-3.0.'
-                // Menos um: o primeiro da lista é o próprio Evergreen.
                 : 'O Evergreen é código aberto, sob a GPL-3.0, e usa '
-                      '${components - 1} componentes de outras pessoas.',
+                      '$components componentes de outras pessoas.',
             style: context.eg.text.footnote,
           ),
         ],

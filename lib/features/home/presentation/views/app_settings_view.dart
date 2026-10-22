@@ -426,10 +426,8 @@ class _AboutSection extends ConsumerWidget {
               'as licenças dos componentes que ele usa.',
           trailing: EgButton.secondary(
             label: isOpen ? 'Fechar' : 'Ver',
-            onPressed: () {
-              final detail = ref.read(appDetailProvider.notifier);
-              isOpen ? detail.close() : detail.open(AppDetail.licenses);
-            },
+            onPressed: () =>
+                ref.read(appDetailProvider.notifier).toggle(AppDetail.licenses),
           ),
         ),
       ],

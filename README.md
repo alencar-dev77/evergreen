@@ -42,11 +42,13 @@ A versão completa, módulo por módulo e com os prazos, está na
 
 Nada do que você usa. O histórico do Pin, as anotações, as reuniões gravadas e
 os arquivos do Nest ficam no disco do seu Mac, e o Evergreen não tem conta,
-servidor nem telemetria. Ele abre só duas conexões:
+servidor nem telemetria. Só três coisas saem dele:
 
 - **O download, uma vez, do modelo que separa as vozes do Echo**, do Hugging
   Face, na primeira reunião com fala do outro lado. Só baixa: nada
   é enviado.
+- **O modelo de transcrição do idioma**, que o macOS baixa da Apple a pedido do
+  Echo, na primeira reunião naquele idioma. Nenhum áudio é enviado.
 - **O LM Studio, se você o escolher como modelo local** — e esse fica na própria
   máquina (`127.0.0.1`), nunca na internet.
 
@@ -259,7 +261,7 @@ Configurações → Aplicativo → **Diagnóstico**:
 
 | Permissão | Para quê | Sem ela |
 |---|---|---|
-| **Acessibilidade** | Atalhos globais e o auto-colar do Pin | Os atalhos não disparam; o auto-colar só copia |
+| **Acessibilidade** | O auto-colar do Pin (desligado por padrão) | O auto-colar só copia |
 | **Microfone** e **Gravação de tela** | O Echo captura as duas faixas de áudio | O Echo não grava |
 
 Ficam em Ajustes → Privacidade e Segurança.

@@ -39,24 +39,35 @@ if [[ -z "$SOFFICE" ]]; then
 fi
 
 # O nome do PDF sai do nome do arquivo convertido, então cada fonte é copiada
-# para uma pasta de trabalho já com o nome que quem baixa vai ver.
+# para uma pasta de trabalho já com o nome final. Sem acento nem espaço: o
+# GitHub Release troca os dois por pontos no nome do anexo.
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-cp PRIVACY.md "$WORK/Evergreen - Política de privacidade.md"
+PRIVACY_PDF="Evergreen-Politica-de-privacidade.pdf"
+LICENSE_PDF="Evergreen-Licenca-GPL-3.0.pdf"
+
+cp PRIVACY.md "$WORK/${PRIVACY_PDF%.pdf}.md"
 # A licença é texto puro: com a extensão `.txt` o LibreOffice a lê como texto,
 # e não tenta achar Markdown no meio dela.
-cp LICENSE "$WORK/Evergreen - Licença GPL-3.0.txt"
+cp LICENSE "$WORK/${LICENSE_PDF%.pdf}.txt"
 
 mkdir -p "$OUT_DIR"
+# Os de uma rodada anterior saem antes: senão uma conversão que falhe deixaria
+# o PDF velho no lugar, e o `release` o anexaria sem ninguém perceber.
+rm -f "$OUT_DIR/$PRIVACY_PDF" "$OUT_DIR/$LICENSE_PDF"
 
 echo "📄 Gerando os PDFs…"
-"$SOFFICE" \
+if ! "$SOFFICE" \
   "-env:UserInstallation=file://$WORK/perfil" \
   --headless --convert-to pdf --outdir "$OUT_DIR" \
-  "$WORK"/*.md "$WORK"/*.txt > /dev/null 2>&1
+  "$WORK"/*.md "$WORK"/*.txt > "$WORK/soffice.log" 2>&1; then
+  cat "$WORK/soffice.log" >&2
+  echo "❌ O LibreOffice falhou ao converter." >&2
+  exit 1
+fi
 
-for pdf in "Evergreen - Política de privacidade.pdf" "Evergreen - Licença GPL-3.0.pdf"; do
+for pdf in "$PRIVACY_PDF" "$LICENSE_PDF"; do
   if [[ ! -s "$OUT_DIR/$pdf" ]]; then
     echo "❌ O LibreOffice não gerou \"$pdf\"." >&2
     exit 1

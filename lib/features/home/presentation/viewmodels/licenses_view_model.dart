@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../data/license_catalog.dart';
 import '../../models/package_license.dart';
 
 /// As licenças, lidas uma vez por abertura da tela.
@@ -10,6 +11,12 @@ import '../../models/package_license.dart';
 final licensesProvider = FutureProvider.autoDispose<List<PackageLicense>>(
   (ref) => ref.watch(licenseCatalogProvider).load(),
 );
+
+/// Quantos componentes de outras pessoas a lista tem — todos menos o próprio
+/// Evergreen.
+int thirdPartyCount(List<PackageLicense> licenses) => licenses
+    .where((license) => license.name != FlutterLicenseCatalog.evergreen)
+    .length;
 
 /// Qual componente está com o texto aberto — um por vez.
 ///

@@ -337,7 +337,10 @@ if [[ "$PUBLISH" == "1" ]]; then
     inside { print }
   ' CHANGELOG.md > "$NOTES"
   if [[ ! -s "$NOTES" ]]; then
-    echo "⚠️  O CHANGELOG.md não tem nada depois da $PREVIOUS; as notas saem do GitHub." >&2
+    # O caso comum é uma republicação do mesmo semver (só o build subiu): a
+    # seção dele já saiu nas notas da anterior.
+    echo "⚠️  Nada no CHANGELOG.md desde a $PREVIOUS (publicada antes, ou só o build" >&2
+    echo "   subiu); as notas saem do GitHub." >&2
   fi
 
   # Os documentos vão junto, em PDF, para quem quer guardá-los ao lado do

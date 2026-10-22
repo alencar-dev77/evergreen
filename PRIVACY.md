@@ -8,31 +8,40 @@ recebe nenhum dado seu**: nem o que você usa, nem como você usa, nem que você
 instalou.
 
 Esta política diz o que o Evergreen guarda no seu Mac, por quanto tempo, e as
-duas únicas ocasiões em que ele se conecta a algo fora do aplicativo.
+três únicas ocasiões em que algo sai do aplicativo.
 
 ## O que fica no seu Mac
 
-Tudo o que o Evergreen guarda fica em
-`~/Library/Application Support/com.alencardev.evergreen/`, e só o seu usuário
-do macOS tem acesso.
+Tudo o que o Evergreen guarda fica na pasta do seu usuário do macOS, em três
+lugares:
+
+- `~/Library/Application Support/com.alencardev.evergreen/` — o banco de dados,
+  as imagens do Pin, o áudio das reuniões, os backups, as exportações e o
+  registro de diagnóstico;
+- `~/Library/Preferences/com.alencardev.evergreen.plist` — as preferências;
+- `~/Library/Application Support/FluidAudio/Models/` — o modelo que separa as
+  vozes do Echo, depois de baixado.
 
 | Módulo | O que guarda | Por quanto tempo |
 |---|---|---|
 | **Pin** | O que você copia (texto e imagem), com a data e o tipo | Os 200 itens mais recentes (ajustável); os fixados ficam até você tirar |
 | **Focus** | As sessões de foco: início, duração e o que você escreveu sobre elas | As últimas 4 semanas |
 | **Leaf** | As anotações da parede, no máximo nove | Até você apagar |
-| **Awake** | Quando a trava foi ligada e por quanto tempo | Até você apagar |
+| **Awake** | Quando a trava foi ligada e por quanto tempo | Até você desinstalar |
 | **Echo** | A transcrição, o resumo e o título de cada reunião | As 100 mais recentes (ajustável); as marcadas com estrela ficam |
 | **Echo** | O áudio da reunião | 14 dias, ou menos se a reunião sair antes; a estrela guarda |
-| **Nest** | Quando você enviou arquivos da prateleira e quantos eram — nunca o nome nem o caminho | Até você apagar |
-| **Track** | Nada próprio: ele lê o que os outros módulos guardaram | — |
+| **Echo** | O resumo e a transcrição que você exportar, em `Exportações/` | Até você apagar o arquivo |
+| **Nest** | Quando você enviou arquivos da prateleira e quantos eram — nunca o nome nem o caminho | Até você desinstalar |
+| **Nest** | As pastas favoritas, com o caminho delas | Até você tirar da lista |
+| **Track** | O parágrafo que o modelo local escreve sobre cada dia; o resto ele lê dos outros módulos | Até o dia mudar ou o parágrafo ser refeito |
 | **Aplicativo** | As preferências e o nome que você escolher informar | Até você mudar |
-| **Backup** | Cópias do banco de dados, feitas por você ou automaticamente | As 5 mais recentes |
-| **Diagnóstico** | Um registro de erros do próprio app | Até 3 MB, os mais antigos saem primeiro |
+| **Backup** | Cópias do banco de dados, feitas por você ou automaticamente, e as de segurança feitas antes de restaurar | As 5 mais recentes, mais até 3 de segurança |
+| **Diagnóstico** | Um registro de erros do próprio app | Cerca de 3 MB; os mais antigos saem primeiro |
 
 **O Pin guarda tudo o que passa pela área de transferência, inclusive senhas.**
-Isso fica só no seu Mac. Para que um item não fique no histórico, apague-o
-no painel do Pin (`⌘⌫`) ou desligue o módulo.
+Isso fica só no seu Mac — e vai junto em cada backup, que é uma cópia do banco.
+Para que um item não fique no histórico, apague-o no painel do Pin (`⌘⌫`) ou
+desligue o módulo.
 
 **O registro de diagnóstico não guarda conteúdo**: nada do que você copiou,
 anotou, gravou ou o nome de um arquivo seu. Ele só sai do seu Mac se você usar
@@ -40,15 +49,19 @@ anotou, gravou ou o nome de um arquivo seu. Ele só sai do seu Mac se você usar
 
 ## O que sai do seu Mac
 
-O Evergreen se conecta a algo fora dele em só duas situações, e nenhuma delas
-envia o que você guardou:
+Algo sai do Evergreen em só três situações, e nenhuma delas envia o que você
+guardou:
 
 1. **O modelo que separa as vozes do Echo.** Na primeira reunião com fala do
    outro lado, o Evergreen baixa uma vez esse modelo do
    [Hugging Face](https://huggingface.co). É só um download: o Hugging Face vê
    o endereço IP de quem baixa, como em qualquer download, e nada além disso.
    O áudio e a transcrição nunca saem do Mac.
-2. **O LM Studio, se você o escolher como modelo local.** O texto da reunião ou
+2. **O modelo de transcrição do Echo.** Na primeira reunião num idioma, o
+   Evergreen pede ao macOS o modelo de reconhecimento de fala daquele idioma, e
+   quem o baixa é o próprio macOS, dos servidores da Apple. A transcrição
+   acontece no seu Mac: nenhum áudio é enviado.
+3. **O LM Studio, se você o escolher como modelo local.** O texto da reunião ou
    do dia vai para o servidor do LM Studio no endereço `127.0.0.1`, que é o
    próprio Mac. O Evergreen não aceita outro endereço.
 
@@ -62,9 +75,10 @@ atualizada antes, dizendo o que essa verificação envia.
 
 | Permissão | Para quê |
 |---|---|
-| **Acessibilidade** | Os atalhos globais e o colar automático do Pin |
+| **Acessibilidade** | O colar automático do Pin, que vem desligado. Sem ela, o item só é copiado |
 | **Microfone** | O Echo grava a sua voz na reunião |
 | **Gravação de Tela** | O Echo grava o som do computador (o outro lado da reunião). Ele não grava imagem da tela |
+| **Notificações** | Avisar o fim de uma sessão do Focus, o fim do prazo do Awake, os lembretes do Leaf e o resumo da semana do Track |
 
 Cada uma pode ser revogada a qualquer momento em Ajustes do Sistema →
 Privacidade e Segurança.
@@ -78,7 +92,9 @@ deles é responsabilidade de quem grava.
 
 ## Apagar tudo
 
-- Cada módulo tem como apagar o próprio histórico, na tela dele.
+- O Pin, o Focus, o Leaf e o Echo têm como apagar o próprio histórico, na tela
+  de cada um. O registro do Awake e o do Nest não têm: eles só contam quando e
+  quanto, e saem ao desinstalar.
 - **Configurações → Aplicativo → Desinstalar o Evergreen** apaga os dados, as
   preferências, as permissões e o próprio app. Arrastar só o app para o Lixo
   deixa os dados no disco.

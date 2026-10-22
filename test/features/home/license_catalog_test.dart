@@ -18,6 +18,12 @@ void main() {
         contains('GNU GENERAL PUBLIC LICENSE'),
       );
       expect(names, containsAll(['FluidAudio', 'HotKey']));
+      // O registro também traz o pacote raiz; ele não pode aparecer de novo no
+      // meio da lista.
+      expect(
+        names.where((name) => name.toLowerCase() == 'evergreen'),
+        hasLength(1),
+      );
       expect(
         licenses
             .firstWhere((license) => license.name == 'FluidAudio')

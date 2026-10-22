@@ -87,13 +87,15 @@ DRY_RUN=false
 PUSH=false
 MODO_BUILD=false
 NOTAS=""
+NL=$'\n'
 
 while [ $# -gt 0 ]; do
   case "$1" in
     patch|minor|major) NIVEL="$1"; shift ;;
     --pr)              PR_ALVO="${2:-}"; [ -n "$PR_ALVO" ] || erro "--pr exige o número da PR."; shift 2 ;;
     --build)           MODO_BUILD=true; shift ;;
-    --nota)            [ -n "${2:-}" ] || erro "--nota exige o texto."; NOTAS="$2"; shift 2 ;;
+    --nota)            [ -n "${2:-}" ] || erro "--nota exige o texto."
+                       NOTAS="${NOTAS:+$NOTAS$NL}$2"; shift 2 ;;
     --dry-run)         DRY_RUN=true; shift ;;
     --push)            PUSH=true; shift ;;
     -h|--help)         awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0 ;;
@@ -254,7 +256,7 @@ mv "$tmp" pubspec.yaml
 # que não tem, e o `\u` do Perl sabe que "é" vira "É".
 linhas_do_changelog() {
   printf '%s\n' "$1" \
-    | perl -CSD -ne 's/^\s+|\s+$//g; next unless length; s/^[a-z]+(\([^)]*\))?!?:\s*//; print "- \u$_\n"'
+    | perl -CSD -ne 's/^\s+|\s+$//g; s/^[a-z]+(\([^)]*\))?!?:\s*//; next unless length; print "- \u$_\n"'
 }
 
 if [ "$MODO_BUILD" = false ]; then

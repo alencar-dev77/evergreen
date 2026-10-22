@@ -23,10 +23,12 @@ e é seguro só enquanto ele fizer checkout da `validation` pós-merge, nunca do
 head da PR.
 
 **A [PRIVACY.md](PRIVACY.md) é uma promessa, e muda antes do código.** Ela diz
-o que cada módulo guarda, por quanto tempo, e as únicas conexões para fora (o
-download do modelo de vozes e o `127.0.0.1` do LM Studio). Módulo que passe a
-guardar outra coisa, prazo que mude, ou qualquer conexão nova — a verificação
-de versão do Sparkle inclusive — entra nela na mesma PR. **E a mudança na política
+o que cada módulo guarda, onde, por quanto tempo, e o que sai do app (o
+download do modelo de vozes, o modelo de transcrição que o macOS baixa a
+pedido do Echo e o `127.0.0.1` do LM Studio). Módulo que passe a
+guardar outra coisa, prazo que mude, permissão nova ou qualquer conexão nova —
+uma futura verificação de versão (o Sparkle, por exemplo) inclusive — entra
+nela na mesma PR. **E a mudança na política
 nunca é silenciosa**: quem mexe nela — gente ou agente — avisa, na conversa e
 na descrição da PR, o que foi **acrescentado** ou **alterado** e por quê, e
 atualiza a data de "Última atualização" no topo dela. É o que deixa quem mantém
@@ -166,8 +168,9 @@ e esconder ícones da barra de menus
   "Pessoa 1", "Pessoa 2") é palpite, e por isso mora num campo à parte. É
   enfeite: falhou, a reunião sai com o outro lado em "Reunião", sem aviso. O
   modelo é baixado do Hugging Face uma vez, e é a única conexão que o
-  Evergreen abre para fora da máquina (a outra é o `127.0.0.1` do LM Studio,
-  ver o modelo local abaixo). Ao vivo não separa. Ver
+  Evergreen abre para fora da máquina (o modelo de transcrição quem baixa é o
+  macOS, a pedido do Echo; e o `127.0.0.1` do LM Studio não sai dela — ver o
+  modelo local abaixo e a [PRIVACY.md](PRIVACY.md)). Ao vivo não separa. Ver
   [docs/Ideis projeto/echo-separacao-de-vozes.md](docs/Ideis%20projeto/echo-separacao-de-vozes.md).
   **O microfone é aberto cru, nunca com `setVoiceProcessingEnabled`.** O
   processamento de voz não fica dentro do Echo: enquanto ele está ligado, o
