@@ -1,0 +1,333 @@
+#!/usr/bin/env bash
+#
+# release — gera o .dmg do Evergreen, assinado e notarizado, e o publica no
+# GitHub Release da versão.
+#
+# Fluxo:
+#   1. Confere a versão (a do pubspec, com o código igual ao da tag v<versão>).
+#   2. Builda em release.
+#   3. Assina de dentro para fora com o Developer ID e o runtime endurecido.
+#   4. Notariza o .app e grampeia o ticket nele.
+#   5. Monta o .dmg (fundo, ícone à esquerda, Aplicativos à direita).
+#   6. Assina, notariza e grampeia o .dmg.
+#   7. Confere com o Gatekeeper e sobe o .dmg no GitHub Release da tag.
+#
+# Por que os dois notarizados, e não só o .dmg
+# --------------------------------------------
+# Notarizar o .dmg já cobre o app de dentro, mas o ticket fica grampeado só na
+# imagem. Arrastado para Aplicativos, o app sai sem ele, e na primeira abertura
+# o Gatekeeper precisa da internet para conferir. Grampeado no próprio .app, ele
+# abre mesmo offline.
+#
+# Por que assinar à mão, e não pelo Xcode
+# ---------------------------------------
+# O `flutter build` assina ad-hoc (`CODE_SIGN_IDENTITY = "-"` no projeto), e a
+# notarização recusa três coisas que só a assinatura final resolve: binário sem
+# runtime endurecido, sem carimbo de hora seguro e assinado por quem não é
+# Developer ID. Os native assets (o `sqlite3`, o `nativeapi` do tray_manager)
+# entram no bundle como frameworks compilados na hora, e cada um precisa da
+# mesma assinatura — com o runtime endurecido, o macOS só carrega biblioteca do
+# mesmo time que o app.
+#
+# Sem `--deep`: ele assina tudo com as opções do topo, e os entitlements do app
+# iriam parar em cada framework. A ordem é a de dentro para fora, porque a
+# assinatura de quem contém sela a de quem está dentro.
+#
+# Pré-requisitos (uma vez por máquina)
+# ------------------------------------
+#   - O certificado "Developer ID Application" no chaveiro (com a chave
+#     privada). Ver docs/Ideis projeto/instalador-dmg.md.
+#   - A credencial da notarização guardada no chaveiro:
+#       xcrun notarytool store-credentials evergreen-notary \
+#         --apple-id <apple-id> --team-id <time> --password <senha-de-app>
+#   - `gh` autenticado, para publicar.
+#   - Na primeira vez, o macOS pergunta se o terminal pode controlar o Finder:
+#     é o Finder quem arruma a janela do .dmg.
+#
+# Uso: ./release                  # tudo, até o GitHub Release
+#      ./release --sem-publicar   # para no .dmg notarizado em build/release
+#      ./release --sem-notarizar  # só assina e monta o .dmg — para conferir a
+#                                 # janela ou testar sem a credencial; o
+#                                 # Gatekeeper recusa o resultado
+#
+#      EVERGREEN_RELEASE_IDENTITY=<hash>   # qual certificado, se houver mais
+#                                          # de um Developer ID no chaveiro
+#      EVERGREEN_NOTARY_PROFILE=<nome>     # outro perfil do notarytool
+
+set -euo pipefail
+
+PUBLISH=1
+NOTARIZE=1
+for arg in "$@"; do
+  case "$arg" in
+    --sem-publicar) PUBLISH=0 ;;
+    --sem-notarizar) NOTARIZE=0; PUBLISH=0 ;;
+    *) echo "❌ Opção desconhecida: $arg" >&2; exit 1 ;;
+  esac
+done
+
+APP_NAME="Evergreen.app"
+VOLUME_NAME="Evergreen"
+BUILT_APP="build/macos/Build/Products/Release/$APP_NAME"
+OUT_DIR="build/release"
+ENTITLEMENTS="macos/Runner/Release.entitlements"
+BACKGROUND="macos/packaging/dmg_background.png"
+BACKGROUND_2X="macos/packaging/dmg_background@2x.png"
+NOTARY_PROFILE="${EVERGREEN_NOTARY_PROFILE:-evergreen-notary}"
+
+# As posições da janela do .dmg, em pontos. O fundo é desenhado para elas
+# (`brand_assets_test.dart`, "fundo da janela do instalador") — mexeu aqui,
+# mexa lá e reexporte.
+DMG_WIDTH=660
+DMG_HEIGHT=400
+APP_X=170
+APPLICATIONS_X=490
+ICONS_Y=190
+
+cd "$(dirname "$0")"
+
+if [[ ! -f pubspec.yaml ]]; then
+  echo "❌ pubspec.yaml não encontrado — rode o script na raiz do projeto." >&2
+  exit 1
+fi
+
+# --- 1. Versão ---------------------------------------------------------------
+
+# A tag é a versão inteira, com o build (`v0.33.0+2`): é a que o `bump_version`
+# cria, e o build é o que separa duas publicações do mesmo semver — ele sobe no
+# "Preparar release". O nome do arquivo leva só o semver, que é o que quem baixa
+# reconhece; o build fica no "sobre" do app.
+FULL_VERSION="$(awk '/^version:/ { print $2; exit }' pubspec.yaml)"
+VERSION="${FULL_VERSION%%+*}"
+TAG="v$FULL_VERSION"
+DMG="$OUT_DIR/Evergreen-$VERSION.dmg"
+
+echo "🏷️  Evergreen $FULL_VERSION"
+
+if [[ "$PUBLISH" == "1" ]]; then
+  # Publicar exige que o .dmg seja exatamente o código da tag: um release com o
+  # número de uma versão e o código de outra é pior que release nenhum.
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "❌ Há mudanças não commitadas. Publique de uma árvore limpa." >&2
+    exit 1
+  fi
+  if ! git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+    echo "❌ A tag $TAG não existe. Ela nasce no \"Preparar release\"" >&2
+    echo "   (ou no merge na validation) — faça git fetch --tags." >&2
+    exit 1
+  fi
+  # O código, e não o commit: a tag nasce no bump da `validation`, e a `main`
+  # promovida é um merge por cima dele — outro commit, mesma árvore.
+  if ! git diff --quiet "$TAG" HEAD; then
+    echo "❌ O código do HEAD não é o da tag $TAG. Publique da main" >&2
+    echo "   promovida, ou faça git checkout $TAG." >&2
+    exit 1
+  fi
+fi
+
+# --- Identidade e credencial, antes do build de minutos ----------------------
+
+# O hash em vez do nome: dois certificados podem ter o mesmo nome, e aí o
+# codesign recusa por ambiguidade. O `|| true` segura o `set -e`: nenhum
+# certificado é um caminho previsto, tratado logo abaixo.
+IDENTITY="${EVERGREEN_RELEASE_IDENTITY:-}"
+if [[ -z "$IDENTITY" ]]; then
+  CANDIDATES="$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep -F '"Developer ID Application:' | awk '{ print $2 }' || true)"
+  COUNT="$(printf '%s' "$CANDIDATES" | grep -c . || true)"
+
+  if [[ "$COUNT" == "1" ]]; then
+    IDENTITY="$CANDIDATES"
+  elif [[ "$COUNT" == "0" && "$NOTARIZE" == "0" ]]; then
+    # Para conferir a janela do .dmg não precisa de Developer ID: serve o
+    # primeiro certificado, e o resultado já é recusado pelo Gatekeeper de
+    # qualquer jeito.
+    IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+      | awk 'NR==1 && /\)/ { print $2 }' || true)"
+  elif [[ "$COUNT" == "0" ]]; then
+    echo "❌ Nenhum certificado \"Developer ID Application\" no chaveiro." >&2
+    echo "   Ver docs/Ideis projeto/instalador-dmg.md." >&2
+    exit 1
+  else
+    echo "❌ Mais de um \"Developer ID Application\" no chaveiro. Defina" >&2
+    echo "   EVERGREEN_RELEASE_IDENTITY com o hash do certo." >&2
+    exit 1
+  fi
+fi
+
+if [[ -z "$IDENTITY" ]]; then
+  echo "❌ Nenhum certificado de assinatura no chaveiro." >&2
+  exit 1
+fi
+
+echo "🔏 Assinando com: $(security find-identity -v -p codesigning \
+  | grep -F "$IDENTITY" | sed -E 's/.*"(.*)"/\1/' || echo "$IDENTITY")"
+
+if [[ "$NOTARIZE" == "1" ]] \
+  && ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" > /dev/null 2>&1; then
+  echo "❌ A credencial \"$NOTARY_PROFILE\" do notarytool não está no chaveiro." >&2
+  echo "   Guarde-a com: xcrun notarytool store-credentials $NOTARY_PROFILE" >&2
+  exit 1
+fi
+
+if [[ -d "/Volumes/$VOLUME_NAME" ]]; then
+  # O Finder acha a janela pelo nome do disco: com dois "Evergreen" montados
+  # ele arrumaria o errado.
+  echo "❌ Já há um disco \"$VOLUME_NAME\" montado. Ejete-o e rode de novo." >&2
+  exit 1
+fi
+
+# --- 2. Build ----------------------------------------------------------------
+
+echo "🔨 Buildando release…"
+rm -rf "$BUILT_APP" "$OUT_DIR"
+mkdir -p "$OUT_DIR"
+flutter build macos --release
+
+if [[ ! -d "$BUILT_APP" ]]; then
+  echo "❌ Build não gerou $BUILT_APP" >&2
+  exit 1
+fi
+
+APP="$OUT_DIR/$APP_NAME"
+ditto "$BUILT_APP" "$APP"
+
+# --- 3. Assinatura -----------------------------------------------------------
+
+sign() {
+  codesign --force --timestamp --options runtime --sign "$IDENTITY" "$@"
+}
+
+echo "🔏 Assinando de dentro para fora…"
+
+# Do caminho mais fundo para o mais raso: um framework dentro de outro é
+# assinado antes do que o contém.
+find "$APP/Contents/Frameworks" \( -name '*.framework' -o -name '*.dylib' \) -print \
+  | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2- \
+  | while IFS= read -r item; do
+      sign "$item"
+    done
+
+sign --entitlements "$ENTITLEMENTS" "$APP"
+codesign --verify --strict --deep "$APP"
+echo "   assinatura conferida."
+
+# --- 4 e 6. Notarização ------------------------------------------------------
+
+# Quem diz se passou é o status da resposta, não o código de saída: conforme a
+# versão, o `--wait` sai com zero mesmo quando a Apple recusa, e sai com erro
+# numa falha de rede ou de credencial — o `|| true` deixa os dois casos chegarem
+# à mesma conferência. Recusado, o log da submissão diz qual binário e por quê.
+notarize() {
+  local file="$1" result status id
+  result="$(xcrun notarytool submit "$file" \
+    --keychain-profile "$NOTARY_PROFILE" --wait --output-format json || true)"
+  status="$(printf '%s' "$result" | plutil -extract status raw -o - - 2>/dev/null || true)"
+  id="$(printf '%s' "$result" | plutil -extract id raw -o - - 2>/dev/null || true)"
+
+  if [[ "$status" != "Accepted" ]]; then
+    echo "❌ A notarização recusou $(basename "$file") (status: ${status:-?})." >&2
+    if [[ -n "$id" ]]; then
+      xcrun notarytool log "$id" --keychain-profile "$NOTARY_PROFILE" >&2 || true
+    fi
+    exit 1
+  fi
+}
+
+if [[ "$NOTARIZE" == "1" ]]; then
+  echo "📮 Notarizando o app (leva alguns minutos)…"
+  ZIP="$OUT_DIR/Evergreen-notarize.zip"
+  ditto -c -k --keepParent "$APP" "$ZIP"
+  notarize "$ZIP"
+  rm -f "$ZIP"
+  xcrun stapler staple "$APP"
+fi
+
+# --- 5. O .dmg ---------------------------------------------------------------
+
+echo "💿 Montando o .dmg…"
+
+STAGING="$OUT_DIR/dmg"
+RW_DMG="$OUT_DIR/Evergreen-rw.dmg"
+mkdir -p "$STAGING/.background"
+ditto "$APP" "$STAGING/$APP_NAME"
+# Com o nome em português: o Finder mostra o nome do atalho, e "Applications"
+# seria a única palavra em inglês do instalador.
+ln -s /Applications "$STAGING/Aplicativos"
+# As duas resoluções num arquivo só: o Finder escolhe a do @2x na tela Retina.
+tiffutil -cathidpicheck "$BACKGROUND" "$BACKGROUND_2X" \
+  -out "$STAGING/.background/background.tiff" > /dev/null
+
+hdiutil create -srcfolder "$STAGING" -volname "$VOLUME_NAME" -fs HFS+ \
+  -format UDRW -ov "$RW_DMG" > /dev/null
+hdiutil attach "$RW_DMG" -readwrite -noverify -noautoopen > /dev/null
+# Se o AppleScript falhar — o mais provável é a primeira vez, com o pedido de
+# controlar o Finder negado —, o disco não pode ficar montado: a execução
+# seguinte pararia na conferência do "Evergreen" já montado.
+trap 'hdiutil detach "/Volumes/$VOLUME_NAME" -force > /dev/null 2>&1 || true' EXIT
+
+# A janela é guardada no `.DS_Store` do disco, e quem o escreve é o Finder: não
+# há outro jeito de dizer onde cada ícone fica. O `bounds` conta a barra de
+# título, que o Finder desenha dentro da altura pedida. O `delay` depois do
+# `open` não é enfeite: com a janela ainda nascendo, o Finder aceita o tamanho
+# e grava no `.DS_Store` o da janela padrão.
+osascript <<APPLESCRIPT
+tell application "Finder"
+  tell disk "$VOLUME_NAME"
+    open
+    delay 1
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set the bounds of container window to {200, 120, $((200 + DMG_WIDTH)), $((120 + DMG_HEIGHT + 28))}
+    set viewOptions to the icon view options of container window
+    set arrangement of viewOptions to not arranged
+    set icon size of viewOptions to 128
+    set text size of viewOptions to 13
+    set background picture of viewOptions to file ".background:background.tiff"
+    set position of item "$APP_NAME" of container window to {$APP_X, $ICONS_Y}
+    set position of item "Aplicativos" of container window to {$APPLICATIONS_X, $ICONS_Y}
+    set extension hidden of item "$APP_NAME" to true
+    close
+    open
+    update without registering applications
+    delay 2
+    close
+  end tell
+end tell
+APPLESCRIPT
+
+# O registro de eventos que o macOS cria em todo disco montado iria junto na
+# imagem de quem baixa.
+rm -rf "/Volumes/$VOLUME_NAME/.fseventsd"
+sync
+hdiutil detach "/Volumes/$VOLUME_NAME" > /dev/null
+trap - EXIT
+hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$DMG" > /dev/null
+rm -rf "$RW_DMG" "$STAGING"
+
+codesign --force --timestamp --sign "$IDENTITY" "$DMG"
+
+if [[ "$NOTARIZE" == "1" ]]; then
+  echo "📮 Notarizando o .dmg…"
+  notarize "$DMG"
+  xcrun stapler staple "$DMG"
+
+  # --- 7. Conferência e publicação -------------------------------------------
+
+  # A mesma pergunta que o Mac de quem baixa vai fazer.
+  echo "🛡️  Conferindo com o Gatekeeper…"
+  spctl -a -vv -t exec "$APP"
+  spctl -a -vv -t open --context context:primary-signature "$DMG"
+fi
+
+if [[ "$PUBLISH" == "1" ]]; then
+  echo "🚀 Publicando no GitHub Release $TAG…"
+  if gh release view "$TAG" > /dev/null 2>&1; then
+    gh release upload "$TAG" "$DMG" --clobber
+  else
+    gh release create "$TAG" "$DMG" --title "Evergreen $FULL_VERSION" --generate-notes
+  fi
+fi
+
+echo "✅ Pronto: $DMG"

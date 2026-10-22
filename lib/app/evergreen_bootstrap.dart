@@ -37,6 +37,7 @@ import '../features/notch/models/notch_activity.dart';
 import '../features/notch/models/notch_settings.dart';
 import '../features/pin/presentation/viewmodels/pin_overlay_view_model.dart';
 import '../features/track/models/track_week_digest.dart';
+import '../shared/feature_flags.dart';
 import 'providers.dart';
 
 /// Liga os serviços que rodam enquanto o Evergreen estiver aberto.
@@ -1026,8 +1027,24 @@ class EvergreenBootstrap {
   }
 
   /// "Abrir minimizado" desligado significa mostrar o Hub ao iniciar.
+  ///
+  /// Ligado — que é o padrão —, a apresentação de boas-vindas pendente abre o
+  /// Hub mesmo assim. Ela mora no Hub, e o Evergreen não tem janela nem ícone
+  /// no Dock: quem acabou de instalar pelo `.dmg` abria o app e não via nada,
+  /// e a conclusão natural era que ele não tinha aberto. A régua é a da
+  /// própria apresentação (uma vez por build), então quem atualiza também a
+  /// encontra, e quem já a viu segue abrindo minimizado.
   Future<void> _openHubIfRequested() async {
-    if (_container.read(appSettingsViewModelProvider).startMinimized) return;
+    final onboardingPending =
+        FeatureFlags.onboarding &&
+        _container
+            .read(onboardingRepositoryProvider)
+            .shouldShow(_container.read(buildStampProvider));
+
+    if (_container.read(appSettingsViewModelProvider).startMinimized &&
+        !onboardingPending) {
+      return;
+    }
     await HubWindow.instance.open();
   }
 

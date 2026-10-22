@@ -25,11 +25,6 @@ jobs:
           ref: validation
           fetch-depth: 0
 
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Install cider
-        run: dart pub global activate cider
-
       - name: Determine bump type from PR label
         id: bump
         run: |
@@ -44,20 +39,18 @@ jobs:
             echo "type=none" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Bump version and build number
+      # Sobe SÓ o semver — o build number (`+N`) fica intacto e sobe uma vez por
+      # release, pelo `preparar-release.yml`. Se subisse aqui, contaria merges
+      # em vez de publicações.
+      #
+      # Quem calcula, commita, tagueia e envia é o `bump_version` — o mesmo que
+      # se roda na mão quando o Actions está fora do ar. Eram duas
+      # implementações da mesma regra, e o defeito morava justamente aí: o
+      # `cider bump <nível>` zerava o build antes do `cider bump build`, então
+      # todo bump saía `+1` e o número não distinguia publicação nenhuma.
+      - name: Bump version, commit, tag and push
         if: steps.bump.outputs.type != 'none'
         run: |
-          dart pub global run cider bump ${{ steps.bump.outputs.type }}
-          dart pub global run cider bump build
-
-      - name: Commit, tag and push
-        if: steps.bump.outputs.type != 'none'
-        run: |
-          VERSION=$(dart pub global run cider version)
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pubspec.yaml
-          git commit -m "chore: bump version to $VERSION"
-          git tag "v$VERSION"
-          git push origin validation
-          git push origin "v$VERSION"
+          ./bump_version "${{ steps.bump.outputs.type }}" --push
