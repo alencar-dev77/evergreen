@@ -13,7 +13,7 @@
 #
 # Aqui isso custa mais caro do que parece. O `version:` do `pubspec.yaml` é o que
 # a barra lateral do Hub mostra no rodapé (via `AppInfo`/`package_info_plus`), e
-# o Evergreen é instalado pelo `./run_build_copy`, que copia por cima da cópia
+# o Evergreen é instalado pelo `./scripts/run_build_copy`, que copia por cima da cópia
 # em /Applications. Com a versão congelada, duas instalações diferentes se
 # apresentam com o mesmo número e não há como dizer qual está na máquina — que é
 # justamente a pergunta que se faz quando algo quebrou depois de uma instalação.
@@ -37,7 +37,7 @@
 #
 #   BUILD (+N) — sobe UMA vez por release, antes de promover para a `main`.
 #   Responde "qual publicação é esta": é o `CFBundleVersion` do `.dmg` que o
-#   `./release` gera, e o que separa duas publicações do mesmo semver (uma
+#   `./scripts/release` gera, e o que separa duas publicações do mesmo semver (uma
 #   correção do instalador, um `.dmg` refeito). NÃO mexe no semver. Antes, o
 #   `cider bump <nível>` do workflow zerava o build a cada semver, e por isso
 #   todo o histórico até a 0.33.0 é `+1` — um número que não distinguia nada.
@@ -47,12 +47,12 @@
 # porque o commit nasceria na `main`, que então divergiria da `validation`.
 #
 # Uso:
-#   ./bump_version                 # nível vem das PRs pendentes (label bump:*)
-#   ./bump_version patch           # nível explícito (patch|minor|major)
-#   ./bump_version --pr 29         # nível vem da label daquela PR
-#   ./bump_version --build         # +1 no build, semver intacto (preparar release)
-#   ./bump_version --dry-run       # só mostra o que faria
-#   ./bump_version --push          # commita, tagueia E envia (padrão: não envia)
+#   ./scripts/bump_version                 # nível vem das PRs pendentes (label bump:*)
+#   ./scripts/bump_version patch           # nível explícito (patch|minor|major)
+#   ./scripts/bump_version --pr 29         # nível vem da label daquela PR
+#   ./scripts/bump_version --build         # +1 no build, semver intacto (preparar release)
+#   ./scripts/bump_version --dry-run       # só mostra o que faria
+#   ./scripts/bump_version --push          # commita, tagueia E envia (padrão: não envia)
 #
 # O padrão é NÃO enviar: o script deixa commit e tag prontos e imprime os dois
 # `git push`, pra você conferir antes.
@@ -61,7 +61,8 @@ set -euo pipefail
 
 BRANCH_BUMP="validation"
 
-cd "$(dirname "$0")"
+# Os scripts moram em `scripts/`; tudo daqui para baixo roda da raiz.
+cd "$(dirname "$0")/.."
 
 vermelho() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 verde()    { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -146,7 +147,7 @@ fi
 if [ "$MODO_BUILD" = false ] && [ -z "$NIVEL" ]; then
   # Sem nível explícito: descobre o que foi mergeado na validation desde o
   # último commit de bump — que é justamente o que o CI deixou de processar.
-  command -v gh >/dev/null || erro "Sem 'gh' instalado, informe o nível: ./bump_version patch"
+  command -v gh >/dev/null || erro "Sem 'gh' instalado, informe o nível: ./scripts/bump_version patch"
 
   ultimo_bump="$(git log -1 --format='%cI' --grep='^chore: bump version to' "origin/$BRANCH_BUMP" || true)"
   [ -n "$ultimo_bump" ] || erro "Não achei o último commit de bump. Informe o nível na mão."
@@ -253,7 +254,7 @@ fi
 echo
 if [ "$MODO_BUILD" = true ]; then
   azul "Depois: abra a PR $BRANCH_BUMP -> main. O portão 'check-build-bump'"
-  azul "confere que o build cresceu; promovida, o ./release publica a $nova."
+  azul "confere que o build cresceu; promovida, o ./scripts/release publica a $nova."
 else
   azul "Depois: siga integrando. Na hora de promover, rode --build (ou o botão"
   azul "'Preparar release' na aba Actions) e abra a PR $BRANCH_BUMP -> main."
