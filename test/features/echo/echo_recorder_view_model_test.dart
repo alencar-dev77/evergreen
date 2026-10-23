@@ -140,6 +140,37 @@ void main() {
     expect(state().phase, EchoPhase.recording);
   });
 
+  test(
+    'o que falha depois de guardar não faz a reunião parecer perdida',
+    () async {
+      await viewModel().start();
+      channel.deleteAudioFailWith = const EchoException('delete_failed', 'x');
+
+      await viewModel().stopAndTranscribe();
+
+      expect(SqliteEchoRepository(db).loadAll(), hasLength(1));
+      expect(state().phase, EchoPhase.done);
+      expect(state().lastMeeting?.id, isNotNull);
+      expect(state().errorMessage, isNull);
+    },
+  );
+
+  test('parar durante o início espera a gravação subir e a para', () async {
+    channel.startGate = Completer<void>();
+
+    final starting = viewModel().start();
+    await Future<void>.delayed(Duration.zero);
+
+    // Como o desligar do módulo faz: pede o fim com o início ainda no ar.
+    final stopping = viewModel().stopAndTranscribe();
+    channel.startGate!.complete();
+    await starting;
+    await stopping;
+
+    expect(state().isRecording, isFalse);
+    expect(state().phase, EchoPhase.done);
+  });
+
   test('gravar duas vezes antes da resposta pede uma gravação só', () async {
     channel.startGate = Completer<void>();
 

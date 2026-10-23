@@ -239,7 +239,13 @@ class FakeEchoChannel implements EchoChannel {
   }
 
   @override
-  Future<void> deleteAudio(List<String> paths) async => deletedAudio = paths;
+  Future<void> deleteAudio(List<String> paths) async {
+    if (deleteAudioFailWith != null) throw deleteAudioFailWith!;
+    deletedAudio = paths;
+  }
+
+  /// Faz só a limpeza das faixas cruas falhar, com a reunião já guardada.
+  EchoException? deleteAudioFailWith;
 
   @override
   Future<void> cleanOrphanAudio() async {}

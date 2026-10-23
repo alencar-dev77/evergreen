@@ -55,6 +55,12 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   /// gravação em andamento para pausar" por cima de uma gravação viva.
   bool _toggling = false;
 
+  /// O `start` em curso, para quem precisa parar uma gravação que ainda está
+  /// subindo — desligar o Echo no Hub enquanto o macOS pergunta pela Gravação
+  /// de Tela, por exemplo. Sem esperar, a reunião começava depois com o
+  /// módulo já desligado.
+  Completer<void>? _starting;
+
   @override
   EchoRecorderState build() {
     _channel = ref.watch(echoChannelProvider);
@@ -142,6 +148,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
     if (state.isRecording || state.isBusy) return;
 
     state = state.copyWith(isStarting: true);
+    final starting = _starting = Completer<void>();
 
     try {
       // As preferências vivem no Hub, em outro engine: sem reler, a gravação
@@ -167,6 +174,8 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       _begin(settings.liveTranscription);
     } finally {
       if (state.isStarting) state = state.copyWith(isStarting: false);
+      _starting = null;
+      starting.complete();
     }
   }
 
@@ -266,7 +275,11 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   /// O áudio só é apagado depois de a transcrição estar no banco. Se qualquer
   /// coisa falhar antes disso, ele fica onde está — apagar aqui transformaria
   /// "a transcrição deu errado" em "a reunião se perdeu".
+  ///
+  /// Com um início ainda sem resposta, espera por ele: é o que faz desligar o
+  /// módulo nesse intervalo parar a gravação que estava subindo.
   Future<void> stopAndTranscribe() async {
+    await _starting?.future;
     if (!state.isRecording) return;
 
     _ticker?.cancel();
@@ -276,6 +289,11 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
 
     final settings = _settings.load();
     RecordingFiles? files;
+
+    // A reunião já no banco. O que falhar depois dela — aparar o histórico,
+    // arquivar o áudio, apagar as faixas cruas — não desfaz a reunião, e a
+    // tela não pode dizer que ela não saiu.
+    Meeting? inserted;
 
     try {
       files = await _channel.stopRecording();
@@ -305,7 +323,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       );
 
       final startedAt = _startedAt ?? _now();
-      final meeting = _repository.insert(
+      final meeting = inserted = _repository.insert(
         Meeting(
           title: Meeting.defaultTitle(startedAt),
           startedAt: startedAt,
@@ -359,6 +377,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       );
     } on EchoException catch (error) {
       _startedAt = null;
+      if (inserted != null) return _savedDespite(inserted);
       state = state.copyWith(
         phase: EchoPhase.failed,
         // Dizia "o áudio foi preservado em disco", e não era verdade: a
@@ -373,11 +392,21 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       // O registro leva só o tipo do erro, pelo `AppLog.describe`.
       AppLog.error('echo.stop', error, stack);
       _startedAt = null;
+      if (inserted != null) return _savedDespite(inserted);
       state = state.copyWith(
         phase: EchoPhase.failed,
         errorMessage: 'Não foi possível transcrever esta reunião.$_lost',
       );
     }
+  }
+
+  /// A reunião foi guardada, e o que falhou foi a arrumação depois dela.
+  void _savedDespite(Meeting meeting) {
+    state = state.copyWith(
+      phase: EchoPhase.done,
+      lastMeeting: _repository.findById(meeting.id!) ?? meeting,
+      clearError: true,
+    );
   }
 
   /// O que a tela diz do áudio quando a reunião não saiu: a verdade.
