@@ -52,7 +52,9 @@ Gera `build/release/Evergreen-<versão>.dmg`, assinado com o Developer ID e
 notarizado pela Apple — o arquivo que abre sem aviso no Mac de outra pessoa —
 e o sobe no GitHub Release da tag `v<semver>+<build>`. As notas do release são
 o que o [CHANGELOG.md](../CHANGELOG.md) acumulou desde a publicação anterior, e
-os PDFs do `documentos` vão anexados — junto com o `appcast.xml`, que é onde o
+os PDFs do `documentos` vão anexados — junto com uma cópia `Evergreen.dmg`, de
+nome fixo, que é o que o link de download de fora usa
+(`releases/latest/download/Evergreen.dmg`), e com o `appcast.xml`, que é onde o
 Evergreen instalado descobre que há versão nova (Sparkle). O appcast é assinado
 com a chave das atualizações, que mora no chaveiro de quem publica (conta
 `evergreen`): sem ela o script para antes da notarização. Como criar, guardar e

@@ -453,19 +453,32 @@ if [[ "$PUBLISH" == "1" ]]; then
 APPCAST_XML
   xmllint --noout "$APPCAST"
 
+  # Uma cópia com nome fixo, para o link de download de fora (o site, o
+  # README) ser sempre o mesmo: `releases/latest/download/Evergreen.dmg`. O
+  # appcast continua apontando para o arquivo com a versão no nome, que é o
+  # que não muda depois de publicado.
+  STABLE_DMG="$OUT_DIR/Evergreen.dmg"
+  cp "$DMG" "$STABLE_DMG"
+  ASSETS=("$DMG" "$STABLE_DMG" "$APPCAST" ${DOCS[@]+"${DOCS[@]}"})
+
   # `${TAG}`, com chaves: o bash 3.2 do macOS lê o primeiro byte das
   # reticências como parte do nome e procura uma variável que não existe — com
   # o `set -u`, o script morria aqui, depois da notarização e antes do upload.
   echo "🚀 Publicando no GitHub Release ${TAG}…"
   if gh release view "$TAG" > /dev/null 2>&1; then
-    gh release upload "$TAG" "$DMG" "$APPCAST" ${DOCS[@]+"${DOCS[@]}"} --clobber
+    gh release upload "$TAG" "${ASSETS[@]}" --clobber
   elif [[ -s "$NOTES" ]]; then
-    gh release create "$TAG" "$DMG" "$APPCAST" ${DOCS[@]+"${DOCS[@]}"} \
+    gh release create "$TAG" "${ASSETS[@]}" \
       --title "Evergreen $FULL_VERSION" --notes-file "$NOTES"
   else
-    gh release create "$TAG" "$DMG" "$APPCAST" ${DOCS[@]+"${DOCS[@]}"} \
+    gh release create "$TAG" "${ASSETS[@]}" \
       --title "Evergreen $FULL_VERSION" --generate-notes
   fi
+
+  # O app de onde o `.dmg` saiu já está dentro dele. Deixado em
+  # `build/release`, o Spotlight o lista como mais um "Evergreen.app" ao lado
+  # do instalado — e quem procura o app não sabe qual abrir.
+  rm -rf "$APP"
 fi
 
 echo "✅ Pronto: $DMG"
