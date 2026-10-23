@@ -20,6 +20,16 @@ class NestThumbnail {
   final Uint8List bytes;
 }
 
+/// O resultado de uma promessa de mover, arquivo a arquivo.
+class NestMovedOut {
+  const NestMovedOut({required this.path, required this.moved});
+
+  final String path;
+
+  /// `false` quando o `moveItem` falhou e o arquivo continua onde estava.
+  final bool moved;
+}
+
 /// O que o Nest não consegue fazer em Flutter puro.
 ///
 /// Quatro coisas, e nenhuma tem equivalente em Dart: receber um arraste do
@@ -44,6 +54,7 @@ class NestChannel {
   final _dragOver = StreamController<bool>.broadcast();
   final _thumbnails = StreamController<NestThumbnail>.broadcast();
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
+  final _movedOut = StreamController<NestMovedOut>.broadcast();
   final _shakes = StreamController<void>.broadcast();
   final _notch = StreamController<void>.broadcast();
   final _notchDragEnded = StreamController<void>.broadcast();
@@ -88,6 +99,13 @@ class NestChannel {
   /// `null` quando ele foi solto em lugar nenhum.
   Stream<NestTransferMode?> get onDragOutEnded => _dragOutEnded.stream;
 
+  /// Um arquivo do arraste que move foi — ou não — movido pelo lado nativo.
+  ///
+  /// Chega um por arquivo, e depois do fim do arraste: a promessa é cumprida
+  /// numa fila própria, e mover entre volumes é copiar. É este aviso, e não o
+  /// fim do arraste, que diz se a linha pode sair da prateleira.
+  Stream<NestMovedOut> get onMovedOut => _movedOut.stream;
+
   /// Liga a escuta dos avisos do lado nativo. Uma vez, na inicialização.
   void listen() {
     _channel.setMethodCallHandler((call) async {
@@ -111,6 +129,13 @@ class NestChannel {
             'move' => NestTransferMode.move,
             _ => null,
           });
+
+        case 'onMovedOut':
+          final path = arguments?['path'] as String?;
+          final moved = arguments?['moved'] as bool? ?? false;
+          if (path != null && !_movedOut.isClosed) {
+            _movedOut.add(NestMovedOut(path: path, moved: moved));
+          }
 
         case 'onShake':
           if (!_shakes.isClosed) _shakes.add(null);
@@ -222,6 +247,7 @@ class NestChannel {
     _channel.setMethodCallHandler(null);
     _dropped.close();
     _dragOutEnded.close();
+    _movedOut.close();
     _shakes.close();
     _notch.close();
     _notchDragEnded.close();

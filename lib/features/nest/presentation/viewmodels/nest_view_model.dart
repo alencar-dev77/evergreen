@@ -36,6 +36,29 @@ class NestViewModel extends Notifier<NestState> {
   StreamSubscription<bool>? _dragOver;
   StreamSubscription<NestThumbnail>? _thumbnails;
   StreamSubscription<NestTransferMode?>? _dragOut;
+  StreamSubscription<NestMovedOut>? _movedOut;
+
+  /// Um envio ou um desfazer em curso.
+  ///
+  /// Os dois mexem em disco e demoram, e o `⌘1` segurado repete: sem a trava,
+  /// a segunda chamada partia da mesma prateleira antes de a primeira voltar —
+  /// copiando, nasciam `x 2.pdf`, `x 3.pdf`; desfazendo, os itens voltavam
+  /// duas vezes.
+  bool _busy = false;
+
+  /// Os itens que o arraste em curso levou, guardados na partida.
+  List<NestItem> _draggingOut = const [];
+
+  /// As promessas de mover do último arraste, e o que cada uma respondeu.
+  ///
+  /// Movendo, o fim do arraste não diz que o arquivo mudou de lugar: o lado
+  /// nativo cumpre a promessa depois, numa fila própria, e ela pode falhar. A
+  /// linha sai da prateleira no fim do arraste, como na cópia — senão ficaria
+  /// usável enquanto o arquivo ainda está sendo movido —, e a que falhou volta.
+  /// O Track e o aviso esperam todas responderem, para contar só o que andou.
+  Map<String, NestItem> _promised = const {};
+  final _promiseResults = <String, bool>{};
+  bool _promiseDragEnded = false;
 
   /// O modo com que o arraste em curso saiu. `null` quando não há arraste.
   ///
@@ -57,6 +80,7 @@ class NestViewModel extends Notifier<NestState> {
       unawaited(_dragOver?.cancel());
       unawaited(_thumbnails?.cancel());
       unawaited(_dragOut?.cancel());
+      unawaited(_movedOut?.cancel());
     });
 
     final settings = _settings.load();
@@ -79,6 +103,7 @@ class NestViewModel extends Notifier<NestState> {
     );
     _thumbnails ??= _channel.onThumbnail.listen(_applyThumbnail);
     _dragOut ??= _channel.onDragOutEnded.listen(_finishDragOut);
+    _movedOut ??= _channel.onMovedOut.listen(_applyMovedOut);
   }
 
   /// Arrasta a prateleira inteira para fora — para uma pasta do Finder, para o
@@ -88,14 +113,23 @@ class NestViewModel extends Notifier<NestState> {
   /// vez é a razão de o módulo existir. Quem não quer um item junto o tira antes
   /// com o `⌫`.
   Future<void> beginDragOut() async {
-    if (!state.canSend || _draggingOutAs != null) return;
+    if (!state.canSend || _draggingOutAs != null || _busy) return;
 
     final mode = state.effectiveMode;
+    final items = state.outgoing;
     final started = await _channel.beginDragOut([
-      for (final item in state.outgoing) item.path,
+      for (final item in items) item.path,
     ], move: mode == NestTransferMode.move);
 
-    if (started) _draggingOutAs = mode;
+    if (!started) return;
+
+    _draggingOutAs = mode;
+    _draggingOut = items;
+    _promised = mode == NestTransferMode.move
+        ? {for (final item in items) item.path: item}
+        : const {};
+    _promiseResults.clear();
+    _promiseDragEnded = false;
   }
 
   /// O arraste terminou. `null` é "soltou em lugar nenhum" — a prateleira fica
@@ -106,35 +140,93 @@ class NestViewModel extends Notifier<NestState> {
   /// foram. Na cópia, quem desfaz é o `⌘Z` do próprio Finder.
   void _finishDragOut(NestTransferMode? operation) {
     final mode = _draggingOutAs;
+    final items = _draggingOut;
     _draggingOutAs = null;
+    _draggingOut = const [];
 
-    if (mode == null || operation == null || !state.canSend) return;
+    if (mode == null || operation == null || items.isEmpty) {
+      _promised = const {};
+      _promiseResults.clear();
+      return;
+    }
 
-    final gone = state.outgoing;
+    final promised = mode == NestTransferMode.move;
+    // Uma promessa pode ter falhado antes de a sessão terminar: essa fica.
+    final gone = {
+      for (final item in items)
+        if (_promiseResults[item.path] != false) item.path,
+    };
+
+    state = state.copyWith(
+      items: [
+        for (final item in state.items)
+          if (!gone.contains(item.path)) item,
+      ],
+      clearSelection: true,
+      clearUndo: true,
+    );
+
+    if (promised) {
+      _promiseDragEnded = true;
+      _settlePromises();
+      return;
+    }
+
     final transfer = NestTransfer(
       at: _now(),
       mode: operation,
       destinationPath: '',
       movements: [
-        for (final item in gone)
+        for (final item in items)
           NestMovement(source: item.path, destination: ''),
       ],
     );
-
     _transfers.insert(transfer);
+    state = state.copyWith(notice: _noticeFor(transfer, null));
+  }
 
-    final paths = {for (final item in gone) item.path};
-    final kept = [
-      for (final item in state.items)
-        if (!paths.contains(item.path)) item,
-    ];
+  /// A promessa de mover de um arquivo foi cumprida — ou falhou.
+  void _applyMovedOut(NestMovedOut result) {
+    final item = _promised[result.path];
+    if (item == null || _promiseResults.containsKey(result.path)) return;
 
-    state = state.copyWith(
-      items: kept,
-      clearSelection: true,
-      clearUndo: true,
-      notice: _noticeFor(transfer, null),
+    _promiseResults[result.path] = result.moved;
+
+    // Falhou depois de a linha sair: ela volta, porque o arquivo continua lá.
+    final isShown = state.items.any((it) => it.path == result.path);
+    if (!result.moved && _promiseDragEnded && !isShown) {
+      state = state.copyWith(items: [...state.items, item]);
+    }
+
+    _settlePromises();
+  }
+
+  /// Todas as promessas responderam e o arraste acabou: conta e avisa.
+  void _settlePromises() {
+    if (!_promiseDragEnded || _promiseResults.length < _promised.length) {
+      return;
+    }
+
+    final transfer = NestTransfer(
+      at: _now(),
+      mode: NestTransferMode.move,
+      destinationPath: '',
+      movements: [
+        for (final MapEntry(key: path, value: moved) in _promiseResults.entries)
+          if (moved) NestMovement(source: path, destination: ''),
+      ],
+      failures: [
+        for (final MapEntry(key: path, value: moved) in _promiseResults.entries)
+          if (!moved) NestFailure(path: path, reason: 'não deu para mover'),
+      ],
     );
+
+    _promised = const {};
+    _promiseResults.clear();
+    _promiseDragEnded = false;
+
+    if (!transfer.isEmpty) _transfers.insert(transfer);
+    state = state.copyWith(notice: _noticeFor(transfer, null));
   }
 
   /// Relê o que o Hub pode ter mudado e confere se os originais continuam lá.
@@ -351,8 +443,17 @@ class NestViewModel extends Notifier<NestState> {
   }
 
   Future<void> sendTo(NestDestination destination) async {
-    if (!state.canSend) return;
+    if (_busy || !state.canSend) return;
 
+    _busy = true;
+    try {
+      await _sendTo(destination);
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<void> _sendTo(NestDestination destination) async {
     final mode = state.effectiveMode;
     final chosen = state.outgoing;
     final transfer = await _files.send(
@@ -361,14 +462,21 @@ class NestViewModel extends Notifier<NestState> {
       mode: mode,
     );
 
-    // O que falhou continua na prateleira, marcado — some da tela só o que
-    // realmente chegou ao destino. Uma lista que se esvazia inteira depois de
-    // uma falha esconde exatamente o arquivo que precisa de atenção.
-    final failed = {for (final failure in transfer.failures) failure.path};
+    // O que falhou continua na prateleira — some da tela só o que realmente
+    // chegou ao destino. Uma lista que se esvazia inteira depois de uma falha
+    // esconde exatamente o arquivo que precisa de atenção.
+    //
+    // Marcado como "sumiu" só o que sumiu de fato: falta de permissão ou de
+    // espaço não tira o arquivo do lugar, e marcá-lo levaria o `⇧⌫` a tirar da
+    // prateleira um arquivo que continua lá.
+    final vanished = <String>{
+      for (final failure in transfer.failures)
+        if (!await _files.exists(failure.path)) failure.path,
+    };
     final sent = {for (final movement in transfer.movements) movement.source};
     final kept = [
       for (final item in state.items)
-        if (failed.contains(item.path))
+        if (vanished.contains(item.path))
           item.copyWith(isMissing: true)
         else if (!sent.contains(item.path))
           item,
@@ -392,9 +500,17 @@ class NestViewModel extends Notifier<NestState> {
   /// organizou nada, e contá-la seria contar arquivos que voltaram para onde
   /// estavam.
   Future<void> undo() async {
-    final transfer = state.lastTransfer;
-    if (transfer == null) return;
+    if (_busy || state.lastTransfer == null) return;
 
+    _busy = true;
+    try {
+      await _undo(state.lastTransfer!);
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<void> _undo(NestTransfer transfer) async {
     final restored = await _files.undo(transfer);
 
     final id = state.lastTransferId;
@@ -455,24 +571,35 @@ class NestViewModel extends Notifier<NestState> {
   }
 
   /// Reconfere no disco o que a prateleira está mostrando.
+  ///
+  /// A conferência é feita sobre uma foto da prateleira, mas aplicada sobre a
+  /// prateleira **de agora**, por caminho: as leituras demoram, e um envio que
+  /// estava em curso quando o painel reabriu pode ter tirado linhas nesse
+  /// meio-tempo. Regravar a foto traria de volta o que já foi enviado.
   Future<void> _refreshItems() async {
     if (state.isEmpty) return;
 
-    final items = <NestItem>[];
-
+    final checked = <String, NestItem?>{};
     for (final item in state.items) {
-      final fresh = await _files.inspect(item.path);
-      items.add(
-        fresh == null
-            ? item.copyWith(isMissing: true)
-            // A miniatura já lida continua valendo: o arquivo é o mesmo, e
-            // pedi-la de novo a cada abertura faria a prateleira piscar.
-            : fresh.copyWith(thumbnail: item.thumbnail),
-      );
+      checked[item.path] = await _files.inspect(item.path);
     }
 
-    state = state.copyWith(items: items);
+    state = state.copyWith(
+      items: [
+        for (final item in state.items)
+          if (checked.containsKey(item.path))
+            _rechecked(item, checked[item.path])
+          else
+            item,
+      ],
+    );
   }
+
+  NestItem _rechecked(NestItem item, NestItem? fresh) => fresh == null
+      ? item.copyWith(isMissing: true)
+      // A miniatura já lida continua valendo: o arquivo é o mesmo, e pedi-la de
+      // novo a cada abertura faria a prateleira piscar.
+      : fresh.copyWith(thumbnail: item.thumbnail);
 
   /// [destination] é nulo no arraste para fora: ali o destino é do sistema, e o
   /// Evergreen não sabe o nome dele.

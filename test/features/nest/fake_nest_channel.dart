@@ -14,6 +14,7 @@ class FakeNestChannel implements NestChannel {
   final _dragOver = StreamController<bool>.broadcast();
   final _thumbnails = StreamController<NestThumbnail>.broadcast();
   final _dragOutEnded = StreamController<NestTransferMode?>.broadcast();
+  final _movedOut = StreamController<NestMovedOut>.broadcast();
   final _shakes = StreamController<void>.broadcast();
   final _notch = StreamController<void>.broadcast();
   final _notchDragEnded = StreamController<void>.broadcast();
@@ -61,6 +62,10 @@ class FakeNestChannel implements NestChannel {
   /// Termina o arraste para fora, como o destino faria.
   void endDragOut(NestTransferMode? operation) => _dragOutEnded.add(operation);
 
+  /// Cumpre (ou não) a promessa de mover um arquivo, como o lado nativo faria.
+  void fulfillMove(String path, {bool moved = true}) =>
+      _movedOut.add(NestMovedOut(path: path, moved: moved));
+
   @override
   Stream<List<String>> get onDropped => _dropped.stream;
 
@@ -72,6 +77,9 @@ class FakeNestChannel implements NestChannel {
 
   @override
   Stream<NestTransferMode?> get onDragOutEnded => _dragOutEnded.stream;
+
+  @override
+  Stream<NestMovedOut> get onMovedOut => _movedOut.stream;
 
   @override
   Stream<void> get onShake => _shakes.stream;
@@ -140,6 +148,7 @@ class FakeNestChannel implements NestChannel {
     _dragOver.close();
     _thumbnails.close();
     _dragOutEnded.close();
+    _movedOut.close();
     _shakes.close();
     _notch.close();
     _notchDragEnded.close();
