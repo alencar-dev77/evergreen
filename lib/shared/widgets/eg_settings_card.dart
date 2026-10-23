@@ -66,7 +66,7 @@ class EgSettingsPage extends StatelessWidget {
 
   /// A linha do pé da tela, abaixo de tudo e fora da pilha.
   ///
-  /// É onde vai a promessa da casa — "nada sai deste Mac" — e o link de
+  /// É onde vai a promessa da casa — "seus dados ficam neste Mac" — e o link de
   /// novidades: coisas que valem para a tela inteira e não pertencem a
   /// assunto nenhum.
   final Widget? footer;

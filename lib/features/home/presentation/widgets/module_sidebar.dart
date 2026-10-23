@@ -227,7 +227,9 @@ class ModuleSidebar extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'tudo local · nada sai daqui',
+                    // A mesma promessa do rodapé da tela do aplicativo, curta:
+                    // o que é seu fica, e não "nada sai" — ver a PRIVACY.md.
+                    'seus dados ficam aqui',
                     style: eg.text.monoSmall.copyWith(
                       color: eg.colors.textQuaternary,
                     ),
