@@ -162,6 +162,20 @@ class SqliteClipboardRepository implements ClipboardRepository {
 
   @override
   void swapPinnedOrder(int firstId, int secondId) {
+    // Uma transação só, e aberta antes da leitura: a troca não pode ficar pela
+    // metade se o processo morrer no meio dela, e o Hub — a outra conexão —
+    // não pode desafixar um item entre ler a ordem e gravá-la.
+    _db.execute('BEGIN IMMEDIATE;');
+    try {
+      _swapPinnedOrder(firstId, secondId);
+      _db.execute('COMMIT;');
+    } catch (_) {
+      _db.execute('ROLLBACK;');
+      rethrow;
+    }
+  }
+
+  void _swapPinnedOrder(int firstId, int secondId) {
     final rows = _db.select('''
       SELECT id, pinned_at
         FROM clipboard_items
@@ -194,25 +208,16 @@ class SqliteClipboardRepository implements ClipboardRepository {
     swapped[firstIndex] = stamps[secondIndex];
     swapped[secondIndex] = stamps[firstIndex];
 
-    // Uma transação só: a troca não pode ficar pela metade se o processo
-    // morrer no meio dela.
-    _db.execute('BEGIN;');
+    final update = _db.prepare(
+      'UPDATE clipboard_items SET pinned_at = ? WHERE id = ?;',
+    );
     try {
-      final update = _db.prepare(
-        'UPDATE clipboard_items SET pinned_at = ? WHERE id = ?;',
-      );
-      try {
-        for (var i = 0; i < ids.length; i++) {
-          if (swapped[i] == rows[i]['pinned_at']) continue;
-          update.execute([swapped[i], ids[i]]);
-        }
-      } finally {
-        update.close();
+      for (var i = 0; i < ids.length; i++) {
+        if (swapped[i] == rows[i]['pinned_at']) continue;
+        update.execute([swapped[i], ids[i]]);
       }
-      _db.execute('COMMIT;');
-    } catch (_) {
-      _db.execute('ROLLBACK;');
-      rethrow;
+    } finally {
+      update.close();
     }
   }
 
