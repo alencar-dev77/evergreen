@@ -8,6 +8,10 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.1.2 — 23/10/2026
+
+- Link de download direto, sempre da versão mais nova (#144)
+
 ## 1.1.1 — 22/10/2026
 
 - A atualização espera a reunião do Echo e guarda tudo antes de reiniciar (#138)
