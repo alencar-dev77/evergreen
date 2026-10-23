@@ -394,7 +394,7 @@ void main() {
       expect(stateOf(container).items.single.path, second);
     });
 
-    test('movendo, a linha só sai quando o arquivo de fato saiu', () async {
+    test('movendo, o Track e o aviso esperam as promessas', () async {
       final container = await makeContainer();
       final first = writeFile('a.txt');
       final second = writeFile('b.txt');
@@ -405,29 +405,56 @@ void main() {
       channel.endDragOut(NestTransferMode.move);
       await Future<void>.delayed(Duration.zero);
 
-      // O fim do arraste é a promessa, não o movimento: nada sai ainda.
-      expect(stateOf(container).items, hasLength(2));
-      expect(transfers.rows.single.fileCount, 2);
+      // A linha sai no fim do arraste — senão daria para mandá-la de novo
+      // enquanto o arquivo ainda está sendo movido —, mas o fim do arraste é
+      // a promessa, não o movimento: ainda não há o que contar.
+      expect(stateOf(container).isEmpty, isTrue);
+      expect(transfers.rows, isEmpty);
 
       channel.fulfillMove(first);
+      channel.fulfillMove(second);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(transfers.rows.single.fileCount, 2);
+      expect(stateOf(container).notice, '2 arquivos movidos.');
+    });
+
+    test('movendo, o que não deu para mover volta e não é contado', () async {
+      final container = await makeContainer();
+      final first = writeFile('a.txt');
+      final second = writeFile('b.txt');
+      await viewModelOf(container).addPaths([first, second]);
+      viewModelOf(container).setInvertHeld(isHeld: true);
+
+      await viewModelOf(container).beginDragOut();
+      channel.endDragOut(NestTransferMode.move);
+      channel.fulfillMove(first);
+      channel.fulfillMove(second, moved: false);
       await Future<void>.delayed(Duration.zero);
 
       expect(stateOf(container).items.single.path, second);
+      expect(transfers.rows.single.fileCount, 1);
+      expect(
+        stateOf(container).notice,
+        '1 arquivo movido — 1 ficaram para trás.',
+      );
     });
 
-    test('movendo, o que não deu para mover fica e é avisado', () async {
+    test('movendo, a falha que chega antes do fim do arraste fica', () async {
       final container = await makeContainer();
       final path = writeFile('a.txt');
       await viewModelOf(container).addPaths([path]);
       viewModelOf(container).setInvertHeld(isHeld: true);
 
       await viewModelOf(container).beginDragOut();
-      channel.endDragOut(NestTransferMode.move);
       channel.fulfillMove(path, moved: false);
+      await Future<void>.delayed(Duration.zero);
+      channel.endDragOut(NestTransferMode.move);
       await Future<void>.delayed(Duration.zero);
 
       expect(stateOf(container).items.single.path, path);
-      expect(stateOf(container).notice, contains('Não deu para mover a.txt'));
+      expect(transfers.rows, isEmpty);
+      expect(stateOf(container).notice, contains('Nada foi enviado'));
     });
 
     test('com a prateleira vazia não começa arraste nenhum', () async {

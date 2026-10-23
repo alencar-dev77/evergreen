@@ -46,12 +46,19 @@ class NestViewModel extends Notifier<NestState> {
   /// duas vezes.
   bool _busy = false;
 
-  /// Os caminhos que o arraste em curso levou, guardados na partida.
+  /// Os itens que o arraste em curso levou, guardados na partida.
+  List<NestItem> _draggingOut = const [];
+
+  /// As promessas de mover do último arraste, e o que cada uma respondeu.
   ///
-  /// Não se relê `state.outgoing` no fim: no modo mover a linha sai da
-  /// prateleira quando a promessa é cumprida, e isso pode chegar antes do fim
-  /// da sessão.
-  List<String> _draggingOutPaths = const [];
+  /// Movendo, o fim do arraste não diz que o arquivo mudou de lugar: o lado
+  /// nativo cumpre a promessa depois, numa fila própria, e ela pode falhar. A
+  /// linha sai da prateleira no fim do arraste, como na cópia — senão ficaria
+  /// usável enquanto o arquivo ainda está sendo movido —, e a que falhou volta.
+  /// O Track e o aviso esperam todas responderem, para contar só o que andou.
+  Map<String, NestItem> _promised = const {};
+  final _promiseResults = <String, bool>{};
+  bool _promiseDragEnded = false;
 
   /// O modo com que o arraste em curso saiu. `null` quando não há arraste.
   ///
@@ -109,16 +116,20 @@ class NestViewModel extends Notifier<NestState> {
     if (!state.canSend || _draggingOutAs != null || _busy) return;
 
     final mode = state.effectiveMode;
-    final paths = [for (final item in state.outgoing) item.path];
-    final started = await _channel.beginDragOut(
-      paths,
-      move: mode == NestTransferMode.move,
-    );
+    final items = state.outgoing;
+    final started = await _channel.beginDragOut([
+      for (final item in items) item.path,
+    ], move: mode == NestTransferMode.move);
 
-    if (started) {
-      _draggingOutAs = mode;
-      _draggingOutPaths = paths;
-    }
+    if (!started) return;
+
+    _draggingOutAs = mode;
+    _draggingOut = items;
+    _promised = mode == NestTransferMode.move
+        ? {for (final item in items) item.path: item}
+        : const {};
+    _promiseResults.clear();
+    _promiseDragEnded = false;
   }
 
   /// O arraste terminou. `null` é "soltou em lugar nenhum" — a prateleira fica
@@ -127,67 +138,95 @@ class NestViewModel extends Notifier<NestState> {
   /// Não há desfazer neste caminho, e é uma consequência, não um esquecimento:
   /// o destino é do sistema, e o Evergreen não guarda para onde os arquivos
   /// foram. Na cópia, quem desfaz é o `⌘Z` do próprio Finder.
-  ///
-  /// Copiando, a linha sai aqui: o original não sai do lugar, e quem copia é o
-  /// destino. Movendo, **não**: o arraste é uma promessa que o lado nativo
-  /// cumpre depois, e a linha só sai quando [_applyMovedOut] diz que o arquivo
-  /// de fato mudou de lugar — o que falhou continua na prateleira.
   void _finishDragOut(NestTransferMode? operation) {
     final mode = _draggingOutAs;
-    final paths = _draggingOutPaths;
+    final items = _draggingOut;
     _draggingOutAs = null;
-    _draggingOutPaths = const [];
+    _draggingOut = const [];
 
-    if (mode == null || operation == null || paths.isEmpty) return;
+    if (mode == null || operation == null || items.isEmpty) {
+      _promised = const {};
+      _promiseResults.clear();
+      return;
+    }
+
+    final promised = mode == NestTransferMode.move;
+    // Uma promessa pode ter falhado antes de a sessão terminar: essa fica.
+    final gone = {
+      for (final item in items)
+        if (_promiseResults[item.path] != false) item.path,
+    };
+
+    state = state.copyWith(
+      items: [
+        for (final item in state.items)
+          if (!gone.contains(item.path)) item,
+      ],
+      clearSelection: true,
+      clearUndo: true,
+    );
+
+    if (promised) {
+      _promiseDragEnded = true;
+      _settlePromises();
+      return;
+    }
 
     final transfer = NestTransfer(
       at: _now(),
       mode: operation,
       destinationPath: '',
       movements: [
-        for (final path in paths) NestMovement(source: path, destination: ''),
+        for (final item in items)
+          NestMovement(source: item.path, destination: ''),
       ],
     );
-
     _transfers.insert(transfer);
-
-    final promised = mode == NestTransferMode.move;
-    final gone = paths.toSet();
-
-    state = state.copyWith(
-      items: promised
-          ? state.items
-          : [
-              for (final item in state.items)
-                if (!gone.contains(item.path)) item,
-            ],
-      clearSelection: true,
-      clearUndo: true,
-      notice: _noticeFor(transfer, null),
-    );
+    state = state.copyWith(notice: _noticeFor(transfer, null));
   }
 
   /// A promessa de mover de um arquivo foi cumprida — ou falhou.
   void _applyMovedOut(NestMovedOut result) {
-    final index = state.items.indexWhere((item) => item.path == result.path);
-    if (index < 0) return;
+    final item = _promised[result.path];
+    if (item == null || _promiseResults.containsKey(result.path)) return;
 
-    if (!result.moved) {
-      state = state.copyWith(
-        notice:
-            'Não deu para mover ${state.items[index].name} — '
-            'continua na prateleira.',
-      );
+    _promiseResults[result.path] = result.moved;
+
+    // Falhou depois de a linha sair: ela volta, porque o arquivo continua lá.
+    final isShown = state.items.any((it) => it.path == result.path);
+    if (!result.moved && _promiseDragEnded && !isShown) {
+      state = state.copyWith(items: [...state.items, item]);
+    }
+
+    _settlePromises();
+  }
+
+  /// Todas as promessas responderam e o arraste acabou: conta e avisa.
+  void _settlePromises() {
+    if (!_promiseDragEnded || _promiseResults.length < _promised.length) {
       return;
     }
 
-    state = state.copyWith(
-      items: [
-        for (final item in state.items)
-          if (item.path != result.path) item,
+    final transfer = NestTransfer(
+      at: _now(),
+      mode: NestTransferMode.move,
+      destinationPath: '',
+      movements: [
+        for (final MapEntry(key: path, value: moved) in _promiseResults.entries)
+          if (moved) NestMovement(source: path, destination: ''),
       ],
-      clearSelection: true,
+      failures: [
+        for (final MapEntry(key: path, value: moved) in _promiseResults.entries)
+          if (!moved) NestFailure(path: path, reason: 'não deu para mover'),
+      ],
     );
+
+    _promised = const {};
+    _promiseResults.clear();
+    _promiseDragEnded = false;
+
+    if (!transfer.isEmpty) _transfers.insert(transfer);
+    state = state.copyWith(notice: _noticeFor(transfer, null));
   }
 
   /// Relê o que o Hub pode ter mudado e confere se os originais continuam lá.
