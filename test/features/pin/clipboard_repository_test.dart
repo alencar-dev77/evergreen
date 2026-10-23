@@ -70,15 +70,70 @@ void main() {
   test('troca funciona mesmo com os dois fixados no mesmo instante', () {
     // Dois `setPinned` no mesmo milissegundo empatam o `pinned_at`; sem o
     // desempate a troca escreveria o mesmo valor nos dois e nada se moveria.
+    // Quem ordena o empate é a data de cópia, e os dois sentidos precisam
+    // andar: o `+1` antigo só movia quando a soma concordava com ela.
+    for (final alfaCopiedLater in [true, false]) {
+      database.execute('DELETE FROM clipboard_items;');
+      final alfa = pin('alfa');
+      final beta = pin('beta');
+      pin('gama');
+      database.execute(
+        'UPDATE clipboard_items SET pinned_at = 1000 WHERE id IN (?, ?);',
+        [alfa, beta],
+      );
+      database.execute(
+        'UPDATE clipboard_items SET copied_at = ? WHERE id = ?;',
+        [alfaCopiedLater ? 2 : 1, alfa],
+      );
+      database.execute(
+        'UPDATE clipboard_items SET copied_at = ? WHERE id = ?;',
+        [alfaCopiedLater ? 1 : 2, beta],
+      );
+
+      final before = pinnedOrder();
+      expect(
+        before,
+        alfaCopiedLater ? ['alfa', 'beta', 'gama'] : ['beta', 'alfa', 'gama'],
+      );
+
+      repository.swapPinnedOrder(alfa, beta);
+
+      expect(pinnedOrder(), [before[1], before[0], 'gama']);
+    }
+  });
+
+  test('troca funciona com fixado antigo sem pinned_at', () {
     final alfa = pin('alfa');
     final beta = pin('beta');
-    database.execute('UPDATE clipboard_items SET pinned_at = 1000;');
+    database.execute(
+      'UPDATE clipboard_items SET pinned_at = NULL WHERE id = ?;',
+      [beta],
+    );
+    // Sem carimbo, ele vem antes (NULL ordena primeiro no SQLite).
+    expect(pinnedOrder(), ['beta', 'alfa']);
 
-    repository.swapPinnedOrder(alfa, beta);
+    repository.swapPinnedOrder(beta, alfa);
 
-    final order = pinnedOrder();
-    expect(order, hasLength(2));
-    expect(order.first, isNot(order.last));
+    expect(pinnedOrder(), ['alfa', 'beta']);
+  });
+
+  test('a lista não esconde recentes quando há fixados', () {
+    // Com o `LIMIT 500` antigo, os fixados contavam no teto: 500 recentes
+    // mais dois fixados deixavam os dois recentes mais antigos de fora.
+    pin('fixo 1');
+    pin('fixo 2');
+    for (var i = 0; i < 500; i++) {
+      database.execute(
+        'INSERT INTO clipboard_items (content, type, is_pinned, copied_at) '
+        "VALUES (?, 'text', 0, ?);",
+        ['item $i', i],
+      );
+    }
+
+    final items = repository.loadAll();
+
+    expect(items, hasLength(502));
+    expect(items.last.content, 'item 0');
   });
 
   test('não mexe em item que não está fixado', () {

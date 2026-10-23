@@ -8,6 +8,22 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.1.9 — 23/10/2026
+
+- O Nest não perde da prateleira o arquivo que não conseguiu mover (#153)
+
+## 1.1.8 — 23/10/2026
+
+- Apertar Enter duas vezes no Echo não derruba a reunião (#152)
+
+## 1.1.7 — 23/10/2026
+
+- O Awake não conta como acordado o tempo em que o Mac dormiu (#150)
+
+## 1.1.6 — 23/10/2026
+
+- Ajustes internos para publicar uma versão (#149)
+
 ## 1.1.5 — 23/10/2026
 
 - Ajustes internos na documentação (#147)

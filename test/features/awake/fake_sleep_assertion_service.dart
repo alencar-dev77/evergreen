@@ -11,6 +11,10 @@ class FakeSleepAssertionService implements SleepAssertionService {
   /// "foi religada" quando a duração muda no meio do caminho.
   int enableCount = 0;
 
+  /// Faz o "sistema" recusar a trava, como o canal nativo que falhou: o modo
+  /// pedido não pega e a trava continua solta.
+  bool refuse = false;
+
   @override
   bool get isEnabled => _mode != null;
 
@@ -19,7 +23,7 @@ class FakeSleepAssertionService implements SleepAssertionService {
 
   @override
   Future<void> enable(AwakeMode mode) async {
-    if (_mode == mode) return;
+    if (_mode == mode || refuse) return;
 
     _mode = mode;
     enableCount++;

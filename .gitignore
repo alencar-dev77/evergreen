@@ -50,3 +50,8 @@ app.*.map.json
 # Imagens que o `flutter test` grava quando um golden não bate — apoio de
 # revisão local, nunca versionadas.
 /test/failures/
+
+# As cópias de trabalho que os agentes do Claude Code abrem dentro do
+# repositório. Sem isto, uma que sobrou suja o `git status` e o
+# `./scripts/release` se recusa a publicar.
+/.claude/worktrees/

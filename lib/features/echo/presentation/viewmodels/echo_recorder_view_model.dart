@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers.dart';
+import '../../../../core/diagnostics/app_log.dart';
 import '../../data/echo_audio_store.dart';
 import '../../data/echo_channel.dart';
 import '../../data/echo_repository.dart';
@@ -45,6 +46,20 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   /// sai da conta do arquivo do lado nativo.
   Duration _paused = Duration.zero;
   DateTime? _pausedAt;
+
+  /// Um `pause` ou `resume` já foi pedido ao lado nativo e ainda não voltou.
+  ///
+  /// Síncrono pelo mesmo motivo do [EchoRecorderState.isStarting]: o
+  /// `isPaused` só vira depois do `await`, e um segundo clique nesse intervalo
+  /// pedia de novo a pausa que já estava valendo — e voltava com "nenhuma
+  /// gravação em andamento para pausar" por cima de uma gravação viva.
+  bool _toggling = false;
+
+  /// O `start` em curso, para quem precisa parar uma gravação que ainda está
+  /// subindo — desligar o Echo no Hub enquanto o macOS pergunta pela Gravação
+  /// de Tela, por exemplo. Sem esperar, a reunião começava depois com o
+  /// módulo já desligado.
+  Completer<void>? _starting;
 
   @override
   EchoRecorderState build() {
@@ -123,28 +138,48 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   }
 
   /// Começa a gravar.
+  ///
+  /// O [EchoRecorderState.isStarting] é marcado **antes do primeiro `await`**:
+  /// a fase só vira `recording` depois de o lado nativo responder, e um Enter
+  /// repetido nesse intervalo pedia uma segunda gravação — que voltava
+  /// `already_recording` e jogava a fase para `failed` por cima da primeira,
+  /// ainda viva.
   Future<void> start() async {
     if (state.isRecording || state.isBusy) return;
 
-    // As preferências vivem no Hub, em outro engine: sem reler, a gravação sai
-    // com o idioma e o modo de ontem.
-    await _settings.reload();
-    final settings = _settings.load();
+    state = state.copyWith(isStarting: true);
+    final starting = _starting = Completer<void>();
 
     try {
-      await _channel.startRecording(
-        liveTranscription: settings.liveTranscription,
-        locale: settings.language.locale,
-        vocabulary: settings.vocabularyTerms,
-      );
-    } on EchoException catch (error) {
-      state = state.copyWith(
-        phase: EchoPhase.failed,
-        errorMessage: error.message,
-      );
-      return;
-    }
+      // As preferências vivem no Hub, em outro engine: sem reler, a gravação
+      // sai com o idioma e o modo de ontem.
+      await _settings.reload();
+      final settings = _settings.load();
 
+      try {
+        await _channel.startRecording(
+          liveTranscription: settings.liveTranscription,
+          locale: settings.language.locale,
+          vocabulary: settings.vocabularyTerms,
+        );
+      } on EchoException catch (error) {
+        state = state.copyWith(
+          phase: EchoPhase.failed,
+          errorMessage: error.message,
+          isStarting: false,
+        );
+        return;
+      }
+
+      _begin(settings.liveTranscription);
+    } finally {
+      if (state.isStarting) state = state.copyWith(isStarting: false);
+      _starting = null;
+      starting.complete();
+    }
+  }
+
+  void _begin(bool liveTranscription) {
     _startedAt = _now();
     _paused = Duration.zero;
     _pausedAt = null;
@@ -152,8 +187,9 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       phase: EchoPhase.recording,
       elapsed: Duration.zero,
       liveText: const [],
-      isTranscribingLive: settings.liveTranscription,
+      isTranscribingLive: liveTranscription,
       isPaused: false,
+      isStarting: false,
       clearSpectrum: true,
       clearError: true,
       clearMeeting: true,
@@ -173,14 +209,20 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   /// Suspende a gravação. O que passa daqui até o `resume` não entra no
   /// arquivo, não entra na duração e não move o relógio do painel.
   Future<void> pause() async {
-    if (!state.isCapturing) return;
+    if (!state.isCapturing || _toggling) return;
 
+    _toggling = true;
     try {
       await _channel.pauseRecording();
     } on EchoException catch (error) {
       state = state.copyWith(errorMessage: error.message);
       return;
+    } finally {
+      _toggling = false;
     }
+
+    // A gravação pode ter terminado durante a espera.
+    if (!state.isRecording) return;
 
     _pausedAt = _now();
     // O equalizador zera junto: parado, ele não tem o que medir, e barras
@@ -189,14 +231,19 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   }
 
   Future<void> resume() async {
-    if (!state.isRecording || !state.isPaused) return;
+    if (!state.isRecording || !state.isPaused || _toggling) return;
 
+    _toggling = true;
     try {
       await _channel.resumeRecording();
     } on EchoException catch (error) {
       state = state.copyWith(errorMessage: error.message);
       return;
+    } finally {
+      _toggling = false;
     }
+
+    if (!state.isRecording) return;
 
     final since = _pausedAt;
     if (since != null) _paused += _now().difference(since);
@@ -228,7 +275,11 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
   /// O áudio só é apagado depois de a transcrição estar no banco. Se qualquer
   /// coisa falhar antes disso, ele fica onde está — apagar aqui transformaria
   /// "a transcrição deu errado" em "a reunião se perdeu".
+  ///
+  /// Com um início ainda sem resposta, espera por ele: é o que faz desligar o
+  /// módulo nesse intervalo parar a gravação que estava subindo.
   Future<void> stopAndTranscribe() async {
+    await _starting?.future;
     if (!state.isRecording) return;
 
     _ticker?.cancel();
@@ -238,6 +289,11 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
 
     final settings = _settings.load();
     RecordingFiles? files;
+
+    // A reunião já no banco. O que falhar depois dela — aparar o histórico,
+    // arquivar o áudio, apagar as faixas cruas — não desfaz a reunião, e a
+    // tela não pode dizer que ela não saiu.
+    Meeting? inserted;
 
     try {
       files = await _channel.stopRecording();
@@ -267,7 +323,7 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       );
 
       final startedAt = _startedAt ?? _now();
-      final meeting = _repository.insert(
+      final meeting = inserted = _repository.insert(
         Meeting(
           title: Meeting.defaultTitle(startedAt),
           startedAt: startedAt,
@@ -285,8 +341,9 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       // Menos quando não saiu texto nenhum. Transcrição vazia é falha na
       // prática — apagar o áudio ali seria jogar fora a única cópia do que foi
       // dito, por causa de um problema que pode ser de permissão, de saída de
-      // som ou do próprio reconhecimento. Fica em disco, e a varredura do
-      // próximo início limpa se a pessoa não fizer nada.
+      // som ou do próprio reconhecimento. Fica em disco até a varredura do
+      // próximo início — e só até lá: não há retranscrição, então a tela não
+      // pode prometer que ele foi guardado.
       var saved = meeting;
       if (segments.isNotEmpty) {
         saved = await _archive(meeting, files, startedAt);
@@ -316,25 +373,44 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
         // como "não mexe", então a explicação da reunião anterior sobreviveria
         // a uma gravação que deu certo.
         clearError: warning == null,
-        errorMessage: switch (warning) {
-          null => null,
-          // Só o caso de falha guarda o áudio; o aviso de meia faixa não, e
-          // prometer um arquivo que já foi apagado seria pior que não avisar.
-          _ when explanation != null =>
-            '$warning O áudio foi preservado em disco.',
-          _ => warning,
-        },
+        errorMessage: warning,
       );
     } on EchoException catch (error) {
       _startedAt = null;
+      if (inserted != null) return _savedDespite(inserted);
       state = state.copyWith(
         phase: EchoPhase.failed,
-        errorMessage: files == null
-            ? error.message
-            : '${error.message} O áudio foi preservado em disco.',
+        // Dizia "o áudio foi preservado em disco", e não era verdade: a
+        // varredura da abertura seguinte apaga as faixas cruas, e nenhum
+        // caminho as transcreve de novo.
+        errorMessage: files == null ? error.message : '${error.message}$_lost',
+      );
+    } on Object catch (error, stack) {
+      // Qualquer outra coisa — o banco, o disco, um formato inesperado do
+      // canal — prendia a fase em `transcribing`: o painel girando para
+      // sempre, e o `⌘⇧E` sem gravar de novo porque `isBusy` continuava de pé.
+      // O registro leva só o tipo do erro, pelo `AppLog.describe`.
+      AppLog.error('echo.stop', error, stack);
+      _startedAt = null;
+      if (inserted != null) return _savedDespite(inserted);
+      state = state.copyWith(
+        phase: EchoPhase.failed,
+        errorMessage: 'Não foi possível transcrever esta reunião.$_lost',
       );
     }
   }
+
+  /// A reunião foi guardada, e o que falhou foi a arrumação depois dela.
+  void _savedDespite(Meeting meeting) {
+    state = state.copyWith(
+      phase: EchoPhase.done,
+      lastMeeting: _repository.findById(meeting.id!) ?? meeting,
+      clearError: true,
+    );
+  }
+
+  /// O que a tela diz do áudio quando a reunião não saiu: a verdade.
+  static const _lost = ' O áudio desta gravação não fica guardado.';
 
   /// As vozes do outro lado, separadas — ou a transcrição como veio.
   ///

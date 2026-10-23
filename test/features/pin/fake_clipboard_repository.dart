@@ -15,27 +15,15 @@ class FakeClipboardRepository implements ClipboardRepository {
   /// Quantas vezes a reclassificação foi pedida.
   int reclassifyCalls = 0;
 
-  /// Reproduz o `ORDER BY is_pinned DESC, pinned_at ASC, copied_at DESC` do
-  /// SQLite: fixados primeiro na ordem em que foram fixados, depois os recentes
-  /// do mais novo para o mais antigo.
+  /// Reproduz o `ORDER BY is_pinned DESC, pinned_at ASC, copied_at DESC,
+  /// id DESC` do SQLite: fixados primeiro na ordem em que foram fixados (o
+  /// sem carimbo antes de todos, como o NULL de lá), depois os recentes do
+  /// mais novo para o mais antigo.
   @override
-  List<ClipboardItem> loadAll({int limit = 500}) {
-    final sorted = [..._items]
-      ..sort((a, b) {
-        if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
+  List<ClipboardItem> loadAll() {
+    final sorted = [..._items]..sort(_compare);
 
-        if (a.isPinned) {
-          final aPinned = a.pinnedAt;
-          final bPinned = b.pinnedAt;
-          if (aPinned != null && bPinned != null) {
-            return aPinned.compareTo(bPinned);
-          }
-        }
-
-        return b.copiedAt.compareTo(a.copiedAt);
-      });
-
-    return sorted.take(limit).toList(growable: false);
+    return sorted.toList(growable: false);
   }
 
   @override
@@ -97,16 +85,51 @@ class FakeClipboardRepository implements ClipboardRepository {
 
   @override
   void swapPinnedOrder(int firstId, int secondId) {
-    final first = _items.indexWhere((it) => it.id == firstId);
-    final second = _items.indexWhere((it) => it.id == secondId);
-    if (first < 0 || second < 0) return;
-    if (!_items[first].isPinned || !_items[second].isPinned) return;
+    // A mesma conta do SQLite: carimbos crescentes na ordem de agora, e só
+    // então a troca — senão um empate não sairia do lugar aqui e sairia lá.
+    final pinned = _items.where((it) => it.isPinned).toList()..sort(_compare);
+    final ids = [for (final item in pinned) item.id];
+    final first = ids.indexOf(firstId);
+    final second = ids.indexOf(secondId);
+    if (first < 0 || second < 0 || first == second) return;
 
-    final firstAt = _items[first].pinnedAt ?? _items[first].copiedAt;
-    final secondAt = _items[second].pinnedAt ?? _items[second].copiedAt;
+    final stamps = <DateTime>[];
+    for (final item in pinned) {
+      final previous = stamps.lastOrNull;
+      var stamp =
+          item.pinnedAt ?? previous ?? DateTime.fromMillisecondsSinceEpoch(0);
+      if (previous != null && !stamp.isAfter(previous)) {
+        stamp = previous.add(const Duration(milliseconds: 1));
+      }
+      stamps.add(stamp);
+    }
 
-    _items[first] = _items[first].copyWith(pinnedAt: secondAt);
-    _items[second] = _items[second].copyWith(pinnedAt: firstAt);
+    final swapped = [...stamps];
+    swapped[first] = stamps[second];
+    swapped[second] = stamps[first];
+
+    for (var i = 0; i < pinned.length; i++) {
+      final index = _items.indexWhere((it) => it.id == ids[i]);
+      _items[index] = _items[index].copyWith(pinnedAt: swapped[i]);
+    }
+  }
+
+  static int _compare(ClipboardItem a, ClipboardItem b) {
+    if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
+
+    if (a.isPinned) {
+      final aPinned = a.pinnedAt;
+      final bPinned = b.pinnedAt;
+      if (aPinned == null && bPinned != null) return -1;
+      if (aPinned != null && bPinned == null) return 1;
+      if (aPinned != null && bPinned != null && aPinned != bPinned) {
+        return aPinned.compareTo(bPinned);
+      }
+    }
+
+    final copied = b.copiedAt.compareTo(a.copiedAt);
+    if (copied != 0) return copied;
+    return (b.id ?? 0).compareTo(a.id ?? 0);
   }
 
   @override

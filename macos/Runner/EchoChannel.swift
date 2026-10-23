@@ -366,6 +366,16 @@ actor EchoRecorder {
   private var output: EchoStreamOutput?
   private var startedAt: Date?
 
+  /// Um `start` já passou da porta e ainda não terminou.
+  ///
+  /// O ator é reentrante, e o `start` espera várias vezes (a permissão, o
+  /// idioma, o conteúdo da tela, a captura) antes de gravar `self.stream` —
+  /// conferir só `stream == nil` deixava um segundo `start` entrar nesse
+  /// intervalo, e uma das duas `SCStream` ficava órfã, capturando até o app
+  /// fechar. Conferida e escrita **antes de qualquer `await`**, e limpa por
+  /// `defer` em todo caminho de saída.
+  private var isStarting = false
+
   /// Desde quando está pausada, e quanto já ficou pausada antes disso.
   private var pausedAt: Date?
   private var pausedTotal: TimeInterval = 0
@@ -601,10 +611,13 @@ actor EchoRecorder {
     channel: FlutterMethodChannel,
     result: @escaping FlutterResult
   ) async {
-    guard stream == nil else {
+    guard stream == nil, !isStarting else {
       result(FlutterError(code: "already_recording", message: "Já existe uma gravação em andamento.", details: nil))
       return
     }
+
+    isStarting = true
+    defer { isStarting = false }
 
     guard await Self.ensureScreenRecordingAccess() else {
       result(FlutterError(
@@ -678,6 +691,13 @@ actor EchoRecorder {
       // Depois da captura de tela, e nunca no lugar dela: se o microfone não
       // subir, a reunião continua sendo gravada pelo lado do sistema. O motivo
       // fica guardado e sai no resultado do `stop`.
+      //
+      // Num motor novo a cada gravação, pelo mesmo motivo do
+      // [restartMicrophone]: o motor que já rodou guarda o formato em que a
+      // entrada estava na reunião anterior. O religamento pendente daquela
+      // reunião não alcança este motor — o `stop` dela já avançou a
+      // [micGeneration].
+      micEngine = AVAudioEngine()
       micError = Self.startMicrophone(engine: micEngine, output: output)
       observeMicrophone()
 
@@ -1618,8 +1638,8 @@ enum EchoTranscriber {
       result(FlutterError(
         code: "locale_unsupported",
         message: "O macOS não tem modelo de transcrição para \(locale). "
-          + "Escolha outro idioma nas preferências do Echo — o áudio desta "
-          + "reunião continua no disco até lá.",
+          + "Escolha outro idioma nas preferências do Echo antes da próxima "
+          + "reunião.",
         details: nil))
       return
     }

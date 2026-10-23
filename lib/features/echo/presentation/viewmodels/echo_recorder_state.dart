@@ -16,7 +16,8 @@ enum EchoPhase {
   /// Transcrição pronta e salva.
   done,
 
-  /// Alguma coisa falhou. O áudio, quando existe, foi preservado.
+  /// Alguma coisa falhou. O áudio cru não fica guardado: a varredura da
+  /// abertura seguinte o apaga.
   failed,
 }
 
@@ -28,6 +29,7 @@ class EchoRecorderState {
     this.liveText = const [],
     this.spectrum,
     this.isPaused = false,
+    this.isStarting = false,
     this.isSeparatingVoices = false,
     this.isTranscribingLive = false,
     this.lastMeeting,
@@ -56,6 +58,14 @@ class EchoRecorderState {
   /// isto valer, e o relógio não anda.
   final bool isPaused;
 
+  /// O `start` foi pedido e o lado nativo ainda não respondeu.
+  ///
+  /// Uma bandeira, e não uma fase: quem lê a fase (o painel, a ilha do notch,
+  /// a espera da atualização) não tem nada a mostrar de diferente nesse
+  /// intervalo. Ela existe para o segundo pedido ser recusado — e conta como
+  /// [isBusy].
+  final bool isStarting;
+
   /// A transcrição saiu, e agora é a vez de separar as vozes do outro lado.
   ///
   /// É a etapa que pode surpreender: na primeira reunião ela baixa o modelo,
@@ -80,7 +90,7 @@ class EchoRecorderState {
 
   /// Gravando e correndo — o único estado em que o medidor diz alguma coisa.
   bool get isCapturing => isRecording && !isPaused;
-  bool get isBusy => phase == EchoPhase.transcribing;
+  bool get isBusy => phase == EchoPhase.transcribing || isStarting;
 
   /// O rótulo que a barra de menus mostra enquanto a reunião corre.
   ///
@@ -102,6 +112,7 @@ class EchoRecorderState {
     List<String>? liveText,
     EchoSpectrum? spectrum,
     bool? isPaused,
+    bool? isStarting,
     bool? isSeparatingVoices,
     bool? isTranscribingLive,
     bool clearSpectrum = false,
@@ -117,6 +128,7 @@ class EchoRecorderState {
       liveText: liveText ?? this.liveText,
       spectrum: clearSpectrum ? null : (spectrum ?? this.spectrum),
       isPaused: isPaused ?? this.isPaused,
+      isStarting: isStarting ?? this.isStarting,
       isSeparatingVoices: isSeparatingVoices ?? this.isSeparatingVoices,
       isTranscribingLive: isTranscribingLive ?? this.isTranscribingLive,
       lastMeeting: clearMeeting ? null : (lastMeeting ?? this.lastMeeting),
