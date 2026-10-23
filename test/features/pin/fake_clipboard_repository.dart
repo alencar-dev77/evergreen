@@ -19,7 +19,7 @@ class FakeClipboardRepository implements ClipboardRepository {
   /// SQLite: fixados primeiro na ordem em que foram fixados, depois os recentes
   /// do mais novo para o mais antigo.
   @override
-  List<ClipboardItem> loadAll({int limit = 500}) {
+  List<ClipboardItem> loadAll() {
     final sorted = [..._items]
       ..sort((a, b) {
         if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
@@ -35,7 +35,7 @@ class FakeClipboardRepository implements ClipboardRepository {
         return b.copiedAt.compareTo(a.copiedAt);
       });
 
-    return sorted.take(limit).toList(growable: false);
+    return sorted.toList(growable: false);
   }
 
   @override
