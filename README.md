@@ -443,12 +443,13 @@ e `flutter test`.
 
 ---
 
-## O que ainda não está pronto
+## O que o Evergreen não faz
 
-- **Pin não guarda arquivos nem rich text.** Texto e imagem já entram; o resto
-  está no plano.
-- **Fixados não se reordenam arrastando.** Por teclado (`⌥↑`/`⌥↓`) já funciona;
-  o arrasto com o mouse é que falta.
+O app está completo com os sete módulos. Estes são limites, não pendências:
+
+- **O Pin não guarda arquivos nem rich text.** Texto e imagem entram; o resto
+  fica de fora.
+- **Os fixados não se reordenam arrastando.** É pelo teclado (`⌥↑`/`⌥↓`).
 
 ---
 
