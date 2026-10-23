@@ -269,6 +269,21 @@ class NestChannel: NSObject {
     }
   }
 
+  /// Uma promessa de mover foi cumprida — ou não.
+  ///
+  /// O fim da sessão de arraste não diz que o arquivo mudou de lugar: a
+  /// promessa é cumprida depois, numa fila própria, e pode falhar (sem
+  /// permissão, sem espaço). Por isso a prateleira só tira a linha quando
+  /// **este** aviso diz que o `moveItem` deu certo; o que falhou fica nela.
+  static func promiseFulfilled(path: String, moved: Bool) {
+    DispatchQueue.main.async {
+      overlayChannel?.invokeMethod(
+        "onMovedOut",
+        arguments: ["path": path, "moved": moved]
+      )
+    }
+  }
+
   /// Põe o delegate de arraste na frente do que estiver lá.
   ///
   /// Chamado de novo a cada abertura do painel do Nest, e não só na montagem:
@@ -682,9 +697,11 @@ class NestPromiseMover: NSObject, NSFilePromiseProviderDelegate {
         to: Self.freeURL(for: url)
       )
       completionHandler(nil)
+      NestChannel.promiseFulfilled(path: path, moved: true)
     } catch {
       NSLog("[Nest] não deu para mover \(path): \(error.localizedDescription)")
       completionHandler(error)
+      NestChannel.promiseFulfilled(path: path, moved: false)
     }
   }
 
