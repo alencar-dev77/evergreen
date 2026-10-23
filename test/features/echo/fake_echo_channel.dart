@@ -32,6 +32,14 @@ class FakeEchoChannel implements EchoChannel {
   final _levels = StreamController<EchoSpectrum>.broadcast();
 
   bool didStart = false;
+
+  /// Segura o `start` até o teste soltar — o intervalo em que o nativo ainda
+  /// não respondeu.
+  Completer<void>? startGate;
+  int startCount = 0;
+
+  /// Um erro que não é `EchoException` na transcrição — o banco, o disco.
+  Object? transcribeThrows;
   bool didCancel = false;
   bool didPause = false;
   bool didResume = false;
@@ -67,8 +75,14 @@ class FakeEchoChannel implements EchoChannel {
   void emitLevels(List<double> mic, List<double> system) =>
       _levels.add(EchoSpectrum(mic: mic, system: system));
 
+  /// Segura o `pause` até o teste soltar — para um segundo clique no meio.
+  Completer<void>? pauseGate;
+  int pauseCount = 0;
+
   @override
   Future<void> pauseRecording() async {
+    pauseCount++;
+    await pauseGate?.future;
     if (failWith != null) throw failWith!;
     didPause = true;
   }
@@ -116,6 +130,8 @@ class FakeEchoChannel implements EchoChannel {
     required String locale,
     List<String> vocabulary = const [],
   }) async {
+    startCount++;
+    await startGate?.future;
     if (failWith != null) throw failWith!;
     didStart = true;
     startedWithLiveTranscription = liveTranscription;
@@ -139,6 +155,7 @@ class FakeEchoChannel implements EchoChannel {
     required String locale,
     List<String> vocabulary = const [],
   }) async {
+    if (transcribeThrows != null) throw transcribeThrows!;
     if (failWith != null) throw failWith!;
     transcribedWithVocabulary = vocabulary;
     return segments;

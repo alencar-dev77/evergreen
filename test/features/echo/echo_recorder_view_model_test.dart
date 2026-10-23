@@ -111,16 +111,74 @@ void main() {
     expect(SqliteEchoRepository(db).loadAll(), hasLength(1));
   });
 
-  test('transcrição que falha preserva o áudio e explica', () async {
+  test('transcrição que falha explica, sem prometer o áudio', () async {
     await viewModel().start();
     channel.failWith = const EchoException('transcription_failed', 'Deu ruim.');
 
     await viewModel().stopAndTranscribe();
 
     expect(state().phase, EchoPhase.failed);
-    expect(state().errorMessage, contains('áudio foi preservado'));
+    // A varredura da abertura seguinte apaga as faixas cruas, e nenhum
+    // caminho as transcreve de novo: prometer o áudio seria mentir.
+    expect(state().errorMessage, contains('não fica guardado'));
     expect(channel.deletedAudio, isEmpty);
     expect(SqliteEchoRepository(db).loadAll(), isEmpty);
+  });
+
+  test('um erro qualquer ao transcrever não prende a fase', () async {
+    await viewModel().start();
+    channel.transcribeThrows = StateError('banco fora do ar');
+
+    await viewModel().stopAndTranscribe();
+
+    expect(state().phase, EchoPhase.failed);
+    expect(state().isBusy, isFalse);
+
+    // E dá para gravar de novo.
+    channel.transcribeThrows = null;
+    await viewModel().start();
+    expect(state().phase, EchoPhase.recording);
+  });
+
+  test('gravar duas vezes antes da resposta pede uma gravação só', () async {
+    channel.startGate = Completer<void>();
+
+    final first = viewModel().start();
+    await Future<void>.delayed(Duration.zero);
+    expect(state().isStarting, isTrue);
+    expect(state().isBusy, isTrue);
+
+    await viewModel().start();
+    channel.startGate!.complete();
+    await first;
+
+    expect(channel.startCount, 1);
+    expect(state().phase, EchoPhase.recording);
+    expect(state().isStarting, isFalse);
+  });
+
+  test('o início que falha solta a trava de início', () async {
+    channel.failWith = const EchoException('already_recording', 'Já existe.');
+
+    await viewModel().start();
+
+    expect(state().phase, EchoPhase.failed);
+    expect(state().isStarting, isFalse);
+    expect(state().isBusy, isFalse);
+  });
+
+  test('pausar duas vezes antes da resposta pede uma pausa só', () async {
+    await viewModel().start();
+    channel.pauseGate = Completer<void>();
+
+    final first = viewModel().pause();
+    await viewModel().pause();
+    channel.pauseGate!.complete();
+    await first;
+
+    expect(channel.pauseCount, 1);
+    expect(state().isPaused, isTrue);
+    expect(state().errorMessage, isNull);
   });
 
   test('desistir joga o áudio fora e não guarda reunião', () async {

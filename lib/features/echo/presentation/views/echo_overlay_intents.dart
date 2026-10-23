@@ -29,8 +29,12 @@ class EchoOpenSettingsIntent extends Intent {
 /// Mapa de teclado do painel do Echo.
 abstract final class EchoOverlayIntents {
   static const shortcuts = <ShortcutActivator, Intent>{
-    SingleActivator(LogicalKeyboardKey.enter): EchoPrimaryIntent(),
-    SingleActivator(LogicalKeyboardKey.numpadEnter): EchoPrimaryIntent(),
+    // Sem repetição: o Enter é "gravar" num estado e "parar" no seguinte, e a
+    // tecla segura um instante a mais pedia as duas coisas em sequência.
+    SingleActivator(LogicalKeyboardKey.enter, includeRepeats: false):
+        EchoPrimaryIntent(),
+    SingleActivator(LogicalKeyboardKey.numpadEnter, includeRepeats: false):
+        EchoPrimaryIntent(),
     SingleActivator(LogicalKeyboardKey.escape): EchoCloseIntent(),
     SingleActivator(LogicalKeyboardKey.period, meta: true): EchoDiscardIntent(),
     SingleActivator(LogicalKeyboardKey.comma, meta: true):

@@ -6,8 +6,13 @@ import '../models/transcription_language.dart';
 
 /// Contrato de persistência das reuniões do Echo.
 abstract interface class EchoRepository {
-  /// As reuniões, da mais recente para a mais antiga.
-  List<Meeting> loadAll({int limit});
+  /// As reuniões, da mais recente para a mais antiga — todas, sem teto.
+  ///
+  /// Havia um `LIMIT 200`, e com as guardadas fora do teto do histórico ele
+  /// escondia reuniões que ninguém apagou: o histórico e a busca paravam na
+  /// 200ª. As não guardadas já são contidas pelo [trimHistory]; as guardadas
+  /// são poucas por natureza, e a pessoa as quer todas.
+  List<Meeting> loadAll();
 
   Meeting? findById(int id);
 
@@ -60,10 +65,9 @@ class SqliteEchoRepository implements EchoRepository {
       'summary_prompt, summary_model, is_kept, audio_file';
 
   @override
-  List<Meeting> loadAll({int limit = 200}) {
+  List<Meeting> loadAll() {
     final rows = _db.select(
-      'SELECT $_columns FROM echo_meetings ORDER BY started_at DESC LIMIT ?;',
-      [limit],
+      'SELECT $_columns FROM echo_meetings ORDER BY started_at DESC;',
     );
 
     return rows.map(_fromRow).toList(growable: false);

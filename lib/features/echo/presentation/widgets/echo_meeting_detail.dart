@@ -145,7 +145,11 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
   /// Com o áudio tocando a transcrição é redesenhada dez vezes por segundo,
   /// e dobrar todas as falas a cada quadro para achar o mesmo termo seria
   /// trabalho jogado fora. Muda a reunião ou a busca, o cache se refaz.
-  final _marks = <int, List<MatchRange>>{};
+  ///
+  /// E cada entrada guarda o texto em que foi medida: a mesma reunião pode
+  /// trocar de texto sem trocar de id — o resumo refeito é o caso —, e as
+  /// marcas do texto velho grifavam pedaços soltos do novo.
+  final _marks = <int, (String, List<MatchRange>)>{};
   (int?, String)? _marksKey;
 
   List<MatchRange> _marksOf(int index, String text) {
@@ -156,10 +160,12 @@ class _EchoMeetingDetailState extends State<EchoMeetingDetail> {
     }
     if (widget.query.trim().isEmpty) return const [];
 
-    return _marks.putIfAbsent(
-      index,
-      () => MeetingSearch.marksIn(text, widget.query),
-    );
+    final cached = _marks[index];
+    if (cached != null && cached.$1 == text) return cached.$2;
+
+    final marks = MeetingSearch.marksIn(text, widget.query);
+    _marks[index] = (text, marks);
+    return marks;
   }
 
   @override

@@ -82,6 +82,9 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
         // "pedisse tudo" escolheria por conta própria qual das duas, e depois
         // de um "não" não abriria diálogo nenhum.
         if (!state.capabilities.canRecord) return;
+        // Um início já pedido e ainda sem resposta: o segundo Enter não pede
+        // outro.
+        if (state.isStarting) return;
 
         await _viewModel.start();
         await _close();
