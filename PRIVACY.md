@@ -79,6 +79,12 @@ guardou:
 O resumo feito pelo Apple Intelligence também roda no seu Mac, pelo modelo
 local do sistema.
 
+**O que chega a quem desenvolve** é só o que o GitHub conta de qualquer
+arquivo publicado: quantas vezes cada um foi baixado — o instalador e o
+`appcast.xml` das procuras por versão nova. É um número por arquivo, sem nada
+que diga quem baixou, de onde ou quando. O Evergreen não tem identificador de
+instalação nem telemetria própria.
+
 ## Permissões do macOS
 
 | Permissão | Para quê |

@@ -559,7 +559,10 @@ class _AboutLine extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'nada sai deste Mac · sem conta · sem sync',
+              // O que é seu, e não "nada": a procura por versão nova e o
+              // download do modelo de vozes saem do app, e a promessa não pode
+              // ir além da PRIVACY.md — que é o que ela diz.
+              'seus dados ficam neste Mac · sem conta · sem sync',
               style: context.eg.text.monoSmall.copyWith(
                 color: context.eg.colors.textQuaternary,
               ),

@@ -10,6 +10,7 @@ cada script começa entrando na raiz.
 | [`release`](release) | Gerar o `.dmg` para outra pessoa e publicar | A cada versão, da `main` |
 | [`bump_version`](bump_version) | Subir a versão e escrever o changelog | Quase nunca à mão — o Actions faz |
 | [`documentos`](documentos) | Gerar os PDFs da licença e da política de privacidade | O `release` chama sozinho |
+| [`downloads`](downloads) | Ver quantas vezes cada versão foi baixada | Quando quiser saber |
 
 O cabeçalho de cada script tem o porquê de cada passo. Aqui fica o como.
 
@@ -52,7 +53,9 @@ Gera `build/release/Evergreen-<versão>.dmg`, assinado com o Developer ID e
 notarizado pela Apple — o arquivo que abre sem aviso no Mac de outra pessoa —
 e o sobe no GitHub Release da tag `v<semver>+<build>`. As notas do release são
 o que o [CHANGELOG.md](../CHANGELOG.md) acumulou desde a publicação anterior, e
-os PDFs do `documentos` vão anexados — junto com o `appcast.xml`, que é onde o
+os PDFs do `documentos` vão anexados — junto com uma cópia `Evergreen.dmg`, de
+nome fixo, que é o que o link de download de fora usa
+(`releases/latest/download/Evergreen.dmg`), e com o `appcast.xml`, que é onde o
 Evergreen instalado descobre que há versão nova (Sparkle). O appcast é assinado
 com a chave das atualizações, que mora no chaveiro de quem publica (conta
 `evergreen`): sem ela o script para antes da notarização. Como criar, guardar e
@@ -129,3 +132,22 @@ Exporta a [LICENSE](../LICENSE) e o [PRIVACY.md](../PRIVACY.md) para PDF pelo
 LibreOffice (`brew install --cask libreoffice`), que lê Markdown direto. O texto
 no repositório é a fonte, e o PDF não é commitado: mexeu num documento, o PDF
 do próximo release já sai com a mudança.
+
+---
+
+## `downloads` — quantos baixaram
+
+```bash
+./scripts/downloads
+```
+
+Lê, pela API do GitHub, quantas vezes cada arquivo de cada release foi baixado
+— o Evergreen não conta nada sozinho. Separa o que cada arquivo quer dizer:
+
+- **link direto** (`Evergreen.dmg`): quem instalou do zero pelo site ou pelo
+  README;
+- **página/update** (`Evergreen-<versão>.dmg`): quem baixou pela página do
+  release, mais as atualizações automáticas, que baixam esse arquivo;
+- **procuras** (`appcast.xml`): cada Evergreen instalado, com a procura ligada,
+  pergunta uma vez por dia. Dividido pelos dias desde a publicação, dá uma
+  ideia de quantos estão em uso.

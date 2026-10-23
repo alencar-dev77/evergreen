@@ -44,13 +44,20 @@ Swift (FluidAudio, HotKey, Sparkle) moram em `assets/licenses/` — pacote Swift
 traz a dele para lá. Os PDFs da licença e da política saem do
 `./scripts/documentos`, pelo LibreOffice, e não são commitados.
 
-A visão de origem (filosofia, referências, a lista de módulos sonhados) está em
-[docs/Ideis projeto/ideia.md](docs/Ideis%20projeto/ideia.md). Propostas de
-módulo **ainda sem código**, cada uma com o porquê e o custo nativo: Snap,
-captura de tela ([snap-captura-de-tela.md](docs/Ideis%20projeto/snap-captura-de-tela.md)),
+**O escopo fechou na V1: o Evergreen são os sete módulos acima.** Daqui em
+diante entra correção, ajuste do que existe e o que o sistema exigir — não
+módulo novo. A única ideia que ainda pode entrar é **bloquear o teclado para
+limpar** ([bloquear-teclado-para-limpar.md](docs/Ideis%20projeto/bloquear-teclado-para-limpar.md)),
+pequena e perto do Awake. As propostas de módulo que existiam — Snap, captura
+de tela ([snap-captura-de-tela.md](docs/Ideis%20projeto/snap-captura-de-tela.md)),
 Frame, imagem local ([frame-imagem-local.md](docs/Ideis%20projeto/frame-imagem-local.md)),
 e esconder ícones da barra de menus
-([hide-icones-barra-menu.md](docs/Ideis%20projeto/hide-icones-barra-menu.md)).
+([hide-icones-barra-menu.md](docs/Ideis%20projeto/hide-icones-barra-menu.md)) —
+estão **descartadas**: os documentos ficam pelo raciocínio, não como fila. O
+mesmo vale para o que o README chama de limites (o Pin sem arquivos e sem rich
+text, os fixados sem arrastar). A visão de origem (filosofia, referências, a
+lista de módulos sonhados) está em
+[docs/Ideis projeto/ideia.md](docs/Ideis%20projeto/ideia.md), e é histórico.
 
 # Stack
 
@@ -834,6 +841,9 @@ UI e microcopy em português (pt-BR).
   conferir a janela. Pede o certificado e a credencial do `notarytool` no
   chaveiro — o passo a passo está em
   [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+- `./scripts/downloads` — quantas vezes cada versão foi baixada (link direto,
+  página/atualização e procuras do appcast), lido da API do GitHub. É a única
+  contagem que existe: o app não conta nada.
 - `./scripts/documentos` — os PDFs da `LICENSE` e da `PRIVACY.md`, pelo
   LibreOffice, em `build/documentos`. O `release` o chama e anexa os PDFs.
 - `./scripts/bump_version` — a regra do bump, num lugar só: o `version-bump.yml` o

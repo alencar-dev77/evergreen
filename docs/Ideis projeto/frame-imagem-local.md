@@ -1,6 +1,10 @@
 # Sugestão futura — Frame, ferramentas de imagem locais
 
-> Status: **proposta**, não agendada. Nenhum código foi escrito.
+> Status: **descartada** em 23/10/2026: o escopo do Evergreen fechou na V1
+> com os sete módulos. Nenhum código foi escrito; o documento fica pelo
+> raciocínio (o porquê e o custo nativo), não como fila.
+>
+> Antes: proposta, não agendada.
 > Registrado em 22/08/2026, a partir de uma conversa sobre features novas.
 
 ---

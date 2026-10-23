@@ -65,7 +65,7 @@ class OnboardingStep {
       shortcut: '⌘⇧C',
       line:
           'Tudo o que você copia fica guardado aqui, com busca e fixados.\n'
-          'Nada sai da sua máquina.',
+          'E nada disso sai da sua máquina.',
     ),
     OnboardingStep(
       module: EvergreenModule.focus,

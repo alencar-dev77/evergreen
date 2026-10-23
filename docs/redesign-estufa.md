@@ -310,7 +310,7 @@ altura 34 · radius 11 · padding 0 10 · gap 10
   `VOZ` (Echo). Overline mono, padding 18 acima / 8 abaixo. Resolve o sintoma nº 8.
 - Largura da sidebar: **232 pt** (era 260). Os 28 pt vão para a área de conteúdo.
 - Rodapé: linha "Aplicativo ⌘⇧," (item normal, é uma tela) + uma linha
-  `mono 10.5 textQuaternary`: "tudo local · nada sai daqui".
+  `mono 10.5 textQuaternary`: "seus dados ficam aqui".
 
 ### 3.4 Controles
 
@@ -583,7 +583,7 @@ A única tela que continua sendo formulário, e assume: `SISTEMA` (iniciar com o
 macOS · ícone na barra de menus + footnote · abrir o Hub com ⌘⇧,) ·
 `TODOS OS ATALHOS NUM LUGAR` (grade 2 × 3, os seis módulos com painel) ·
 `SEUS DADOS` (backup local com Exportar/Importar + último backup) ·
-cartão destrutivo `Zerar o Evergreen`. Rodapé: `nada sai deste Mac · sem conta ·
+cartão destrutivo `Zerar o Evergreen`. Rodapé: `seus dados ficam neste Mac · sem conta ·
 sem sync` em mono, e "Novidades da versão" à direita.
 
 ---

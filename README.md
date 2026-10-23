@@ -17,8 +17,12 @@ Código aberto, sob a [GPL-3.0](LICENSE).
 
 ## Instalando
 
-1. Baixe o `Evergreen-<versão>.dmg` da [última versão](https://github.com/alencar-dev77/evergreen/releases/latest).
+1. **[Baixe o Evergreen](https://github.com/alencar-dev77/evergreen/releases/latest/download/Evergreen.dmg)**
+   — é sempre a versão mais nova (as novidades de cada uma estão na
+   [página do release](https://github.com/alencar-dev77/evergreen/releases/latest)).
    Ele é assinado e notarizado pela Apple, então o macOS o abre sem aviso.
+   Precisa de um Mac com Apple Silicon (M1 ou mais novo) e macOS 14 ou superior;
+   o Echo pede o macOS 26.
 2. Abra o `.dmg` e arraste o Evergreen para **Aplicativos**. Se você abrir o app
    direto do `.dmg` ou dos Downloads, ele mesmo oferece se mover para lá.
 3. Procure o **canivete na barra de menus**. O Evergreen não abre janela ao
@@ -27,8 +31,8 @@ Código aberto, sob a [GPL-3.0](LICENSE).
 4. O macOS vai pedir algumas permissões conforme você usa cada módulo — a
    tabela em [Permissões do macOS](#permissões-do-macos) diz qual é para quê.
 
-Enquanto não houver um `.dmg` publicado, o caminho é compilar a partir do
-código ([Rodando a partir do código](#rodando-a-partir-do-código)).
+Já tem o Evergreen? Baixar de novo e arrastar para Aplicativos substitui o que
+está lá ("Substituir"), e os seus dados ficam — eles moram fora do app.
 
 **Atualizações** chegam sozinhas: uma vez por dia o Evergreen procura versão
 nova e, se houver, pergunta se pode instalar — as permissões continuam valendo.
@@ -439,12 +443,13 @@ e `flutter test`.
 
 ---
 
-## O que ainda não está pronto
+## O que o Evergreen não faz
 
-- **Pin não guarda arquivos nem rich text.** Texto e imagem já entram; o resto
-  está no plano.
-- **Fixados não se reordenam arrastando.** Por teclado (`⌥↑`/`⌥↓`) já funciona;
-  o arrasto com o mouse é que falta.
+O app está completo com os sete módulos. Estes são limites, não pendências:
+
+- **O Pin não guarda arquivos nem rich text.** Texto e imagem entram; o resto
+  fica de fora.
+- **Os fixados não se reordenam arrastando.** É pelo teclado (`⌥↑`/`⌥↓`).
 
 ---
 
