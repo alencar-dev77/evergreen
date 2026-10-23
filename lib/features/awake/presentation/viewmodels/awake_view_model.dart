@@ -7,6 +7,7 @@ import '../../data/awake_session_repository.dart';
 import '../../data/awake_settings_repository.dart';
 import '../../data/sleep_assertion_service.dart';
 import '../../models/awake_duration.dart';
+import '../../models/awake_mode.dart';
 import '../../models/awake_session.dart';
 import 'awake_state.dart';
 
@@ -34,6 +35,25 @@ class AwakeViewModel extends Notifier<AwakeState> {
   /// não "congela" o prazo.
   DateTime? _endsAt;
 
+  /// Quanto a trava valeu de fato desde que foi ligada.
+  ///
+  /// Acumulado tique a tique, como o `_focused` do Focus, e não derivado de
+  /// `agora - começo`: a trava segura o sono por inatividade, não a tampa
+  /// fechada. Fechar a tampa com prazo de uma hora e abrir nove horas depois
+  /// gravava nove horas acordado — o Mac dormiu quase todas elas.
+  Duration _held = Duration.zero;
+
+  /// Instante do último tique, para saber quanto cada um acrescenta.
+  DateTime? _lastTickAt;
+
+  /// A duração e o modo da última trava que venceu sozinha.
+  ///
+  /// São o que o "Mais …" da notificação promete repetir. Lidos do estado na
+  /// hora do clique, eles já podiam ter mudado: abrir o painel depois do aviso
+  /// relê as preferências e troca a duração e o modo da tela de partida.
+  AwakeDuration? _expiredDuration;
+  AwakeMode? _expiredMode;
+
   /// Um tique por segundo basta: o painel mostra segundos e o menu, minutos.
   static const _tick = Duration(seconds: 1);
 
@@ -43,6 +63,12 @@ class AwakeViewModel extends Notifier<AwakeState> {
   /// um período acordado, e uma linha de quinze segundos no Track só atrapalha
   /// a leitura do dia.
   static const _minimumRecorded = Duration(minutes: 1);
+
+  /// Vão entre tiques a partir do qual o processo esteve suspenso — o Mac
+  /// dormiu. Mesmo limiar do `_sleepGap` do Focus, e pelas mesmas razões: o
+  /// App Nap atrasa e agrupa os timers de um app sem janela, mas nada perto de
+  /// um minuto.
+  static const _sleepGap = Duration(minutes: 1);
 
   @override
   AwakeState build() {
@@ -103,15 +129,42 @@ class AwakeViewModel extends Notifier<AwakeState> {
   Future<void> toggle() => state.isOn ? turnOff() : turnOn();
 
   Future<void> turnOn() async {
+    if (state.isOn) return;
+
     await _sleep.enable(state.mode);
-    _startedAt = _now();
+    // A trava que o sistema recusou não segura nada: marcar ligado mostraria
+    // "Mantendo a tela acesa" com a tela apagando, e gravaria no Track um
+    // período que não existiu.
+    if (_sleep.mode != state.mode) return;
+
+    final now = _now();
+    _startedAt = now;
+    _lastTickAt = now;
+    _held = Duration.zero;
     state = state.copyWith(isOn: true);
     await _startDeadline();
+  }
+
+  /// O "Mais …" da notificação de prazo vencido: liga de novo com a duração e
+  /// o modo da trava que venceu, e não com o que a tela de partida mostra agora.
+  ///
+  /// Sem trava vencida, ou com uma já ligada, não faz nada — o botão vive na
+  /// Central de Notificações e pode ser clicado muito depois.
+  Future<void> turnOnAgain() async {
+    final duration = _expiredDuration;
+    final mode = _expiredMode;
+    if (state.isOn || duration == null || mode == null) return;
+
+    state = state.copyWith(duration: duration, mode: mode);
+    await turnOn();
   }
 
   /// Solta a trava — por decisão de quem ligou, pelo prazo vencido ou pelo
   /// aplicativo sendo encerrado — e registra o período que ela valeu.
   Future<void> turnOff() async {
+    // Cobrado antes de o prazo sair de cena: é ele que põe o teto no último
+    // trecho.
+    _accrue();
     _stopTicker();
     await _sleep.disable();
     _record();
@@ -129,7 +182,9 @@ class AwakeViewModel extends Notifier<AwakeState> {
     _startedAt = null;
     if (startedAt == null) return;
 
-    final duration = _now().difference(startedAt);
+    final duration = _held;
+    _held = Duration.zero;
+    _lastTickAt = null;
     if (duration < _minimumRecorded) return;
 
     _sessions.insert(
@@ -139,21 +194,28 @@ class AwakeViewModel extends Notifier<AwakeState> {
 
   /// O prazo venceu: solta a trava e conta a vez, para a notificação.
   Future<void> _expire() async {
+    _expiredDuration = state.duration;
+    _expiredMode = state.mode;
     await turnOff();
     state = state.copyWith(expirations: state.expirations + 1);
   }
 
+  /// Põe de pé o prazo da duração escolhida — ou nenhum, em "Sempre".
+  ///
+  /// O tique roda nos dois casos: sem prazo não há contagem a mostrar, mas há
+  /// o cochilo do Mac a descontar.
   Future<void> _startDeadline() async {
+    // O que valeu até aqui fica cobrado sob o prazo anterior, antes de ele sair.
+    _accrue();
     _stopTicker();
 
     final total = state.duration.duration;
     if (total == null) {
       state = state.copyWith(clearRemaining: true);
-      return;
+    } else {
+      _endsAt = _now().add(total);
+      state = state.copyWith(remaining: total);
     }
-
-    _endsAt = _now().add(total);
-    state = state.copyWith(remaining: total);
     _ticker = Timer.periodic(_tick, (_) => _onTick());
   }
 
@@ -163,7 +225,29 @@ class AwakeViewModel extends Notifier<AwakeState> {
     _endsAt = null;
   }
 
+  /// Cobra o tempo desde o tique anterior, até o prazo e nunca além dele.
+  ///
+  /// Um vão maior que [_sleepGap] é o Mac tendo dormido, e não entra. O teto
+  /// no prazo vale para o tique que chega atrasado: a trava se soltaria no
+  /// prazo, e o que passou dele não foi segurado por ninguém.
+  void _accrue() {
+    final last = _lastTickAt;
+    if (last == null) return;
+
+    final endsAt = _endsAt;
+    final now = _now();
+    final until = endsAt != null && endsAt.isBefore(now) ? endsAt : now;
+    _lastTickAt = until;
+
+    final since = until.difference(last);
+    if (since.isNegative || since >= _sleepGap) return;
+
+    _held += since;
+  }
+
   void _onTick() {
+    _accrue();
+
     final endsAt = _endsAt;
     if (endsAt == null) return;
 

@@ -264,7 +264,7 @@ class EvergreenBootstrap {
       case (AwakeNotifications.id, AwakeNotifications.again):
         if (_modules.isEnabled(EvergreenModule.awake) &&
             !_container.read(awakeViewModelProvider).isOn) {
-          await awake.turnOn();
+          await awake.turnOnAgain();
         }
       case (AwakeNotifications.id, null):
         await showOverlay(OverlayPanel.awake);

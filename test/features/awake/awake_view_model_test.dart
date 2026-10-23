@@ -17,7 +17,12 @@ void main() {
   late FakeAwakeSessionRepository sessions;
   late SharedPreferences preferences;
 
+  /// Quanto o relógio do app anda à frente do relógio falso do teste — é como
+  /// se simula o Mac dormindo: o tempo pula sem tique nenhum no meio.
+  var skew = Duration.zero;
+
   setUp(() async {
+    skew = Duration.zero;
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
     sleep = FakeSleepAssertionService();
@@ -30,7 +35,9 @@ void main() {
         sleepAssertionServiceProvider.overrideWithValue(sleep),
         awakeSessionRepositoryProvider.overrideWithValue(sessions),
         sharedPreferencesProvider.overrideWithValue(preferences),
-        clockProvider.overrideWithValue(() => tester.binding.clock.now()),
+        clockProvider.overrideWithValue(
+          () => tester.binding.clock.now().add(skew),
+        ),
       ],
     );
 
@@ -105,6 +112,9 @@ void main() {
     expect(sleep.isEnabled, isTrue);
     expect(stateOf(container).remaining, isNull);
     expect(stateOf(container).display, '∞');
+
+    // Mesmo sem prazo há um tique, o que desconta o cochilo do Mac.
+    await viewModelOf(container).turnOff();
   });
 
   testWidgets(
@@ -239,6 +249,8 @@ void main() {
 
     await viewModelOf(container).selectDuration(AwakeDuration.indefinite);
     expect(stateOf(container).menuBarDetail, 'sem limite');
+
+    await viewModelOf(container).turnOff();
   });
 
   testWidgets('a duração padrão vem das preferências e não atropela a trava', (
@@ -265,5 +277,91 @@ void main() {
     expect(stateOf(container).isOn, isTrue);
 
     await viewModelOf(container).turnOff();
+  });
+
+  testWidgets('a trava recusada pelo sistema não liga nem registra', (
+    tester,
+  ) async {
+    final container = containerFor(tester);
+    sleep.refuse = true;
+
+    await viewModelOf(container).selectDuration(AwakeDuration.minutes30);
+    await viewModelOf(container).turnOn();
+
+    expect(stateOf(container).isOn, isFalse);
+    expect(stateOf(container).remaining, isNull);
+
+    await tester.pump(const Duration(minutes: 30));
+    expect(sessions.sessions, isEmpty);
+    expect(stateOf(container).expirations, 0);
+  });
+
+  testWidgets('o tempo em que o Mac dormiu não entra no registro', (
+    tester,
+  ) async {
+    final container = containerFor(tester);
+
+    await viewModelOf(container).selectDuration(AwakeDuration.hour1);
+    await viewModelOf(container).turnOn();
+    await tester.pump(const Duration(minutes: 10));
+
+    // A tampa fecha com 50 minutos de prazo e abre oito horas depois.
+    skew = const Duration(hours: 8);
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(stateOf(container).isOn, isFalse);
+    expect(sessions.sessions.single.duration, const Duration(minutes: 10));
+  });
+
+  testWidgets('o tempo em que o Mac dormiu também sai da trava sem prazo', (
+    tester,
+  ) async {
+    final container = containerFor(tester);
+
+    await viewModelOf(container).selectDuration(AwakeDuration.indefinite);
+    await viewModelOf(container).turnOn();
+    await tester.pump(const Duration(minutes: 10));
+
+    skew = const Duration(hours: 8);
+    await tester.pump(const Duration(minutes: 5));
+    await viewModelOf(container).turnOff();
+
+    // O tique que acorda é o próprio vão e não conta: dos cinco minutos depois
+    // dele, sai um segundo.
+    expect(
+      sessions.sessions.single.duration,
+      const Duration(minutes: 14, seconds: 59),
+    );
+  });
+
+  testWidgets('o "Mais …" repete a duração e o modo da trava que venceu', (
+    tester,
+  ) async {
+    final container = containerFor(tester);
+
+    await viewModelOf(container).selectDuration(AwakeDuration.minutes30);
+    await viewModelOf(container).turnOn();
+    await tester.pump(const Duration(minutes: 30));
+    expect(stateOf(container).isOn, isFalse);
+
+    // A tela de partida mudou depois do aviso — o botão não segue ela.
+    await viewModelOf(container).selectDuration(AwakeDuration.hours2);
+
+    await viewModelOf(container).turnOnAgain();
+
+    expect(stateOf(container).isOn, isTrue);
+    expect(stateOf(container).duration, AwakeDuration.minutes30);
+    expect(stateOf(container).remaining, const Duration(minutes: 30));
+
+    await viewModelOf(container).turnOff();
+  });
+
+  testWidgets('o "Mais …" sem trava vencida não liga nada', (tester) async {
+    final container = containerFor(tester);
+
+    await viewModelOf(container).turnOnAgain();
+
+    expect(stateOf(container).isOn, isFalse);
+    expect(sleep.isEnabled, isFalse);
   });
 }
