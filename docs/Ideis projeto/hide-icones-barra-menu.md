@@ -1,6 +1,10 @@
 # Sugestão futura — hide de ícones na barra de menus (estilo Ice/Bartender)
 
-> Status: **proposta**, não agendada. Nenhum código foi escrito.
+> Status: **descartada** em 23/10/2026: o escopo do Evergreen fechou na V1
+> com os sete módulos. Nenhum código foi escrito; o documento fica pelo
+> raciocínio (o porquê e o custo nativo), não como fila.
+>
+> Antes: proposta, não agendada.
 > Registrado em 24/07/2026, a partir de um pedido de feature durante ajustes
 > no `run_build_copy`.
 

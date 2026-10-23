@@ -70,6 +70,12 @@ Nenhum dado será enviado para a internet.
 
 # Roadmap
 
+> **Histórico.** Este é o roadmap de origem, de antes do primeiro módulo. O
+> Evergreen fechou na V1 (23/10/2026) com sete módulos: Pin, Focus, Leaf,
+> Awake, Echo, Nest e Track — o "Shelf" daqui virou o Nest. A lista de
+> "Futuro" não é fila: a única ideia que ainda pode entrar é bloquear o
+> teclado para limpar (ver `bloquear-teclado-para-limpar.md`).
+
 ## v0.1
 
 ✅ Pin (Clipboard)
