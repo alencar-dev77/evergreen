@@ -10,7 +10,12 @@ import '../models/pin_image.dart';
 /// futuro não toca nenhuma linha da camada de apresentação.
 abstract interface class ClipboardRepository {
   /// Todos os itens: fixados primeiro, depois os mais recentes.
-  List<ClipboardItem> loadAll({int limit});
+  ///
+  /// Sem teto próprio: quem limita o histórico é o [trimHistory], e só sobre
+  /// os não fixados. Um `LIMIT` aqui contava os fixados junto, e com o teto
+  /// de 500 e alguns fixados os itens mais recentes sumiam da lista — estavam
+  /// no banco, mas o painel não os lia.
+  List<ClipboardItem> loadAll();
 
   /// Quantos itens de cada tipo o histórico guarda hoje.
   ///
@@ -62,17 +67,20 @@ class SqliteClipboardRepository implements ClipboardRepository {
 
   final Database _db;
 
+  /// A ordem da lista, num lugar só: o [swapPinnedOrder] precisa ler os
+  /// fixados exatamente como o painel os mostra. O `id` no fim desempata o
+  /// que sobra — sem ele, dois itens iguais em tudo podiam trocar de lugar
+  /// entre uma leitura e outra.
+  static const _order =
+      'is_pinned DESC, pinned_at ASC, copied_at DESC, id DESC';
+
   @override
-  List<ClipboardItem> loadAll({int limit = 500}) {
-    final rows = _db.select(
-      '''
+  List<ClipboardItem> loadAll() {
+    final rows = _db.select('''
       SELECT id, content, type, is_pinned, copied_at, pinned_at, alias, image
         FROM clipboard_items
-       ORDER BY is_pinned DESC, pinned_at ASC, copied_at DESC
-       LIMIT ?;
-      ''',
-      [limit],
-    );
+       ORDER BY $_order;
+      ''');
 
     return rows.map(_fromRow).toList(growable: false);
   }
@@ -154,37 +162,63 @@ class SqliteClipboardRepository implements ClipboardRepository {
 
   @override
   void swapPinnedOrder(int firstId, int secondId) {
-    final rows = _db.select(
-      '''
-      SELECT id, pinned_at, copied_at
+    // Uma transação só, e aberta antes da leitura: a troca não pode ficar pela
+    // metade se o processo morrer no meio dela, e o Hub — a outra conexão —
+    // não pode desafixar um item entre ler a ordem e gravá-la.
+    _db.execute('BEGIN IMMEDIATE;');
+    try {
+      _swapPinnedOrder(firstId, secondId);
+      _db.execute('COMMIT;');
+    } catch (_) {
+      _db.execute('ROLLBACK;');
+      rethrow;
+    }
+  }
+
+  void _swapPinnedOrder(int firstId, int secondId) {
+    final rows = _db.select('''
+      SELECT id, pinned_at
         FROM clipboard_items
-       WHERE id IN (?, ?) AND is_pinned = 1;
-      ''',
-      [firstId, secondId],
+       WHERE is_pinned = 1
+       ORDER BY $_order;
+      ''');
+
+    final ids = [for (final row in rows) row['id'] as int];
+    final firstIndex = ids.indexOf(firstId);
+    final secondIndex = ids.indexOf(secondId);
+    if (firstIndex < 0 || secondIndex < 0 || firstIndex == secondIndex) return;
+
+    // Antes de trocar, cada fixado ganha um carimbo só dele, crescente na
+    // ordem em que aparece. Trocar os dois valores não move nada quando eles
+    // empatam (dois `setPinned` no mesmo milissegundo, ou um fixado antigo
+    // sem `pinned_at`), e separar o empate com um `+1` só acertava quando o
+    // desempate por data de cópia — que é quem ordena o empate — concordava
+    // por acaso com a soma; nos outros casos o ⌥↑ não saía do lugar. O
+    // carimbo de quem já estava em ordem fica como está: só o empate é
+    // empurrado.
+    final stamps = <int>[];
+    for (final row in rows) {
+      final previous = stamps.lastOrNull;
+      var stamp = (row['pinned_at'] as int?) ?? previous ?? 0;
+      if (previous != null && stamp <= previous) stamp = previous + 1;
+      stamps.add(stamp);
+    }
+
+    final swapped = [...stamps];
+    swapped[firstIndex] = stamps[secondIndex];
+    swapped[secondIndex] = stamps[firstIndex];
+
+    final update = _db.prepare(
+      'UPDATE clipboard_items SET pinned_at = ? WHERE id = ?;',
     );
-    if (rows.length != 2) return;
-
-    final order = {
-      for (final row in rows)
-        row['id'] as int: (row['pinned_at'] as int?) ?? row['copied_at'] as int,
-    };
-
-    final first = order[firstId]!;
-    // Dois fixados no mesmo milissegundo não têm ordem entre si para trocar:
-    // a troca escreveria o mesmo valor nos dois e nada se moveria. Separá-los
-    // aqui é o que garante que o ⌥↑/⌥↓ sempre resulte em movimento.
-    final second = order[secondId] == first ? first + 1 : order[secondId]!;
-
-    // Uma única instrução: a troca não pode ficar pela metade se o processo
-    // morrer no meio dela.
-    _db.execute(
-      '''
-      UPDATE clipboard_items
-         SET pinned_at = CASE id WHEN ? THEN ? ELSE ? END
-       WHERE id IN (?, ?);
-      ''',
-      [firstId, second, first, firstId, secondId],
-    );
+    try {
+      for (var i = 0; i < ids.length; i++) {
+        if (swapped[i] == rows[i]['pinned_at']) continue;
+        update.execute([swapped[i], ids[i]]);
+      }
+    } finally {
+      update.close();
+    }
   }
 
   @override
