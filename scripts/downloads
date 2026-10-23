@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+#
+# downloads — quantas vezes o Evergreen foi baixado, versão por versão.
+#
+# O Evergreen não conta nada: sem telemetria, sem servidor, sem identificador
+# de instalação (ver PRIVACY.md). Quem conta é o GitHub, que guarda quantas
+# vezes cada arquivo de um release foi baixado — um número só, sem nada de
+# quem baixou. Este script só lê esse número, pela API, e separa o que cada
+# arquivo quer dizer:
+#
+#   Evergreen.dmg            o link direto (site, README): quem instalou do zero
+#   Evergreen-<versão>.dmg   a página do release, e as atualizações automáticas
+#                            — é esse o arquivo que o Sparkle baixa
+#   appcast.xml              as procuras por versão nova: cada Evergreen
+#                            instalado, com a procura ligada, pergunta uma vez
+#                            por dia. Dividido pelos dias desde a publicação,
+#                            dá uma ideia de quantos estão em uso
+#
+# Os PDFs e o resto entram em "outros". Precisa do `gh` autenticado.
+#
+# Uso: ./scripts/downloads
+#
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+command -v gh > /dev/null || { echo "❌ Precisa do gh instalado e autenticado." >&2; exit 1; }
+
+REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+
+# Uma linha por release: tag, data, link direto, dmg da versão, appcast, outros.
+# Do mais novo para o mais antigo, que é a ordem da API.
+ROWS="$(gh api "repos/$REPO/releases" --paginate -q '
+  .[] | select(.draft | not) |
+  [ .tag_name,
+    (.published_at // "" | .[0:10]),
+    ([.assets[] | select(.name == "Evergreen.dmg") | .download_count] | add // 0),
+    ([.assets[] | select(.name | test("^Evergreen-.*\\.dmg$")) | .download_count] | add // 0),
+    ([.assets[] | select(.name == "appcast.xml") | .download_count] | add // 0),
+    ([.assets[] | select(.name != "Evergreen.dmg" and .name != "appcast.xml"
+                         and (.name | test("^Evergreen-.*\\.dmg$") | not))
+                | .download_count] | add // 0)
+  ] | @tsv')"
+
+if [[ -z "$ROWS" ]]; then
+  echo "Nenhum release publicado ainda."
+  exit 0
+fi
+
+printf '%-14s %-11s %12s %16s %10s %7s\n' \
+  "versão" "publicada" "link direto" "página/update" "procuras" "outros"
+printf '%s\n' "$ROWS" | while IFS=$'\t' read -r tag date direct versioned appcast other; do
+  printf '%-14s %-11s %12s %16s %10s %7s\n' \
+    "$tag" "$date" "$direct" "$versioned" "$appcast" "$other"
+done
+
+printf '%s\n' "$ROWS" | awk -F'\t' '
+  { direct += $3; versioned += $4; appcast += $5 }
+  END {
+    print ""
+    printf "Instalações do zero (link direto): %d\n", direct
+    printf "Pela página do release ou por atualização: %d\n", versioned
+    printf "Procuras por versão nova: %d\n", appcast
+  }'

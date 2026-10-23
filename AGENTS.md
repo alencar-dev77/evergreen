@@ -834,6 +834,9 @@ UI e microcopy em português (pt-BR).
   conferir a janela. Pede o certificado e a credencial do `notarytool` no
   chaveiro — o passo a passo está em
   [docs/Ideis projeto/instalador-dmg.md](docs/Ideis%20projeto/instalador-dmg.md).
+- `./scripts/downloads` — quantas vezes cada versão foi baixada (link direto,
+  página/atualização e procuras do appcast), lido da API do GitHub. É a única
+  contagem que existe: o app não conta nada.
 - `./scripts/documentos` — os PDFs da `LICENSE` e da `PRIVACY.md`, pelo
   LibreOffice, em `build/documentos`. O `release` o chama e anexa os PDFs.
 - `./scripts/bump_version` — a regra do bump, num lugar só: o `version-bump.yml` o

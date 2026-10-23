@@ -10,6 +10,7 @@ cada script começa entrando na raiz.
 | [`release`](release) | Gerar o `.dmg` para outra pessoa e publicar | A cada versão, da `main` |
 | [`bump_version`](bump_version) | Subir a versão e escrever o changelog | Quase nunca à mão — o Actions faz |
 | [`documentos`](documentos) | Gerar os PDFs da licença e da política de privacidade | O `release` chama sozinho |
+| [`downloads`](downloads) | Ver quantas vezes cada versão foi baixada | Quando quiser saber |
 
 O cabeçalho de cada script tem o porquê de cada passo. Aqui fica o como.
 
@@ -131,3 +132,22 @@ Exporta a [LICENSE](../LICENSE) e o [PRIVACY.md](../PRIVACY.md) para PDF pelo
 LibreOffice (`brew install --cask libreoffice`), que lê Markdown direto. O texto
 no repositório é a fonte, e o PDF não é commitado: mexeu num documento, o PDF
 do próximo release já sai com a mudança.
+
+---
+
+## `downloads` — quantos baixaram
+
+```bash
+./scripts/downloads
+```
+
+Lê, pela API do GitHub, quantas vezes cada arquivo de cada release foi baixado
+— o Evergreen não conta nada sozinho. Separa o que cada arquivo quer dizer:
+
+- **link direto** (`Evergreen.dmg`): quem instalou do zero pelo site ou pelo
+  README;
+- **página/update** (`Evergreen-<versão>.dmg`): quem baixou pela página do
+  release, mais as atualizações automáticas, que baixam esse arquivo;
+- **procuras** (`appcast.xml`): cada Evergreen instalado, com a procura ligada,
+  pergunta uma vez por dia. Dividido pelos dias desde a publicação, dá uma
+  ideia de quantos estão em uso.
