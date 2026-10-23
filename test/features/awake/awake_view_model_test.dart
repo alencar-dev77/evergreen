@@ -344,16 +344,37 @@ void main() {
     await tester.pump(const Duration(minutes: 30));
     expect(stateOf(container).isOn, isFalse);
 
-    // A tela de partida mudou depois do aviso — o botão não segue ela.
-    await viewModelOf(container).selectDuration(AwakeDuration.hours2);
+    // A tela de partida mudou depois do aviso — o botão não segue ela. Abrir
+    // o painel relê as preferências, e com elas a duração e o modo.
+    await preferences.setString('awake.default_duration', 'hours2');
+    await preferences.setString('awake.mode', AwakeMode.system.name);
+    await viewModelOf(container).prepareForOpen();
+    expect(stateOf(container).mode, AwakeMode.system);
 
     await viewModelOf(container).turnOnAgain();
 
     expect(stateOf(container).isOn, isTrue);
     expect(stateOf(container).duration, AwakeDuration.minutes30);
     expect(stateOf(container).remaining, const Duration(minutes: 30));
+    expect(stateOf(container).mode, AwakeMode.screen);
+    expect(sleep.mode, AwakeMode.screen);
 
     await viewModelOf(container).turnOff();
+  });
+
+  testWidgets('o "Mais …" recusado devolve a tela de partida', (tester) async {
+    final container = containerFor(tester);
+
+    await viewModelOf(container).selectDuration(AwakeDuration.minutes30);
+    await viewModelOf(container).turnOn();
+    await tester.pump(const Duration(minutes: 30));
+    await viewModelOf(container).selectDuration(AwakeDuration.hours2);
+
+    sleep.refuse = true;
+    await viewModelOf(container).turnOnAgain();
+
+    expect(stateOf(container).isOn, isFalse);
+    expect(stateOf(container).duration, AwakeDuration.hours2);
   });
 
   testWidgets('o "Mais …" sem trava vencida não liga nada', (tester) async {

@@ -155,8 +155,14 @@ class AwakeViewModel extends Notifier<AwakeState> {
     final mode = _expiredMode;
     if (state.isOn || duration == null || mode == null) return;
 
+    final previous = state;
     state = state.copyWith(duration: duration, mode: mode);
     await turnOn();
+
+    // Recusada, a tela de partida volta ao que a pessoa tinha escolhido.
+    if (!state.isOn) {
+      state = state.copyWith(duration: previous.duration, mode: previous.mode);
+    }
   }
 
   /// Solta a trava — por decisão de quem ligou, pelo prazo vencido ou pelo
