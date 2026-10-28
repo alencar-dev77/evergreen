@@ -180,6 +180,84 @@ void main() {
       await tester.pump(AppDurations.pressFeedback);
     });
 
+    testWidgets(
+      'a ação async que termina rápido também segura o duplo clique',
+      (tester) async {
+        // O "Desligar" do Awake: o canal responde em milissegundos, e o segundo
+        // clique religava a trava.
+        var taps = 0;
+        await pump(
+          tester,
+          EgButton(label: 'Desligar', onPressed: () async => taps++),
+        );
+
+        await tester.tap(find.byType(EgButton));
+        await tester.pump();
+        await tester.tap(find.byType(EgButton));
+        await tester.pump();
+        expect(taps, 1);
+
+        await tester.pump(AppDurations.pressGuard);
+        await tester.tap(find.byType(EgButton));
+        await tester.pump();
+        expect(taps, 2);
+        await tester.pump(AppDurations.pressGuard);
+      },
+    );
+
+    testWidgets('o botão de repetição aceita cliques seguidos', (tester) async {
+      var taps = 0;
+      await pump(
+        tester,
+        EgIconButton(
+          icon: EgIconData.chevronLeft,
+          tooltip: 'Voltar 10 s',
+          repeatable: true,
+          onPressed: () => taps++,
+        ),
+      );
+
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byType(EgIconButton));
+        await tester.pump();
+      }
+
+      expect(taps, 3);
+    });
+
+    testWidgets('trabalhando, o botão continua habilitado para o teclado', (
+      tester,
+    ) async {
+      final work = Completer<void>();
+      final handle = tester.ensureSemantics();
+      await pump(
+        tester,
+        EgButton(label: 'Fazer backup', onPressed: () => work.future),
+      );
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pump(AppDurations.pressFeedback);
+      expect(find.byType(EgSpinner), findsOneWidget);
+
+      // Ocupado não é indisponível: quem apertou Enter não perde o botão.
+      expect(
+        tester.getSemantics(find.byType(EgButton)),
+        matchesSemantics(
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+          label: 'Fazer backup',
+        ),
+      );
+
+      work.complete();
+      await tester.pump(AppDurations.pressGuard);
+      handle.dispose();
+    });
+
     testWidgets('a ação rápida não pisca o spinner', (tester) async {
       await pump(
         tester,

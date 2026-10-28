@@ -79,6 +79,7 @@ class NestItemCard extends StatelessWidget {
                 size: AppBadgeSizes.sm,
                 iconSize: AppIconSizes.xs,
                 onPressed: onRemove,
+                repeatable: true,
               )
             else
               SizedBox(

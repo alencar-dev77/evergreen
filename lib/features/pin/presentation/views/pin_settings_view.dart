@@ -216,6 +216,7 @@ class _GeneratorCard extends ConsumerWidget {
                 EgButton.secondary(
                   label: 'Outro',
                   onPressed: viewModel.regenerate,
+                  repeatable: true,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 EgButton(

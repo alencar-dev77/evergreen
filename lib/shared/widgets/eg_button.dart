@@ -70,6 +70,7 @@ class EgButton extends StatefulWidget {
     this.isLoading = false,
     this.keycap,
     this.compact = false,
+    this.repeatable = false,
   });
 
   const EgButton.neutralStrong({
@@ -82,6 +83,7 @@ class EgButton extends StatefulWidget {
     this.isLoading = false,
     this.keycap,
     this.compact = false,
+    this.repeatable = false,
   }) : variant = EgButtonVariant.neutralStrong;
 
   const EgButton.secondary({
@@ -94,6 +96,7 @@ class EgButton extends StatefulWidget {
     this.isLoading = false,
     this.keycap,
     this.compact = false,
+    this.repeatable = false,
   }) : variant = EgButtonVariant.secondary;
 
   const EgButton.destructive({
@@ -106,6 +109,7 @@ class EgButton extends StatefulWidget {
     this.isLoading = false,
     this.keycap,
     this.compact = true,
+    this.repeatable = false,
   }) : variant = EgButtonVariant.destructive;
 
   final String label;
@@ -153,6 +157,11 @@ class EgButton extends StatefulWidget {
   /// tornaria mais alto que a seção que o contém.
   final bool compact;
 
+  /// Feito para ser apertado várias vezes seguidas — o "Outro" do gerador de
+  /// CPF. Dispensa a janela do duplo clique; a ação que demora continua
+  /// segurando o botão até terminar.
+  final bool repeatable;
+
   /// A altura do botão que mora dentro de um cartão.
   static const _compactHeight = 26.0;
 
@@ -179,7 +188,11 @@ class _EgButtonState extends State<EgButton> with EgPressGuard {
     final action = onPressed;
 
     final button = EgInteractiveSurface(
-      onTap: isLoading || action == null ? null : () => guardedPress(action),
+      // Só o `isLoading` de fora desliga o toque; o trabalho que o próprio
+      // botão disparou é segurado pela guarda, e o botão segue focável.
+      onTap: widget.isLoading || action == null
+          ? null
+          : () => guardedPress(action, repeatable: widget.repeatable),
       style: style,
       borderRadius: compact
           ? context.eg.shapes.segmentAll
@@ -214,7 +227,9 @@ class _EgButtonState extends State<EgButton> with EgPressGuard {
     return Stack(
       alignment: Alignment.center,
       children: [
-        Opacity(opacity: 0, child: label),
+        // Invisível, mas lido: o leitor de tela continua dizendo o que o
+        // botão faz enquanto ele trabalha.
+        Opacity(opacity: 0, alwaysIncludeSemantics: true, child: label),
         EgSpinner(size: AppIconSizes.sm, color: style.foreground),
       ],
     );
@@ -267,6 +282,7 @@ class EgIconButton extends StatefulWidget {
     this.iconSize = AppIconSizes.lg,
     this.color,
     this.hoverColor,
+    this.repeatable = false,
   });
 
   final EgIconData icon;
@@ -289,6 +305,11 @@ class EgIconButton extends StatefulWidget {
   final Color? color;
   final Color? hoverColor;
 
+  /// Feito para ser apertado várias vezes seguidas — pular 10 s, a semana
+  /// anterior, tirar o cartão seguinte da pilha. Dispensa a janela do duplo
+  /// clique; a ação que demora continua segurando o botão até terminar.
+  final bool repeatable;
+
   @override
   State<EgIconButton> createState() => _EgIconButtonState();
 }
@@ -310,7 +331,9 @@ class _EgIconButtonState extends State<EgIconButton> with EgPressGuard {
     // repouso é transparente, então focar já revela o fundo de hover, que é
     // exatamente o que a coluna `ghost` da matriz faz.
     final button = EgInteractiveSurface(
-      onTap: action == null || isWorking ? null : () => guardedPress(action),
+      onTap: action == null
+          ? null
+          : () => guardedPress(action, repeatable: widget.repeatable),
       style: context.eg.surfaces.ghost,
       borderRadius: context.eg.shapes.rowAll,
       width: size,

@@ -44,6 +44,7 @@ class EchoPlayerBar extends StatelessWidget {
           size: AppBadgeSizes.sm,
           iconSize: AppIconSizes.lg,
           onPressed: () => onSkip(-skip),
+          repeatable: true,
         ),
         EgIconButton(
           icon: state.isPlaying ? EgIconData.pause : EgIconData.play,
@@ -60,6 +61,7 @@ class EchoPlayerBar extends StatelessWidget {
           size: AppBadgeSizes.sm,
           iconSize: AppIconSizes.lg,
           onPressed: () => onSkip(skip),
+          repeatable: true,
         ),
         const SizedBox(width: AppSpacing.sm),
         Text(clock(state.positionMs), style: context.eg.text.monoSmall),

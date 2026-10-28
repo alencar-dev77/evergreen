@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/app_metrics.dart';
@@ -56,7 +58,13 @@ class EchoPermissionRow extends StatelessWidget {
             ),
           )
         else
-          EgButton.secondary(label: status.actionLabel, onPressed: onPressed),
+          // O pedido só responde quando a pessoa fecha o alerta do sistema,
+          // que não é um diálogo do app: devolvido ao botão, o `Future` faria
+          // o spinner girar atrás da pergunta. A guarda do duplo clique fica.
+          EgButton.secondary(
+            label: status.actionLabel,
+            onPressed: () => unawaited(onPressed()),
+          ),
       ],
     );
   }
