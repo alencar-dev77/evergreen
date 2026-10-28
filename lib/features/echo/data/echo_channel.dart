@@ -25,6 +25,7 @@ class RecordingFiles {
     this.systemPeak = 0,
     this.streamError,
     this.micError,
+    this.echoFound,
   });
 
   final String? micPath;
@@ -40,6 +41,14 @@ class RecordingFiles {
 
   /// Por que o microfone não subiu, quando não subiu.
   final String? micError;
+
+  /// Se o cancelamento de eco achou a caixa de som na faixa do microfone.
+  ///
+  /// `false` é medida — de fone, o microfone não seguiu o computador em
+  /// momento nenhum —, e aí não há eco para o `CrossTalkFilter` procurar no
+  /// texto: procurar só arriscaria tirar um "bom dia" seu dito junto com
+  /// alguém. `null` é "não deu para saber" (faltou uma faixa, a conta falhou).
+  final bool? echoFound;
 
   List<String> get paths => [?micPath, ?systemPath];
 
@@ -204,6 +213,12 @@ class EchoChannel {
   Future<RecordingFiles> stopRecording() async {
     final result = await _invoke<Map<Object?, Object?>>('stopRecording');
 
+    // O que o cancelamento de eco fez — atraso, correlação, quanto foi
+    // silenciado. São números do próprio Swift, nada da reunião, e são o que
+    // diz depois se uma transcrição duplicada foi eco que escapou.
+    final echo = result?['echoCancellation'];
+    if (echo is String) AppLog.info('echo.eco', echo);
+
     return RecordingFiles(
       micPath: result?['micPath'] as String?,
       systemPath: result?['systemPath'] as String?,
@@ -212,6 +227,7 @@ class EchoChannel {
       systemPeak: (result?['systemPeak'] as num?)?.toInt() ?? 0,
       streamError: result?['streamError'] as String?,
       micError: result?['micError'] as String?,
+      echoFound: result?['echoFound'] as bool?,
     );
   }
 

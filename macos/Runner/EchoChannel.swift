@@ -1,10 +1,13 @@
 import AVFoundation
 import Accelerate
+import AudioToolbox
+import CoreAudio
 import CoreGraphics
 import FlutterMacOS
 import FluidAudio
 import Foundation
 import FoundationModels
+import IOKit
 import ScreenCaptureKit
 import Security
 import Speech
@@ -456,11 +459,26 @@ actor EchoRecorder {
   /// (porque o app da reunião ligou o processamento *dele*), o Echo escolhe uma
   /// em vez de somar e põe nela o volume que falta — ver
   /// [EchoStreamOutput.capsule] e [EchoMicGain].
+  ///
+  /// **E nunca um microfone Bluetooth, quando o Mac tem um embutido** — ver
+  /// [EchoAudioDevices.recordingInput].
   private static func startMicrophone(
     engine: AVAudioEngine,
     output: EchoStreamOutput
   ) -> String? {
     let input = engine.inputNode
+
+    // O dispositivo é escolhido antes de qualquer pergunta sobre o formato:
+    // é ele que responde.
+    // Se a troca for recusada, o motor segue na entrada padrão — que é o
+    // comportamento de antes, e não uma faixa muda.
+    if let device = EchoAudioDevices.recordingInput(), let unit = input.audioUnit {
+      var id = device
+      _ = AudioUnitSetProperty(
+        unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &id,
+        UInt32(MemoryLayout<AudioDeviceID>.size))
+    }
+
     let format = input.inputFormat(forBus: 0)
 
     guard format.sampleRate > 0, format.channelCount > 0 else {
@@ -509,8 +527,24 @@ actor EchoRecorder {
       object: micEngine,
       queue: nil
     ) { [weak self] _ in
-      Task { await self?.restartMicrophone(generation: generation) }
+      Task { await self?.microphoneChanged(generation: generation) }
     }
+  }
+
+  /// O aviso de troca chegou: religa, se o microfone parou mesmo.
+  ///
+  /// O aviso sozinho não basta para religar. Com fone Bluetooth ele chega em
+  /// rajada — o fone troca de perfil, o sistema troca de dispositivo padrão,
+  /// e o motor novo, ao subir, pode gerar outro aviso. Religar a cada um era
+  /// derrubar e subir o microfone sem parar, e cada subida mexia de novo no
+  /// fone. Agora espera o dispositivo assentar e só religa se nenhum bloco
+  /// chegou nesse tempo; o motor que segue entregando fica onde está. O
+  /// [watch] é a rede para o motor que parou sem avisar.
+  private func microphoneChanged(generation: Int) async {
+    try? await Task.sleep(for: .milliseconds(400))
+    guard generation == micGeneration, let output = output else { return }
+    guard output.silence().mic > 0.3 else { return }
+    await restartMicrophone(generation: generation)
   }
 
   /// Avança a cada gravação que termina, **antes de qualquer espera**.
@@ -533,17 +567,28 @@ actor EchoRecorder {
   /// o trecho inteiro. Um motor novo pergunta de novo e recebe as três, e aí
   /// a escolha da cápsula e o ganho de [EchoStreamOutput] fazem o trabalho
   /// deles. Cada troca deixa um buraco do tempo de subir o motor, e o buraco
-  /// vira silêncio na faixa ([EchoStreamOutput.writeMicSilence]) para ela não
+  /// vira silêncio na faixa ([EchoStreamOutput.writeSilence]) para ela não
   /// se adiantar em relação à do sistema.
   ///
-  /// Algumas tentativas, com uma pausa curta entre elas: no meio da troca o
-  /// dispositivo pode responder por um instante que não tem canal nenhum. Se
+  /// Algumas tentativas, com pausas que crescem: no meio da troca o
+  /// dispositivo pode responder por um instante que não tem canal nenhum, e um
+  /// fone Bluetooth trocando de perfil leva segundos, não meio segundo. Se
   /// nenhuma der certo, o motivo fica em [micError] — que só aparece para a
   /// pessoa se a faixa sair muda, então uma falha depois de meia reunião
-  /// gravada não acusa nada que não aconteceu.
+  /// gravada não acusa nada que não aconteceu — e o [watch] tenta de novo
+  /// enquanto a gravação durar. Antes eram três tentativas em um segundo, e
+  /// depois disso nada: numa reunião de 27/10, o microfone morreu dez segundos
+  /// depois de o fone entrar, e a meia hora seguinte saiu muda.
   private func restartMicrophone(generation: Int) async {
-    for attempt in 0..<3 {
-      if attempt > 0 { try? await Task.sleep(for: .milliseconds(500)) }
+    guard !isRestartingMicrophone else { return }
+    isRestartingMicrophone = true
+    defer {
+      isRestartingMicrophone = false
+      micRestartedAt = Date()
+    }
+
+    for (attempt, wait) in [0, 500, 1_000, 2_000, 3_000].enumerated() {
+      if attempt > 0 { try? await Task.sleep(for: .milliseconds(wait)) }
 
       // Conferido a cada volta: a gravação pode ter acabado durante a pausa.
       guard generation == micGeneration, stream != nil, let output = output else { return }
@@ -551,15 +596,217 @@ actor EchoRecorder {
       micEngine.inputNode.removeTap(onBus: 0)
       micEngine.stop()
       micEngine = AVAudioEngine()
+
+      let failure = Self.startMicrophone(engine: micEngine, output: output)
+      // O observador entra depois de o motor subir: a própria subida pode
+      // gerar um aviso, e ele não é uma troca nova.
       observeMicrophone()
 
-      guard let failure = Self.startMicrophone(engine: micEngine, output: output) else {
+      guard let failure = failure else {
         micError = nil
         return
       }
       micError = failure
     }
   }
+
+  /// Um religamento do microfone em curso — os avisos que chegam no meio
+  /// dele são dele mesmo.
+  private var isRestartingMicrophone = false
+
+  // MARK: Captura do computador
+
+  /// A fila do áudio da gravação, que a `SCStream` religada reaproveita.
+  private var audioQueue: DispatchQueue?
+
+  /// O motivo de a captura do computador não ter voltado, se não voltou.
+  private var streamFailure: String?
+
+  private var isRestartingStream = false
+  private var streamRestartedAt = Date.distantPast
+  private var outputWatcher: EchoOutputDeviceWatcher?
+  private var outputChanges = 0
+  private var watchTask: Task<Void, Never>?
+
+  /// Monta a captura do áudio do computador, entregando ao [output].
+  ///
+  /// O vídeo não interessa, mas a `SCStream` exige um filtro de tela. Dois
+  /// pixels a um quadro por segundo é o mais perto de "nada" que dá para
+  /// pedir sem abrir mão do áudio.
+  private func makeStream(
+    output: EchoStreamOutput, queue: DispatchQueue, generation: Int
+  ) async throws -> (SCStream, EchoStreamDelegate) {
+    let content = try await SCShareableContent.excludingDesktopWindows(
+      false, onScreenWindowsOnly: false)
+    guard let display = content.displays.first else {
+      throw NSError(
+        domain: "EchoRecorder", code: 1,
+        userInfo: [NSLocalizedDescriptionKey: "Nenhuma tela disponível para capturar áudio."])
+    }
+
+    let configuration = SCStreamConfiguration()
+    configuration.capturesAudio = true
+    configuration.excludesCurrentProcessAudio = true
+    // O microfone **não** vem por aqui — ver [startMicrophone]. Sem fixar taxa
+    // nem número de canais: cada bloco é convertido para `recordingFormat` a
+    // partir do formato que ele mesmo declara, então impor 48 kHz estéreo
+    // aqui não economiza nada e só restringe o que o sistema pode entregar.
+    configuration.width = 2
+    configuration.height = 2
+    configuration.minimumFrameInterval = CMTime(value: 1, timescale: 1)
+
+    let filter = SCContentFilter(display: display, excludingWindows: [])
+    let delegate = EchoStreamDelegate { [weak self] in
+      Task { await self?.streamStopped(generation: generation) }
+    }
+    let stream = SCStream(filter: filter, configuration: configuration, delegate: delegate)
+    try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: queue)
+
+    return (stream, delegate)
+  }
+
+  /// A `SCStream` parou sozinha no meio da reunião: sobe outra.
+  ///
+  /// Antes o erro só era guardado, e a reunião seguia gravando silêncio do
+  /// lado do computador até o fim. Quando quem parou foi a pessoa, pelo menu
+  /// do sistema, o [EchoStreamDelegate] nem chama: é uma escolha, não uma
+  /// falha.
+  private func streamStopped(generation: Int) async {
+    try? await Task.sleep(for: .milliseconds(500))
+    await restartStream(generation: generation)
+  }
+
+  /// A saída de som mudou — o fone entrou, a caixa voltou: religa a captura
+  /// do computador.
+  ///
+  /// A captura nasce presa à saída de quando começou, e trocar de saída no
+  /// meio pode deixá-la entregando silêncio sem erro nenhum. Na reunião de
+  /// 27/10, as duas faixas ficaram mudas da troca para o fone até o fim. Um
+  /// segundo de espera junta a rajada de avisos de uma troca só.
+  private func outputChanged(generation: Int) async {
+    outputChanges += 1
+    let change = outputChanges
+    try? await Task.sleep(for: .seconds(1))
+    guard change == outputChanges else { return }
+    await restartStream(generation: generation)
+  }
+
+  /// Troca a `SCStream` por uma nova, sobre a mesma saída e os mesmos
+  /// arquivos.
+  ///
+  /// Parar e recomeçar a captura para pausar criaria um segundo arquivo (ver
+  /// [EchoStreamOutput.isPaused]); aqui não, porque o [output] é o mesmo: a
+  /// faixa continua no arquivo em que estava, e o tempo da troca vira
+  /// silêncio pelo relógio dela. Só captura o que o computador toca — não
+  /// mexe em dispositivo nenhum, nem no som que os outros apps tocam ou
+  /// gravam.
+  ///
+  /// Um pedido que chega com outro religamento em curso não se perde: fica
+  /// pendente e roda logo depois — a troca de saída do meio pode ter subido a
+  /// captura nova ainda presa à saída antiga.
+  private func restartStream(generation: Int) async {
+    guard generation == micGeneration else { return }
+    guard !isRestartingStream else {
+      streamRestartPending = true
+      return
+    }
+
+    isRestartingStream = true
+    defer { isRestartingStream = false }
+
+    repeat {
+      streamRestartPending = false
+      await replaceStream(generation: generation)
+    } while streamRestartPending && generation == micGeneration
+  }
+
+  private var streamRestartPending = false
+
+  private func replaceStream(generation: Int) async {
+    guard let old = stream, let output = output, let queue = audioQueue else { return }
+    streamRestartedAt = Date()
+
+    try? await old.stopCapture()
+    // Um último bloco da captura antiga, chegando depois da nova, entraria
+    // na faixa fora de lugar.
+    try? old.removeStreamOutput(output, type: .audio)
+
+    for attempt in 0..<3 {
+      if attempt > 0 { try? await Task.sleep(for: .seconds(1)) }
+      guard generation == micGeneration, stream === old else { return }
+
+      do {
+        let (fresh, delegate) = try await makeStream(
+          output: output, queue: queue, generation: generation)
+        try await fresh.startCapture()
+
+        // O `stop` pode ter chegado durante a subida: a captura nova não
+        // pode sobreviver à gravação.
+        guard generation == micGeneration, stream === old else {
+          try? await fresh.stopCapture()
+          return
+        }
+
+        stream = fresh
+        self.delegate = delegate
+        streamFailure = nil
+        return
+      } catch {
+        // Erro de uma gravação que já acabou — o vigia cancelado no meio da
+        // subida — não é falha desta, nem da próxima.
+        guard generation == micGeneration else { return }
+        streamFailure = error.localizedDescription
+      }
+    }
+  }
+
+  /// O vigia da gravação: religa a faixa que parou de receber áudio.
+  ///
+  /// Os avisos do sistema — troca de formato, troca de saída, a captura que
+  /// caiu — são o caminho rápido, mas não são todos os caminhos: o motor do
+  /// microfone pode parar sem avisar, e um religamento pode ter desistido. O
+  /// vigia pergunta uma vez por segundo há quanto tempo cada faixa não recebe
+  /// nada. O microfone entrega blocos o tempo todo, mesmo em silêncio: dois
+  /// segundos sem bloco é motor parado. A captura do computador ganha mais
+  /// folga, porque ela pode não entregar nada enquanto nada toca.
+  ///
+  /// **Cada religamento que não resolve dobra a espera do próximo**, até um
+  /// teto, e a espera volta ao começo quando a faixa volta a receber áudio.
+  /// Sem isso, um Mac sem microfone religaria o motor a cada poucos segundos
+  /// a reunião inteira — e uma entrada Bluetooth religada a cada segundo
+  /// mexeria no fone a cada segundo, que é o som da reunião de todo mundo. A
+  /// conta do microfone também começa no religamento, e não no último bloco
+  /// de antes dele: o motor novo pode levar um instante para entregar o
+  /// primeiro, e derrubá-lo nesse instante era um laço.
+  private func watch(generation: Int) async {
+    var micWait: TimeInterval = 2
+    var systemWait: TimeInterval = 20
+
+    while generation == micGeneration {
+      try? await Task.sleep(for: .seconds(1))
+      guard generation == micGeneration, stream != nil, let output = output else { continue }
+
+      let silence = output.silence()
+
+      if silence.mic < 1 { micWait = 2 }
+      let micQuiet = min(silence.mic, Date().timeIntervalSince(micRestartedAt))
+      if micQuiet > micWait, !isRestartingMicrophone {
+        await restartMicrophone(generation: generation)
+        micWait = min(micWait * 2, 60)
+      }
+
+      if silence.system < 1 { systemWait = 20 }
+      if silence.system > 5, !isRestartingStream,
+        Date().timeIntervalSince(streamRestartedAt) > systemWait
+      {
+        await restartStream(generation: generation)
+        systemWait = min(systemWait * 2, 300)
+      }
+    }
+  }
+
+  /// Quando o microfone foi religado pela última vez — ver [watch].
+  private var micRestartedAt = Date.distantPast
 
   /// Chamado **antes de qualquer `await`** do `stop` e do `cancel` — ver
   /// [micGeneration].
@@ -569,11 +816,15 @@ actor EchoRecorder {
     micGeneration += 1
 
     // O observador sai em seguida: parar o motor não pode virar um pedido para
-    // religá-lo.
+    // religá-lo. O vigia e o aviso de troca de saída, pelo mesmo motivo.
     if let observer = micObserver {
       NotificationCenter.default.removeObserver(observer)
       micObserver = nil
     }
+    watchTask?.cancel()
+    watchTask = nil
+    outputWatcher?.stop()
+    outputWatcher = nil
 
     // Tirar o tap antes de parar: com ele instalado, um último bloco pode
     // chegar depois de os arquivos terem sido fechados. Fora de um
@@ -647,33 +898,9 @@ actor EchoRecorder {
       for: EchoSpeech.transcriber(locale: resolved, live: false))
 
     do {
-      let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-      guard let display = content.displays.first else {
-        result(FlutterError(code: "no_display", message: "Nenhuma tela disponível para capturar áudio.", details: nil))
-        return
-      }
-
       let stamp = Int(Date().timeIntervalSince1970 * 1000)
       let micURL = Self.audioDirectory.appendingPathComponent("\(stamp)-mic.caf")
       let systemURL = Self.audioDirectory.appendingPathComponent("\(stamp)-sistema.caf")
-
-      let configuration = SCStreamConfiguration()
-      configuration.capturesAudio = true
-      configuration.excludesCurrentProcessAudio = true
-      // O microfone **não** vem por aqui — ver [startMicrophone]. Sem fixar taxa
-      // nem número de canais: cada bloco é convertido para `recordingFormat` a
-      // partir do formato que ele mesmo declara, então impor 48 kHz estéreo
-      // aqui não economiza nada e só restringe o que o sistema pode entregar.
-      // O vídeo não interessa, mas a SCStream exige um filtro de tela. Dois
-      // pixels a um quadro por segundo é o mais perto de "nada" que dá para
-      // pedir sem abrir mão do áudio.
-      configuration.width = 2
-      configuration.height = 2
-      configuration.minimumFrameInterval = CMTime(value: 1, timescale: 1)
-
-      let filter = SCContentFilter(display: display, excludingWindows: [])
-      let delegate = EchoStreamDelegate()
-      let stream = SCStream(filter: filter, configuration: configuration, delegate: delegate)
 
       let queue = DispatchQueue(label: "com.alencardev.evergreen.echo.audio")
       let output = EchoStreamOutput(
@@ -684,8 +911,15 @@ actor EchoRecorder {
           locale: resolved, vocabulary: vocabulary, channel: channel)
       }
 
-      try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: queue)
+      let generation = micGeneration
+      streamFailure = nil
+      micRestartedAt = .distantPast
+      let (stream, delegate) = try await makeStream(
+        output: output, queue: queue, generation: generation)
 
+      // O zero das faixas é agora, e não quando a saída nasceu: o preparo do
+      // transcritor ao vivo e a busca da tela não são tempo de gravação.
+      output.markOrigin()
       try await stream.startCapture()
 
       // Depois da captura de tela, e nunca no lugar dela: se o microfone não
@@ -704,9 +938,15 @@ actor EchoRecorder {
       self.stream = stream
       self.output = output
       self.delegate = delegate
+      self.audioQueue = queue
       self.micURL = micURL
       self.systemURL = systemURL
       self.startedAt = Date()
+
+      outputWatcher = EchoOutputDeviceWatcher { [weak self] in
+        Task { await self?.outputChanged(generation: generation) }
+      }
+      watchTask = Task { [weak self] in await self?.watch(generation: generation) }
 
       result(["startedAt": Int(Date().timeIntervalSince1970 * 1000)])
     } catch {
@@ -759,7 +999,8 @@ actor EchoRecorder {
     // `stop` que abre a porta para um religamento atrasado — ver
     // [micGeneration].
     stopMicrophone()
-    try? await stream.stopCapture()
+    try? await self.stream?.stopCapture()
+    if self.stream !== stream { try? await stream.stopCapture() }
     await output?.finish()
 
     // A duração é o tempo **gravado**, e não o tempo de relógio: o que passou
@@ -777,6 +1018,30 @@ actor EchoRecorder {
     let micFrames = output?.micFrames ?? 0
     let systemFrames = output?.systemFrames ?? 0
 
+    // O eco da caixa sai da faixa do microfone antes de qualquer um ler o
+    // arquivo — a transcrição e o áudio guardado. Fora do ator, porque são
+    // segundos de conta; e uma falha deixa a faixa como estava: o eco é um
+    // defeito, a reunião sem a sua faixa seria uma perda.
+    //
+    // `echoFound` diz ao Dart se havia eco: `false` é a resposta medida de
+    // que não havia (fone), e aí o filtro de texto nem roda; `nil` é "não deu
+    // para saber", e o filtro segue de rede.
+    var echoReport: String?
+    var echoFound: Bool?
+    if micFrames > 0, systemFrames > 0, let micURL = micURL, let systemURL = systemURL {
+      (echoReport, echoFound) = await Task.detached(priority: .userInitiated) {
+        () -> (String, Bool?) in
+        do {
+          let report = try EchoCanceller.clean(micURL: micURL, referenceURL: systemURL)
+          return (report.description, report.applied)
+        } catch {
+          return ("falhou", nil)
+        }
+      }.value
+    }
+
+    let streamError: String? = delegate?.error ?? streamFailure
+
     let payload: [String: Any] = [
       "micPath": (micFrames > 0 ? micURL?.path : nil) as Any,
       "systemPath": (systemFrames > 0 ? systemURL?.path : nil) as Any,
@@ -787,8 +1052,10 @@ actor EchoRecorder {
       "systemFrames": systemFrames,
       "micPeak": output?.micPeak ?? 0,
       "systemPeak": output?.systemPeak ?? 0,
-      "streamError": delegate?.error as Any,
+      "streamError": streamError as Any,
       "micError": micError as Any,
+      "echoCancellation": echoReport as Any,
+      "echoFound": echoFound as Any,
     ]
 
     reset()
@@ -800,6 +1067,7 @@ actor EchoRecorder {
     if let stream = stream {
       stopMicrophone()
       try? await stream.stopCapture()
+      if let current = self.stream, current !== stream { try? await current.stopCapture() }
       await output?.finish()
     }
 
@@ -815,6 +1083,9 @@ actor EchoRecorder {
     stream = nil
     output = nil
     delegate = nil
+    audioQueue = nil
+    streamFailure = nil
+    streamRestartedAt = .distantPast
     micError = nil
     startedAt = nil
     pausedAt = nil
@@ -918,8 +1189,27 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   /// A bandeira é lida a cada bloco, de dentro dessa fila; escrevê-la da main
   /// thread seria uma corrida silenciosa com a thread de áudio.
   func setPaused(_ value: Bool) {
-    queue.async { [weak self] in self?.isPaused = value }
+    let now = mach_absolute_time()
+    queue.async { [weak self] in
+      guard let self = self, self.isPaused != value else { return }
+      self.isPaused = value
+
+      // O tempo pausado não é buraco: ele é descontado das duas faixas. Os
+      // relógios param na pausa e, na volta, andam o tanto que ela durou —
+      // assim uma faixa que já estava calada antes da pausa (a do computador,
+      // sem ninguém falando) continua com o buraco dela, e só ele.
+      if value {
+        self.pausedAt = now
+      } else if let pausedAt = self.pausedAt {
+        let paused = now > pausedAt ? now - pausedAt : 0
+        self.micClockEnd += paused
+        self.systemClockEnd += paused
+        self.pausedAt = nil
+      }
+    }
   }
+
+  private var pausedAt: UInt64?
 
   /// A gravação está pausada: os blocos continuam chegando e são **jogados
   /// fora**.
@@ -1010,23 +1300,62 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
 
   private var isFinished = false
 
-  /// Onde, no relógio do sistema, terminou o último bloco do microfone.
+  /// O zero das duas faixas, no relógio do sistema: o instante em que a
+  /// gravação foi montada.
   ///
-  /// É o que mede o buraco de quando o microfone é religado no meio da reunião
-  /// — ver [writeMicSilence].
-  private var micClockEnd: UInt64?
+  /// Cada faixa começava no primeiro bloco dela, e as duas não chegam juntas —
+  /// a do microfone sobe depois da captura do computador. Medido numa reunião
+  /// de verdade: a sua faixa saía 120 ms adiantada, e o eco da caixa aparecia
+  /// na transcrição *antes* da fala que o causou. Com o mesmo zero, o primeiro
+  /// bloco de cada uma é precedido do silêncio que faltou.
+  private var origin = mach_absolute_time()
 
-  /// Preenche com silêncio o tempo em que o microfone não entregou nada.
+  /// Põe o zero das faixas neste instante — chamado antes de a captura
+  /// começar, quando nenhum bloco chegou ainda.
+  func markOrigin() {
+    let now = mach_absolute_time()
+    queue.sync { origin = now }
+  }
+
+  /// Onde, no relógio do sistema, terminou o último bloco de cada faixa.
   ///
-  /// A faixa do microfone é escrita contígua, e a do sistema seguiu gravando
-  /// enquanto o motor era religado (uns 400 ms, mais meio segundo por tentativa
-  /// que falhe). Sem o silêncio, tudo o que a pessoa disse depois da troca
-  /// ficava adiantado em relação à reunião — no áudio guardado, que mistura as
-  /// duas faixas amostra a amostra, a resposta saía antes da pergunta, e a
-  /// ordem das falas e o grifo palavra por palavra andavam junto. Cada troca
-  /// somava mais um deslize.
-  private func writeMicSilence(seconds: Double) {
-    guard let file = micFile else { return }
+  /// É o que mede um buraco — o microfone religado, a captura do computador
+  /// religada, o computador que não entrega nada enquanto nada toca — e o
+  /// buraco vira silêncio ([writeSilence]).
+  private lazy var micClockEnd = origin
+  private lazy var systemClockEnd = origin
+
+  /// Quando chegou o último bloco de cada faixa, para o vigia do gravador —
+  /// ver [EchoRecorder.watch].
+  private var micArrival: UInt64 = 0
+  private var systemArrival: UInt64 = 0
+
+  /// Há quantos segundos cada faixa não recebe bloco nenhum.
+  ///
+  /// Conta desde a montagem enquanto a faixa nunca recebeu nada. Lido na fila
+  /// do áudio, que é onde os dois relógios são escritos.
+  func silence() -> (mic: Double, system: Double) {
+    queue.sync {
+      let now = mach_absolute_time()
+      func since(_ arrival: UInt64) -> Double {
+        let last = arrival == 0 ? origin : arrival
+        return now > last ? AVAudioTime.seconds(forHostTime: now - last) : 0
+      }
+      return (since(micArrival), since(systemArrival))
+    }
+  }
+
+  /// Preenche com silêncio o tempo em que uma faixa não entregou nada.
+  ///
+  /// As faixas são escritas contíguas, e a outra seguiu gravando enquanto
+  /// esta estava parada. Sem o silêncio, tudo o que veio depois do buraco
+  /// ficava adiantado — no áudio guardado, que mistura as duas amostra a
+  /// amostra, a resposta saía antes da pergunta, e a ordem das falas e o grifo
+  /// palavra por palavra andavam junto. Cada buraco somava mais um deslize. Na
+  /// do computador ele existia sem ninguém ver: nada religava essa faixa, e
+  /// ela não tinha relógio.
+  private func writeSilence(seconds: Double, isMicrophone: Bool) {
+    guard let file = isMicrophone ? micFile : systemFile else { return }
 
     let chunk = AVAudioFrameCount(recordingFormat.sampleRate)
     guard chunk > 0,
@@ -1038,13 +1367,17 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
       if let data = buffer.mData { memset(data, 0, Int(buffer.mDataByteSize)) }
     }
 
-    // Uma hora é o teto: além disso o relógio é que está errado, não o áudio.
-    var remaining = AVAudioFrameCount(min(seconds, 3_600) * recordingFormat.sampleRate)
+    // Duas horas é o teto: além disso o relógio é que está errado, não o áudio.
+    var remaining = AVAudioFrameCount(min(seconds, 7_200) * recordingFormat.sampleRate)
 
     while remaining > 0 {
       silence.frameLength = min(chunk, remaining)
       guard (try? file.write(from: silence)) != nil else { return }
-      micFrames += Int64(silence.frameLength)
+      if isMicrophone {
+        micFrames += Int64(silence.frameLength)
+      } else {
+        systemFrames += Int64(silence.frameLength)
+      }
       remaining -= silence.frameLength
     }
   }
@@ -1053,7 +1386,7 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
     guard type == .audio else { return }
     guard let buffer = Self.pcmBuffer(from: sampleBuffer) else { return }
 
-    write(buffer, isMicrophone: false)
+    write(buffer, isMicrophone: false, hostTime: hostTime(of: sampleBuffer))
   }
 
   /// Recebe um bloco do microfone, vindo da thread de áudio do `AVAudioEngine`.
@@ -1063,37 +1396,68 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
   /// um ponteiro para memória que o motor já reescreveu.
   ///
   /// O `when` é o relógio do bloco, e é com ele que o buraco de um religamento
-  /// vira silêncio — ver [writeMicSilence].
+  /// vira silêncio — ver [writeSilence].
   func appendMicrophone(_ buffer: AVAudioPCMBuffer, at when: AVAudioTime) {
     guard let copy = Self.copy(buffer) else { return }
     let hostTime = when.isHostTimeValid ? when.hostTime : nil
     queue.async { [weak self] in self?.write(copy, isMicrophone: true, hostTime: hostTime) }
   }
 
+  /// Quando o bloco da `SCStream` começou, no relógio do sistema.
+  ///
+  /// A `SCStream` carimba cada bloco no relógio do sistema. Um carimbo de
+  /// antes da gravação ou do futuro não é desse relógio, e aí vale a hora em
+  /// que o bloco chegou, que é o fim dele. Um carimbo antigo, de um bloco que
+  /// esperou na fila, continua valendo: é ele que diz onde o bloco mora.
+  private func hostTime(of sampleBuffer: CMSampleBuffer) -> UInt64? {
+    let stamp = sampleBuffer.presentationTimeStamp
+    guard stamp.isValid, stamp.isNumeric else { return nil }
+
+    let host = CMClockConvertHostTimeToSystemUnits(stamp)
+    let now = mach_absolute_time()
+    let second = AVAudioTime.hostTime(forSeconds: 1)
+    let earliest = origin > second ? origin - second : 0
+    return host >= earliest && host <= now + second / 2 ? host : nil
+  }
+
   private func write(_ rawBuffer: AVAudioPCMBuffer, isMicrophone: Bool, hostTime: UInt64? = nil) {
     guard !isFinished else { return }
 
-    // O relógio anda também na pausa: o tempo pausado não é buraco, é só
-    // descartado, e não pode virar silêncio na volta.
-    var gap: Double = 0
-    if isMicrophone, let hostTime = hostTime, rawBuffer.format.sampleRate > 0 {
-      if let end = micClockEnd, hostTime > end {
-        gap = AVAudioTime.seconds(forHostTime: hostTime - end)
-      }
-      micClockEnd = hostTime + AVAudioTime.hostTime(
-        forSeconds: Double(rawBuffer.frameLength) / rawBuffer.format.sampleRate)
-    }
+    let now = mach_absolute_time()
+    if isMicrophone { micArrival = now } else { systemArrival = now }
 
     // Pausado, o bloco não é escrito nem transcrito — e o medidor cai a zero
-    // sozinho, porque nada alimenta a janela do próximo aviso.
+    // sozinho, porque nada alimenta a janela do próximo aviso. O relógio da
+    // faixa também fica parado: ver [setPaused].
     if isPaused {
       reportLevels()
       return
     }
 
+    // Onde o bloco começa e onde a faixa estava. Sem carimbo, vale a chegada,
+    // que é o fim do bloco. O fim da faixa anda pelo maior dos dois: blocos
+    // que chegam em rajada não podem parecer buraco uns dos outros.
+    var gap: Double = 0
+    if rawBuffer.format.sampleRate > 0 {
+      let length = AVAudioTime.hostTime(
+        forSeconds: Double(rawBuffer.frameLength) / rawBuffer.format.sampleRate)
+      let start = hostTime ?? (now > length ? now - length : now)
+      let end = isMicrophone ? micClockEnd : systemClockEnd
+
+      if start > end { gap = AVAudioTime.seconds(forHostTime: start - end) }
+
+      let next = max(end, start) + length
+      if isMicrophone { micClockEnd = next } else { systemClockEnd = next }
+    }
+
+    // O arquivo nasce antes do silêncio: o primeiro bloco de cada faixa vem
+    // depois do silêncio que a separa do zero da gravação.
+    if isMicrophone, micFile == nil { micFile = try? makeFile(at: micURL) }
+    if !isMicrophone, systemFile == nil { systemFile = try? makeFile(at: systemURL) }
+
     // Entre um bloco e o seguinte o relógio só pula por arredondamento. Um
-    // pulo maior é o microfone que ficou parado enquanto era religado.
-    if gap > 0.05 { writeMicSilence(seconds: gap) }
+    // pulo maior é a faixa que ficou parada.
+    if gap > 0.05 { writeSilence(seconds: gap, isMicrophone: isMicrophone) }
 
     // A redução para um canal é nossa, não do `AVAudioConverter` — ver [mono].
     //
@@ -1122,9 +1486,6 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
 
     do {
       if isMicrophone {
-        if micFile == nil {
-          micFile = try makeFile(at: micURL)
-        }
         // O conversor é refeito quando o formato muda, e não só no primeiro
         // bloco: o microfone pode ser religado no meio da reunião em outra
         // taxa (um fone Bluetooth entra a 24 kHz), e um conversor montado para
@@ -1140,8 +1501,9 @@ final class EchoStreamOutput: NSObject, SCStreamOutput {
           micSpectrum.append(converted)
         }
       } else {
-        if systemFile == nil {
-          systemFile = try makeFile(at: systemURL)
+        // Refeito quando o formato muda, como o do microfone: a captura do
+        // computador pode ser religada no meio da reunião.
+        if systemConverter?.inputFormat != buffer.format {
           systemConverter = makeConverter(from: buffer.format)
         }
         converted = convert(buffer, with: systemConverter)
@@ -2117,6 +2479,13 @@ final class EchoStreamDelegate: NSObject, SCStreamDelegate, @unchecked Sendable 
   private let lock = NSLock()
   private var stored: String?
 
+  /// Quem religa a captura — ver [EchoRecorder.streamStopped].
+  private let onStop: @Sendable () -> Void
+
+  init(onStop: @escaping @Sendable () -> Void) {
+    self.onStop = onStop
+  }
+
   /// O que derrubou a captura, se alguma coisa derrubou.
   ///
   /// Sob trava porque o `SCStream` avisa de uma thread própria e quem lê é o
@@ -2131,7 +2500,138 @@ final class EchoStreamDelegate: NSObject, SCStreamDelegate, @unchecked Sendable 
     lock.lock()
     stored = error.localizedDescription
     lock.unlock()
+
+    // Parada pela pessoa, no menu do sistema, é escolha: não volta.
+    let nsError = error as NSError
+    if nsError.domain == SCStreamErrorDomain,
+      nsError.code == SCStreamError.Code.userStopped.rawValue
+    {
+      return
+    }
+    onStop()
   }
+}
+
+/// Os dispositivos de som do Mac, pelo Core Audio.
+///
+/// Só leitura: o Echo nunca muda o dispositivo padrão, o formato ou o volume
+/// de nada. Qualquer uma dessas mudanças alcançaria o app da reunião.
+enum EchoAudioDevices {
+  /// O microfone que o Echo grava, quando não deve ser o padrão do sistema.
+  ///
+  /// `nil` é o caso comum: grava o padrão. A exceção é **microfone
+  /// Bluetooth com um embutido à mão**. Conectar um AirPods faz dele a entrada
+  /// padrão, e abrir a entrada de um fone Bluetooth força o fone para o
+  /// perfil de chamada — para o Mac inteiro, inclusive para o som da reunião
+  /// que você está ouvindo, que fica pior e engasga, e cada troca de perfil
+  /// derruba o microfone de novo. O app da reunião pode estar usando outro
+  /// microfone, e aí quem forçava a troca era só o Echo. O embutido ouve a sua
+  /// voz do mesmo jeito, sem mexer no fone; e o que o app da reunião manda de
+  /// você continua sendo o microfone que ele escolheu.
+  ///
+  /// Menos com a tampa fechada: aí o Mac desliga o microfone embutido por
+  /// hardware, e ele continua na lista entregando silêncio — a sua voz sumiria
+  /// da reunião inteira sem nenhum aviso. Com a tampa fechada, vale o padrão.
+  static func recordingInput() -> AudioDeviceID? {
+    guard let current = defaultInput(), isBluetooth(current), !isLidClosed() else { return nil }
+    return devices().first { transport(of: $0) == kAudioDeviceTransportTypeBuiltIn && hasInput($0) }
+  }
+
+  /// A tampa do notebook está fechada. Só leitura do registro do sistema;
+  /// num Mac sem tampa a propriedade não existe, e a resposta é "não".
+  private static func isLidClosed() -> Bool {
+    let root = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+    guard root != 0 else { return false }
+    defer { IOObjectRelease(root) }
+
+    let value = IORegistryEntryCreateCFProperty(
+      root, "AppleClamshellState" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue()
+    return (value as? Bool) ?? false
+  }
+
+  private static func defaultInput() -> AudioDeviceID? {
+    var address = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDefaultInputDevice,
+      mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    var device = AudioDeviceID(0)
+    var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+    let status = AudioObjectGetPropertyData(
+      AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
+    return status == noErr && device != 0 ? device : nil
+  }
+
+  private static func devices() -> [AudioDeviceID] {
+    var address = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDevices,
+      mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    var size: UInt32 = 0
+    let system = AudioObjectID(kAudioObjectSystemObject)
+    guard AudioObjectGetPropertyDataSize(system, &address, 0, nil, &size) == noErr, size > 0
+    else { return [] }
+
+    var devices = [AudioDeviceID](
+      repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+    guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &devices) == noErr
+    else { return [] }
+    return devices
+  }
+
+  private static func transport(of device: AudioDeviceID) -> UInt32? {
+    var address = AudioObjectPropertyAddress(
+      mSelector: kAudioDevicePropertyTransportType,
+      mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    var transport: UInt32 = 0
+    var size = UInt32(MemoryLayout<UInt32>.size)
+    let status = AudioObjectGetPropertyData(device, &address, 0, nil, &size, &transport)
+    return status == noErr ? transport : nil
+  }
+
+  private static func isBluetooth(_ device: AudioDeviceID) -> Bool {
+    let kind = transport(of: device)
+    return kind == kAudioDeviceTransportTypeBluetooth
+      || kind == kAudioDeviceTransportTypeBluetoothLE
+  }
+
+  private static func hasInput(_ device: AudioDeviceID) -> Bool {
+    var address = AudioObjectPropertyAddress(
+      mSelector: kAudioDevicePropertyStreams,
+      mScope: kAudioObjectPropertyScopeInput,
+      mElement: kAudioObjectPropertyElementMain)
+    var size: UInt32 = 0
+    return AudioObjectGetPropertyDataSize(device, &address, 0, nil, &size) == noErr && size > 0
+  }
+}
+
+/// Avisa quando a saída de som padrão do Mac muda — ver
+/// [EchoRecorder.outputChanged].
+///
+/// Só escuta: quem troca a saída é a pessoa, ou o sistema quando um fone
+/// conecta.
+final class EchoOutputDeviceWatcher {
+  private var address = AudioObjectPropertyAddress(
+    mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+    mScope: kAudioObjectPropertyScopeGlobal,
+    mElement: kAudioObjectPropertyElementMain)
+  private var listener: AudioObjectPropertyListenerBlock?
+
+  init(onChange: @escaping @Sendable () -> Void) {
+    let listener: AudioObjectPropertyListenerBlock = { _, _ in onChange() }
+    let status = AudioObjectAddPropertyListenerBlock(
+      AudioObjectID(kAudioObjectSystemObject), &address, DispatchQueue.main, listener)
+    if status == noErr { self.listener = listener }
+  }
+
+  func stop() {
+    guard let listener = listener else { return }
+    AudioObjectRemovePropertyListenerBlock(
+      AudioObjectID(kAudioObjectSystemObject), &address, DispatchQueue.main, listener)
+    self.listener = nil
+  }
+
+  deinit { stop() }
 }
 
 /// O volume da cápsula crua, levado até onde o transcritor ouve bem.

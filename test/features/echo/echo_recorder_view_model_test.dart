@@ -445,6 +445,56 @@ void main() {
       });
     });
 
+    group('o eco no texto', () {
+      // A mesma fala nas duas faixas, ao mesmo tempo.
+      const repetida = [
+        MeetingSegment(
+          speaker: Speaker.others,
+          startMs: 1000,
+          endMs: 3000,
+          text: 'vamos fechar o escopo hoje',
+        ),
+        MeetingSegment(
+          speaker: Speaker.me,
+          startMs: 1050,
+          endMs: 3050,
+          text: 'vamos fechar o escopo hoje',
+        ),
+      ];
+
+      test('sai quando o som não soube dizer', () async {
+        channel.segments = repetida;
+
+        await viewModel().start();
+        await viewModel().stopAndTranscribe();
+
+        expect(
+          state().lastMeeting!.segments.map((segment) => segment.speaker),
+          [Speaker.others],
+        );
+      });
+
+      test('fica quando o som mediu que não havia eco', () async {
+        // De fone: o que coincide é conversa, e não caixa de som.
+        channel
+          ..segments = repetida
+          ..stopped = const RecordingFiles(
+            micPath: '/tmp/mic.caf',
+            systemPath: '/tmp/sistema.caf',
+            durationMs: 90000,
+            echoFound: false,
+          );
+
+        await viewModel().start();
+        await viewModel().stopAndTranscribe();
+
+        expect(
+          state().lastMeeting!.segments.map((segment) => segment.speaker),
+          [Speaker.others, Speaker.me],
+        );
+      });
+    });
+
     test('sem fala do outro lado, nem pergunta', () async {
       channel.segments = const [
         MeetingSegment(
