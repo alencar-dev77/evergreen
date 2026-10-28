@@ -29,6 +29,7 @@
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		A1E0C40012B4E0A100EC4001 /* EchoChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */; };
+		A1E0C40012B4E0A100EC4021 /* EchoCanceller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4022 /* EchoCanceller.swift */; };
 		A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4004 /* NestChannel.swift */; };
 		A1E0C40012B4E0A100EC4007 /* NestDragMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */; };
 		A1E0C40012B4E0A100EC4009 /* NotificationChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */; };
@@ -91,6 +92,7 @@
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoChannel.swift; sourceTree = "<group>"; };
+		A1E0C40012B4E0A100EC4022 /* EchoCanceller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoCanceller.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4004 /* NestChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NestDragMonitor.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationChannel.swift; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				A1E0C40012B4E0A100EC4002 /* EchoChannel.swift */,
+				A1E0C40012B4E0A100EC4022 /* EchoCanceller.swift */,
 				A1E0C40012B4E0A100EC4004 /* NestChannel.swift */,
 				A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */,
 				A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */,
@@ -380,6 +383,7 @@
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				A1E0C40012B4E0A100EC4001 /* EchoChannel.swift in Sources */,
+				A1E0C40012B4E0A100EC4021 /* EchoCanceller.swift in Sources */,
 				A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */,
 				A1E0C40012B4E0A100EC4007 /* NestDragMonitor.swift in Sources */,
 				A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */,

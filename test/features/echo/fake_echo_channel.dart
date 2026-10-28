@@ -139,12 +139,16 @@ class FakeEchoChannel implements EchoChannel {
     startedWithVocabulary = vocabulary;
   }
 
-  @override
-  Future<RecordingFiles> stopRecording() async => const RecordingFiles(
+  /// O que o `stop` devolve — o teste troca para dizer, por exemplo, que o
+  /// cancelamento de eco não achou eco.
+  RecordingFiles stopped = const RecordingFiles(
     micPath: '/tmp/mic.caf',
     systemPath: '/tmp/sistema.caf',
     durationMs: 90000,
   );
+
+  @override
+  Future<RecordingFiles> stopRecording() async => stopped;
 
   @override
   Future<void> cancelRecording() async => didCancel = true;

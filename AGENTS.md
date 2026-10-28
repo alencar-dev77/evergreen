@@ -192,7 +192,18 @@ lista de módulos sonhados) está em
   de formato no meio da reunião (o app da chamada ligando o processamento dele
   basta); o `EchoRecorder` o religa num motor novo, só se a gravação ainda for a
   mesma (`micGeneration`), e o buraco do religamento vira silêncio na faixa —
-  senão a sua voz se adianta em relação à reunião. Ver
+  senão a sua voz se adianta em relação à reunião. **As duas faixas contam do
+  mesmo zero** e as duas preenchem buraco pelo relógio de cada bloco; a captura
+  do computador é religada quando a saída de som muda ou a `SCStream` cai, e um
+  vigia (`EchoRecorder.watch`) religa a faixa que passar segundos sem bloco —
+  foi assim que uma troca para o fone deixou meia hora muda. **Microfone
+  Bluetooth não é aberto quando há um embutido** (`EchoAudioDevices`): abrir a
+  entrada do AirPods força o fone para o perfil de chamada para o Mac inteiro, e
+  o som da reunião engasga. **O eco da caixa sai no som, depois da reunião**: o
+  `EchoCanceller` limpa a faixa do microfone no `stop`, usando a do computador
+  como referência — atraso numa reta (relógios de aparelhos diferentes
+  derivam), e cada quadro de 16 ms ou desce ao fundo da sala ou passa intacto.
+  Nunca toca no microfone ao vivo; o `CrossTalkFilter` ficou de rede. Ver
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
   texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro
@@ -414,6 +425,19 @@ lista de módulos sonhados) está em
   escala, e degrau que falta entra na `EgTypeScale` com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
+- **Botão não dispara duas vezes, e quem decide o spinner é a ação.** O
+  `EgButton` e o `EgIconButton` passam pela `EgPressGuard`: a ação que devolve
+  um `Future` segura o botão até terminar e, se passar de 150 ms, troca o
+  rótulo pelo spinner; e nenhuma solta o botão antes de 300 ms
+  (`AppDurations.pressGuard`), a janela do duplo clique. Por isso o `onPressed`
+  **devolve** o `Future` (`onPressed: viewModel.reveal`), nunca o descarta com
+  `unawaited` — descartado, o botão não sabe quando a ação acabou. Duas
+  exceções, as duas porque esperar a resposta não é trabalho: com um diálogo
+  do app por cima não há spinner, e o pedido de permissão do sistema (que não
+  é rota do Flutter) é descartado de propósito pela `EchoPermissionRow`. Botão
+  feito para cliques seguidos (pular 10 s, a semana anterior, o "Outro" do
+  CPF) passa `repeatable: true` e dispensa a janela. Trabalhando, o botão
+  continua focável e com o rótulo lido pelo leitor de tela.
 - **A marca do Evergreen é um desenho só**, o canivete de
   `lib/shared/widgets/eg_brand_mark.dart`. A abertura do Hub, o ícone do
   aplicativo, o da barra de menus e o glifo da barra lateral saem todos dele —

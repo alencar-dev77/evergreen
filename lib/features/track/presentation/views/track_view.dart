@@ -230,6 +230,7 @@ class _WeekStepper extends StatelessWidget {
           size: AppBadgeSizes.sm,
           iconSize: AppIconSizes.sm,
           onPressed: onPrevious,
+          repeatable: true,
         ),
         // Largura fixa: "Esta semana" e "29 set – 5 out" têm tamanhos
         // diferentes, e as setas não podem fugir do cursor a cada clique.
@@ -247,6 +248,7 @@ class _WeekStepper extends StatelessWidget {
           size: AppBadgeSizes.sm,
           iconSize: AppIconSizes.sm,
           onPressed: onNext,
+          repeatable: true,
         ),
       ],
     );
