@@ -1,4 +1,9 @@
+import 'dart:async';
+
+import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:evergreen/shared/widgets/eg_button.dart';
+import 'package:evergreen/shared/widgets/eg_icon.dart';
+import 'package:evergreen/shared/widgets/eg_press_guard.dart';
 import 'package:evergreen/shared/widgets/eg_spinner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -93,5 +98,235 @@ void main() {
         .toList();
 
     expect(ocupado, contains(1.0));
+  });
+
+  /// A guarda contra o segundo disparo — o "Fazer backup" que, clicado duas
+  /// vezes, fazia dois backups.
+  group('duplo clique', () {
+    Future<void> pump(WidgetTester tester, Widget button) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: Center(child: button)),
+        ),
+      );
+    }
+
+    testWidgets('a ação na hora não dispara duas vezes seguidas', (
+      tester,
+    ) async {
+      var taps = 0;
+      await pump(tester, EgButton(label: 'Copiar', onPressed: () => taps++));
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pump();
+      await tester.tap(find.byType(EgButton));
+      await tester.pump();
+
+      expect(taps, 1);
+      expect(find.byType(EgSpinner), findsNothing);
+    });
+
+    testWidgets('passada a janela do duplo clique, o botão volta', (
+      tester,
+    ) async {
+      var taps = 0;
+      await pump(tester, EgButton(label: 'Copiar', onPressed: () => taps++));
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pump(AppDurations.pressGuard);
+      await tester.tap(find.byType(EgButton));
+      await tester.pump();
+
+      expect(taps, 2);
+    });
+
+    testWidgets('a ação que demora mostra o spinner e segura o toque', (
+      tester,
+    ) async {
+      var taps = 0;
+      final work = Completer<void>();
+      await pump(
+        tester,
+        EgButton(
+          label: 'Fazer backup',
+          onPressed: () {
+            taps++;
+            return work.future;
+          },
+        ),
+      );
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pump(AppDurations.pressFeedback);
+      expect(find.byType(EgSpinner), findsOneWidget);
+
+      // Muito depois da janela do duplo clique: enquanto a ação não acaba, o
+      // segundo toque não passa.
+      await tester.pump(const Duration(seconds: 2));
+      await tester.tap(find.byType(EgButton));
+      await tester.pump();
+      expect(taps, 1);
+
+      work.complete();
+      await tester.pump();
+      expect(find.byType(EgSpinner), findsNothing);
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pump();
+      expect(taps, 2);
+
+      // A segunda ação continua pendente; o teste a encerra para não deixar
+      // o relógio do spinner de pé.
+      await tester.pump(AppDurations.pressFeedback);
+    });
+
+    testWidgets(
+      'a ação async que termina rápido também segura o duplo clique',
+      (tester) async {
+        // O "Desligar" do Awake: o canal responde em milissegundos, e o segundo
+        // clique religava a trava.
+        var taps = 0;
+        await pump(
+          tester,
+          EgButton(label: 'Desligar', onPressed: () async => taps++),
+        );
+
+        await tester.tap(find.byType(EgButton));
+        await tester.pump();
+        await tester.tap(find.byType(EgButton));
+        await tester.pump();
+        expect(taps, 1);
+
+        await tester.pump(AppDurations.pressGuard);
+        await tester.tap(find.byType(EgButton));
+        await tester.pump();
+        expect(taps, 2);
+        await tester.pump(AppDurations.pressGuard);
+      },
+    );
+
+    testWidgets('o botão de repetição aceita cliques seguidos', (tester) async {
+      var taps = 0;
+      await pump(
+        tester,
+        EgIconButton(
+          icon: EgIconData.chevronLeft,
+          tooltip: 'Voltar 10 s',
+          repeatable: true,
+          onPressed: () => taps++,
+        ),
+      );
+
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byType(EgIconButton));
+        await tester.pump();
+      }
+
+      expect(taps, 3);
+    });
+
+    testWidgets('trabalhando, o botão continua habilitado para o teclado', (
+      tester,
+    ) async {
+      final work = Completer<void>();
+      final handle = tester.ensureSemantics();
+      await pump(
+        tester,
+        EgButton(label: 'Fazer backup', onPressed: () => work.future),
+      );
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pump(AppDurations.pressFeedback);
+      expect(find.byType(EgSpinner), findsOneWidget);
+
+      // Ocupado não é indisponível: quem apertou Enter não perde o botão.
+      expect(
+        tester.getSemantics(find.byType(EgButton)),
+        matchesSemantics(
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+          label: 'Fazer backup',
+        ),
+      );
+
+      work.complete();
+      await tester.pump(AppDurations.pressGuard);
+      handle.dispose();
+    });
+
+    testWidgets('a ação rápida não pisca o spinner', (tester) async {
+      await pump(
+        tester,
+        EgButton(label: 'Mostrar no Finder', onPressed: () async {}),
+      );
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pump();
+      await tester.pump(AppDurations.pressFeedback);
+
+      expect(find.byType(EgSpinner), findsNothing);
+    });
+
+    testWidgets('esperando a resposta de um diálogo não há spinner', (
+      tester,
+    ) async {
+      // "Apagar tudo?" devolve um Future que só termina na resposta: a espera
+      // é da pessoa, e não do app.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Center(
+                child: EgButton(
+                  label: 'Apagar tudo',
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => const Text('Apagar tudo?'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(EgButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Apagar tudo?'), findsOneWidget);
+      expect(find.byType(EgSpinner), findsNothing);
+    });
+
+    testWidgets('o botão de ícone troca o ícone pelo spinner', (tester) async {
+      final work = Completer<void>();
+      await pump(
+        tester,
+        EgIconButton(
+          icon: EgIconData.close,
+          tooltip: 'Copiar',
+          onPressed: () => work.future,
+        ),
+      );
+
+      await tester.tap(find.byType(EgIconButton));
+      await tester.pump(AppDurations.pressFeedback);
+      expect(find.byType(EgSpinner), findsOneWidget);
+      expect(find.byType(EgIcon), findsNothing);
+
+      work.complete();
+      await tester.pump();
+      expect(find.byType(EgSpinner), findsNothing);
+    });
+
+    test('função sem retorno também serve', () {
+      // Quem chama não precisa mudar: `void Function()` continua aceito.
+      void action() {}
+      final EgPressCallback callback = action;
+      expect(callback(), isNull);
+    });
   });
 }

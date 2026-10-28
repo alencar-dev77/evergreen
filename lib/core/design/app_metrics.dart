@@ -119,6 +119,19 @@ abstract final class AppDurations {
   /// quique de app consumer que o resto da escala existe para evitar.
   static const settle = Duration(milliseconds: 60);
 
+  /// Quanto tempo um botão ignora o segundo clique depois de uma ação que
+  /// termina na hora.
+  ///
+  /// É a janela do duplo clique: abaixo do intervalo do macOS, que a mão usa
+  /// sem querer, e acima de um clique repetido de propósito — quem aperta
+  /// "+5 min" três vezes seguidas não espera 300 ms entre um e outro.
+  static const pressGuard = Duration(milliseconds: 300);
+
+  /// Quanto uma ação que demora espera antes de trocar o rótulo do botão pelo
+  /// spinner. Abaixo disso a troca seria um piscar: a ação já acabou quando o
+  /// olho chega.
+  static const pressFeedback = Duration(milliseconds: 150);
+
   static const curve = Curves.easeOutCubic;
 
   /// Se o macOS pede para reduzir movimento (Ajustes → Acessibilidade →

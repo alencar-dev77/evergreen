@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:evergreen/shared/widgets/eg_confirm_dialog.dart';
+import 'package:evergreen/core/design/app_metrics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../pin/fake_clipboard_repository.dart';
@@ -493,6 +494,10 @@ void main() {
       await tester.tap(find.byTooltip('Tocar (espaço)'));
       await tester.pump();
       expect(player.isPlaying, isTrue);
+
+      // Passada a janela do duplo clique: dentro dela, o botão ignora o
+      // segundo toque de propósito.
+      await tester.pump(AppDurations.pressGuard);
 
       await tester.tap(find.byTooltip('Pausar (espaço)'));
       await tester.pumpAndSettle();

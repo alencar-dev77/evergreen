@@ -425,6 +425,19 @@ lista de módulos sonhados) está em
   escala, e degrau que falta entra na `EgTypeScale` com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
+- **Botão não dispara duas vezes, e quem decide o spinner é a ação.** O
+  `EgButton` e o `EgIconButton` passam pela `EgPressGuard`: a ação que devolve
+  um `Future` segura o botão até terminar e, se passar de 150 ms, troca o
+  rótulo pelo spinner; e nenhuma solta o botão antes de 300 ms
+  (`AppDurations.pressGuard`), a janela do duplo clique. Por isso o `onPressed`
+  **devolve** o `Future` (`onPressed: viewModel.reveal`), nunca o descarta com
+  `unawaited` — descartado, o botão não sabe quando a ação acabou. Duas
+  exceções, as duas porque esperar a resposta não é trabalho: com um diálogo
+  do app por cima não há spinner, e o pedido de permissão do sistema (que não
+  é rota do Flutter) é descartado de propósito pela `EchoPermissionRow`. Botão
+  feito para cliques seguidos (pular 10 s, a semana anterior, o "Outro" do
+  CPF) passa `repeatable: true` e dispensa a janela. Trabalhando, o botão
+  continua focável e com o rótulo lido pelo leitor de tela.
 - **A marca do Evergreen é um desenho só**, o canivete de
   `lib/shared/widgets/eg_brand_mark.dart`. A abertura do Hub, o ícone do
   aplicativo, o da barra de menus e o glifo da barra lateral saem todos dele —
