@@ -91,7 +91,7 @@ class LocalModelSection extends ConsumerWidget {
           trailing: EgButton.secondary(
             label: 'Ligar',
             isLoading: status.isStarting,
-            onPressed: () => unawaited(viewModel.startServer()),
+            onPressed: viewModel.startServer,
           ),
         ),
       ],

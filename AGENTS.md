@@ -425,6 +425,15 @@ lista de módulos sonhados) está em
   escala, e degrau que falta entra na `EgTypeScale` com nome.
 - Componentes compartilhados usam prefixo `Eg` em `lib/shared/widgets/`.
   Ícones são paths customizados (`EgIcon`), não Material Icons.
+- **Botão não dispara duas vezes, e quem decide o spinner é a ação.** O
+  `EgButton` e o `EgIconButton` passam pela `EgPressGuard`: a ação que devolve
+  um `Future` segura o botão até terminar e, se passar de 150 ms, troca o
+  rótulo pelo spinner; a que termina na hora ignora o clique seguinte por
+  300 ms (`AppDurations.pressGuard`). Por isso o `onPressed` **devolve** o
+  `Future` (`onPressed: viewModel.reveal`), nunca o descarta com `unawaited` —
+  descartado, o botão não sabe quando a ação acabou. A exceção é a ação que
+  abre uma pergunta: enquanto o diálogo está por cima, não há spinner, porque
+  esperar a resposta não é trabalho.
 - **A marca do Evergreen é um desenho só**, o canivete de
   `lib/shared/widgets/eg_brand_mark.dart`. A abertura do Hub, o ícone do
   aplicativo, o da barra de menus e o glifo da barra lateral saem todos dele —

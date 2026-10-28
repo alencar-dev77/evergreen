@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/design/app_metrics.dart';
 import 'eg_icon.dart';
+import 'eg_press_guard.dart';
 import 'eg_spinner.dart';
 import 'eg_surface.dart';
 import '../../core/design/eg_tokens.dart';
@@ -52,7 +53,12 @@ enum EgButtonVariant {
 /// pixel ao trocar o rótulo pelo spinner — e um botão que muda de tamanho ao
 /// ser apertado empurra o que está ao lado justamente no instante em que a
 /// pessoa olha para ele.
-class EgButton extends StatelessWidget {
+///
+/// **E não dispara duas vezes**: a [EgPressGuard] segura o segundo clique, e
+/// mostra o spinner sozinha quando a ação devolve um `Future` que demora —
+/// quem chama só precisa devolvê-lo (`onPressed: viewModel.reveal`, e não
+/// `() => unawaited(viewModel.reveal())`).
+class EgButton extends StatefulWidget {
   const EgButton({
     super.key,
     required this.label,
@@ -103,7 +109,7 @@ class EgButton extends StatelessWidget {
   }) : variant = EgButtonVariant.destructive;
 
   final String label;
-  final VoidCallback? onPressed;
+  final EgPressCallback? onPressed;
   final EgButtonVariant variant;
   final EgIconData? icon;
 
@@ -114,6 +120,10 @@ class EgButton extends StatelessWidget {
   final bool autofocus;
 
   /// O botão está executando a própria ação.
+  ///
+  /// Para a ação que o próprio botão disparou, quem liga isto é a
+  /// [EgPressGuard]; este sinalizador é para o trabalho que o botão vê de
+  /// fora — o resumo que continua depois de a tela ser reaberta.
   ///
   /// O rótulo dá lugar a um spinner **sem o botão mudar de tamanho** — o
   /// rótulo continua ocupando o lugar dele, invisível, porque um botão que
@@ -143,19 +153,40 @@ class EgButton extends StatelessWidget {
   /// tornaria mais alto que a seção que o contém.
   final bool compact;
 
+  /// A altura do botão que mora dentro de um cartão.
+  static const _compactHeight = 26.0;
+
+  @override
+  State<EgButton> createState() => _EgButtonState();
+}
+
+class _EgButtonState extends State<EgButton> with EgPressGuard {
+  String get label => widget.label;
+  EgPressCallback? get onPressed => widget.onPressed;
+  EgButtonVariant get variant => widget.variant;
+  EgIconData? get icon => widget.icon;
+  bool get expand => widget.expand;
+  bool get autofocus => widget.autofocus;
+  bool get isLoading => widget.isLoading || isWorking;
+  String? get keycap => widget.keycap;
+  bool get compact => widget.compact;
+
   @override
   Widget build(BuildContext context) {
     // Só o desabilitado de verdade esmaece; carregando, o botão segue inteiro.
     final isDisabled = onPressed == null;
     final style = variant.styleOf(context);
+    final action = onPressed;
 
     final button = EgInteractiveSurface(
-      onTap: isLoading ? null : onPressed,
+      onTap: isLoading || action == null ? null : () => guardedPress(action),
       style: style,
       borderRadius: compact
           ? context.eg.shapes.segmentAll
           : context.eg.shapes.controlAll,
-      height: compact ? _compactHeight : context.eg.shapes.controlHeight,
+      height: compact
+          ? EgButton._compactHeight
+          : context.eg.shapes.controlHeight,
       padding: EdgeInsets.symmetric(
         horizontal: compact ? AppSpacing.md : AppSpacing.lg,
       ),
@@ -220,13 +251,13 @@ class EgButton extends StatelessWidget {
       ],
     ],
   );
-
-  /// A altura do botão que mora dentro de um cartão.
-  static const _compactHeight = 26.0;
 }
 
 /// Botão apenas de ícone: 36x36, transparente, com hover discreto.
-class EgIconButton extends StatelessWidget {
+///
+/// Com a mesma guarda do [EgButton]: a ação que demora troca o ícone pelo
+/// spinner, e o segundo clique não passa.
+class EgIconButton extends StatefulWidget {
   const EgIconButton({
     super.key,
     required this.icon,
@@ -239,7 +270,7 @@ class EgIconButton extends StatelessWidget {
   });
 
   final EgIconData icon;
-  final VoidCallback? onPressed;
+  final EgPressCallback? onPressed;
 
   /// Legenda de ajuda ao repousar o mouse. Um botão só de ícone sem rótulo
   /// visível depende dela para ser descoberto — e é ela que vira o nome do
@@ -259,28 +290,41 @@ class EgIconButton extends StatelessWidget {
   final Color? hoverColor;
 
   @override
+  State<EgIconButton> createState() => _EgIconButtonState();
+}
+
+class _EgIconButtonState extends State<EgIconButton> with EgPressGuard {
+  EgIconData get icon => widget.icon;
+  String? get tooltip => widget.tooltip;
+  double get size => widget.size;
+  double get iconSize => widget.iconSize;
+  Color? get color => widget.color;
+  Color? get hoverColor => widget.hoverColor;
+
+  @override
   Widget build(BuildContext context) {
-    final isEnabled = onPressed != null;
+    final action = widget.onPressed;
+    final isEnabled = action != null;
 
     // O foco precisa de superfície opaca sob o anel — um botão de ícone em
     // repouso é transparente, então focar já revela o fundo de hover, que é
     // exatamente o que a coluna `ghost` da matriz faz.
     final button = EgInteractiveSurface(
-      onTap: onPressed,
+      onTap: action == null || isWorking ? null : () => guardedPress(action),
       style: context.eg.surfaces.ghost,
       borderRadius: context.eg.shapes.rowAll,
       width: size,
       height: size,
       alignment: Alignment.center,
       semanticLabel: tooltip,
-      builder: (context, state) => EgIcon(
-        icon,
-        size: iconSize,
-        color: (state.isHovered || state.isFocused) && isEnabled
+      builder: (context, state) {
+        final tint = (state.isHovered || state.isFocused) && isEnabled
             ? hoverColor ?? context.eg.colors.textPrimary
-            : color ?? context.eg.colors.textSecondary,
-        strokeWidth: 1.6,
-      ),
+            : color ?? context.eg.colors.textSecondary;
+
+        if (isWorking) return EgSpinner(size: AppIconSizes.sm, color: tint);
+        return EgIcon(icon, size: iconSize, color: tint, strokeWidth: 1.6);
+      },
     );
 
     if (tooltip == null) return button;

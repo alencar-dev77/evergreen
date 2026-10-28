@@ -194,7 +194,7 @@ class _DiskUsageSection extends ConsumerWidget {
           description: viewModel.directoryLabel,
           trailing: EgButton.secondary(
             label: 'Mostrar no Finder',
-            onPressed: () => unawaited(viewModel.reveal()),
+            onPressed: viewModel.reveal,
           ),
         ),
       ],
@@ -270,7 +270,7 @@ class _BackupSection extends ConsumerWidget {
           description: state.directoryLabel,
           trailing: EgButton.secondary(
             label: 'Mostrar no Finder',
-            onPressed: () => unawaited(viewModel.reveal()),
+            onPressed: viewModel.reveal,
           ),
         ),
       ],
@@ -383,7 +383,7 @@ class _DiagnosticsSection extends ConsumerWidget {
                     'Nada do que você copiou, anotou ou gravou vai junto.',
           trailing: EgButton.secondary(
             label: 'Copiar',
-            onPressed: () => unawaited(viewModel.copy()),
+            onPressed: viewModel.copy,
           ),
         ),
         EgSettingsRow(
@@ -391,7 +391,7 @@ class _DiagnosticsSection extends ConsumerWidget {
           description: viewModel.logLabel,
           trailing: EgButton.secondary(
             label: 'Mostrar no Finder',
-            onPressed: () => unawaited(viewModel.revealLog()),
+            onPressed: viewModel.revealLog,
           ),
         ),
         EgSettingsRow(
@@ -401,7 +401,7 @@ class _DiagnosticsSection extends ConsumerWidget {
               'sozinho, em ${viewModel.crashReportsLabel}.',
           trailing: EgButton.secondary(
             label: 'Mostrar no Finder',
-            onPressed: () => unawaited(viewModel.revealCrashReports()),
+            onPressed: viewModel.revealCrashReports,
           ),
         ),
       ],
