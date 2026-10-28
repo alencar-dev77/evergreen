@@ -8,6 +8,10 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.1.11 — 28/10/2026
+
+- Botões não disparam duas vezes e mostram que estão trabalhando (#159)
+
 ## 1.1.10 — 28/10/2026
 
 - Reunião pela caixa de som sem a fala dobrada, e gravação que continua ao pôr o fone (#158)
