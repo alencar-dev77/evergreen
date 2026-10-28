@@ -310,13 +310,18 @@ class EchoRecorderViewModel extends Notifier<EchoRecorderState> {
       // eco que vai sair; antes do vocabulário, porque partir um trecho no
       // meio de uma troca de pessoa é decisão do relógio das palavras, e a
       // troca do vocabulário pode fundir duas delas numa.
-      final transcribed = CrossTalkFilter.clean(
-        await _channel.transcribe(
-          files: files,
-          locale: settings.language.locale,
-          vocabulary: settings.vocabularyTerms,
-        ),
+      //
+      // O eco já saiu do som no `stop` (`EchoCanceller`); o filtro de texto é
+      // a rede para o que escapou. Quando o som respondeu que não havia eco,
+      // não há o que procurar.
+      final heard = await _channel.transcribe(
+        files: files,
+        locale: settings.language.locale,
+        vocabulary: settings.vocabularyTerms,
       );
+      final transcribed = files.echoFound == false
+          ? heard
+          : CrossTalkFilter.clean(heard);
       final segments = VocabularyCorrection.apply(
         await _separateVoices(transcribed, files),
         settings.vocabularyCorrections,

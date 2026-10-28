@@ -192,7 +192,18 @@ lista de módulos sonhados) está em
   de formato no meio da reunião (o app da chamada ligando o processamento dele
   basta); o `EchoRecorder` o religa num motor novo, só se a gravação ainda for a
   mesma (`micGeneration`), e o buraco do religamento vira silêncio na faixa —
-  senão a sua voz se adianta em relação à reunião. Ver
+  senão a sua voz se adianta em relação à reunião. **As duas faixas contam do
+  mesmo zero** e as duas preenchem buraco pelo relógio de cada bloco; a captura
+  do computador é religada quando a saída de som muda ou a `SCStream` cai, e um
+  vigia (`EchoRecorder.watch`) religa a faixa que passar segundos sem bloco —
+  foi assim que uma troca para o fone deixou meia hora muda. **Microfone
+  Bluetooth não é aberto quando há um embutido** (`EchoAudioDevices`): abrir a
+  entrada do AirPods força o fone para o perfil de chamada para o Mac inteiro, e
+  o som da reunião engasga. **O eco da caixa sai no som, depois da reunião**: o
+  `EchoCanceller` limpa a faixa do microfone no `stop`, usando a do computador
+  como referência — atraso numa reta (relógios de aparelhos diferentes
+  derivam), e cada quadro de 16 ms ou desce ao fundo da sala ou passa intacto.
+  Nunca toca no microfone ao vivo; o `CrossTalkFilter` ficou de rede. Ver
   [docs/Ideis projeto/echo-transcricao.md](docs/Ideis%20projeto/echo-transcricao.md).
   Durante a gravação o canal **sobe** dois avisos para a janela flutuante: o
   texto ao vivo (só com a preferência ligada) e o `onLevels`, que é o espectro

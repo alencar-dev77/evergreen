@@ -94,6 +94,48 @@ ganho segue o pico, nunca estoura, desce na hora e sobe devagar. O teto é de
 canais é o microfone interno em cápsulas; uma interface USB de vários canais
 cai na mesma regra. O canal único passa sem ganho nenhum.
 
+#### A gravação sobrevive à troca de fone
+
+> Acrescentado em 28/10/2026, depois de uma reunião (27/10) em que o fone
+> entrou aos 1min53 e as duas faixas ficaram em silêncio digital dos 2min03 até
+> o fim — 31 minutos (#157).
+
+Três coisas, e nenhuma delas mexe em dispositivo, formato ou volume de nada —
+o que o app da reunião manda da sua voz continua sendo o microfone que ele
+escolheu:
+
+- **O Echo não abre microfone Bluetooth quando o Mac tem um embutido**
+  (`EchoAudioDevices.recordingInput`). Conectar um AirPods faz dele a entrada
+  padrão, e abrir a entrada de um fone Bluetooth força o fone para o perfil de
+  chamada para o Mac inteiro: o som da reunião que você ouve piora e engasga, e
+  cada troca de perfil derruba o motor do microfone de novo. O app da reunião
+  pode estar usando outro microfone, e aí quem forçava a troca era só o Echo. O
+  embutido ouve a sua voz do mesmo jeito. A exceção é a tampa fechada: aí o Mac
+  corta o embutido por hardware, e ele entregaria silêncio a reunião inteira.
+- **O microfone é religado só quando parou de verdade**, com mais paciência (cinco
+  tentativas em ~6 s, em vez de três em 1 s: um fone trocando de perfil leva
+  segundos). O aviso de troca de formato chega em rajada com Bluetooth, e
+  religar a cada um era derrubar e subir o microfone sem parar.
+- **A captura do computador é religada** quando a saída de som padrão muda,
+  quando a `SCStream` para sozinha (menos quando quem parou foi a pessoa, pelo
+  menu do sistema) e, como rede, por um vigia (`EchoRecorder.watch`) que
+  pergunta uma vez por segundo há quanto tempo cada faixa não recebe nada:
+  microfone parado por 2 s, ou computador por 5 s, é religado. Religar é trocar
+  a `SCStream` mantendo a mesma saída e os mesmos arquivos. Cada religamento
+  que não resolve dobra a espera do próximo (o microfone até 1 min, o
+  computador até 5 min) — sem isso, um Mac sem microfone, ou o computador
+  calado porque nada toca, viravam um religamento a cada poucos segundos, e
+  uma entrada Bluetooth religada sem parar mexeria no fone de todo mundo.
+
+**As duas faixas têm o mesmo relógio.** Cada uma começava no primeiro bloco
+dela, e o microfone sobe depois da captura do computador: na reunião de 27/10 a
+sua faixa saía 120 ms adiantada, e o eco aparecia na transcrição *antes* da
+fala que o causou. Hoje as duas contam do instante em que a gravação foi
+montada, e **as duas** preenchem buraco com silêncio pelo relógio de cada bloco
+(na do computador, pelo carimbo da `SCStream`). Antes só o microfone fazia isso,
+e um buraco na do computador encurtava a faixa e adiantava tudo o que vinha
+depois. A pausa é descontada dos dois relógios, e não vira buraco.
+
 #### E a gravação avisa quando uma faixa fica muda
 
 Era possível — e aconteceu — a reunião sair sem a metade de quem estava
@@ -170,8 +212,8 @@ português, tocada no alto-falante e transcrita pelo `SpeechTranscriber`, errou
 uma ou duas palavras em 38 nas quatro situações: com processamento, com o canal
 tratado pelo Mac, com uma cápsula crua e com as três somadas. Num sinal limpo o
 filtro pente das três somadas não apareceu, e a escolha de uma cápsula continua
-sendo a conta certa. O cancelamento de eco segue feito no texto, pelo
-`CrossTalkFilter`.
+sendo a conta certa. O cancelamento de eco passou a ser do Echo, depois da
+reunião — ver a seção seguinte.
 
 Uma primeira tentativa de tirá-lo, em agosto, durou um dia: o problema da época
 era só o som abaixando, e o `.min` foi a teste antes de ser descartado. O
@@ -192,6 +234,77 @@ gravado não há pressa nenhuma. Pelo mesmo raciocínio ao contrário, a transcr
 ao vivo deixou de pedir `.volatileResults`: o painel só mostra frase fechada, e
 pedir as revisões parciais era gastar processador durante a chamada para
 descartar o resultado.
+
+#### O eco da caixa de som sai no som, depois da reunião
+
+> Acrescentado em 28/10/2026, depois de uma reunião pelo alto-falante do Mac
+> em que a fala dos outros saiu duas vezes na transcrição e tocou dobrada no
+> player (#156).
+
+Sem o processamento de voz, nada mais tirava o eco: com a reunião na caixa, o
+microfone ouve de volta o que o computador toca, uns 50 ms depois. O
+`CrossTalkFilter`, que ficou sozinho, compara texto, e texto reconhecido duas
+vezes nunca sai igual — "Interno" e "Interna", "1234567890" e "1234 5678 90",
+uma frase inteira de um lado e três pedaços do outro. E o player soma as duas
+faixas: o eco tocava junto, como uma voz dobrada.
+
+Agora o `EchoCanceller` (`macos/Runner/EchoCanceller.swift`) limpa a faixa do
+microfone no `stop`, antes de qualquer um ler o arquivo — a transcrição e o
+áudio guardado. A faixa do computador é a referência, porque é o que foi tocado
+antes de virar som no ar. Em três passadas pelos dois arquivos:
+
+1. **o atraso**, por janela de 10 s, pela correlação do contorno de volume nos
+   trechos em que o computador fala, e uma **reta** por cima (Theil–Sen): com a
+   caixa numa interface USB e o microfone no Mac, cada aparelho tem o próprio
+   relógio, e o atraso anda — 100 milionésimos são 360 ms por hora. Depois,
+   refinado até a amostra a cada 10 s pela correlação de fase. A reta também
+   protege o fone: sem eco, cada janela acha um atraso ao acaso, e atrasos ao
+   acaso não ficam numa reta;
+2. **onde há eco**: a mesma correlação numa janela de 10 s em volta de cada
+   instante. De fone, o computador fala e o microfone não acompanha;
+3. **a forma e o volume do eco** — a forma por frequência é da caixa e fica; o
+   volume é do ganho da cápsula e de onde o som sai, e muda.
+
+Com isso, cada quadro de 16 ms é julgado inteiro: se o microfone não passa do
+eco esperado, ou se passa pouco e tem a mesma estrutura fina da referência
+(coerência), ele desce ao **chão de ruído** do microfone; senão passa como
+entrou. A decisão final é a da maioria entre ele e os dois vizinhos.
+
+O que foi medido e descartado no caminho:
+
+- **Tirar o eco frequência por frequência dentro de um quadro com você.**
+  Parecia o meio-termo certo, e apagava a frase dita por cima de alguém para o
+  reconhecimento, mesmo com 6 dB de folga sobre o eco.
+- **Atenuar uma quantidade fixa de dB.** O reconhecimento normaliza o volume:
+  eco 30 dB abaixo do original, mas acima do fundo da sala, ainda saía
+  transcrito. Por isso o piso é o fundo da sala.
+- **Um atraso só para a reunião inteira.** Com 37 ms de deriva em seis minutos,
+  o eco voltava a passar na maior parte do tempo.
+- **Filtro adaptativo que subtrai a onda** (o caminho clássico): diverge
+  justamente quando os dois falam juntos, e a caixa do notebook distorce.
+
+Calibrado com fala sintética em português (o `say`), eco simulado de caixa de
+notebook — atraso, sala, distorção, o ganho da cápsula subindo e descendo,
+deriva de relógio — e o próprio `SpeechTranscriber` antes e depois. Resultado:
+a fala da reunião sumiu da sua faixa (eco 35 a 45 dB abaixo); a sua fala
+sozinha saiu idêntica, porque onde o computador cala não há decisão; de fone,
+nada foi tocado; a fala por cima se salvou com você mais alto que o eco. **No
+mesmo volume do eco, ela se perde** — é o limite de quem não tem a onda do
+eco, e o `CrossTalkFilter`, agora palavra a palavra, segue de rede para o que
+escapar — menos quando o som mediu que não havia eco (fone): aí não há o que
+procurar no texto, e procurar só arriscaria tirar um "bom dia" seu dito junto
+com alguém. Uma hora de reunião custa uns 5 s, no `stop`.
+
+O atraso aceito vai de −48 ms a +800 ms. O lado negativo é só a diferença de
+latência entre as duas capturas: eco de caixa nunca chega ao microfone antes
+de a referência tocar. Aceitar mais seria perigoso — quando alguém do outro
+lado não tem cancelamento de eco, a *sua* voz volta pela faixa do computador
+uns 250 ms depois de você, e o cancelador a tomaria por eco. Testado: com a
+sua voz voltando assim, a sua faixa sai idêntica.
+
+**Nada disto toca no microfone ao vivo.** Roda sobre a cópia do Echo, no disco,
+depois de a gravação parar. O que o processamento de voz fazia de errado era
+justamente mexer no que os outros ouviam da sua voz.
 
 #### Por que **não** gravar em qualidade melhor
 
