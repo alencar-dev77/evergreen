@@ -1,6 +1,7 @@
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/window/overlay_window.dart';
 import 'package:evergreen/shared/widgets/eg_overlay_shell.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,7 +48,7 @@ void main() {
   Future<int> pumpShell(
     WidgetTester tester, {
     required bool dismissOnBlur,
-    bool draggable = false,
+    bool draggable = true,
   }) async {
     var closed = 0;
 
@@ -201,8 +202,50 @@ void main() {
       expect(calls, contains('startDragging'));
     });
 
+    /// O que a #162 pedia: os painéis que não diziam nada nasciam presos no
+    /// centro da tela, e só o Echo e o Nest saíam do lugar.
+    testWidgets('o painel que não diz nada se arrasta', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EgOverlayShell(onClose: () {}, child: const _Painel()),
+        ),
+      );
+      await tester.pump();
+
+      await tester.drag(find.byKey(const Key('painel')), const Offset(80, 40));
+      await tester.pump();
+
+      expect(calls, contains('startDragging'));
+    });
+
+    /// O clique tolera 18 px de mão tremendo, e o arrasto de fábrica começava
+    /// com 2: no meio, a linha do Pin perdia o clique e a janela andava.
+    testWidgets('o clique que treme continua sendo clique', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EgOverlayShell(
+            onClose: () {},
+            child: GestureDetector(onTap: () => taps++, child: const _Painel()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('painel'))),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(6, 4));
+      await gesture.up();
+      await tester.pump();
+
+      expect(taps, 1);
+      expect(calls, isNot(contains('startDragging')));
+    });
+
     testWidgets('sem draggable, arrastar não move a janela', (tester) async {
-      await pumpShell(tester, dismissOnBlur: true);
+      await pumpShell(tester, dismissOnBlur: true, draggable: false);
 
       await tester.drag(find.byKey(const Key('painel')), const Offset(80, 40));
       await tester.pump();

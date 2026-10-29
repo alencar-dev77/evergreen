@@ -149,12 +149,12 @@ sempre agem sobre a face que está na tela. Copiar leva o texto como ele se lê;
 exportar escreve um `.md` em `Exportações/`, dentro da pasta do aplicativo, e
 abre o Finder com o arquivo selecionado.
 
-O painel do Echo é o único que **se arrasta**: pegue por qualquer área vazia
-dele e puxe para tirar a transcrição da frente da reunião. E, enquanto grava ou
-transcreve, ele **não some quando você clica na reunião** — dá para acompanhar o
-texto e a chamada ao mesmo tempo. Esc e o botão continuam fechando, e a
-gravação não para com o painel fechado. A posição não fica guardada: o próximo
-`⌘⇧E` abre de volta no centro.
+Todo painel **se arrasta**: pegue por qualquer área vazia dele e puxe para
+tirar da frente o que você quer ver atrás — a reunião, o texto de onde vai
+copiar. A posição não fica guardada: o próximo atalho abre de volta no centro.
+E o painel do Echo, enquanto grava ou transcreve, **não some quando você clica
+na reunião** — dá para acompanhar o texto e a chamada ao mesmo tempo. Esc e o
+botão continuam fechando, e a gravação não para com o painel fechado.
 
 O **Track** não tem atalho nem painel de propósito: ele não grava nada, só lê o
 que os outros seis módulos já gravaram.

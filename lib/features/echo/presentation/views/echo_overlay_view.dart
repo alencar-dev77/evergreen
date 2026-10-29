@@ -144,10 +144,6 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
             onClose: () => unawaited(_close()),
             onShow: _panelFocusNode.requestFocus,
             focusNode: _panelFocusNode,
-            // O único painel que se arrasta. Os outros quatro se resolvem em
-            // segundos e no centro da tela; este fica na frente da reunião
-            // enquanto ela acontece, e é a reunião que estava ali primeiro.
-            draggable: true,
             // Gravando ou transcrevendo, clicar na reunião não fecha o painel —
             // é justamente aí que se quer os dois à vista. Ver
             // `EgOverlayShell.dismissOnBlur`.

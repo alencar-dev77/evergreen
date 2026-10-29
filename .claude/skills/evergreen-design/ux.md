@@ -109,12 +109,16 @@ Quatro convenções que valem para qualquer painel novo:
   o texto que se quer acompanhar. Esc e o botão continuam fechando — o que sai é
   o fechamento que ninguém pediu. Um painel novo só ganha essa exceção se tiver
   conteúdo que muda sozinho enquanto a pessoa olha para outra coisa.
-- **Arrastar é para o painel que disputa espaço com outra janela.** O Echo é o
-  único, e pelo mesmo motivo: ele fica na frente de uma reunião que estava ali
-  primeiro. Pega-se pelo fundo do painel, sem alça visível — arrastar janela
-  pelo corpo é idioma do macOS, e uma alça desenhada seria affordance
-  redundante para um gesto que já se tenta por instinto. A posição não persiste:
-  a próxima abertura recentraliza, que é o que mantém os cinco previsíveis.
+- **Todo painel se arrasta.** Ele nasce no centro, e o centro às vezes é onde
+  está o que se quer ver — a reunião atrás do Echo, o texto de onde se copia
+  atrás do Pin. Era só o Echo, e os outros obrigavam a fechar para olhar. A
+  única exceção é a pilha do Nest no notch, que é o próprio recorte. Pega-se
+  pelo fundo do painel, sem alça visível — arrastar janela pelo corpo é idioma
+  do macOS, e uma alça desenhada seria affordance redundante para um gesto que
+  já se tenta por instinto. A posição não persiste: a próxima abertura
+  recentraliza, que é o que mantém os painéis previsíveis. Mas, enquanto o
+  painel está aberto, nada o tira de onde foi posto — o aviso que o traz de
+  volta só devolve o teclado.
 
 Dois detalhes de convenção que valem para atalhos futuros:
 
