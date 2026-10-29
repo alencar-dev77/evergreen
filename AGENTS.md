@@ -495,15 +495,20 @@ lista de módulos sonhados) está em
   do módulo, ou ao dela quando o módulo não tem um. A recuperação é sempre
   adiada até depois das microtarefas do quadro: o `autofocus` de um campo do
   módulo é aplicado numa delas, e chegar antes dele abriria o Pin sem cursor na
-  busca. Dois comportamentos são opt-in e hoje só o Echo pede os dois:
-  `draggable` (arrasta a janela pelo fundo do painel, via `startDragging`) e
-  `dismissOnBlur: false` (perder o foco não fecha). O segundo é **por fase**,
-  não por módulo — o Echo só o desliga gravando ou transcrevendo, e a casca
-  reconfere a bandeira depois da margem de tolerância porque a fase pode virar
-  no meio dela. Painel que não pede nada continua com o comportamento de antes.
+  busca. **Todo painel se arrasta pelo próprio fundo** (`draggable`, via
+  `startDragging`, ligado por padrão) — só a pilha do Nest no notch abre mão,
+  porque ela é o recorte. Preso no centro, o painel escondia o que se queria
+  ver atrás dele. `dismissOnBlur: false` (perder o foco não fecha) é opt-in, e
+  no Echo é **por fase**, não por módulo — ele só o desliga gravando ou
+  transcrevendo, e a casca reconfere a bandeira depois da margem de tolerância
+  porque a fase pode virar no meio dela.
 - A janela 0 é movível (`setMovable(true)`) só para o `startDragging` do painel
-  ser aceito pelo macOS; nada liga o arrasto pelo fundo da *janela*, então os
-  painéis que não pedem `draggable` seguem parados onde nascem.
+  ser aceito pelo macOS; nada liga o arrasto pela área transparente da
+  *janela*, que é a barreira do clique-fora. A posição arrastada vale até
+  fechar: abrir recentraliza, mas **um painel que já está na tela não é
+  recentralizado por quem o traz de volta** (fim da fase do Focus, notificação,
+  lembrete do Leaf) — o `_showOverlay` só devolve o teclado. Sem isso, o painel
+  posto no canto pula para o meio no meio do uso (#66, no Nest).
 - **Toda tela com atalho de teclado precisa de um `FocusScope` logo abaixo do
   `Shortcuts`/`CallbackShortcuts` dela.** No macOS um `TextField` larga o foco a
   cada clique fora dele, e o foco largado sobe até o escopo da rota — que fica

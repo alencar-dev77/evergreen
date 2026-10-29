@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -37,7 +39,8 @@ import '../../core/window/overlay_window.dart';
 /// - **Fechar por foco perdido é opcional** ([dismissOnBlur]). O padrão é
 ///   fechar, porque o painel é de passagem; o Echo é a exceção, e só enquanto
 ///   grava ou transcreve — ver a propriedade.
-/// - **Arrastar é opcional** ([draggable]), e sai do fundo do próprio painel.
+/// - **Todo painel se arrasta** pelo próprio fundo ([draggable]). Só a pilha
+///   do Nest no notch abre mão: ela é o recorte, e não tem para onde ir.
 /// - **O painel é centralizado na janela.** Quem se posiciona na tela é a
 ///   janela; centralizar aqui é o que faz painéis de alturas diferentes
 ///   nascerem no mesmo ponto da tela.
@@ -72,7 +75,7 @@ class EgOverlayShell extends StatefulWidget {
     required this.onClose,
     this.onShow,
     this.focusNode,
-    this.draggable = false,
+    this.draggable = true,
     this.dismissOnBlur = true,
     this.notchAttached = false,
   });
@@ -100,14 +103,19 @@ class EgOverlayShell extends StatefulWidget {
   /// Quem arrasta é o macOS (`startDragging`), não o Flutter: entregue o gesto,
   /// o sistema conduz a janela até soltar o botão. Por isso o arrasto sai do
   /// fundo e não de uma alça — não há elemento novo no desenho, e botão e
-  /// linha de permissão continuam recebendo clique normalmente (um toque curto
-  /// vence o arrasto na arena de gestos; segurar e puxar vence o toque).
+  /// linha de permissão continuam recebendo clique normalmente: o arrasto só
+  /// começa onde o clique deixa de ser clique ([_WindowDragRecognizer]).
+  ///
+  /// Ligado por padrão: o painel nasce no centro da tela, e o centro às vezes
+  /// é justamente onde está o que se quer ver — a reunião atrás do Echo, o
+  /// texto de onde se copia atrás do Pin, o arquivo atrás do Nest. Um painel
+  /// preso obrigava a fechar para olhar. Desligado, só na pilha do notch.
   ///
   /// A posição não sobrevive ao fechamento, e isso é de propósito:
   /// `OverlayWindow.show` recentraliza a cada abertura, na tela onde o cursor
-  /// está. Arrastar resolve *esta* reunião, e o painel seguinte nasce onde
-  /// todos os outros nascem — que é o que mantém o Pin e o Focus previsíveis
-  /// mesmo dividindo a janela com o Echo.
+  /// está. Arrastar resolve *esta* vez, e o painel seguinte nasce onde todos
+  /// nascem. Com o painel aberto, porém, ela é respeitada: o aviso que traz de
+  /// volta um painel que já está na tela não o tira de onde foi posto.
   final bool draggable;
 
   /// Fechar quando o foco vai para outro aplicativo.
@@ -303,12 +311,23 @@ class _EgOverlayShellState extends State<EgOverlayShell>
     // O escopo é o chão do teclado deste painel — ver a classe.
     panel = FocusScope(node: _scope, child: panel);
 
-    panel = GestureDetector(
+    panel = RawGestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {},
-      onPanStart: widget.draggable
-          ? (_) => unawaited(windowManager.startDragging())
-          : null,
+      gestures: {
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+              () => TapGestureRecognizer(debugOwner: this),
+              (recognizer) => recognizer.onTap = () {},
+            ),
+        if (widget.draggable)
+          _WindowDragRecognizer:
+              GestureRecognizerFactoryWithHandlers<_WindowDragRecognizer>(
+                () => _WindowDragRecognizer(debugOwner: this),
+                (recognizer) =>
+                    recognizer.onStart = (_) =>
+                        unawaited(windowManager.startDragging()),
+              ),
+      },
       child: panel,
     );
 
@@ -477,4 +496,30 @@ class _NotchPillPainter extends CustomPainter {
       old.attached != attached ||
       old.color != color ||
       old.radius != radius;
+}
+
+/// O arrasto da janela, que só começa **onde o clique termina**.
+///
+/// O `PanGestureRecognizer` de fábrica aceita o mouse com 2 px de movimento,
+/// e o clique tolera 18 (`kTouchSlop`). Entre um e outro, a mão que treme um
+/// pouco ao clicar numa linha do Pin ou num botão do Focus perdia o clique
+/// para o arrasto: a janela andava e nada acontecia. Com a mesma distância dos
+/// dois lados, quem sai da tolerância do clique é, por definição, um arrasto.
+///
+/// E nunca menos que o de fábrica: um arrasto de dentro do painel — puxar a
+/// lista do Nest para fora — precisa continuar chegando antes deste, senão
+/// levar os arquivos embora viraria mover a janela.
+class _WindowDragRecognizer extends PanGestureRecognizer {
+  _WindowDragRecognizer({super.debugOwner});
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(
+    PointerDeviceKind pointerDeviceKind,
+    double? deviceTouchSlop,
+  ) =>
+      globalDistanceMoved.abs() >
+      math.max(
+        computePanSlop(pointerDeviceKind, gestureSettings),
+        gestureSettings?.touchSlop ?? kTouchSlop,
+      );
 }
