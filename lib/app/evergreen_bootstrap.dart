@@ -612,10 +612,10 @@ class EvergreenBootstrap {
   /// Com a prateleira já na tela, o arquivo que caiu nela só devolve o teclado
   /// ao painel — **sem mexer na janela**.
   ///
-  /// Passar pelo [showOverlay] reposicionava a janela no lugar de sempre a cada
-  /// arquivo solto, e quem tinha arrastado o painel para o lado (é para isso
-  /// que ele é `draggable`) via a prateleira pular de volta para o meio da
-  /// tela no instante em que soltava (#66).
+  /// Quem tinha arrastado o painel para o lado via a prateleira pular de
+  /// volta para o meio da tela no instante em que soltava (#66). O
+  /// [showOverlay] também já não recentraliza um painel à vista; o desvio
+  /// fica pela pilha do notch, que recebe o arquivo sem pegar o teclado.
   Future<void> _bringNestForward() async {
     if (await _isNestOnScreen()) {
       // A pilha recebe o arquivo sem pegar o teclado — quem arrastou ainda
@@ -1116,8 +1116,28 @@ class EvergreenBootstrap {
     bool atNotch = false,
     bool keyboard = true,
   }) async {
+    // Lido antes do [_prepare], que troca o painel; a visibilidade, depois
+    // dele, porque ele vai ao disco e o painel pode ter fechado no meio — e
+    // aí o caminho é o [OverlayWindow.show], que reabre a janela inteira.
+    final wasShowing = _container.read(overlayPanelProvider) == panel;
+
     await _prepare(panel);
     _container.read(overlayPanelProvider.notifier).show(panel);
+
+    final alreadyOnScreen =
+        wasShowing && await OverlayWindow.instance.isVisible();
+
+    // O mesmo painel já na tela, trazido por um evento — o fim da fase do
+    // Focus, o clique numa notificação, o lembrete do Leaf: só o teclado
+    // volta, **sem mexer na janela**. Todo painel se arrasta, e recentralizar
+    // aqui faria o Focus posto no canto pular para o meio no fim da sessão —
+    // o pulo que o Nest já teve com o arquivo solto (#66). O atalho não chega
+    // aqui com o painel à vista (ele fecha), e quem pede um lugar ([at], o
+    // notch) continua sendo atendido.
+    if (alreadyOnScreen && at == null && !atNotch) {
+      await OverlayWindow.instance.refocus(keyboard: keyboard);
+      return;
+    }
 
     // Já visível em outro painel: trocar o conteúdo basta, sem reabrir a
     // janela — mas o cursor pode ter ido para outro monitor desde a abertura, e

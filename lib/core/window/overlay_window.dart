@@ -110,9 +110,9 @@ class OverlayWindow {
       await windowManager.setResizable(false);
       // Movível, mas não arrastável por conta própria: `isMovable` é só a
       // permissão que o `startDragging` do painel precisa para o macOS aceitar
-      // conduzir a janela. Arrastar continua sendo opt-in de quem desenha o
-      // painel (`EgOverlayShell.draggable`, hoje só o Echo) — nenhum dos outros
-      // pede o gesto, e nada aqui liga o arrasto pelo fundo da janela.
+      // conduzir a janela. Quem entrega o gesto é o painel
+      // (`EgOverlayShell.draggable`), e só pelo fundo dele — nada aqui liga o
+      // arrasto pela área transparente em volta, que é a barreira do clique-fora.
       await windowManager.setMovable(true);
       await windowManager.setSkipTaskbar(true);
       // Nem `setAlwaysOnTop` nem `setVisibleOnAllWorkspaces` aqui: os dois já
