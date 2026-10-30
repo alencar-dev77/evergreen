@@ -24,7 +24,9 @@ head da PR. A armadilha do `pull_request_target`: ele roda o **arquivo do
 workflow que está na `main`**, não o da `validation` — mudança no
 `version-bump.yml` só vale depois da promoção. Por isso o que dá para pôr no
 `bump_version` (que sai do checkout da `validation`) mora nele: o título da PR
-para o CHANGELOG ele mesmo lê do evento.
+para o CHANGELOG ele mesmo lê do evento. PR de fork que mire a `main` é
+fechada com aviso pelo `fechar-pr-de-fora-na-main.yml`, porque o GitHub não
+deixa travar a base de uma PR.
 
 **A [PRIVACY.md](PRIVACY.md) é uma promessa, e muda antes do código.** Ela diz
 o que cada módulo guarda, onde, por quanto tempo, e o que sai do app (o
