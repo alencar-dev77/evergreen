@@ -1,0 +1,40 @@
+name: PR de fora não vai para a main
+
+# A `main` só recebe a promoção da `validation`; contribuição de fora entra
+# pela `validation`, como qualquer feature. O GitHub não deixa travar a base de
+# uma PR — quem tem fork abre para onde quiser —, então este workflow fecha a
+# PR de fork que mira a `main` e diz para onde reabrir. Fechar, e não trocar a
+# base sozinho, porque a PR foi escrita contra a `main` e pode não aplicar
+# limpa na `validation`: quem conhece o código dela é quem a escreveu.
+#
+# `pull_request_target` porque, num fork, o `pull_request` recebe token só de
+# leitura e não conseguiria fechar nada. É seguro enquanto não houver
+# checkout: nenhum código da PR roda aqui, só o `gh` com o número dela.
+# `edited` entra porque trocar a base para a `main` depois de aberta não emite
+# `opened`. Como todo `pull_request_target`, roda o arquivo que está na `main`:
+# passa a valer depois da promoção que o trouxer.
+on:
+  pull_request_target:
+    types: [opened, reopened, edited]
+    branches: [main]
+
+jobs:
+  fechar:
+    # Só a aberta: o `edited` também chega de PR já fechada ou mergeada, e o
+    # `gh pr close` de uma mergeada falha.
+    if: >-
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Fechar e apontar para a validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr close "$PR" --repo "$REPO" --comment "Obrigado pela contribuição! A \`main\` só recebe a promoção da \`validation\` — reabra esta PR com a base \`validation\`, por favor.
+
+          Thanks for contributing! \`main\` only takes promotions from \`validation\` — please reopen this PR against \`validation\`."
