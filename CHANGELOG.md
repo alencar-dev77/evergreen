@@ -8,6 +8,10 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.1.13 — 30/10/2026
+
+- Ajustes internos no repositório (#165)
+
 ## 1.1.12 — 29/10/2026
 
 - Todos os painéis podem ser arrastados pela tela (#163)
