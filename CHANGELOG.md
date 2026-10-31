@@ -8,6 +8,10 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.1.14 — 31/10/2026
+
+- Notificação quando sai uma versão nova do Evergreen (#171)
+
 ## 1.1.13 — 30/10/2026
 
 - Ajustes internos no repositório (#165)
