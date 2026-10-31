@@ -12,6 +12,7 @@ import '../core/system/global_shortcut_slot.dart';
 import '../core/system/menu_bar_service.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
+import '../core/system/update_notifier.dart';
 import '../core/system/update_service.dart';
 import '../core/system/startup_service.dart';
 import '../core/window/hub_destination.dart';
@@ -268,6 +269,8 @@ class EvergreenBootstrap {
         }
       case (AwakeNotifications.id, null):
         await showOverlay(OverlayPanel.awake);
+      case (UpdateNotifications.id, null || UpdateNotifications.showNotes):
+        await _openUpdateNotification();
       case (TrackWeekDigest.id, null || TrackWeekDigest.openTrack):
         await HubDestination.request(EvergreenModule.track.id);
         await HubWindow.instance.open();
@@ -1213,17 +1216,22 @@ class EvergreenBootstrap {
   /// atualizar (com o prefixo `flutter.` do `shared_preferences`).
   static const openHubAfterUpdateKey = 'app.open_hub_after_update';
 
-  /// Põe a versão nova no menu da barra, e a tira quando ela some.
+  /// Põe a versão nova no menu da barra, e a tira quando ela some — e avisa
+  /// pelo sistema, uma vez por versão ([UpdateNotifier]).
   ///
   /// A janela 0 é a única que o lado nativo avisa (`onState`): é o engine que
   /// nunca morre, e é ela que cuida do menu.
   void _watchUpdates() {
     final service = _container.read(updateServiceProvider);
-    void apply(UpdateState state) => unawaited(
-      MenuBarService.instance.setUpdateVersion(
-        state.hasUpdate ? state.version : null,
-      ),
-    );
+    final notifier = _container.read(updateNotifierProvider);
+    void apply(UpdateState state) {
+      unawaited(
+        MenuBarService.instance.setUpdateVersion(
+          state.hasUpdate ? state.version : null,
+        ),
+      );
+      unawaited(notifier.observe(state));
+    }
 
     _updates = service.changes.listen(apply);
     _installRequests = service.installRequests.listen(
@@ -1269,6 +1277,27 @@ class EvergreenBootstrap {
   /// janela — ver [HubDestination].
   Future<void> _showUpdate() async {
     await HubDestination.request(HubDestination.update);
+    await HubWindow.instance.open();
+  }
+
+  /// O clique no aviso de versão nova.
+  ///
+  /// O aviso fica no Centro de Notificações depois de o processo esquecer a
+  /// versão — o app reaberto antes da procura diária seguinte não sabe dela.
+  /// Sem versão anunciada, o clique não pede o cartão: ele não teria o que
+  /// mostrar, e o pedido ficaria armado para abrir sozinho por cima do Hub
+  /// quando a procura seguinte achasse a versão. O Hub abre do mesmo jeito, e
+  /// o "Procurar" da tela do aplicativo está lá.
+  Future<void> _openUpdateNotification() async {
+    final state = await _container.read(updateServiceProvider).state();
+    if (state.hasUpdate) {
+      await _showUpdate();
+      return;
+    }
+
+    await _container.read(notificationServiceProvider).cancel(const [
+      UpdateNotifications.id,
+    ]);
     await HubWindow.instance.open();
   }
 

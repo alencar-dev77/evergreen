@@ -311,7 +311,10 @@ lista de módulos sonhados) está em
   `SPUUserDriver` próprio): a versão nova vira item no menu da barra, tecla
   com bolinha no botão "Aplicativo" e o cartão `HubUpdate` por cima do Hub
   (pergunta de sim ou não, então fecha ao clicar fora), nunca a janela do
-  Sparkle, que tiraria o foco de quem está trabalhando. Os executáveis de dentro do `Sparkle.framework`
+  Sparkle, que tiraria o foco de quem está trabalhando. Além disso, uma
+  notificação do sistema, **uma vez por versão** (`UpdateNotifier`, a versão
+  avisada no plist): a mesma versão não instalada não avisa de novo, só uma
+  mais nova. O clique nela leva ao cartão. Os executáveis de dentro do `Sparkle.framework`
   (XPC, `Autoupdate`, `Updater.app`) são assinados um a um no `release`. Ver
   [docs/Ideis projeto/atualizacao-sparkle.md](docs/Ideis%20projeto/atualizacao-sparkle.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —

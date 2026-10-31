@@ -1,6 +1,6 @@
 # Política de privacidade
 
-Última atualização: 22 de outubro de 2026.
+Última atualização: 31 de outubro de 2026.
 
 O Evergreen é um aplicativo para macOS que roda inteiro no seu Mac. Ele não tem
 conta, servidor, sincronização, anúncio nem telemetria. **Quem o desenvolve não
@@ -92,7 +92,7 @@ instalação nem telemetria própria.
 | **Acessibilidade** | O colar automático do Pin, que vem desligado. Sem ela, o item só é copiado |
 | **Microfone** | O Echo grava a sua voz na reunião |
 | **Gravação de Tela** | O Echo grava o som do computador (o outro lado da reunião). Ele não grava imagem da tela |
-| **Notificações** | Avisar o fim de uma sessão do Focus, o fim do prazo do Awake, os lembretes do Leaf e o resumo da semana do Track |
+| **Notificações** | Avisar o fim de uma sessão do Focus, o fim do prazo do Awake, os lembretes do Leaf, o resumo da semana do Track e que há uma versão nova do Evergreen |
 
 Cada uma pode ser revogada a qualquer momento em Ajustes do Sistema →
 Privacidade e Segurança.
