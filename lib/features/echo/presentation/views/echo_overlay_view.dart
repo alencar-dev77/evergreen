@@ -148,6 +148,10 @@ class _EchoOverlayViewState extends ConsumerState<EchoOverlayView> {
             // é justamente aí que se quer os dois à vista. Ver
             // `EgOverlayShell.dismissOnBlur`.
             dismissOnBlur: !state.isRecording && !state.isBusy,
+            // Gravando, o painel fica na tela durante a reunião, e o Enter
+            // dele para a gravação: o cursor parado em cima não pode mandar
+            // o Enter do chat para cá. Ver `EgOverlayShell.selectOnHover`.
+            selectOnHover: !state.isRecording && !state.isBusy,
             child: EgPanel(
               width: _panelWidth,
               vibrant: true,

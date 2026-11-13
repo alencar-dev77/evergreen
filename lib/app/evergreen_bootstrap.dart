@@ -999,7 +999,8 @@ class EvergreenBootstrap {
 
       case NotchModule.nest:
         // O mouse em cima da ilha do Nest, ou um clique nela: a pilha sai do
-        // notch, sem pegar o teclado de ninguém.
+        // notch sem pegar o teclado — ele vem quando o mouse anda sobre ela
+        // (`EgOverlayShell.selectOnHover`).
         if (event.action == NotchAction.open) {
           _queue(() async {
             if (!_isEnabled(OverlayPanel.nest)) return;

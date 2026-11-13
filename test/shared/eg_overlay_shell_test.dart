@@ -192,6 +192,142 @@ void main() {
     });
   });
 
+  group('o mouse em cima seleciona o painel', () {
+    const overlay = MethodChannel('overlay_window');
+    late List<String> overlayCalls;
+
+    setUp(() {
+      overlayCalls = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(overlay, (call) async {
+            overlayCalls.add(call.method);
+            return true;
+          });
+      OverlayWindow.instance.visible.value = true;
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(overlay, null);
+      OverlayWindow.instance.visible.value = false;
+    });
+
+    /// Quantas vezes o módulo foi avisado de uma abertura.
+    late List<int> shows;
+
+    Future<void> pumpPanel(
+      WidgetTester tester, {
+      bool selectOnHover = true,
+    }) async {
+      shows = [];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EgOverlayShell(
+            onClose: () {},
+            onShow: () => shows.add(1),
+            selectOnHover: selectOnHover,
+            child: const _Painel(),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    Future<void> hoverPanel(WidgetTester tester) async {
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('painel'))));
+      await tester.pump();
+    }
+
+    Future<void> sendFocus(WidgetTester tester) async {
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            channel.name,
+            const StandardMethodCodec().encodeMethodCall(
+              const MethodCall('onEvent', {'eventName': 'focus'}),
+            ),
+            null,
+          );
+      await tester.pump();
+    }
+
+    testWidgets('o mouse entrando no painel pede a seleção da janela', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+
+      await hoverPanel(tester);
+
+      expect(overlayCalls, ['takeKeyboardOnHover']);
+    });
+
+    testWidgets('selecionar pelo mouse não é abrir: o módulo não é avisado', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+
+      await hoverPanel(tester);
+      await sendFocus(tester);
+      expect(shows, isEmpty);
+
+      // A abertura seguinte, essa sim, avisa o módulo.
+      await sendFocus(tester);
+      expect(shows, hasLength(1));
+    });
+
+    testWidgets('um pedido por vez, e não um por movimento do mouse', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      final center = tester.getCenter(find.byKey(const Key('painel')));
+      await mouse.moveTo(center);
+      await tester.pump();
+      await mouse.moveTo(center + const Offset(5, 5));
+      await tester.pump();
+
+      expect(overlayCalls, ['takeKeyboardOnHover']);
+    });
+
+    testWidgets(
+      'o painel que nasce debaixo do cursor parado não é selecionado',
+      (tester) async {
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(400, 300));
+
+        await pumpPanel(tester);
+        await tester.pump();
+
+        expect(overlayCalls, isEmpty);
+      },
+    );
+
+    testWidgets('com selectOnHover desligado, o mouse não seleciona', (
+      tester,
+    ) async {
+      await pumpPanel(tester, selectOnHover: false);
+
+      await hoverPanel(tester);
+
+      expect(overlayCalls, isEmpty);
+    });
+
+    testWidgets('o painel escondido não pede nada', (tester) async {
+      OverlayWindow.instance.visible.value = false;
+      await pumpPanel(tester);
+
+      await hoverPanel(tester);
+
+      expect(overlayCalls, isEmpty);
+    });
+  });
+
   group('arrastar', () {
     testWidgets('painel arrastável entrega o gesto ao macOS', (tester) async {
       await pumpShell(tester, dismissOnBlur: true, draggable: true);

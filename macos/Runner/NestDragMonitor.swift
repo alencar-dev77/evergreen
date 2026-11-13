@@ -83,6 +83,11 @@ enum NestDragMonitor {
   /// e aí o gesto simplesmente não existe.
   private static var notchZone: NSRect?
 
+  /// Onde a barra de menus começa, de baixo — a base do recorte.
+  private static var menuBarBottom: CGFloat = .greatestFiniteMagnitude
+  private static var notchMidX: CGFloat = 0
+  private static var notchHalfWidth: CGFloat = 0
+
   /// Desde quando o cursor está parado dentro do recorte, com arquivo na mão,
   /// e onde ele parou.
   private static var notchSince: TimeInterval?
@@ -117,8 +122,8 @@ enum NestDragMonitor {
   /// da faixa: a faixa abaixo da barra de menus é a das abas de um navegador
   /// maximizado, e deslizar o arquivo por elas passaria de qualquer espera.
   ///
-  /// **Encostar no topo da tela não espera nada — quando o topo é parede**
-  /// (ver [edgeIsWall]). Um arraste que encosta na
+  /// **Chegar à barra de menus não espera nada — quando o topo é parede**
+  /// (ver [edgeIsWall]). Até a #173 era só o pixel do topo. Um arraste que encosta na
   /// borda de cima abre o Mission Control — o macOS ganhava a corrida dos
   /// 200 ms da primeira versão, e a prateleira nunca saía. Na borda, dentro da
   /// largura do recorte, não há menu nem destino nenhum a confundir: é o furo
@@ -130,15 +135,28 @@ enum NestDragMonitor {
   /// Quem mira o recorte chega por baixo dele, e a prateleira sai antes de o
   /// cursor alcançar a borda — e com ela o Mission Control. É também onde a
   /// prateleira aparece, então o arquivo já chega em cima dela.
-  private static let notchApproach: CGFloat = 48
+  ///
+  /// Era 48, e era pouco: quem vinha com o arquivo precisava chegar quase no
+  /// recorte, e a mão que passava do ponto encostava no topo e abria o
+  /// Mission Control (#173).
+  private static let notchApproach: CGFloat = 96
 
   /// A folga de cada lado do recorte. O cursor não tem como entrar *no* furo —
   /// ele para na borda da tela —, e mirar a largura exata de um objeto que não
   /// tem pixel é pedir precisão que ninguém tem com um arquivo na mão.
   ///
-  /// A mesma largura das asas da ilha: o alvo é tudo o que se vê preto em
-  /// volta do recorte quando algo está rodando, e não só o furo.
-  private static let notchSlack: CGFloat = 60
+  /// Era a largura das asas da ilha (60), e mirar o preto em volta do furo
+  /// ainda era mirar um alvo estreito com um arquivo na mão: quem chegava um
+  /// pouco ao lado encostava no topo fora da zona, e o macOS abria o Mission
+  /// Control no lugar da prateleira (#173). Ao lado do recorte a barra de
+  /// menus não tem destino de arquivo nenhum para confundir.
+  private static let notchSlack: CGFloat = 120
+
+  /// A folga de cada lado em que a barra de menus dispara **sem espera**. A
+  /// mais estreita das duas: com 120, ícones da barra de status que aceitam
+  /// arquivo (Dropover, Yoink) cairiam no disparo instantâneo nas telas de
+  /// 14". Fora dela, ainda dentro de [notchSlack], vale a espera de parado.
+  private static let notchInstantSlack: CGFloat = 60
 
   // MARK: - Ligar e desligar
 
@@ -200,6 +218,9 @@ enum NestDragMonitor {
     dragCountAtDown = dragPasteboard.changeCount
     let notch = isNotchEnabled ? NotchGeometry.current() : nil
     notchZone = zone(around: notch)
+    menuBarBottom = notch?.rect.minY ?? .greatestFiniteMagnitude
+    notchMidX = notch?.rect.midX ?? 0
+    notchHalfWidth = (notch?.rect.width ?? 0) / 2
     notchEdgeIsWall = notch.map(edgeIsWall) ?? false
 
     sampler = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
@@ -268,8 +289,14 @@ enum NestDragMonitor {
       return
     }
 
-    // Na borda de cima, sem espera: ver [notchDwell].
-    if notchEdgeIsWall, point.y >= zone.maxY - 1 {
+    // Na barra de menus, sem espera — ver [notchDwell]. A borda de cima é
+    // onde o Mission Control espera, e a barra é o último trecho antes dela:
+    // disparar já na entrada da barra, e não só no pixel do topo, é o que
+    // deixa a prateleira ganhar a corrida de quem vem rápido. Ao lado do
+    // recorte a barra não tem destino de arquivo, então não há o que
+    // confundir. Com outra tela acima, a barra é caminho, e vale a espera.
+    if notchEdgeIsWall, point.y >= menuBarBottom,
+       abs(point.x - notchMidX) <= notchHalfWidth + notchInstantSlack {
       fireNotch()
       return
     }
