@@ -89,21 +89,18 @@ void main() {
     expect(restored.changedAt, editedAt);
   });
 
-  test('reassentar fecha o buraco sem esbarrar na unicidade da vaga', () {
-    repository.create(slot: 1, content: 'a', createdAt: createdAt);
+  test('trocar dois cartões de lugar não esbarra na unicidade da vaga', () {
+    final a = repository.create(slot: 1, content: 'a', createdAt: createdAt);
     final b = repository.create(slot: 2, content: 'b', createdAt: createdAt);
     final c = repository.create(slot: 3, content: 'c', createdAt: createdAt);
-    final d = repository.create(slot: 4, content: 'd', createdAt: createdAt);
 
-    // Apagou a primeira: as três restantes descem uma vaga cada, e a vaga 2
-    // ainda está ocupada quando a 3 tenta virar 2.
-    repository.delete(repository.loadAll().first.id);
-    repository.reassignSlots([b.id, c.id, d.id]);
+    // A vaga 2 está ocupada quando a 1 tenta ir para ela.
+    repository.assignSlots({a.id: 2, b.id: 1, c.id: 9});
 
     expect(repository.loadAll().map((note) => '${note.slot}:${note.content}'), [
       '1:b',
-      '2:c',
-      '3:d',
+      '2:a',
+      '9:c',
     ]);
   });
 

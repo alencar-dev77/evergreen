@@ -36,11 +36,11 @@ abstract interface class LeafRepository {
   /// horas são.
   void updateContent(int id, String content, {required DateTime at});
 
-  /// Reassenta as anotações nas vagas 1..N, na ordem em que vierem.
+  /// Põe cada anotação na vaga dada — `{id: vaga}`.
   ///
-  /// Em lote, e não uma a uma, porque a vaga é única no banco: `[3, 4]` virando
-  /// `[1, 2]` só é seguro se ninguém observar o meio do caminho.
-  void reassignSlots(List<int> idsInOrder);
+  /// Em lote, e não uma a uma, porque a vaga é única no banco: trocar dois
+  /// cartões de lugar só é seguro se ninguém observar o meio do caminho.
+  void assignSlots(Map<int, int> slotById);
 
   void delete(int id);
 
@@ -124,27 +124,29 @@ class SqliteLeafRepository implements LeafRepository {
     );
   }
 
-  /// Numera as vagas em duas passadas, e não em uma.
+  /// Muda as vagas em duas passadas, e não em uma.
   ///
-  /// A vaga é única no banco. Fechar o buraco de trás para a frente (`3` vira
-  /// `2`, `4` vira `3`) até funcionaria em ordem crescente, mas qualquer outra
-  /// ordem colidiria com uma vaga ainda ocupada. Mandar todo mundo para o
-  /// negativo primeiro tira a ordem da conta: nenhum destino final está
-  /// ocupado quando a segunda passada começa.
+  /// A vaga é única no banco. Trocar dois cartões de lugar numa passada só
+  /// colidiria no primeiro `UPDATE`, com o destino ainda ocupado pelo outro.
+  /// Mandar todo mundo para o negativo primeiro tira a ordem da conta: nenhum
+  /// destino final está ocupado quando a segunda passada começa.
   @override
-  void reassignSlots(List<int> idsInOrder) {
+  void assignSlots(Map<int, int> slotById) {
+    if (slotById.isEmpty) return;
+
     final statement = _db.prepare(
       'UPDATE leaf_notes SET slot = ? WHERE id = ?;',
     );
+    final entries = slotById.entries.toList(growable: false);
 
     try {
       _db.execute('BEGIN IMMEDIATE;');
 
-      for (var i = 0; i < idsInOrder.length; i++) {
-        statement.execute([-(i + 1), idsInOrder[i]]);
+      for (var i = 0; i < entries.length; i++) {
+        statement.execute([-(i + 1), entries[i].key]);
       }
-      for (var i = 0; i < idsInOrder.length; i++) {
-        statement.execute([i + 1, idsInOrder[i]]);
+      for (final entry in entries) {
+        statement.execute([entry.value, entry.key]);
       }
 
       _db.execute('COMMIT;');

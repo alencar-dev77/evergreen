@@ -89,11 +89,17 @@ class LeafState {
     return slot == null ? null : noteAt(slot);
   }
 
-  /// A vaga onde a próxima anotação nasce, ou `null` com a parede cheia.
+  /// A primeira vaga livre — onde o `⌘+` faz a anotação nascer —, ou `null`
+  /// com a parede cheia.
   ///
-  /// As vagas ocupadas são sempre contíguas (ver [LeafNote.slot]), então a
-  /// livre é sempre a seguinte à última.
-  int? get firstFreeSlot => isFull ? null : notes.length + 1;
+  /// A parede pode ter buraco (ver [LeafNote.slot]): a livre não é mais a
+  /// seguinte à última, e sim a de menor número que ninguém ocupa.
+  int? get firstFreeSlot {
+    for (final slot in LeafNote.slots) {
+      if (noteAt(slot) == null) return slot;
+    }
+    return null;
+  }
 
   /// A parede é sempre a parede inteira: nove vagas, três por linha.
   ///
@@ -109,13 +115,11 @@ class LeafState {
   /// Quantas linhas a grade ocupa — sempre as três.
   int get rows => (LeafNote.maxNotes / LeafNote.columns).ceil();
 
-  /// A última vaga que o teclado alcança.
+  /// A última vaga que o teclado alcança — a nona, sempre.
   ///
-  /// **Desenhar as nove não é poder escolher as nove.** A vaga vazia lá do fim
-  /// não faz nada: a parede não tem buraco, então a próxima anotação nasce na
-  /// primeira livre, e uma seta que parasse na nona deixaria o Enter sem
-  /// resposta. O olho vê o endereço; o teclado anda até onde há o que fazer.
-  int get lastSelectableSlot => isFull ? notes.length : notes.length + 1;
+  /// Com a anotação podendo nascer em qualquer vaga livre (#174), toda vaga
+  /// desenhada tem o que fazer com o Enter, e a seta anda pela parede inteira.
+  int get lastSelectableSlot => LeafNote.maxNotes;
 
   LeafState copyWith({
     List<LeafNote>? notes,

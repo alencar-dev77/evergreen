@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/window/overlay_window.dart';
@@ -180,7 +181,7 @@ void main() {
     expect(find.byType(LeafEmptySlot), findsNWidgets(LeafNote.maxNotes - 2));
   });
 
-  testWidgets('apagar não deixa buraco, e a parede continua inteira', (
+  testWidgets('apagar deixa a vaga livre, e a parede continua inteira', (
     tester,
   ) async {
     for (var slot = 1; slot <= 4; slot++) {
@@ -198,17 +199,86 @@ void main() {
 
     expect(find.byType(LeafNoteCard), findsNWidgets(3));
     expect(find.text('nota 2'), findsNothing);
-    // A que estava embaixo subiu: nada de buraco no meio da parede.
-    expect(stateOf(container).noteAt(2)?.content, 'nota 3');
+    // A vaga é endereço (#174): o 3 continua no 3, e a 2 fica livre.
+    expect(stateOf(container).noteAt(2), isNull);
+    expect(stateOf(container).noteAt(3)?.content, 'nota 3');
     expect(stateOf(container).rows, 3);
+    expect(stateOf(container).lastSelectableSlot, 9);
+  });
 
-    viewModelOf(container).deleteSelected();
-    viewModelOf(container).deleteSelected();
+  testWidgets('arrastar um cartão até uma vaga livre o leva para lá', (
+    tester,
+  ) async {
+    repository.create(slot: 1, content: 'nota 1', createdAt: clock);
+    final container = await pumpPanel(tester);
+
+    final from = tester.getCenter(find.text('nota 1'));
+    final to = tester.getCenter(
+      find.ancestor(of: find.text('9'), matching: find.byType(LeafEmptySlot)),
+    );
+
+    final gesture = await tester.startGesture(
+      from,
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(30, 0));
+    await tester.pump();
+    await gesture.moveTo(to);
+    await tester.pump();
+    await gesture.up();
     await tester.pumpAndSettle();
 
-    // A parede não encolheu — o que encolheu foi o que o teclado alcança.
-    expect(stateOf(container).rows, 3);
-    expect(stateOf(container).lastSelectableSlot, 2);
+    expect(stateOf(container).noteAt(1), isNull);
+    expect(stateOf(container).noteAt(9)?.content, 'nota 1');
+    expect(repository.loadAll().single.slot, 9);
+  });
+
+  testWidgets('arrastar em curva leva o cartão, e não a janela', (
+    tester,
+  ) async {
+    repository.create(slot: 1, content: 'nota 1', createdAt: clock);
+    final container = await pumpPanel(tester);
+
+    final from = tester.getCenter(find.text('nota 1'));
+    final to = tester.getCenter(
+      find.ancestor(of: find.text('2'), matching: find.byType(LeafEmptySlot)),
+    );
+
+    // Vai e volta: o caminho passa da régua antes de a distância em linha
+    // reta passar.
+    final gesture = await tester.startGesture(
+      from,
+      kind: PointerDeviceKind.mouse,
+    );
+    for (final step in const [Offset(8, 0), Offset(-8, 0), Offset(8, 0)]) {
+      await gesture.moveBy(step);
+    }
+    await tester.pump();
+    await gesture.moveTo(to);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(stateOf(container).noteAt(2)?.content, 'nota 1');
+  });
+
+  testWidgets('um clique com a mão tremendo abre o cartão, e não o arrasta', (
+    tester,
+  ) async {
+    repository.create(slot: 1, content: 'nota 1', createdAt: clock);
+    final container = await pumpPanel(tester);
+
+    final from = tester.getCenter(find.text('nota 1'));
+    final gesture = await tester.startGesture(
+      from,
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(4, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(stateOf(container).noteAt(1)?.content, 'nota 1');
+    expect(stateOf(container).editingSlot, 1);
   });
 
   testWidgets('apagar oferece o desfazer, e o ⌘Z devolve o cartão', (

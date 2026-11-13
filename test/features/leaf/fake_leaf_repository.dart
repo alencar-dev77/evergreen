@@ -67,12 +67,12 @@ class FakeLeafRepository implements LeafRepository {
   }
 
   @override
-  void reassignSlots(List<int> idsInOrder) {
-    for (var i = 0; i < idsInOrder.length; i++) {
-      final index = _notes.indexWhere((note) => note.id == idsInOrder[i]);
+  void assignSlots(Map<int, int> slotById) {
+    for (final MapEntry(key: id, value: slot) in slotById.entries) {
+      final index = _notes.indexWhere((note) => note.id == id);
       if (index < 0) continue;
 
-      _notes[index] = _notes[index].copyWith(slot: i + 1);
+      _notes[index] = _notes[index].copyWith(slot: slot);
     }
   }
 

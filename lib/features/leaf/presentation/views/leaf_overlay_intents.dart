@@ -22,6 +22,15 @@ class LeafMoveSelectionIntent extends Intent {
   final int rows;
 }
 
+/// Leva o cartão selecionado para a vaga vizinha (`⌘⌥` + seta) — o arrastar
+/// da parede, pelo teclado.
+class LeafMoveNoteIntent extends Intent {
+  const LeafMoveNoteIntent({this.columns = 0, this.rows = 0});
+
+  final int columns;
+  final int rows;
+}
+
 /// Copia a anotação de uma vaga e fecha o painel.
 class LeafCopySlotIntent extends Intent {
   const LeafCopySlotIntent(this.slot);
@@ -124,6 +133,16 @@ abstract final class LeafOverlayIntents {
         const LeafMoveSelectionIntent(rows: -1),
     const SingleActivator(LogicalKeyboardKey.arrowDown):
         const LeafMoveSelectionIntent(rows: 1),
+    // `⌘⌥` + seta carrega o cartão junto com a seleção: o arrastar e soltar
+    // da parede, para quem não tira a mão do teclado.
+    const SingleActivator(LogicalKeyboardKey.arrowLeft, meta: true, alt: true):
+        const LeafMoveNoteIntent(columns: -1),
+    const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true, alt: true):
+        const LeafMoveNoteIntent(columns: 1),
+    const SingleActivator(LogicalKeyboardKey.arrowUp, meta: true, alt: true):
+        const LeafMoveNoteIntent(rows: -1),
+    const SingleActivator(LogicalKeyboardKey.arrowDown, meta: true, alt: true):
+        const LeafMoveNoteIntent(rows: 1),
     // `⌘+` em qualquer teclado: o sinal de mais mora no `=` do ANSI e tem tecla
     // própria no numérico, e quem aperta `⌘⇧=` está apertando `⌘+`.
     const SingleActivator(LogicalKeyboardKey.equal, meta: true):
@@ -181,6 +200,7 @@ abstract final class LeafOverlayIntents {
     required VoidCallback onNewNote,
     required VoidCallback onActivate,
     required void Function({int columns, int rows}) onMoveSelection,
+    required void Function({int columns, int rows}) onMoveNote,
     required Future<void> Function(int slot) onCopySlot,
     required ValueChanged<int> onEditSlot,
     required VoidCallback onDelete,
@@ -204,6 +224,10 @@ abstract final class LeafOverlayIntents {
       LeafMoveSelectionIntent: CallbackAction<LeafMoveSelectionIntent>(
         onInvoke: (intent) =>
             onMoveSelection(columns: intent.columns, rows: intent.rows),
+      ),
+      LeafMoveNoteIntent: CallbackAction<LeafMoveNoteIntent>(
+        onInvoke: (intent) =>
+            onMoveNote(columns: intent.columns, rows: intent.rows),
       ),
       LeafCopySlotIntent: CallbackAction<LeafCopySlotIntent>(
         onInvoke: (intent) => onCopySlot(intent.slot),

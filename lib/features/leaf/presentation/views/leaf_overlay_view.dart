@@ -218,6 +218,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
             onNewNote: _viewModel.startNote,
             onActivate: _viewModel.editSelected,
             onMoveSelection: _viewModel.moveSelection,
+            onMoveNote: _viewModel.moveSelectedNote,
             onCopySlot: _copySlot,
             onEditSlot: _viewModel.editSlot,
             onDelete: _viewModel.deleteSelected,
@@ -281,6 +282,7 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
                   reminderController: _reminderController,
                   reminderFocusNode: _reminderFocusNode,
                   onSelect: _viewModel.editSlot,
+                  onMove: _viewModel.moveNote,
                   onDelete: _delete,
                   onRemind: _viewModel.remindSlot,
                   onPickReminder: _viewModel.setReminder,
@@ -375,7 +377,9 @@ class _LeafOverlayViewState extends ConsumerState<LeafOverlayView> {
         // conforme o que está selecionado.
         if (hasAny) const EgHint(keys: ['1–9'], label: 'copiar'),
         if (hasAny) const EgHint(keys: ['⌥1–9'], label: 'editar'),
-        if (!hasAny) const EgHint(keys: ['enter'], label: 'anotar'),
+        // Na vaga livre selecionada, o Enter escreve ali mesmo — qualquer
+        // vaga, não só a primeira.
+        if (!hasNote) const EgHint(keys: ['enter'], label: 'anotar'),
         // O lembrete cede a vez ao desfazer: a barra comporta quatro teclas,
         // e o desfazer é a que só vale agora.
         if (hasNote && !state.canUndoDelete)

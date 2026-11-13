@@ -219,6 +219,26 @@ void main() {
       expect(contentsOf(db), ['conteúdo antigo']);
     });
 
+    test('o Leaf volta com cada cartão na vaga em que estava', () {
+      // A parede tem buraco (#174): a vaga é endereço, e o backup precisa
+      // devolver o cartão 7 no 7, e não reempilhado no começo.
+      db.execute(
+        'INSERT INTO leaf_notes (slot, content, created_at) '
+        "VALUES (2, 'dois', 1), (7, 'sete', 1);",
+      );
+      final backup = service.create();
+
+      db.execute('UPDATE leaf_notes SET slot = slot + 1;');
+      service.restore(backup);
+
+      expect(
+        db
+            .select('SELECT slot, content FROM leaf_notes ORDER BY slot;')
+            .map((row) => '${row['slot']}:${row['content']}'),
+        ['2:dois', '7:sete'],
+      );
+    });
+
     test('leva as quatro tabelas dos módulos, não só a do Pin', () {
       insertItem('copiado');
       db.execute(
