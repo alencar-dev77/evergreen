@@ -87,7 +87,13 @@ class LeafViewModel extends Notifier<LeafState> {
   /// ocupadas e sem o cartão de "nova", que explica o silêncio.
   void startNote() {
     final slot = state.firstFreeSlot;
-    if (slot == null) return;
+    if (slot != null) _startNoteAt(slot);
+  }
+
+  /// Um cartão em branco na vaga livre [slot] — qualquer uma, não só a
+  /// primeira (#174).
+  void _startNoteAt(int slot) {
+    if (state.noteAt(slot) != null) return;
 
     state = state.copyWith(
       selectedSlot: slot,
@@ -102,7 +108,7 @@ class LeafViewModel extends Notifier<LeafState> {
     if (slot == null) return;
 
     if (state.noteAt(slot) == null) {
-      startNote();
+      _startNoteAt(slot);
       return;
     }
 
@@ -111,13 +117,10 @@ class LeafViewModel extends Notifier<LeafState> {
 
   void editSlot(int slot) {
     if (state.noteAt(slot) == null) {
-      // Vaga vazia que não é a próxima da fila não abre nada: a parede não tem
-      // buraco, e `⌥8` com cinco cartões colados não pode fazer o sexto nascer
-      // no oitavo lugar.
-      if (slot != state.firstFreeSlot) return;
-
+      // Qualquer vaga livre aceita uma anotação nova: a parede é um mural, e o
+      // recado vai para onde a pessoa o pôs (#174).
       state = state.copyWith(selectedSlot: slot, clearCopied: true);
-      startNote();
+      _startNoteAt(slot);
       return;
     }
 
@@ -305,8 +308,8 @@ class LeafViewModel extends Notifier<LeafState> {
         createdAt: _now(),
       );
       // A oferta de desfazer sobrevive a isto: o cartão devolvido volta para a
-      // vaga dele e empurra os outros para baixo, e escrever uma anotação nova
-      // não é motivo para perder a que se apagou por engano. Quem encerra a
+      // vaga dele, ou para a primeira livre se esta nova a ocupou, e escrever
+      // uma anotação nova não é motivo para perder a que se apagou por engano. Quem encerra a
       // oferta é a parede cheia — ver [LeafState.canUndoDelete].
       state = state.copyWith(
         notes: _sorted([...state.notes, created]),
@@ -366,11 +369,13 @@ class LeafViewModel extends Notifier<LeafState> {
       state.undoableDeletes.length - 1,
     );
 
-    // Nasce na primeira vaga livre porque a vaga é única no banco, e a de
-    // origem está ocupada por quem subiu no lugar dele. O lugar certo vem da
-    // renumeração, logo abaixo.
+    // Volta para a vaga de onde saiu; se alguém a ocupou nesse meio-tempo,
+    // para a primeira livre — a parede não empurra ninguém para abrir lugar.
+    final slot = state.noteAt(note.slot) == null
+        ? note.slot
+        : state.firstFreeSlot!;
     final restored = _repository.create(
-      slot: state.notes.length + 1,
+      slot: slot,
       content: note.content,
       createdAt: note.createdAt,
       // A data volta como estava: um cartão devolvido à parede não é um cartão
@@ -391,19 +396,10 @@ class LeafViewModel extends Notifier<LeafState> {
       );
     }
 
-    final ordered = [...state.notes]
-      ..insert((note.slot - 1).clamp(0, state.notes.length), restored);
-
-    final resettled = <LeafNote>[
-      for (var i = 0; i < ordered.length; i++) ordered[i].copyWith(slot: i + 1),
-    ];
-
-    _repository.reassignSlots([for (final note in resettled) note.id]);
-
     state = LeafState(
-      notes: resettled,
+      notes: _sorted([...state.notes, restored]),
       // A seleção vai para o cartão que acabou de voltar: é onde o olho está.
-      selectedSlot: note.slot.clamp(1, resettled.length),
+      selectedSlot: slot,
       undoableDeletes: rest,
     );
   }
@@ -412,7 +408,7 @@ class LeafViewModel extends Notifier<LeafState> {
   /// existir.
   void cancelEdit() => state = state.copyWith(clearEditing: true);
 
-  /// `⌘⌫`: tira o cartão da parede, que encolhe junto.
+  /// `⌘⌫`: tira o cartão da parede, e a vaga dele fica livre.
   void deleteSelected() {
     final note = state.selectedNote;
     if (note == null) return;
@@ -446,6 +442,59 @@ class LeafViewModel extends Notifier<LeafState> {
 
   void selectSlot(int slot) => state = state.copyWith(selectedSlot: slot);
 
+  /// Leva o cartão da vaga [from] para a vaga [to] — o arrastar e soltar da
+  /// parede (#174).
+  ///
+  /// Vaga livre recebe o cartão, e a de origem fica livre. Vaga ocupada
+  /// **troca** com ele: soltar um cartão em cima de outro é pedir para os dois
+  /// mudarem de lugar, e empurrar o resto da parede mudaria o número de
+  /// cartões que ninguém tocou.
+  ///
+  /// Nada se move com um cartão em edição ou virado em lembrete: o campo e o
+  /// seletor estão presos à vaga, e mudá-la debaixo deles gravaria o texto no
+  /// lugar errado.
+  void moveNote(int from, int to) {
+    if (from == to || state.isEditing || state.isReminding) return;
+    if (!LeafNote.slots.contains(to)) return;
+
+    final moving = state.noteAt(from);
+    if (moving == null) return;
+
+    final target = state.noteAt(to);
+    _repository.assignSlots({moving.id: to, ?target?.id: from});
+
+    state = state.copyWith(
+      notes: _sorted([
+        for (final note in state.notes)
+          if (note.id == moving.id)
+            note.copyWith(slot: to)
+          else if (note.id == target?.id)
+            note.copyWith(slot: from)
+          else
+            note,
+      ]),
+      selectedSlot: to,
+      clearCopied: true,
+    );
+  }
+
+  /// `⌘⌥` + seta: leva o cartão selecionado para a vaga vizinha — o mesmo
+  /// [moveNote] do arraste, para quem está no teclado.
+  void moveSelectedNote({int columns = 0, int rows = 0}) {
+    final from = state.selectedSlot;
+    if (from == null || state.noteAt(from) == null) return;
+
+    final index = from - 1;
+    final column = index % LeafNote.columns + columns;
+    final row = index ~/ LeafNote.columns + rows;
+    final lastRow = state.rows - 1;
+    if (column < 0 || column >= LeafNote.columns || row < 0 || row > lastRow) {
+      return;
+    }
+
+    moveNote(from, row * LeafNote.columns + column + 1);
+  }
+
   /// Move a seleção pela grade, em duas dimensões.
   ///
   /// Para nas bordas em vez de dar a volta: a parede é pequena e está inteira à
@@ -453,7 +502,6 @@ class LeafViewModel extends Notifier<LeafState> {
   /// seleção passar direto pelo que a pessoa estava procurando.
   void moveSelection({int columns = 0, int rows = 0}) {
     final last = state.lastSelectableSlot;
-    if (last == 0) return;
 
     final current = state.selectedSlot ?? 1;
     final index = current - 1;
@@ -464,19 +512,16 @@ class LeafViewModel extends Notifier<LeafState> {
     final nextColumn = (column + columns).clamp(0, LeafNote.columns - 1);
     final nextRow = (row + rows).clamp(0, lastRow);
 
-    // A última linha pode estar pela metade: descer para uma coluna que ainda
-    // não existe encosta no último cartão dela, em vez de não fazer nada.
     final slot = (nextRow * LeafNote.columns + nextColumn + 1).clamp(1, last);
 
     state = state.copyWith(selectedSlot: slot);
   }
 
-  /// Tira a anotação e fecha o buraco que ela deixou.
+  /// Tira a anotação, e a vaga dela fica livre.
   ///
-  /// As sobreviventes sobem uma vaga cada, e a parede diminui de tamanho — é o
-  /// que se espera de um mural do qual se acabou de arrancar um papel. O preço
-  /// é que os números depois da vaga apagada mudam; em uma parede de nove
-  /// cartões, todos visíveis, é um preço barato.
+  /// Os outros cartões ficam onde estão — a vaga é endereço (ver
+  /// [LeafNote.slot]), e arrancar um papel do mural não faz os de baixo
+  /// subirem.
   void _remove(LeafNote note) {
     _repository.delete(note.id);
 
@@ -491,21 +536,11 @@ class LeafViewModel extends Notifier<LeafState> {
         if (other.id != note.id) other,
     ];
 
-    final resettled = <LeafNote>[
-      for (var i = 0; i < remaining.length; i++)
-        remaining[i].copyWith(slot: i + 1),
-    ];
-
-    _repository.reassignSlots([for (final note in resettled) note.id]);
-
     state = LeafState(
-      notes: resettled,
-      // A seleção fica na vaga: quem estava na de baixo subiu para ela, que é o
-      // cartão que o olho já está encarando. Na última vaga não há quem suba —
-      // a seleção recua para o fim da parede.
-      selectedSlot: resettled.isEmpty
-          ? null
-          : note.slot.clamp(1, resettled.length + 1),
+      notes: remaining,
+      // A seleção fica na vaga, agora livre: é onde o olho está, e o Enter ali
+      // escreve outra anotação no mesmo lugar.
+      selectedSlot: note.slot,
       // O cartão vai para o topo da pilha do `⌘Z`. Empilhar, e não substituir:
       // apagar dois seguidos é justamente o caso que mais precisa de desfazer.
       undoableDeletes: _pushed(state.undoableDeletes, note),

@@ -251,9 +251,10 @@ lista de módulos sonhados) está em
   (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta
   em que o painel vai até o cursor em vez do contrário
   (`OverlayWindow.positionForCursor`). A terceira porta é **levar o arquivo
-  ao notch** (na borda de cima dispara na hora, porque o Mission Control abre
-  ali — salvo com outro monitor encostado acima; na faixa logo abaixo, com
-  150 ms de cursor parado): o mesmo relógio do chacoalhar pergunta se o cursor
+  ao notch** (na barra de menus, até 60 pt de cada lado do recorte,
+  dispara na hora, porque o Mission Control abre na borda logo acima — salvo
+  com outro monitor encostado acima; até 120 pt de cada lado e 96 pt abaixo
+  da barra, com 150 ms de cursor parado): o mesmo relógio do chacoalhar pergunta se o cursor
   está no recorte, e quem recebe o arquivo continua sendo a janela 0, posta
   com o topo no topo da tela (`OverlayWindowChannel.positionAtNotch`). O
   recorte já tinha sido tentado com **uma janela própria recebendo o
@@ -311,7 +312,10 @@ lista de módulos sonhados) está em
   `SPUUserDriver` próprio): a versão nova vira item no menu da barra, tecla
   com bolinha no botão "Aplicativo" e o cartão `HubUpdate` por cima do Hub
   (pergunta de sim ou não, então fecha ao clicar fora), nunca a janela do
-  Sparkle, que tiraria o foco de quem está trabalhando. Os executáveis de dentro do `Sparkle.framework`
+  Sparkle, que tiraria o foco de quem está trabalhando. Além disso, uma
+  notificação do sistema, **uma vez por versão** (`UpdateNotifier`, a versão
+  avisada no plist): a mesma versão não instalada não avisa de novo, só uma
+  mais nova. O clique nela leva ao cartão. Os executáveis de dentro do `Sparkle.framework`
   (XPC, `Autoupdate`, `Updater.app`) são assinados um a um no `release`. Ver
   [docs/Ideis projeto/atualizacao-sparkle.md](docs/Ideis%20projeto/atualizacao-sparkle.md).
 - **`shared_preferences`, `path_provider`, `intl`, `package_info_plus`** —
@@ -504,6 +508,16 @@ lista de módulos sonhados) está em
   no Echo é **por fase**, não por módulo — ele só o desliga gravando ou
   transcrevendo, e a casca reconfere a bandeira depois da margem de tolerância
   porque a fase pode virar no meio dela.
+- **O mouse em cima de uma janela do Evergreen a seleciona, sem clique**
+  (#173), e isso mora num lugar de cada lado: no Dart, o `MouseRegion` da
+  `EgOverlayShell` (o painel, e não o vazio transparente da janela 0 — o foco
+  que chega por ali não é abertura, e não chama o `onShow`); no Swift, o
+  `WindowSelection`, por onde passam o atalho, o mouse no painel, o mouse no
+  Hub (que ativa o app) e o primeiro clique. Janela nova que precise disso
+  usa o `WindowSelection`, nunca um `makeKey` solto. Painel com tecla comum
+  que faz algo sem volta enquanto fica na tela sem foco desliga o
+  `selectOnHover` (o Echo gravando); as cercas estão em
+  [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
 - A janela 0 é movível (`setMovable(true)`) só para o `startDragging` do painel
   ser aceito pelo macOS; nada liga o arrasto pela área transparente da
   *janela*, que é a barreira do clique-fora. A posição arrastada vale até
@@ -573,7 +587,13 @@ lista de módulos sonhados) está em
   (`PinImageCapture`), e **texto ganha de imagem** — copiar um parágrafo do
   Pages traz uma imagem dele junto, e quem copiou queria o parágrafo. Colar
   devolve a imagem em si (`writeImage`), nunca o caminho. A reclassificação
-  do histórico pula as imagens: o classificador lê texto, e a chave não é. Ver
+  do histórico pula as imagens: o classificador lê texto, e a chave não é.
+  **O print salvo em arquivo** (`⌘⇧3`/`⌘⇧4`) entra pelo mesmo `onCopyImage`,
+  com "Guardar prints" ligado (desligado por padrão, porque pede acesso à
+  Mesa): o `ScreenshotWatcher` pergunta a data da pasta a cada segundo, numa
+  fila de fundo, e só entrega o arquivo com o atributo
+  `kMDItemIsScreenCapture` e tamanho parado entre duas voltas. O Pin guarda a
+  própria cópia — apagar o print não tira o item. Ver
   [docs/Ideis projeto/pin-imagens.md](docs/Ideis%20projeto/pin-imagens.md).
 - **O Pin escreve num lugar só: o gerador de CPF e CNPJ.** Ele é uma linha no
   topo da lista dentro do filtro daquele documento, e paga três exceções às

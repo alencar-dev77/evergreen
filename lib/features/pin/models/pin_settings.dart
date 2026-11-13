@@ -9,6 +9,7 @@ class PinSettings {
     this.historyLimit = 200,
     this.autoPaste = false,
     this.ignoredTypes = const <ClipboardItemType>{},
+    this.captureScreenshots = false,
   });
 
   /// Quantidade máxima de itens não fixados mantidos no histórico.
@@ -36,6 +37,17 @@ class PinSettings {
   /// explicitamente pedido.
   final bool autoPaste;
 
+  /// Guardar no Pin cada print salvo em arquivo (`⌘⇧3`, `⌘⇧4`).
+  ///
+  /// Desligado por padrão, como o auto-colar: o print mora numa pasta que o
+  /// macOS protege (a Mesa), e ligar é o que faz o sistema pedir acesso a ela.
+  /// Uma permissão pedida sem ninguém ter pedido nada seria o Evergreen
+  /// surpreendendo quem acabou de atualizar.
+  ///
+  /// O print com `⌃`, que vai para a área de transferência, entra sempre —
+  /// esse é uma cópia como outra qualquer.
+  final bool captureScreenshots;
+
   /// Opções oferecidas na tela de configurações.
   static const historyLimitOptions = <int>[50, 100, 200, 500];
 
@@ -43,11 +55,13 @@ class PinSettings {
     int? historyLimit,
     bool? autoPaste,
     Set<ClipboardItemType>? ignoredTypes,
+    bool? captureScreenshots,
   }) {
     return PinSettings(
       historyLimit: historyLimit ?? this.historyLimit,
       autoPaste: autoPaste ?? this.autoPaste,
       ignoredTypes: ignoredTypes ?? this.ignoredTypes,
+      captureScreenshots: captureScreenshots ?? this.captureScreenshots,
     );
   }
 }

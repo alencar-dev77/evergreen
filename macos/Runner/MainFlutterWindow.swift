@@ -46,6 +46,14 @@ class MainFlutterWindow: NSPanel {
     // não basta.
     flutterViewController.backgroundColor = .clear
 
+    // O mouse em cima do painel é visto mesmo com a janela fora de foco. O
+    // padrão do Flutter só acompanha o mouse na key window — e a janela 0 é
+    // um painel que não ativa o app, muitas vezes na tela sem ser key (a
+    // pilha do Nest saindo do notch). Sem isto, o painel não acendia nada
+    // debaixo do cursor e parecia não ter reconhecido que o mouse chegou
+    // (#173).
+    flutterViewController.mouseTrackingMode = .always
+
     Self.registerChannels(for: flutterViewController, isOverlay: true)
 
     // Cada janela criada pelo desktop_multi_window roda um engine próprio, que
@@ -175,6 +183,28 @@ class MainFlutterWindow: NSPanel {
     window.styleMask.remove(.resizable)
     window.setContentSize(HubWindowChannel.contentSize)
     HubWindowChannel.adopt(window)
+    WindowSelection.track(window)
+  }
+
+  /// O primeiro clique no painel já vale — inclusive o que começa a arrastar
+  /// um arquivo para fora da pilha do Nest.
+  ///
+  /// Num painel que não é a key window, o AppKit usa o clique para torná-lo
+  /// key e o **engole**, porque a view do Flutter não aceita o "primeiro
+  /// mouse". A pilha que sai do notch nasce sem o teclado (de propósito: ela
+  /// aparece no meio do arraste de quem está em outro app), e então o arraste
+  /// para fora só funcionava no segundo clique (#173). Tornar a janela key
+  /// antes de o evento seguir é o que faz o mesmo clique chegar ao Flutter.
+  ///
+  /// Com o mouse em cima, o painel já costuma estar selecionado
+  /// (`OverlayWindowChannel.takeKeyboardOnHover`); isto é a rede para o
+  /// clique que chega antes do aviso do mouse — um painel que nasce debaixo
+  /// do cursor parado, por exemplo.
+  override func sendEvent(_ event: NSEvent) {
+    if event.type == .leftMouseDown {
+      WindowSelection.select(self, activatingApp: false)
+    }
+    super.sendEvent(event)
   }
 
   /// Impede o flash da janela no lançamento: o overlay só aparece quando o
@@ -182,6 +212,95 @@ class MainFlutterWindow: NSPanel {
   override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
     super.order(place, relativeTo: otherWin)
     hiddenWindowAtLaunch()
+  }
+}
+
+/// Selecionar uma janela do Evergreen — um lugar só para quem seleciona.
+///
+/// - **O atalho** que abre um painel (`OverlayWindowChannel.show`) entrega o
+///   teclado com [giveKeyboard].
+/// - **O mouse em cima de um painel** (#173): o Dart pede pelo `MouseRegion`
+///   da `EgOverlayShell` — só ele sabe onde o painel termina e começa o vazio
+///   transparente da janela 0, e quais painéis não podem ser selecionados
+///   assim —, e o canal chama [select] sem ativar o aplicativo.
+/// - **O primeiro clique** num painel que não é key (`MainFlutterWindow.sendEvent`).
+/// - **O mouse em cima do Hub**, pela área de rastreio de [track], que ativa o
+///   aplicativo: o Hub é uma janela comum, e só vira a selecionada com o
+///   Evergreen na frente. Não com um painel da janela 0 à vista: ativar o Hub
+///   tiraria o foco do painel, que fecha ao perdê-lo.
+///
+/// Só a entrada do mouse conta, e nunca durante um arraste (a área de rastreio
+/// não tem `.enabledDuringMouseDrag`).
+enum WindowSelection {
+  /// Torna [window] a selecionada, se ela está na tela e ainda não é — sem
+  /// mexer no first responder, que pode ser o campo de texto em edição.
+  /// Devolve se ela é a selecionada agora.
+  @discardableResult
+  static func select(_ window: NSWindow, activatingApp: Bool) -> Bool {
+    guard window.isVisible, window.isOnActiveSpace, window.canBecomeKey else { return false }
+
+    if activatingApp {
+      guard !(NSApp.isActive && window.isKeyWindow) else { return true }
+      NSApp.activate()
+      window.makeKeyAndOrderFront(nil)
+    } else if !window.isKeyWindow {
+      window.makeKey()
+    }
+    return window.isKeyWindow
+  }
+
+  /// Torna [window] key com a view do Flutter como first responder.
+  ///
+  /// Ser key não basta: quem recebe a tecla é o first responder da janela, e
+  /// ele não sobrevive garantidamente a um `orderOut` — que é como o painel se
+  /// esconde, dezenas de vezes por dia. Com a janela key e o responder
+  /// perdido, a tecla sobe a cadeia sem ninguém para tratá-la e o macOS
+  /// responde com o bipe de "não posso": o painel fica na tela, visivelmente
+  /// aberto, e mudo.
+  ///
+  /// Só quando já não é ela: `makeFirstResponder` desfaz a seleção de texto do
+  /// campo que estiver em foco, e reexibir o painel não pode mexer no que a
+  /// pessoa deixou escrito.
+  static func giveKeyboard(to window: NSWindow) {
+    select(window, activatingApp: false)
+
+    if let view = window.contentViewController?.view, window.firstResponder !== view {
+      window.makeFirstResponder(view)
+    }
+  }
+
+  /// Seleciona [window] sempre que o mouse entra nela, ativando o aplicativo.
+  static func track(_ window: NSWindow) {
+    guard let view = window.contentView else { return }
+
+    trackers.removeAll { $0.window == nil }
+    let tracker = Tracker(window: window)
+    trackers.append(tracker)
+
+    view.addTrackingArea(NSTrackingArea(
+      rect: .zero,
+      options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+      owner: tracker,
+      userInfo: nil))
+  }
+
+  /// Retidos aqui: a área de rastreio não retém quem a escuta.
+  private static var trackers: [Tracker] = []
+
+  private final class Tracker: NSResponder {
+    weak var window: NSWindow?
+
+    init(window: NSWindow) {
+      self.window = window
+      super.init()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func mouseEntered(with event: NSEvent) {
+      guard let window = window, !OverlayWindowChannel.isShowingPanel else { return }
+      WindowSelection.select(window, activatingApp: true)
+    }
   }
 }
 
@@ -203,6 +322,9 @@ enum OverlayWindowChannel {
   /// Fraca por simetria com o `HubWindowChannel`: quem retém a janela 0 é o
   /// `NSApp`, e ela nunca é destruída — só escondida.
   private static weak var panel: NSPanel?
+
+  /// Há um painel da janela 0 na tela — ver `WindowSelection`.
+  static var isShowingPanel: Bool { panel?.isVisible ?? false }
 
   /// Guarda a janela 0. Chamada pelo `MainFlutterWindow`, que é ela mesma.
   ///
@@ -233,6 +355,9 @@ enum OverlayWindowChannel {
       case "positionAtNotch":
         result(positionAtNotch())
 
+      case "takeKeyboardOnHover":
+        result(takeKeyboardOnHover())
+
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -249,9 +374,9 @@ enum OverlayWindowChannel {
   /// novo, com a regra que acabamos de contornar.
   ///
   /// Sem [takeKeyboard], só põe na frente: é a pilha do Nest que sai do notch
-  /// pelo mouse ou pelo arraste — passar por ali não pode roubar as teclas de
-  /// quem está digitando em outro app. Um clique nela a torna key como em
-  /// qualquer painel.
+  /// pelo mouse ou pelo arraste — nascer debaixo do cursor não pode roubar as
+  /// teclas de quem está digitando em outro app. O mouse se **movendo** sobre
+  /// ela, ou um clique, a seleciona — ver `WindowSelection`.
   private static func show(takeKeyboard: Bool, result: @escaping FlutterResult) {
     guard let panel = panel else {
       result(
@@ -270,24 +395,29 @@ enum OverlayWindowChannel {
       return
     }
 
-    panel.makeKey()
-
-    // A view do Flutter de volta como first responder.
-    //
-    // Ser key não basta: quem recebe a tecla é o first responder da janela, e
-    // ele não sobrevive garantidamente a um `orderOut` — que é como o painel se
-    // esconde, dezenas de vezes por dia. Com a janela key e o responder perdido,
-    // a tecla sobe a cadeia sem ninguém para tratá-la e o macOS responde com o
-    // bipe de "não posso": o painel fica na tela, visivelmente aberto, e mudo.
-    //
-    // Só quando já não é ela: `makeFirstResponder` desfaz a seleção de texto do
-    // campo que estiver em foco, e reexibir o painel não pode mexer no que a
-    // pessoa deixou escrito.
-    if let view = panel.contentViewController?.view, panel.firstResponder !== view {
-      panel.makeFirstResponder(view)
-    }
+    WindowSelection.giveKeyboard(to: panel)
 
     result(nil)
+  }
+
+  /// O mouse chegou ao painel: a janela passa a ser a selecionada, sem
+  /// clique (#173).
+  ///
+  /// Quem pede é o Dart, pelo `MouseRegion` do painel na `EgOverlayShell` — e
+  /// não uma área de rastreio daqui, porque a janela 0 é bem maior que o
+  /// painel, e o vazio transparente em volta dele não é o Evergreen: passar
+  /// por ali não pode selecionar nada.
+  ///
+  /// Só seleciona a janela que está na tela e ainda não é key. Não a põe na
+  /// frente (ela já está, no nível da barra de status) e não ativa o
+  /// aplicativo: o painel continua não-ativante, e quem estava na frente
+  /// continua na frente. O teclado, esse sim, passa para o painel — é o que
+  /// "selecionado" quer dizer.
+  ///
+  /// Devolve se selecionou, para o Dart saber se o foco que vai chegar é dele.
+  private static func takeKeyboardOnHover() -> Bool {
+    guard let panel = panel else { return false }
+    return WindowSelection.select(panel, activatingApp: false)
   }
 
   /// Põe a janela 0 com o topo encostado no topo da tela, centrada no
@@ -775,6 +905,12 @@ enum PasteboardWatcherChannel {
         acknowledge(call.arguments as? String)
         result(nil)
 
+      case "watchScreenshots":
+        ScreenshotWatcher.setEnabled(call.arguments as? Bool ?? false) { payload in
+          channel.invokeMethod("onCopyImage", arguments: payload)
+        }
+        result(nil)
+
       case "writeImage":
         if writeImage(atPath: call.arguments as? String) {
           result(nil)
@@ -914,6 +1050,206 @@ enum PasteboardWatcherChannel {
     lastChangeCount = pasteboard.changeCount
     generation += 1
     return true
+  }
+}
+
+/// Leva cada print salvo em arquivo para o Pin.
+///
+/// O `⌘⇧3` e o `⌘⇧4` não passam pela área de transferência: o macOS grava um
+/// arquivo (na Mesa, ou onde o app Captura de Tela mandar) e o Pin nunca o
+/// veria. O `⌃` junto, que manda o print para a área de transferência, já é
+/// capturado pelo `PasteboardWatcherChannel` — e esse não grava arquivo, então
+/// os dois caminhos nunca contam o mesmo print duas vezes.
+///
+/// A regra é a mesma do `changeCount`: *perguntar, não esperar aviso*. A cada
+/// segundo uma leitura barata — a data de modificação da pasta —, e a pasta só
+/// é listada quando ela mudou. Quem diz que um arquivo é print é o próprio
+/// macOS, no atributo `kMDItemIsScreenCapture` que o `screencapture` grava
+/// nele; o nome do arquivo muda com o idioma e não serve de prova.
+///
+/// **Um arquivo novo não é entregue na primeira volta em que aparece.** Ele
+/// vira candidato e é conferido a cada volta, mesmo sem a pasta mudar — o
+/// atributo e os últimos bytes podem chegar depois do nome, e a pasta não muda
+/// de data por isso. Só sai quando tem o atributo e o tamanho ficou igual de
+/// uma volta para a outra; sem atributo em [candidateLifetime], não é print.
+///
+/// Todo o trabalho com o disco roda numa fila de fundo, e o estado dela só é
+/// tocado ali: a primeira listagem da Mesa é a que faz o macOS pedir a
+/// permissão da pasta, e a chamada espera a resposta da pessoa — na thread
+/// principal, a janela 0 inteira congelaria com o alerta na tela.
+///
+/// Os bytes são copiados para a pasta de imagens do Pin na hora (o mesmo
+/// `PinImageCapture.process` da cópia no Finder), e por isso **apagar o print
+/// depois não tira nada do Pin**: o item é dono da própria cópia, e o caminho
+/// que ele guarda é só de onde ela veio.
+///
+/// Só entra o que nasceu depois de ligar — ligar não varre a Mesa inteira
+/// para dentro do histórico.
+enum ScreenshotWatcher {
+  private static let pollInterval: TimeInterval = 1
+
+  /// Quanto um arquivo novo sem o atributo de print continua sendo conferido.
+  private static let candidateLifetime: TimeInterval = 15
+
+  private static let screenCaptureAttribute = "com.apple.metadata:kMDItemIsScreenCapture"
+
+  private static let queue = DispatchQueue(label: "evergreen.pin.screenshot", qos: .utility)
+
+  // Na thread principal.
+  private static var timer: Timer?
+  private static var emit: (([String: Any]) -> Void)?
+
+  /// Qual vez que se ligou é a de agora: o que uma vez anterior ainda tinha a
+  /// caminho na fila não é entregue.
+  private static var generation = 0
+
+  // Só na [queue].
+  private static var folder: URL?
+  private static var folderStamp: Date?
+  private static var since = Date()
+  /// Os arquivos já resolvidos — entregues, ou que não são print.
+  private static var seen = Set<String>()
+  /// Os arquivos novos ainda por resolver: o tamanho na última volta e desde
+  /// quando estão sendo conferidos.
+  private static var candidates: [String: (size: Int, firstSeen: Date)] = [:]
+
+  static func setEnabled(_ enabled: Bool, emit: @escaping ([String: Any]) -> Void) {
+    self.emit = emit
+
+    guard enabled else {
+      timer?.invalidate()
+      timer = nil
+      generation += 1
+      return
+    }
+    guard timer == nil else { return }
+
+    generation += 1
+    let current = generation
+    queue.async {
+      since = Date()
+      seen.removeAll()
+      candidates.removeAll()
+      folder = nil
+      folderStamp = nil
+    }
+
+    let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { _ in
+      tick(current)
+    }
+    timer.tolerance = 0.3
+    self.timer = timer
+    tick(current)
+  }
+
+  private static func tick(_ current: Int) {
+    let location = screenshotFolder()
+    queue.async { scan(location, generation: current) }
+  }
+
+  private static func scan(_ location: URL, generation current: Int) {
+    let stamp = try? location.resourceValues(forKeys: [.contentModificationDateKey])
+      .contentModificationDate
+
+    // A pasta trocada no app Captura de Tela conta como mudança: esta volta
+    // lista a nova, e os candidatos da antiga saem.
+    if location != folder {
+      candidates.removeAll()
+    }
+
+    if location != folder || stamp != folderStamp {
+      folder = location
+      folderStamp = stamp
+      discover(in: location)
+    }
+
+    check(generation: current)
+  }
+
+  /// Lista a pasta e põe os arquivos novos de imagem entre os candidatos.
+  private static func discover(in location: URL) {
+    // Negada a permissão, a listagem falha e nada acontece — o print continua
+    // podendo entrar pelo `⌃`, pela área de transferência.
+    guard let urls = try? FileManager.default.contentsOfDirectory(
+      at: location,
+      includingPropertiesForKeys: [.creationDateKey, .isRegularFileKey],
+      options: [.skipsHiddenFiles])
+    else { return }
+
+    for url in urls where !seen.contains(url.path) && candidates[url.path] == nil {
+      guard let values = try? url.resourceValues(forKeys: [.creationDateKey, .isRegularFileKey]),
+            values.isRegularFile == true,
+            let created = values.creationDate, created >= since,
+            let type = UTType(filenameExtension: url.pathExtension),
+            type.conforms(to: .image)
+      else { continue }
+
+      candidates[url.path] = (size: -1, firstSeen: Date())
+    }
+  }
+
+  /// Confere cada candidato: o que é print e parou de crescer é entregue.
+  private static func check(generation current: Int) {
+    let now = Date()
+
+    for (path, candidate) in candidates {
+      let url = URL(fileURLWithPath: path)
+      guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+        // Saiu da pasta antes de ficar pronto.
+        candidates[path] = nil
+        continue
+      }
+
+      guard isScreenCapture(url) else {
+        if now.timeIntervalSince(candidate.firstSeen) > candidateLifetime {
+          candidates[path] = nil
+          seen.insert(path)
+        }
+        continue
+      }
+
+      guard size > 0, size == candidate.size else {
+        candidates[path] = (size: size, firstSeen: candidate.firstSeen)
+        continue
+      }
+
+      // Resolvido, entre ou não: um arquivo que não decodifica, ou maior que o
+      // teto do Pin, não é relido a cada volta.
+      candidates[path] = nil
+      seen.insert(path)
+
+      let pending = PinImageCapture.Pending(
+        fileURL: url, data: nil, ext: url.pathExtension.lowercased(), source: nil)
+      guard let payload = PinImageCapture.process(pending) else { continue }
+
+      DispatchQueue.main.async {
+        guard current == generation, timer != nil else { return }
+        emit?(payload)
+      }
+    }
+  }
+
+  private static func isScreenCapture(_ url: URL) -> Bool {
+    url.withUnsafeFileSystemRepresentation { path in
+      guard let path = path else { return false }
+      return getxattr(path, screenCaptureAttribute, nil, 0, 0, 0) >= 0
+    }
+  }
+
+  /// Onde o app Captura de Tela grava — a Mesa, se ninguém escolheu outra.
+  ///
+  /// Só preferência, sem tocar no disco: roda na thread principal.
+  private static func screenshotFolder() -> URL {
+    let domain = "com.apple.screencapture" as CFString
+    CFPreferencesAppSynchronize(domain)
+
+    if let location = CFPreferencesCopyAppValue("location" as CFString, domain) as? String,
+       !location.isEmpty {
+      return URL(fileURLWithPath: (location as NSString).expandingTildeInPath, isDirectory: true)
+    }
+
+    return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+      ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
   }
 }
 

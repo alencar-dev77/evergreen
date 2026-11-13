@@ -251,23 +251,18 @@ class _SlotBadge extends StatelessWidget {
 /// parecia um cartão em branco — e nove cartões em branco parecem nove
 /// anotações que alguém apagou.
 ///
-/// A primeira livre é a única clicável: ela é o alvo de mouse do `⌘+`, porque
-/// nenhuma ação do Evergreen é só de teclado. As de trás dela ficam ali como
-/// endereço — é o que faz "o sete" querer dizer alguma coisa antes de existir
-/// um sétimo cartão.
+/// Toda vaga livre é clicável e aceita uma anotação nova (#174): a parede é
+/// um mural, e o recado vai para onde a pessoa o põe. É também onde um cartão
+/// arrastado pode ser solto.
 class LeafEmptySlot extends StatelessWidget {
   const LeafEmptySlot({
     super.key,
     required this.slot,
-    required this.isNext,
     required this.isSelected,
     this.onTap,
   });
 
   final int slot;
-
-  /// É a próxima vaga a ser usada — a que o Enter e o `⌘+` preenchem.
-  final bool isNext;
 
   final bool isSelected;
   final VoidCallback? onTap;
@@ -281,7 +276,7 @@ class LeafEmptySlot extends StatelessWidget {
       // Um contorno tracejado não diz nada a quem não vê a tela — e o que ele
       // conta (que ainda cabe anotação na parede) é justamente o que não está
       // escrito em lugar nenhum.
-      semanticLabel: isNext
+      semanticLabel: onTap != null
           ? 'Vaga $slot, livre — escrever anotação'
           : 'Vaga $slot, livre',
       selected: isSelected ? true : null,
@@ -307,17 +302,17 @@ class LeafEmptySlot extends StatelessWidget {
                       color: eg.colors.textQuaternary,
                     ),
                   ),
-                  // Só a próxima diz o que fazer: repetir o convite em cinco
-                  // vagas transformaria a parede vazia num cartaz.
-                  if (isNext)
+                  // Só a vaga apontada diz o que fazer — a selecionada ou a
+                  // debaixo do mouse: toda vaga livre aceita anotação (#174),
+                  // e repetir o convite em todas transformaria a parede vazia
+                  // num cartaz.
+                  if (isLit && onTap != null)
                     Expanded(
                       child: Center(
                         child: Text(
-                          'enter pra criar',
+                          isSelected ? 'enter pra criar' : 'clique pra criar',
                           style: eg.text.footnote.copyWith(
-                            color: isLit
-                                ? eg.colors.textTertiary
-                                : eg.colors.textQuaternary,
+                            color: eg.colors.textTertiary,
                           ),
                         ),
                       ),

@@ -28,6 +28,22 @@ abstract final class OverlayWindowChannel {
     }
   }
 
+  /// O mouse chegou ao painel: seleciona a janela, sem clique e sem ativar o
+  /// aplicativo — ver `OverlayWindowChannel.takeKeyboardOnHover` no Swift.
+  ///
+  /// `true` só quando ela não era a selecionada e passou a ser: é como a
+  /// `EgOverlayShell` sabe que o foco que vai chegar veio do mouse, e não de
+  /// uma abertura.
+  static Future<bool> takeKeyboardOnHover() async {
+    try {
+      return await _channel.invokeMethod<bool>('takeKeyboardOnHover') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   /// Leva a janela para baixo do recorte da câmera: topo da janela no topo da
   /// tela, centrada no recorte.
   ///

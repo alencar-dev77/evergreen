@@ -9,6 +9,7 @@ import '../core/storage/app_database.dart';
 import '../core/system/module_settings_host.dart';
 import '../core/system/notification_service.dart';
 import '../core/system/uninstall_service.dart';
+import '../core/system/update_notifier.dart';
 import '../core/system/update_service.dart';
 import '../core/storage/backup_service.dart';
 import '../core/storage/disk_usage_service.dart';
@@ -450,6 +451,14 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   ref.onDispose(service.dispose);
   return service;
 });
+
+/// O aviso de versão nova, uma vez por versão — ver [UpdateNotifier].
+final updateNotifierProvider = Provider<UpdateNotifier>(
+  (ref) => UpdateNotifier(
+    preferences: ref.watch(sharedPreferencesProvider),
+    notifications: ref.watch(notificationServiceProvider),
+  ),
+);
 
 /// O resumo da semana passada, avisado na primeira verificação da segunda.
 final trackWeekNotifierProvider = Provider<TrackWeekNotifier>(

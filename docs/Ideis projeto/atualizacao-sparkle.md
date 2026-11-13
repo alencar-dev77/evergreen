@@ -84,6 +84,17 @@ instalados não aceitariam a atualização.
   (`app.open_hub_after_update`) — e o Hub de uma build nova abre com a
   abertura animada. "Agora não", Esc ou um clique fora fecham o cartão, e a versão continua
   anunciada; baixando ou instalando, ele não fecha.
+- **E uma notificação do sistema, uma vez por versão** (`UpdateNotifier`). As
+  três luzes só são vistas por quem vai até elas, e um app de barra de menus
+  passa o dia escondido. A notificação não instala nem traz o app para a
+  frente: o clique (ou o "Ver novidades") leva ao mesmo cartão. A versão
+  avisada fica no plist (`app.update_notified_version`), porque o "Agora não"
+  deixa a versão anunciada e o Sparkle a acha de novo a cada procura diária —
+  avisar toda vez seria spam. Só uma versão mais nova avisa de novo. Quem
+  clicou em "Procurar" não é avisado: a resposta já está na tela. O aviso sai
+  do Centro de Notificações quando o app vai instalar; e, clicado depois de o
+  app reaberto esquecer a versão, só abre o Hub — sem pedir o cartão, que
+  abriria sozinho quando a versão voltasse.
 - **Quem é avisado é a janela 0** (`onState`), o engine que nunca morre e que
   cuida do menu. O Hub relê o estado: de meio em meio segundo enquanto algo
   anda, de meio em meio minuto no resto.

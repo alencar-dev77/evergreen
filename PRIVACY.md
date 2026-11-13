@@ -1,6 +1,6 @@
 # Política de privacidade
 
-Última atualização: 22 de outubro de 2026.
+Última atualização: 13 de novembro de 2026.
 
 O Evergreen é um aplicativo para macOS que roda inteiro no seu Mac. Ele não tem
 conta, servidor, sincronização, anúncio nem telemetria. **Quem o desenvolve não
@@ -28,6 +28,7 @@ E, só enquanto uma atualização baixa, o instalador dela fica em
 | Módulo | O que guarda | Por quanto tempo |
 |---|---|---|
 | **Pin** | O que você copia (texto e imagem), com a data e o tipo | Os 200 itens mais recentes (ajustável); os fixados ficam até você tirar |
+| **Pin** | Com "Guardar prints" ligado, uma cópia de cada print salvo em arquivo, com o nome e o caminho dele | Como os outros itens do Pin; apagar o print original não apaga a cópia |
 | **Focus** | As sessões de foco: início, duração e o que você escreveu sobre elas | As últimas 4 semanas |
 | **Leaf** | As anotações da parede, no máximo nove | Até você apagar |
 | **Awake** | Quando a trava foi ligada e por quanto tempo | As últimas 4 semanas |
@@ -90,9 +91,10 @@ instalação nem telemetria própria.
 | Permissão | Para quê |
 |---|---|
 | **Acessibilidade** | O colar automático do Pin, que vem desligado. Sem ela, o item só é copiado |
+| **Mesa** (ou a pasta onde os prints são salvos) | O "Guardar prints" do Pin, que vem desligado. O Pin olha a pasta, mas só copia os arquivos que o macOS marca como print, tirados depois de ligar |
 | **Microfone** | O Echo grava a sua voz na reunião |
 | **Gravação de Tela** | O Echo grava o som do computador (o outro lado da reunião). Ele não grava imagem da tela |
-| **Notificações** | Avisar o fim de uma sessão do Focus, o fim do prazo do Awake, os lembretes do Leaf e o resumo da semana do Track |
+| **Notificações** | Avisar o fim de uma sessão do Focus, o fim do prazo do Awake, os lembretes do Leaf, o resumo da semana do Track e que há uma versão nova do Evergreen |
 
 Cada uma pode ser revogada a qualquer momento em Ajustes do Sistema →
 Privacidade e Segurança.

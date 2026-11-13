@@ -8,6 +8,22 @@ o `./scripts/release` usa as mesmas linhas como notas do GitHub Release.
 
 <!-- novidades: o bump_version escreve abaixo desta linha -->
 
+## 1.3.0 — 13/11/2026
+
+- Leaf: criar nota em qualquer uma das nove vagas e arrastar para remanejar (#178)
+
+## 1.2.1 — 13/11/2026
+
+- O mouse em cima de uma janela do Evergreen já a seleciona, e o notch reconhece o arquivo mais de longe (#177)
+
+## 1.2.0 — 13/11/2026
+
+- Guardar no Pin os prints salvos em arquivo (#176)
+
+## 1.1.14 — 31/10/2026
+
+- Notificação quando sai uma versão nova do Evergreen (#171)
+
 ## 1.1.13 — 30/10/2026
 
 - Ajustes internos no repositório (#165)
