@@ -91,7 +91,7 @@ instalação nem telemetria própria.
 | Permissão | Para quê |
 |---|---|
 | **Acessibilidade** | O colar automático do Pin, que vem desligado. Sem ela, o item só é copiado |
-| **Mesa** (ou a pasta onde os prints são salvos) | O "Guardar prints" do Pin, que vem desligado. O Pin lê só os arquivos que o macOS marca como print, tirados depois de ligar |
+| **Mesa** (ou a pasta onde os prints são salvos) | O "Guardar prints" do Pin, que vem desligado. O Pin olha a pasta, mas só copia os arquivos que o macOS marca como print, tirados depois de ligar |
 | **Microfone** | O Echo grava a sua voz na reunião |
 | **Gravação de Tela** | O Echo grava o som do computador (o outro lado da reunião). Ele não grava imagem da tela |
 | **Notificações** | Avisar o fim de uma sessão do Focus, o fim do prazo do Awake, os lembretes do Leaf, o resumo da semana do Track e que há uma versão nova do Evergreen |

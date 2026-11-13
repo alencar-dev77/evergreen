@@ -360,6 +360,17 @@ void main() {
       );
     });
 
+    test('com Imagens desligado, a vigia dos prints não liga', () async {
+      await start(ignored: ['image'], screenshots: true);
+
+      expect(
+        nativeCalls
+            .where((call) => call.method == 'watchScreenshots')
+            .map((call) => call.arguments),
+        [false],
+      );
+    });
+
     test('o print apagado depois continua no Pin', () async {
       final temp = Directory.systemTemp.createTempSync('pin_print');
       addTearDown(() => temp.deleteSync(recursive: true));

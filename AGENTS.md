@@ -576,7 +576,13 @@ lista de módulos sonhados) está em
   (`PinImageCapture`), e **texto ganha de imagem** — copiar um parágrafo do
   Pages traz uma imagem dele junto, e quem copiou queria o parágrafo. Colar
   devolve a imagem em si (`writeImage`), nunca o caminho. A reclassificação
-  do histórico pula as imagens: o classificador lê texto, e a chave não é. Ver
+  do histórico pula as imagens: o classificador lê texto, e a chave não é.
+  **O print salvo em arquivo** (`⌘⇧3`/`⌘⇧4`) entra pelo mesmo `onCopyImage`,
+  com "Guardar prints" ligado (desligado por padrão, porque pede acesso à
+  Mesa): o `ScreenshotWatcher` pergunta a data da pasta a cada segundo, numa
+  fila de fundo, e só entrega o arquivo com o atributo
+  `kMDItemIsScreenCapture` e tamanho parado entre duas voltas. O Pin guarda a
+  própria cópia — apagar o print não tira o item. Ver
   [docs/Ideis projeto/pin-imagens.md](docs/Ideis%20projeto/pin-imagens.md).
 - **O Pin escreve num lugar só: o gerador de CPF e CNPJ.** Ele é uma linha no
   topo da lista dentro do filtro daquele documento, e paga três exceções às

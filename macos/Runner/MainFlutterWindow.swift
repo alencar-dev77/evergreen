@@ -937,6 +937,17 @@ enum PasteboardWatcherChannel {
 /// macOS, no atributo `kMDItemIsScreenCapture` que o `screencapture` grava
 /// nele; o nome do arquivo muda com o idioma e não serve de prova.
 ///
+/// **Um arquivo novo não é entregue na primeira volta em que aparece.** Ele
+/// vira candidato e é conferido a cada volta, mesmo sem a pasta mudar — o
+/// atributo e os últimos bytes podem chegar depois do nome, e a pasta não muda
+/// de data por isso. Só sai quando tem o atributo e o tamanho ficou igual de
+/// uma volta para a outra; sem atributo em [candidateLifetime], não é print.
+///
+/// Todo o trabalho com o disco roda numa fila de fundo, e o estado dela só é
+/// tocado ali: a primeira listagem da Mesa é a que faz o macOS pedir a
+/// permissão da pasta, e a chamada espera a resposta da pessoa — na thread
+/// principal, a janela 0 inteira congelaria com o alerta na tela.
+///
 /// Os bytes são copiados para a pasta de imagens do Pin na hora (o mesmo
 /// `PinImageCapture.process` da cópia no Finder), e por isso **apagar o print
 /// depois não tira nada do Pin**: o item é dono da própria cópia, e o caminho
@@ -947,22 +958,30 @@ enum PasteboardWatcherChannel {
 enum ScreenshotWatcher {
   private static let pollInterval: TimeInterval = 1
 
+  /// Quanto um arquivo novo sem o atributo de print continua sendo conferido.
+  private static let candidateLifetime: TimeInterval = 15
+
   private static let screenCaptureAttribute = "com.apple.metadata:kMDItemIsScreenCapture"
 
+  private static let queue = DispatchQueue(label: "evergreen.pin.screenshot", qos: .utility)
+
+  // Na thread principal.
   private static var timer: Timer?
   private static var emit: (([String: Any]) -> Void)?
 
-  /// A pasta vigiada e a data de modificação dela na última volta.
+  /// Qual vez que se ligou é a de agora: o que uma vez anterior ainda tinha a
+  /// caminho na fila não é entregue.
+  private static var generation = 0
+
+  // Só na [queue].
   private static var folder: URL?
   private static var folderStamp: Date?
-
-  /// Desde quando um print conta como novo.
   private static var since = Date()
-
-  /// Os prints já entregues — ou em processamento — desta vez que se ligou.
+  /// Os arquivos já resolvidos — entregues, ou que não são print.
   private static var seen = Set<String>()
-
-  private static let queue = DispatchQueue(label: "evergreen.pin.screenshot", qos: .utility)
+  /// Os arquivos novos ainda por resolver: o tamanho na última volta e desde
+  /// quando estão sendo conferidos.
+  private static var candidates: [String: (size: Int, firstSeen: Date)] = [:]
 
   static func setEnabled(_ enabled: Bool, emit: @escaping ([String: Any]) -> Void) {
     self.emit = emit
@@ -970,72 +989,112 @@ enum ScreenshotWatcher {
     guard enabled else {
       timer?.invalidate()
       timer = nil
+      generation += 1
       return
     }
     guard timer == nil else { return }
 
-    since = Date()
-    seen.removeAll()
-    folder = nil
-    folderStamp = nil
+    generation += 1
+    let current = generation
+    queue.async {
+      since = Date()
+      seen.removeAll()
+      candidates.removeAll()
+      folder = nil
+      folderStamp = nil
+    }
 
     let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { _ in
-      tick()
+      tick(current)
     }
     timer.tolerance = 0.3
     self.timer = timer
-    tick()
+    tick(current)
   }
 
-  private static func tick() {
-    let current = screenshotFolder()
-    let stamp = try? current.resourceValues(forKeys: [.contentModificationDateKey])
+  private static func tick(_ current: Int) {
+    let location = screenshotFolder()
+    queue.async { scan(location, generation: current) }
+  }
+
+  private static func scan(_ location: URL, generation current: Int) {
+    let stamp = try? location.resourceValues(forKeys: [.contentModificationDateKey])
       .contentModificationDate
 
-    // A pasta trocada no app Captura de Tela conta como mudança: a próxima
-    // volta lista a nova.
-    guard current != folder || stamp != folderStamp else { return }
-    folder = current
-    folderStamp = stamp
+    // A pasta trocada no app Captura de Tela conta como mudança: esta volta
+    // lista a nova, e os candidatos da antiga saem.
+    if location != folder {
+      candidates.removeAll()
+    }
 
-    scan(current)
+    if location != folder || stamp != folderStamp {
+      folder = location
+      folderStamp = stamp
+      discover(in: location)
+    }
+
+    check(generation: current)
   }
 
-  private static func scan(_ folder: URL) {
-    // A primeira listagem da Mesa é o que faz o macOS pedir a permissão da
-    // pasta. Negada, a listagem falha e nada acontece — o print continua
+  /// Lista a pasta e põe os arquivos novos de imagem entre os candidatos.
+  private static func discover(in location: URL) {
+    // Negada a permissão, a listagem falha e nada acontece — o print continua
     // podendo entrar pelo `⌃`, pela área de transferência.
     guard let urls = try? FileManager.default.contentsOfDirectory(
-      at: folder,
+      at: location,
       includingPropertiesForKeys: [.creationDateKey, .isRegularFileKey],
       options: [.skipsHiddenFiles])
     else { return }
 
-    for url in urls where !seen.contains(url.path) {
+    for url in urls where !seen.contains(url.path) && candidates[url.path] == nil {
       guard let values = try? url.resourceValues(forKeys: [.creationDateKey, .isRegularFileKey]),
             values.isRegularFile == true,
             let created = values.creationDate, created >= since,
             let type = UTType(filenameExtension: url.pathExtension),
-            type.conforms(to: .image),
-            isScreenCapture(url)
+            type.conforms(to: .image)
       else { continue }
 
-      seen.insert(url.path)
+      candidates[url.path] = (size: -1, firstSeen: Date())
+    }
+  }
+
+  /// Confere cada candidato: o que é print e parou de crescer é entregue.
+  private static func check(generation current: Int) {
+    let now = Date()
+
+    for (path, candidate) in candidates {
+      let url = URL(fileURLWithPath: path)
+      guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+        // Saiu da pasta antes de ficar pronto.
+        candidates[path] = nil
+        continue
+      }
+
+      guard isScreenCapture(url) else {
+        if now.timeIntervalSince(candidate.firstSeen) > candidateLifetime {
+          candidates[path] = nil
+          seen.insert(path)
+        }
+        continue
+      }
+
+      guard size > 0, size == candidate.size else {
+        candidates[path] = (size: size, firstSeen: candidate.firstSeen)
+        continue
+      }
+
+      // Resolvido, entre ou não: um arquivo que não decodifica, ou maior que o
+      // teto do Pin, não é relido a cada volta.
+      candidates[path] = nil
+      seen.insert(path)
+
       let pending = PinImageCapture.Pending(
         fileURL: url, data: nil, ext: url.pathExtension.lowercased(), source: nil)
+      guard let payload = PinImageCapture.process(pending) else { continue }
 
-      queue.async {
-        let payload = PinImageCapture.process(pending)
-        DispatchQueue.main.async {
-          guard let payload = payload else {
-            // Ainda sendo escrito, ou sem permissão de leitura: a próxima
-            // mudança da pasta tenta de novo.
-            seen.remove(url.path)
-            return
-          }
-          guard timer != nil else { return }
-          emit?(payload)
-        }
+      DispatchQueue.main.async {
+        guard current == generation, timer != nil else { return }
+        emit?(payload)
       }
     }
   }
@@ -1048,18 +1107,15 @@ enum ScreenshotWatcher {
   }
 
   /// Onde o app Captura de Tela grava — a Mesa, se ninguém escolheu outra.
+  ///
+  /// Só preferência, sem tocar no disco: roda na thread principal.
   private static func screenshotFolder() -> URL {
     let domain = "com.apple.screencapture" as CFString
     CFPreferencesAppSynchronize(domain)
 
     if let location = CFPreferencesCopyAppValue("location" as CFString, domain) as? String,
        !location.isEmpty {
-      let expanded = (location as NSString).expandingTildeInPath
-      var isDirectory: ObjCBool = false
-      if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDirectory),
-         isDirectory.boolValue {
-        return URL(fileURLWithPath: expanded, isDirectory: true)
-      }
+      return URL(fileURLWithPath: (location as NSString).expandingTildeInPath, isDirectory: true)
     }
 
     return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first

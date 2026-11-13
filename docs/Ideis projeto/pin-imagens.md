@@ -130,3 +130,27 @@ guarda só o que se sabe da imagem, em JSON na coluna `image` (migração
   registrou tudo.
 - **Teto da pasta.** Cada imagem tem teto (25 MB), a pasta não: são até 500
   itens não fixados mais os fixados. O teto do histórico é o que a segura.
+
+## Os prints salvos em arquivo (#166)
+
+O `⌘⇧3` e o `⌘⇧4` gravam um arquivo e não passam pela área de transferência,
+então o Pin não os via. Com "Guardar prints" ligado, o `ScreenshotWatcher`
+(`MainFlutterWindow.swift`) olha a pasta dos prints — a `location` de
+`com.apple.screencapture`, ou a Mesa — e entrega ao Pin, pelo mesmo
+`onCopyImage` da cópia no Finder, cada imagem nascida depois de ligar que o
+macOS marcou com `kMDItemIsScreenCapture`.
+
+- **Pergunta, não espera aviso**, como o `changeCount`: a data de modificação
+  da pasta a cada segundo, e a listagem só quando ela muda.
+- **O arquivo novo é candidato antes de ser print**: o atributo e os últimos
+  bytes podem chegar depois do nome, e a pasta não muda de data por isso. Ele
+  é conferido a cada volta e só sai com o atributo e o tamanho parado; sem
+  atributo em 15 s, não é print.
+- **Fila de fundo para tudo o que toca o disco**: a primeira listagem da Mesa
+  é a que dispara o pedido de permissão, e a chamada espera a resposta.
+- **Desligado por padrão**, pelo pedido de permissão; e, com o tipo Imagens
+  desligado, a vigia não liga.
+- **O Pin é dono da cópia**: os bytes vão para `Pin/Imagens` na chegada, e
+  apagar o print original não tira o item. O caminho guardado é só de onde
+  ele veio.
+

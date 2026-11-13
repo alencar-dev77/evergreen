@@ -113,7 +113,13 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
   /// Pin desligado a vigia fica desligada, seja qual for a preferência — o
   /// módulo desligado não registra nada.
   Future<void> applyScreenshotSetting() async {
-    final enabled = _isWatching && _settings.load().captureScreenshots;
+    // Com Imagens desligado o print seria descartado na chegada — e a vigia
+    // ainda pediria a permissão da pasta e leria cada arquivo à toa.
+    final settings = _settings.load();
+    final enabled =
+        _isWatching &&
+        settings.captureScreenshots &&
+        settings.captures(ClipboardItemType.image);
     await _watcher.watchScreenshots(enabled: enabled);
   }
 
