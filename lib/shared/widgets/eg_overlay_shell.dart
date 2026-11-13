@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/design/app_metrics.dart';
 import '../../core/design/eg_tokens.dart';
 import '../../core/window/overlay_window.dart';
+import '../../core/window/overlay_window_channel.dart';
 
 /// A casca dos painéis flutuantes do Evergreen — Pin, Focus, Leaf, Awake e
 /// Echo.
@@ -256,8 +257,36 @@ class _EgOverlayShellState extends State<EgOverlayShell>
     });
   }
 
+  /// O foco que está para chegar veio do mouse entrando no painel, e não de
+  /// uma abertura — ver [_selectOnHover].
+  bool _focusFromHover = false;
+
+  /// O mouse em cima do painel o seleciona, sem clique (#173).
+  ///
+  /// Aqui, no painel, e não na janela inteira: a janela 0 é maior que o
+  /// painel, e o vazio em volta dele não é o Evergreen.
+  ///
+  /// Selecionar pelo mouse não é abrir: o foco que chega não refaz a entrada
+  /// nem chama o `onShow` do módulo, que limparia a busca do Pin ou o campo
+  /// do Focus debaixo do cursor de quem só passou por ali.
+  Future<void> _selectOnHover(PointerEnterEvent _) async {
+    final window = OverlayWindow.instance;
+    if (!window.visible.value || window.isPanelHidden.value) return;
+
+    _focusFromHover = true;
+    if (!await OverlayWindowChannel.takeKeyboardOnHover()) {
+      _focusFromHover = false;
+    }
+  }
+
   @override
   void onWindowFocus() {
+    if (_focusFromHover) {
+      _focusFromHover = false;
+      _recoverFocus();
+      return;
+    }
+
     // Saindo do notch, quem faz a entrada é a pílula — ver [_onNotchAnchor].
     if (OverlayWindow.instance.notchAnchor.value == null) {
       _entrance.forward(from: 0);
@@ -310,6 +339,12 @@ class _EgOverlayShellState extends State<EgOverlayShell>
 
     // O escopo é o chão do teclado deste painel — ver a classe.
     panel = FocusScope(node: _scope, child: panel);
+
+    panel = MouseRegion(
+      opaque: false,
+      onEnter: (event) => unawaited(_selectOnHover(event)),
+      child: panel,
+    );
 
     panel = RawGestureDetector(
       behavior: HitTestBehavior.opaque,

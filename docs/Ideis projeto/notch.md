@@ -78,14 +78,17 @@ Os números, ajustados na mão:
   para na borda —, e mirar a largura exata de algo sem pixel é pedir precisão
   que ninguém tem segurando um arquivo.
 
-**O primeiro clique na pilha já vale.** A pilha que sai do notch aparece sem
-pegar o teclado (ela nasce no meio do arraste de quem está em outro app), e
-num painel que não é key o AppKit engolia o primeiro clique só para torná-lo
-key — arrastar a pilha para fora pedia dois cliques. O `MainFlutterWindow.sendEvent`
-torna a janela key antes de o clique seguir, e o `mouseTrackingMode = .always`
-faz o painel acender debaixo do cursor mesmo sem ser key. Virar key só de o
-mouse passar por cima foi descartado: tiraria as teclas de quem digita em
-outro app enquanto o cursor cruza o painel (#173).
+**O mouse em cima seleciona, sem clique (#173).** A pilha que sai do notch
+aparece sem pegar o teclado (ela nasce no meio do arraste de quem está em
+outro app), e num painel que não é key o AppKit engolia o primeiro clique só
+para torná-lo key — arrastar a pilha para fora pedia dois cliques. Agora o
+mouse entrando em qualquer janela do Evergreen a seleciona: o painel pelo
+`MouseRegion` da `EgOverlayShell` (só o painel, não o vazio transparente da
+janela 0, e sem refazer a abertura), o Hub por uma área de rastreio nativa
+que ativa o app. Os dois passam pelo `WindowSelection`, no Swift, junto com o
+atalho que abre um painel e a rede do primeiro clique
+(`MainFlutterWindow.sendEvent`). O preço, escolhido: o teclado sai do app em
+que se digitava quando o cursor passa por cima de uma janela do Evergreen.
 
 **Desistir recolhe.** Se o arraste que chamou a prateleira acaba sem nada
 solto nela — de volta no Finder, ou em lugar nenhum —, ela some sozinha

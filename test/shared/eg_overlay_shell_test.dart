@@ -192,6 +192,105 @@ void main() {
     });
   });
 
+  group('o mouse em cima seleciona o painel', () {
+    const overlay = MethodChannel('overlay_window');
+    late List<String> overlayCalls;
+
+    setUp(() {
+      overlayCalls = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(overlay, (call) async {
+            overlayCalls.add(call.method);
+            return true;
+          });
+      OverlayWindow.instance.visible.value = true;
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(overlay, null);
+      OverlayWindow.instance.visible.value = false;
+    });
+
+    Future<int> pumpCountingShows(WidgetTester tester) async {
+      var shows = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EgOverlayShell(
+            onClose: () {},
+            onShow: () => shows++,
+            child: const _Painel(),
+          ),
+        ),
+      );
+      await tester.pump();
+      return shows;
+    }
+
+    Future<void> hoverPanel(WidgetTester tester) async {
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('painel'))));
+      await tester.pump();
+    }
+
+    Future<void> sendFocus(WidgetTester tester) async {
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            channel.name,
+            const StandardMethodCodec().encodeMethodCall(
+              const MethodCall('onEvent', {'eventName': 'focus'}),
+            ),
+            null,
+          );
+      await tester.pump();
+    }
+
+    testWidgets('o mouse entrando no painel pede a seleção da janela', (
+      tester,
+    ) async {
+      await pumpCountingShows(tester);
+
+      await hoverPanel(tester);
+
+      expect(overlayCalls, ['takeKeyboardOnHover']);
+    });
+
+    testWidgets('selecionar pelo mouse não é abrir: o módulo não é avisado', (
+      tester,
+    ) async {
+      var shows = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EgOverlayShell(
+            onClose: () {},
+            onShow: () => shows++,
+            child: const _Painel(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await hoverPanel(tester);
+      await sendFocus(tester);
+      expect(shows, 0);
+
+      // A abertura seguinte, essa sim, avisa o módulo.
+      await sendFocus(tester);
+      expect(shows, 1);
+    });
+
+    testWidgets('o painel escondido não pede nada', (tester) async {
+      OverlayWindow.instance.visible.value = false;
+      await pumpCountingShows(tester);
+
+      await hoverPanel(tester);
+
+      expect(overlayCalls, isEmpty);
+    });
+  });
+
   group('arrastar', () {
     testWidgets('painel arrastável entrega o gesto ao macOS', (tester) async {
       await pumpShell(tester, dismissOnBlur: true, draggable: true);

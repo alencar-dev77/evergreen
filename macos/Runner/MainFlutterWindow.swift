@@ -183,6 +183,7 @@ class MainFlutterWindow: NSPanel {
     window.styleMask.remove(.resizable)
     window.setContentSize(HubWindowChannel.contentSize)
     HubWindowChannel.adopt(window)
+    WindowSelection.track(window)
   }
 
   /// O primeiro clique no painel já vale — inclusive o que começa a arrastar
@@ -195,13 +196,13 @@ class MainFlutterWindow: NSPanel {
   /// para fora só funcionava no segundo clique (#173). Tornar a janela key
   /// antes de o evento seguir é o que faz o mesmo clique chegar ao Flutter.
   ///
-  /// No clique, e não com o mouse só passando por cima: virar key ao passar
-  /// tiraria as teclas de quem está digitando em outro app — o painel do Echo
-  /// fica na tela durante a reunião, e o cursor cruzando por ele mandaria o
-  /// texto do chat para o Evergreen.
+  /// Com o mouse em cima, o painel já costuma estar selecionado
+  /// (`OverlayWindowChannel.takeKeyboardOnHover`); isto é a rede para o
+  /// clique que chega antes do aviso do mouse — um painel que nasce debaixo
+  /// do cursor parado, por exemplo.
   override func sendEvent(_ event: NSEvent) {
-    if event.type == .leftMouseDown, !isKeyWindow, canBecomeKey {
-      makeKey()
+    if event.type == .leftMouseDown {
+      WindowSelection.select(self, activatingApp: false)
     }
     super.sendEvent(event)
   }
@@ -211,6 +212,95 @@ class MainFlutterWindow: NSPanel {
   override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
     super.order(place, relativeTo: otherWin)
     hiddenWindowAtLaunch()
+  }
+}
+
+/// Selecionar uma janela do Evergreen — um lugar só para as três portas.
+///
+/// - **O atalho** que abre um painel (`OverlayWindowChannel.show`) entrega o
+///   teclado ao painel com [giveKeyboard].
+/// - **O mouse em cima de um painel** o seleciona sem clique (#173): o Dart
+///   avisa pelo `MouseRegion` da `EgOverlayShell` — só ele sabe onde o painel
+///   termina e começa o vazio transparente da janela 0 —, e o canal chama
+///   [select] sem ativar o aplicativo, porque o painel é não-ativante.
+/// - **O mouse em cima do Hub** o seleciona também, pela área de rastreio de
+///   [track]. O Hub é uma janela comum, e uma janela comum só vira a
+///   selecionada com o aplicativo ativo: aqui ativar o Evergreen é de
+///   propósito — o mouse em cima dele é ele selecionado.
+///
+/// Só a entrada do mouse conta, e nunca durante um arraste (a área de rastreio
+/// não tem `.enabledDuringMouseDrag`): levar um arquivo do Finder por cima do
+/// Hub a caminho de outro lugar não pode tirar o Finder da frente no meio do
+/// gesto.
+enum WindowSelection {
+  /// Torna [window] a selecionada, se ela está na tela e ainda não é. Devolve
+  /// se selecionou.
+  @discardableResult
+  static func select(_ window: NSWindow, activatingApp: Bool) -> Bool {
+    guard window.isVisible, window.isOnActiveSpace, window.canBecomeKey,
+          !(window.isKeyWindow && (!activatingApp || NSApp.isActive))
+    else { return false }
+
+    if activatingApp {
+      NSApp.activate(ignoringOtherApps: true)
+      window.makeKeyAndOrderFront(nil)
+    }
+    giveKeyboard(to: window)
+    return true
+  }
+
+  /// Torna [window] key com a view do Flutter como first responder.
+  ///
+  /// Ser key não basta: quem recebe a tecla é o first responder da janela, e
+  /// ele não sobrevive garantidamente a um `orderOut` — que é como o painel se
+  /// esconde, dezenas de vezes por dia. Com a janela key e o responder
+  /// perdido, a tecla sobe a cadeia sem ninguém para tratá-la e o macOS
+  /// responde com o bipe de "não posso": o painel fica na tela, visivelmente
+  /// aberto, e mudo.
+  ///
+  /// Só quando já não é ela: `makeFirstResponder` desfaz a seleção de texto do
+  /// campo que estiver em foco, e reexibir o painel não pode mexer no que a
+  /// pessoa deixou escrito.
+  static func giveKeyboard(to window: NSWindow) {
+    if !window.isKeyWindow { window.makeKey() }
+
+    if let view = window.contentViewController?.view, window.firstResponder !== view {
+      window.makeFirstResponder(view)
+    }
+  }
+
+  /// Seleciona [window] sempre que o mouse entra nela, ativando o aplicativo.
+  static func track(_ window: NSWindow) {
+    guard let view = window.contentView else { return }
+
+    trackers.removeAll { $0.window == nil }
+    let tracker = Tracker(window: window)
+    trackers.append(tracker)
+
+    view.addTrackingArea(NSTrackingArea(
+      rect: .zero,
+      options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+      owner: tracker,
+      userInfo: nil))
+  }
+
+  /// Retidos aqui: a área de rastreio não retém quem a escuta.
+  private static var trackers: [Tracker] = []
+
+  private final class Tracker: NSResponder {
+    weak var window: NSWindow?
+
+    init(window: NSWindow) {
+      self.window = window
+      super.init()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func mouseEntered(with event: NSEvent) {
+      guard let window = window else { return }
+      WindowSelection.select(window, activatingApp: true)
+    }
   }
 }
 
@@ -262,6 +352,9 @@ enum OverlayWindowChannel {
       case "positionAtNotch":
         result(positionAtNotch())
 
+      case "takeKeyboardOnHover":
+        result(takeKeyboardOnHover())
+
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -299,24 +392,29 @@ enum OverlayWindowChannel {
       return
     }
 
-    panel.makeKey()
-
-    // A view do Flutter de volta como first responder.
-    //
-    // Ser key não basta: quem recebe a tecla é o first responder da janela, e
-    // ele não sobrevive garantidamente a um `orderOut` — que é como o painel se
-    // esconde, dezenas de vezes por dia. Com a janela key e o responder perdido,
-    // a tecla sobe a cadeia sem ninguém para tratá-la e o macOS responde com o
-    // bipe de "não posso": o painel fica na tela, visivelmente aberto, e mudo.
-    //
-    // Só quando já não é ela: `makeFirstResponder` desfaz a seleção de texto do
-    // campo que estiver em foco, e reexibir o painel não pode mexer no que a
-    // pessoa deixou escrito.
-    if let view = panel.contentViewController?.view, panel.firstResponder !== view {
-      panel.makeFirstResponder(view)
-    }
+    WindowSelection.giveKeyboard(to: panel)
 
     result(nil)
+  }
+
+  /// O mouse chegou ao painel: a janela passa a ser a selecionada, sem
+  /// clique (#173).
+  ///
+  /// Quem pede é o Dart, pelo `MouseRegion` do painel na `EgOverlayShell` — e
+  /// não uma área de rastreio daqui, porque a janela 0 é bem maior que o
+  /// painel, e o vazio transparente em volta dele não é o Evergreen: passar
+  /// por ali não pode selecionar nada.
+  ///
+  /// Só seleciona a janela que está na tela e ainda não é key. Não a põe na
+  /// frente (ela já está, no nível da barra de status) e não ativa o
+  /// aplicativo: o painel continua não-ativante, e quem estava na frente
+  /// continua na frente. O teclado, esse sim, passa para o painel — é o que
+  /// "selecionado" quer dizer.
+  ///
+  /// Devolve se selecionou, para o Dart saber se o foco que vai chegar é dele.
+  private static func takeKeyboardOnHover() -> Bool {
+    guard let panel = panel else { return false }
+    return WindowSelection.select(panel, activatingApp: false)
   }
 
   /// Põe a janela 0 com o topo encostado no topo da tela, centrada no

@@ -508,6 +508,13 @@ lista de módulos sonhados) está em
   no Echo é **por fase**, não por módulo — ele só o desliga gravando ou
   transcrevendo, e a casca reconfere a bandeira depois da margem de tolerância
   porque a fase pode virar no meio dela.
+- **O mouse em cima de uma janela do Evergreen a seleciona, sem clique**
+  (#173), e isso mora num lugar de cada lado: no Dart, o `MouseRegion` da
+  `EgOverlayShell` (o painel, e não o vazio transparente da janela 0 — o foco
+  que chega por ali não é abertura, e não chama o `onShow`); no Swift, o
+  `WindowSelection`, por onde passam o atalho, o mouse no painel, o mouse no
+  Hub (que ativa o app) e o primeiro clique. Janela nova que precise disso
+  usa o `WindowSelection`, nunca um `makeKey` solto.
 - A janela 0 é movível (`setMovable(true)`) só para o `startDragging` do painel
   ser aceito pelo macOS; nada liga o arrasto pela área transparente da
   *janela*, que é a barreira do clique-fora. A posição arrastada vale até
