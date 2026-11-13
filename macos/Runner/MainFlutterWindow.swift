@@ -46,6 +46,14 @@ class MainFlutterWindow: NSPanel {
     // não basta.
     flutterViewController.backgroundColor = .clear
 
+    // O mouse em cima do painel é visto mesmo com a janela fora de foco. O
+    // padrão do Flutter só acompanha o mouse na key window — e a janela 0 é
+    // um painel que não ativa o app, muitas vezes na tela sem ser key (a
+    // pilha do Nest saindo do notch). Sem isto, o painel não acendia nada
+    // debaixo do cursor e parecia não ter reconhecido que o mouse chegou
+    // (#173).
+    flutterViewController.mouseTrackingMode = .always
+
     Self.registerChannels(for: flutterViewController, isOverlay: true)
 
     // Cada janela criada pelo desktop_multi_window roda um engine próprio, que
@@ -175,6 +183,27 @@ class MainFlutterWindow: NSPanel {
     window.styleMask.remove(.resizable)
     window.setContentSize(HubWindowChannel.contentSize)
     HubWindowChannel.adopt(window)
+  }
+
+  /// O primeiro clique no painel já vale — inclusive o que começa a arrastar
+  /// um arquivo para fora da pilha do Nest.
+  ///
+  /// Num painel que não é a key window, o AppKit usa o clique para torná-lo
+  /// key e o **engole**, porque a view do Flutter não aceita o "primeiro
+  /// mouse". A pilha que sai do notch nasce sem o teclado (de propósito: ela
+  /// aparece no meio do arraste de quem está em outro app), e então o arraste
+  /// para fora só funcionava no segundo clique (#173). Tornar a janela key
+  /// antes de o evento seguir é o que faz o mesmo clique chegar ao Flutter.
+  ///
+  /// No clique, e não com o mouse só passando por cima: virar key ao passar
+  /// tiraria as teclas de quem está digitando em outro app — o painel do Echo
+  /// fica na tela durante a reunião, e o cursor cruzando por ele mandaria o
+  /// texto do chat para o Evergreen.
+  override func sendEvent(_ event: NSEvent) {
+    if event.type == .leftMouseDown, !isKeyWindow, canBecomeKey {
+      makeKey()
+    }
+    super.sendEvent(event)
   }
 
   /// Impede o flash da janela no lançamento: o overlay só aparece quando o

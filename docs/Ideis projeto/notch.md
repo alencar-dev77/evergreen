@@ -51,11 +51,14 @@ recebeu nada. Esta não tenta receber o arraste no recorte:
 
 Os números, ajustados na mão:
 
-- **Encostar no topo, dentro da largura do recorte, dispara na hora.** A
+- **Chegar à barra de menus, dentro da zona, dispara na hora.** A
   primeira versão pedia 200 ms parado lá em cima e nunca funcionou: um arraste
   que encosta na borda de cima abre o **Mission Control**, e o macOS ganhava a
-  corrida. Na borda, em cima do furo, não há menu nem destino a confundir.
-- **A zona desce 48 pt abaixo da barra de menus**, com 150 ms de cursor
+  corrida. Depois disso passou a disparar no pixel do topo, e quem vinha rápido
+  ainda passava do ponto (#173); agora é a barra inteira, o último trecho antes
+  da borda. Ao lado do furo a barra não tem menu nem destino a confundir.
+- **A zona desce 96 pt abaixo da barra de menus** (eram 48, e era preciso chegar
+  quase no recorte — #173), com 150 ms de cursor
   **parado** (6 pt de tremor). Quem mira o recorte chega por baixo dele, e a
   prateleira sai antes de o cursor alcançar a borda — e o Mission Control com
   ela. É parado, e não tempo dentro da faixa, porque a faixa é a das abas de um
@@ -66,9 +69,19 @@ Os números, ajustados na mão:
 - **Nada conta antes de haver arquivo na mão**, nem o relógio da espera — o
   ícone de documento de uma janela maximizada cai nesta faixa, e um relógio
   começado antes do arraste já teria vencido quando ele nascesse.
-- **60 pt de folga de cada lado** do recorte — a largura das asas da ilha. O cursor não entra no furo — ele
+- **120 pt de folga de cada lado** do recorte — eram 60, a largura das asas da
+  ilha, e o alvo ainda era estreito demais (#173). O cursor não entra no furo — ele
   para na borda —, e mirar a largura exata de algo sem pixel é pedir precisão
   que ninguém tem segurando um arquivo.
+
+**O primeiro clique na pilha já vale.** A pilha que sai do notch aparece sem
+pegar o teclado (ela nasce no meio do arraste de quem está em outro app), e
+num painel que não é key o AppKit engolia o primeiro clique só para torná-lo
+key — arrastar a pilha para fora pedia dois cliques. O `MainFlutterWindow.sendEvent`
+torna a janela key antes de o clique seguir, e o `mouseTrackingMode = .always`
+faz o painel acender debaixo do cursor mesmo sem ser key. Virar key só de o
+mouse passar por cima foi descartado: tiraria as teclas de quem digita em
+outro app enquanto o cursor cruza o painel (#173).
 
 **Desistir recolhe.** Se o arraste que chamou a prateleira acaba sem nada
 solto nela — de volta no Finder, ou em lugar nenhum —, ela some sozinha

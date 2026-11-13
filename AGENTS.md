@@ -251,9 +251,10 @@ lista de módulos sonhados) está em
   (`NSPasteboard(name: .drag)`, tipo **e** `changeCount`), e é a única porta
   em que o painel vai até o cursor em vez do contrário
   (`OverlayWindow.positionForCursor`). A terceira porta é **levar o arquivo
-  ao notch** (na borda de cima dispara na hora, porque o Mission Control abre
-  ali — salvo com outro monitor encostado acima; na faixa logo abaixo, com
-  150 ms de cursor parado): o mesmo relógio do chacoalhar pergunta se o cursor
+  ao notch** (na barra de menus, com 120 pt de folga de cada lado do recorte,
+  dispara na hora, porque o Mission Control abre na borda logo acima — salvo
+  com outro monitor encostado acima; nos 96 pt logo abaixo, com 150 ms de
+  cursor parado): o mesmo relógio do chacoalhar pergunta se o cursor
   está no recorte, e quem recebe o arquivo continua sendo a janela 0, posta
   com o topo no topo da tela (`OverlayWindowChannel.positionAtNotch`). O
   recorte já tinha sido tentado com **uma janela própria recebendo o
