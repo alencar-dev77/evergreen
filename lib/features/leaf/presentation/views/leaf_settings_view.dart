@@ -125,7 +125,8 @@ class _LeafSettingsViewState extends ConsumerState<LeafSettingsView> {
     ('Nova anotação', 'Na primeira vaga livre.', ['⌘', '+']),
     ('Quebrar linha', 'O Enter sozinho guarda.', ['⇧', '⏎']),
     ('Copiar', 'O número do cartão é a tecla.', ['⌘', '1–9']),
-    ('Apagar a selecionada', 'As seguintes sobem uma vaga.', ['⌘', '⌫']),
+    ('Mover o cartão', 'Para a vaga vizinha; ou arraste.', ['⌘', '⌥', '←→↑↓']),
+    ('Apagar a selecionada', 'A vaga fica livre.', ['⌘', '⌫']),
   ];
 
   Future<void> _clear(BuildContext context) async {

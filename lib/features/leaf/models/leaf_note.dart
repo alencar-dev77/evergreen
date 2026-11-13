@@ -18,15 +18,17 @@ class LeafNote {
 
   /// Vaga que a anotação ocupa na parede, de 1 a [maxNotes].
   ///
-  /// É a vaga que dá o número exibido no cartão e o `⌘N` que o copia. As vagas
-  /// são sempre contíguas: apagar a anotação 2 faz a 3 virar 2, a 4 virar 3, e
-  /// a parede encolher junto.
+  /// É a vaga que dá o número exibido no cartão e o `⌘N` que o copia, e é um
+  /// **endereço fixo**: a anotação fica onde foi posta. Apagar a 2 deixa a
+  /// vaga 2 livre, e a 3 continua sendo a 3; uma anotação nova pode nascer em
+  /// qualquer vaga livre, e arrastar um cartão o leva para outra (#174).
   ///
-  /// A alternativa — deixar o buraco aberto para que `⌘3` sempre significasse a
-  /// mesma anotação — foi tentada e descartada no uso: uma parede furada não
-  /// diminui quando se joga coisa fora, e o ganho de memória muscular não paga
-  /// olhar para vagas vazias no meio dela. Com nove cartões todos à vista, ler
-  /// o número no cartão é mais rápido do que lembrar dele.
+  /// Até a #174 as vagas eram contíguas — apagar a 2 fazia a 3 subir —, porque
+  /// a parede ainda encolhia com o que se jogava fora. Desde que ela passou a
+  /// desenhar as nove vagas sempre, fechar o buraco só fazia os cartões mudarem
+  /// de número sozinhos, e a parede não deixava pôr o recado onde se queria.
+  ///
+  /// Mora no banco (`leaf_notes.slot`), e por isso vai junto no backup.
   final int slot;
 
   final String content;

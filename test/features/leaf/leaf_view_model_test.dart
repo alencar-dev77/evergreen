@@ -137,22 +137,112 @@ void main() {
     expect(stateOf(container).notes, hasLength(LeafNote.maxNotes));
   });
 
-  test('apagar fecha o buraco: as de baixo sobem uma vaga', () {
+  test('apagar deixa a vaga livre: os outros ficam onde estão', () {
     final container = containerFor();
     fill(container, 4);
 
     viewModelOf(container).selectSlot(2);
     viewModelOf(container).deleteSelected();
 
-    // A parede não fica furada — 3 vira 2, 4 vira 3, e ela encolhe.
+    // A vaga é endereço (#174): o 3 continua sendo o 3.
     expect(stateOf(container).notes, hasLength(3));
     expect(stateOf(container).noteAt(1)?.content, 'anotação 1');
-    expect(stateOf(container).noteAt(2)?.content, 'anotação 3');
-    expect(stateOf(container).noteAt(3)?.content, 'anotação 4');
-    expect(stateOf(container).noteAt(4), isNull);
+    expect(stateOf(container).noteAt(2), isNull);
+    expect(stateOf(container).noteAt(3)?.content, 'anotação 3');
+    expect(stateOf(container).noteAt(4)?.content, 'anotação 4');
 
     // E o banco enxerga o mesmo, não só a tela.
-    expect(repository.loadAll().map((note) => note.slot), [1, 2, 3]);
+    expect(repository.loadAll().map((note) => note.slot), [1, 3, 4]);
+  });
+
+  test('a anotação nasce em qualquer vaga livre, não só na primeira', () {
+    final container = containerFor();
+    fill(container, 2);
+
+    viewModelOf(container).editSlot(8);
+    expect(stateOf(container).editingSlot, 8);
+    viewModelOf(container).commitEdit('lá no fim');
+
+    expect(stateOf(container).noteAt(8)?.content, 'lá no fim');
+    expect(repository.loadAll().map((note) => note.slot), [1, 2, 8]);
+
+    // O `⌘+` continua indo para a primeira livre.
+    viewModelOf(container).startNote();
+    expect(stateOf(container).editingSlot, 3);
+  });
+
+  test('Enter numa vaga livre selecionada escreve ali', () {
+    final container = containerFor();
+    fill(container, 1);
+
+    viewModelOf(container)
+      ..selectSlot(6)
+      ..editSelected();
+
+    expect(stateOf(container).editingSlot, 6);
+    expect(stateOf(container).isDraft, isTrue);
+  });
+
+  test('arrastar para uma vaga livre leva o cartão, e o banco junto', () {
+    final container = containerFor();
+    fill(container, 3);
+
+    viewModelOf(container).moveNote(1, 9);
+
+    expect(stateOf(container).noteAt(1), isNull);
+    expect(stateOf(container).noteAt(9)?.content, 'anotação 1');
+    expect(stateOf(container).selectedSlot, 9);
+    expect(repository.loadAll().map((note) => '${note.slot}:${note.content}'), [
+      '2:anotação 2',
+      '3:anotação 3',
+      '9:anotação 1',
+    ]);
+  });
+
+  test('soltar em cima de outro cartão troca os dois de lugar', () {
+    final container = containerFor();
+    fill(container, 3);
+
+    viewModelOf(container).moveNote(1, 3);
+
+    expect(stateOf(container).noteAt(1)?.content, 'anotação 3');
+    expect(stateOf(container).noteAt(3)?.content, 'anotação 1');
+    expect(stateOf(container).noteAt(2)?.content, 'anotação 2');
+    expect(repository.loadAll().map((note) => '${note.slot}:${note.content}'), [
+      '1:anotação 3',
+      '2:anotação 2',
+      '3:anotação 1',
+    ]);
+  });
+
+  test('nada se move com um cartão em edição', () {
+    final container = containerFor();
+    fill(container, 2);
+
+    viewModelOf(container).editSlot(2);
+    viewModelOf(container).moveNote(1, 5);
+
+    expect(stateOf(container).noteAt(1)?.content, 'anotação 1');
+    expect(stateOf(container).noteAt(5), isNull);
+  });
+
+  test('⌘⌥ e a seta levam o cartão selecionado para a vizinha', () {
+    final container = containerFor();
+    fill(container, 1);
+
+    viewModelOf(container)
+      ..selectSlot(1)
+      ..moveSelectedNote(columns: 1)
+      ..moveSelectedNote(rows: 1);
+
+    expect(stateOf(container).noteAt(5)?.content, 'anotação 1');
+    expect(stateOf(container).selectedSlot, 5);
+
+    // Na borda, não sai da parede.
+    viewModelOf(container)
+      ..moveSelectedNote(rows: 1)
+      ..moveSelectedNote(rows: 1);
+    expect(stateOf(container).noteAt(8)?.content, 'anotação 1');
   });
 
   test('a parede não encolhe: o teclado é que anda menos', () {
@@ -162,17 +252,17 @@ void main() {
     // A parede é sempre a parede: nove vagas, três linhas, com dois cartões ou
     // com nove. O número de uma vaga é o endereço dela, e endereço não muda.
     expect(stateOf(container).rows, 3);
-    // O teclado anda até a primeira livre — a quinta, com quatro coladas.
-    expect(stateOf(container).lastSelectableSlot, 5);
+    // E o teclado anda pela parede inteira: toda vaga livre aceita anotação.
+    expect(stateOf(container).lastSelectableSlot, 9);
 
     viewModelOf(container).selectSlot(4);
     viewModelOf(container).deleteSelected();
 
     expect(stateOf(container).rows, 3);
-    expect(stateOf(container).lastSelectableSlot, 4);
+    expect(stateOf(container).lastSelectableSlot, 9);
   });
 
-  test('a seleção fica na vaga, que agora é de quem subiu', () {
+  test('a seleção fica na vaga, que agora é livre', () {
     final container = containerFor();
     fill(container, 3);
 
@@ -180,7 +270,8 @@ void main() {
     viewModelOf(container).deleteSelected();
 
     expect(stateOf(container).selectedSlot, 2);
-    expect(stateOf(container).selectedNote?.content, 'anotação 3');
+    expect(stateOf(container).selectedNote, isNull);
+    expect(stateOf(container).firstFreeSlot, 2);
   });
 
   test('apagar a última recua a seleção para o fim da parede', () {
@@ -211,12 +302,14 @@ void main() {
     viewModelOf(container).moveSelection(columns: 1);
     expect(stateOf(container).selectedSlot, 6);
 
-    // Não há terceira linha desenhada: descer não faz nada.
+    // Toda vaga livre aceita anotação, então o teclado desce até a última.
     viewModelOf(container).moveSelection(rows: 1);
-    expect(stateOf(container).selectedSlot, 6);
+    expect(stateOf(container).selectedSlot, 9);
 
+    // E para na borda.
+    viewModelOf(container).moveSelection(rows: 1);
     viewModelOf(container).moveSelection(columns: 1);
-    expect(stateOf(container).selectedSlot, 6);
+    expect(stateOf(container).selectedSlot, 9);
   });
 
   test('a grade desenha as nove vagas, cheia ou vazia', () {
@@ -397,13 +490,27 @@ void main() {
 
       viewModelOf(container).undoDelete();
 
-      // O cartão volta para a vaga dele e empurra o resto para baixo.
+      // A nova nasceu na vaga livre (a 2); o cartão devolvido não empurra
+      // ninguém e vai para a primeira livre.
       expect(stateOf(container).notes.map((note) => note.content), [
         'anotação 1',
-        'anotação 2',
-        'anotação 3',
         'a que veio depois',
+        'anotação 3',
+        'anotação 2',
       ]);
+    });
+
+    test('o cartão devolvido volta para a vaga dele, se ela está livre', () {
+      final container = containerFor();
+      fill(container, 3);
+
+      viewModelOf(container)
+        ..selectSlot(2)
+        ..deleteSelected()
+        ..undoDelete();
+
+      expect(stateOf(container).noteAt(2)?.content, 'anotação 2');
+      expect(stateOf(container).selectedSlot, 2);
     });
 
     test('a parede que encheu retira a oferta em vez de prometê-la', () {
@@ -450,12 +557,10 @@ void main() {
       final first = stateOf(container).noteAt(1)!.content;
       final second = stateOf(container).noteAt(2)!.content;
 
-      // Apaga a vaga 1; quem estava na 2 sobe para ela, e apagar a 1 de novo
-      // arranca o segundo cartão.
       viewModelOf(container)
         ..selectSlot(1)
         ..deleteSelected()
-        ..selectSlot(1)
+        ..selectSlot(2)
         ..deleteSelected();
       expect(stateOf(container).notes, hasLength(1));
 
