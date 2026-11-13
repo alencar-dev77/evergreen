@@ -78,6 +78,7 @@ class EgOverlayShell extends StatefulWidget {
     this.focusNode,
     this.draggable = true,
     this.dismissOnBlur = true,
+    this.selectOnHover = true,
     this.notchAttached = false,
   });
 
@@ -131,6 +132,14 @@ class EgOverlayShell extends StatefulWidget {
   /// e o botão continuam fechando: o que sai é o fechamento que a pessoa não
   /// pediu.
   final bool dismissOnBlur;
+
+  /// O mouse se movendo sobre o painel o seleciona, sem clique (#173).
+  ///
+  /// Ligado por padrão. Desligue no painel que fica na tela enquanto se
+  /// trabalha em outro app e tem tecla comum com ação que não se desfaz — o
+  /// Echo gravando: o Enter do chat da reunião, com o cursor parado em cima do
+  /// painel, pararia a gravação.
+  final bool selectOnHover;
 
   /// Saindo do notch, o painel encosta **no topo da tela**, sem o respiro de
   /// baixo da barra de menus: é ele que desenha a faixa do recorte, e assim
@@ -257,22 +266,34 @@ class _EgOverlayShellState extends State<EgOverlayShell>
     });
   }
 
-  /// O foco que está para chegar veio do mouse entrando no painel, e não de
-  /// uma abertura — ver [_selectOnHover].
+  /// O foco que está para chegar veio do mouse, e não de uma abertura — ver
+  /// [_selectOnHover].
   bool _focusFromHover = false;
 
-  /// O mouse em cima do painel o seleciona, sem clique (#173).
+  /// Já se pediu a seleção desde o último foco perdido: um pedido por vez, e
+  /// não um por movimento do mouse.
+  bool _hoverAsked = false;
+
+  /// O mouse se movendo sobre o painel o seleciona, sem clique (#173).
   ///
   /// Aqui, no painel, e não na janela inteira: a janela 0 é maior que o
   /// painel, e o vazio em volta dele não é o Evergreen.
   ///
+  /// **Movimento, e não entrada**: o `onHover` só vem do mouse andando. Um
+  /// painel que nasce debaixo do cursor parado — a pilha do Nest saindo do
+  /// notch — não toma o teclado de quem digita em outro app; é a mão indo até
+  /// ele que diz que ele foi escolhido.
+  ///
   /// Selecionar pelo mouse não é abrir: o foco que chega não refaz a entrada
   /// nem chama o `onShow` do módulo, que limparia a busca do Pin ou o campo
   /// do Focus debaixo do cursor de quem só passou por ali.
-  Future<void> _selectOnHover(PointerEnterEvent _) async {
+  Future<void> _selectOnHover(PointerHoverEvent _) async {
+    if (!widget.selectOnHover || _hoverAsked) return;
+
     final window = OverlayWindow.instance;
     if (!window.visible.value || window.isPanelHidden.value) return;
 
+    _hoverAsked = true;
     _focusFromHover = true;
     if (!await OverlayWindowChannel.takeKeyboardOnHover()) {
       _focusFromHover = false;
@@ -298,7 +319,11 @@ class _EgOverlayShellState extends State<EgOverlayShell>
   }
 
   @override
-  void onWindowBlur() => unawaited(_handleBlur());
+  void onWindowBlur() {
+    _hoverAsked = false;
+    _focusFromHover = false;
+    unawaited(_handleBlur());
+  }
 
   @override
   void onWindowClose() => widget.onClose();
@@ -342,7 +367,7 @@ class _EgOverlayShellState extends State<EgOverlayShell>
 
     panel = MouseRegion(
       opaque: false,
-      onEnter: (event) => unawaited(_selectOnHover(event)),
+      onHover: (event) => unawaited(_selectOnHover(event)),
       child: panel,
     );
 

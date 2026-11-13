@@ -215,38 +215,38 @@ class MainFlutterWindow: NSPanel {
   }
 }
 
-/// Selecionar uma janela do Evergreen — um lugar só para as três portas.
+/// Selecionar uma janela do Evergreen — um lugar só para quem seleciona.
 ///
 /// - **O atalho** que abre um painel (`OverlayWindowChannel.show`) entrega o
-///   teclado ao painel com [giveKeyboard].
-/// - **O mouse em cima de um painel** o seleciona sem clique (#173): o Dart
-///   avisa pelo `MouseRegion` da `EgOverlayShell` — só ele sabe onde o painel
-///   termina e começa o vazio transparente da janela 0 —, e o canal chama
-///   [select] sem ativar o aplicativo, porque o painel é não-ativante.
-/// - **O mouse em cima do Hub** o seleciona também, pela área de rastreio de
-///   [track]. O Hub é uma janela comum, e uma janela comum só vira a
-///   selecionada com o aplicativo ativo: aqui ativar o Evergreen é de
-///   propósito — o mouse em cima dele é ele selecionado.
+///   teclado com [giveKeyboard].
+/// - **O mouse em cima de um painel** (#173): o Dart pede pelo `MouseRegion`
+///   da `EgOverlayShell` — só ele sabe onde o painel termina e começa o vazio
+///   transparente da janela 0, e quais painéis não podem ser selecionados
+///   assim —, e o canal chama [select] sem ativar o aplicativo.
+/// - **O primeiro clique** num painel que não é key (`MainFlutterWindow.sendEvent`).
+/// - **O mouse em cima do Hub**, pela área de rastreio de [track], que ativa o
+///   aplicativo: o Hub é uma janela comum, e só vira a selecionada com o
+///   Evergreen na frente. Não com um painel da janela 0 à vista: ativar o Hub
+///   tiraria o foco do painel, que fecha ao perdê-lo.
 ///
 /// Só a entrada do mouse conta, e nunca durante um arraste (a área de rastreio
-/// não tem `.enabledDuringMouseDrag`): levar um arquivo do Finder por cima do
-/// Hub a caminho de outro lugar não pode tirar o Finder da frente no meio do
-/// gesto.
+/// não tem `.enabledDuringMouseDrag`).
 enum WindowSelection {
-  /// Torna [window] a selecionada, se ela está na tela e ainda não é. Devolve
-  /// se selecionou.
+  /// Torna [window] a selecionada, se ela está na tela e ainda não é — sem
+  /// mexer no first responder, que pode ser o campo de texto em edição.
+  /// Devolve se ela é a selecionada agora.
   @discardableResult
   static func select(_ window: NSWindow, activatingApp: Bool) -> Bool {
-    guard window.isVisible, window.isOnActiveSpace, window.canBecomeKey,
-          !(window.isKeyWindow && (!activatingApp || NSApp.isActive))
-    else { return false }
+    guard window.isVisible, window.isOnActiveSpace, window.canBecomeKey else { return false }
 
     if activatingApp {
-      NSApp.activate(ignoringOtherApps: true)
+      guard !(NSApp.isActive && window.isKeyWindow) else { return true }
+      NSApp.activate()
       window.makeKeyAndOrderFront(nil)
+    } else if !window.isKeyWindow {
+      window.makeKey()
     }
-    giveKeyboard(to: window)
-    return true
+    return window.isKeyWindow
   }
 
   /// Torna [window] key com a view do Flutter como first responder.
@@ -262,7 +262,7 @@ enum WindowSelection {
   /// campo que estiver em foco, e reexibir o painel não pode mexer no que a
   /// pessoa deixou escrito.
   static func giveKeyboard(to window: NSWindow) {
-    if !window.isKeyWindow { window.makeKey() }
+    select(window, activatingApp: false)
 
     if let view = window.contentViewController?.view, window.firstResponder !== view {
       window.makeFirstResponder(view)
@@ -298,7 +298,7 @@ enum WindowSelection {
     required init?(coder: NSCoder) { nil }
 
     override func mouseEntered(with event: NSEvent) {
-      guard let window = window else { return }
+      guard let window = window, !OverlayWindowChannel.isShowingPanel else { return }
       WindowSelection.select(window, activatingApp: true)
     }
   }
@@ -322,6 +322,9 @@ enum OverlayWindowChannel {
   /// Fraca por simetria com o `HubWindowChannel`: quem retém a janela 0 é o
   /// `NSApp`, e ela nunca é destruída — só escondida.
   private static weak var panel: NSPanel?
+
+  /// Há um painel da janela 0 na tela — ver `WindowSelection`.
+  static var isShowingPanel: Bool { panel?.isVisible ?? false }
 
   /// Guarda a janela 0. Chamada pelo `MainFlutterWindow`, que é ela mesma.
   ///
@@ -371,9 +374,9 @@ enum OverlayWindowChannel {
   /// novo, com a regra que acabamos de contornar.
   ///
   /// Sem [takeKeyboard], só põe na frente: é a pilha do Nest que sai do notch
-  /// pelo mouse ou pelo arraste — passar por ali não pode roubar as teclas de
-  /// quem está digitando em outro app. Um clique nela a torna key como em
-  /// qualquer painel.
+  /// pelo mouse ou pelo arraste — nascer debaixo do cursor não pode roubar as
+  /// teclas de quem está digitando em outro app. O mouse se **movendo** sobre
+  /// ela, ou um clique, a seleciona — ver `WindowSelection`.
   private static func show(takeKeyboard: Bool, result: @escaping FlutterResult) {
     guard let panel = panel else {
       result(

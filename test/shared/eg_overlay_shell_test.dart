@@ -212,19 +212,25 @@ void main() {
       OverlayWindow.instance.visible.value = false;
     });
 
-    Future<int> pumpCountingShows(WidgetTester tester) async {
-      var shows = 0;
+    /// Quantas vezes o módulo foi avisado de uma abertura.
+    late List<int> shows;
+
+    Future<void> pumpPanel(
+      WidgetTester tester, {
+      bool selectOnHover = true,
+    }) async {
+      shows = [];
       await tester.pumpWidget(
         MaterialApp(
           home: EgOverlayShell(
             onClose: () {},
-            onShow: () => shows++,
+            onShow: () => shows.add(1),
+            selectOnHover: selectOnHover,
             child: const _Painel(),
           ),
         ),
       );
       await tester.pump();
-      return shows;
     }
 
     Future<void> hoverPanel(WidgetTester tester) async {
@@ -250,7 +256,7 @@ void main() {
     testWidgets('o mouse entrando no painel pede a seleção da janela', (
       tester,
     ) async {
-      await pumpCountingShows(tester);
+      await pumpPanel(tester);
 
       await hoverPanel(tester);
 
@@ -260,30 +266,61 @@ void main() {
     testWidgets('selecionar pelo mouse não é abrir: o módulo não é avisado', (
       tester,
     ) async {
-      var shows = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: EgOverlayShell(
-            onClose: () {},
-            onShow: () => shows++,
-            child: const _Painel(),
-          ),
-        ),
-      );
-      await tester.pump();
+      await pumpPanel(tester);
 
       await hoverPanel(tester);
       await sendFocus(tester);
-      expect(shows, 0);
+      expect(shows, isEmpty);
 
       // A abertura seguinte, essa sim, avisa o módulo.
       await sendFocus(tester);
-      expect(shows, 1);
+      expect(shows, hasLength(1));
+    });
+
+    testWidgets('um pedido por vez, e não um por movimento do mouse', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      final center = tester.getCenter(find.byKey(const Key('painel')));
+      await mouse.moveTo(center);
+      await tester.pump();
+      await mouse.moveTo(center + const Offset(5, 5));
+      await tester.pump();
+
+      expect(overlayCalls, ['takeKeyboardOnHover']);
+    });
+
+    testWidgets(
+      'o painel que nasce debaixo do cursor parado não é selecionado',
+      (tester) async {
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(400, 300));
+
+        await pumpPanel(tester);
+        await tester.pump();
+
+        expect(overlayCalls, isEmpty);
+      },
+    );
+
+    testWidgets('com selectOnHover desligado, o mouse não seleciona', (
+      tester,
+    ) async {
+      await pumpPanel(tester, selectOnHover: false);
+
+      await hoverPanel(tester);
+
+      expect(overlayCalls, isEmpty);
     });
 
     testWidgets('o painel escondido não pede nada', (tester) async {
       OverlayWindow.instance.visible.value = false;
-      await pumpCountingShows(tester);
+      await pumpPanel(tester);
 
       await hoverPanel(tester);
 

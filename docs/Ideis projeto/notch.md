@@ -82,13 +82,19 @@ Os números, ajustados na mão:
 aparece sem pegar o teclado (ela nasce no meio do arraste de quem está em
 outro app), e num painel que não é key o AppKit engolia o primeiro clique só
 para torná-lo key — arrastar a pilha para fora pedia dois cliques. Agora o
-mouse entrando em qualquer janela do Evergreen a seleciona: o painel pelo
-`MouseRegion` da `EgOverlayShell` (só o painel, não o vazio transparente da
-janela 0, e sem refazer a abertura), o Hub por uma área de rastreio nativa
-que ativa o app. Os dois passam pelo `WindowSelection`, no Swift, junto com o
-atalho que abre um painel e a rede do primeiro clique
-(`MainFlutterWindow.sendEvent`). O preço, escolhido: o teclado sai do app em
-que se digitava quando o cursor passa por cima de uma janela do Evergreen.
+mouse em cima de qualquer janela do Evergreen a seleciona: o painel pelo
+`MouseRegion` da `EgOverlayShell`, o Hub por uma área de rastreio nativa que
+ativa o app, os dois pelo `WindowSelection` no Swift. O preço, escolhido: o
+teclado sai do app em que se digitava. Três cercas, porque tecla comum dispara
+ação que não se desfaz:
+
+- **O mouse tem de andar sobre o painel** — a pilha que nasce debaixo do
+  cursor parado não toma o teclado; com ele, um `⌘2` para o navegador
+  mandaria os arquivos para uma pasta.
+- **O Echo gravando não é selecionado pelo mouse** (`selectOnHover`): o Enter
+  do chat da reunião pararia a gravação.
+- **O Hub não é ativado com um painel à vista**: ativá-lo tiraria o foco do
+  painel, que fecha ao perdê-lo.
 
 **Desistir recolhe.** Se o arraste que chamou a prateleira acaba sem nada
 solto nela — de volta no Finder, ou em lugar nenhum —, ela some sozinha

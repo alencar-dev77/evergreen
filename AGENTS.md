@@ -514,7 +514,10 @@ lista de módulos sonhados) está em
   que chega por ali não é abertura, e não chama o `onShow`); no Swift, o
   `WindowSelection`, por onde passam o atalho, o mouse no painel, o mouse no
   Hub (que ativa o app) e o primeiro clique. Janela nova que precise disso
-  usa o `WindowSelection`, nunca um `makeKey` solto.
+  usa o `WindowSelection`, nunca um `makeKey` solto. Painel com tecla comum
+  que faz algo sem volta enquanto fica na tela sem foco desliga o
+  `selectOnHover` (o Echo gravando); as cercas estão em
+  [docs/Ideis projeto/notch.md](docs/Ideis%20projeto/notch.md).
 - A janela 0 é movível (`setMovable(true)`) só para o `startDragging` do painel
   ser aceito pelo macOS; nada liga o arrasto pela área transparente da
   *janela*, que é a barreira do clique-fora. A posição arrastada vale até
