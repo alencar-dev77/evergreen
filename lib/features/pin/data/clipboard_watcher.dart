@@ -77,6 +77,14 @@ class ClipboardWatcher {
   /// deu para escrever — o arquivo sumiu, ou não há lado nativo.
   Future<bool> writeImage(String path) => _invoke('writeImage', path);
 
+  /// Liga ou desliga a captura dos prints salvos em arquivo (`⌘⇧3`, `⌘⇧4`).
+  ///
+  /// O print chega por [onImage], como qualquer imagem copiada — com o nome e
+  /// o caminho do arquivo. Quem vigia a pasta é o lado nativo
+  /// (`ScreenshotWatcher`); ligar é o que faz o macOS pedir acesso a ela.
+  Future<void> watchScreenshots({required bool enabled}) =>
+      _invoke('watchScreenshots', enabled);
+
   Future<void> _handleNativeCall(MethodCall call) async {
     if (call.method == 'onCopyImage') {
       final raw = call.arguments;

@@ -78,6 +78,15 @@ class _PinSettingsViewState extends ConsumerState<PinSettingsView> {
           title: 'Geral',
           children: [
             EgSettingsRow.toggle(
+              label: 'Guardar prints',
+              description:
+                  'Cada print salvo em arquivo (⌘⇧3, ⌘⇧4) entra no Pin. O Pin '
+                  'guarda a própria cópia: apagar o arquivo depois não o tira '
+                  'daqui. O macOS pede acesso à pasta dos prints.',
+              value: settings.captureScreenshots,
+              onChanged: viewModel.setCaptureScreenshots,
+            ),
+            EgSettingsRow.toggle(
               label: 'Colar automaticamente',
               description:
                   'Ao escolher um item, cola direto no app anterior (⌘V). '

@@ -775,6 +775,12 @@ enum PasteboardWatcherChannel {
         acknowledge(call.arguments as? String)
         result(nil)
 
+      case "watchScreenshots":
+        ScreenshotWatcher.setEnabled(call.arguments as? Bool ?? false) { payload in
+          channel.invokeMethod("onCopyImage", arguments: payload)
+        }
+        result(nil)
+
       case "writeImage":
         if writeImage(atPath: call.arguments as? String) {
           result(nil)
@@ -914,6 +920,150 @@ enum PasteboardWatcherChannel {
     lastChangeCount = pasteboard.changeCount
     generation += 1
     return true
+  }
+}
+
+/// Leva cada print salvo em arquivo para o Pin.
+///
+/// O `⌘⇧3` e o `⌘⇧4` não passam pela área de transferência: o macOS grava um
+/// arquivo (na Mesa, ou onde o app Captura de Tela mandar) e o Pin nunca o
+/// veria. O `⌃` junto, que manda o print para a área de transferência, já é
+/// capturado pelo `PasteboardWatcherChannel` — e esse não grava arquivo, então
+/// os dois caminhos nunca contam o mesmo print duas vezes.
+///
+/// A regra é a mesma do `changeCount`: *perguntar, não esperar aviso*. A cada
+/// segundo uma leitura barata — a data de modificação da pasta —, e a pasta só
+/// é listada quando ela mudou. Quem diz que um arquivo é print é o próprio
+/// macOS, no atributo `kMDItemIsScreenCapture` que o `screencapture` grava
+/// nele; o nome do arquivo muda com o idioma e não serve de prova.
+///
+/// Os bytes são copiados para a pasta de imagens do Pin na hora (o mesmo
+/// `PinImageCapture.process` da cópia no Finder), e por isso **apagar o print
+/// depois não tira nada do Pin**: o item é dono da própria cópia, e o caminho
+/// que ele guarda é só de onde ela veio.
+///
+/// Só entra o que nasceu depois de ligar — ligar não varre a Mesa inteira
+/// para dentro do histórico.
+enum ScreenshotWatcher {
+  private static let pollInterval: TimeInterval = 1
+
+  private static let screenCaptureAttribute = "com.apple.metadata:kMDItemIsScreenCapture"
+
+  private static var timer: Timer?
+  private static var emit: (([String: Any]) -> Void)?
+
+  /// A pasta vigiada e a data de modificação dela na última volta.
+  private static var folder: URL?
+  private static var folderStamp: Date?
+
+  /// Desde quando um print conta como novo.
+  private static var since = Date()
+
+  /// Os prints já entregues — ou em processamento — desta vez que se ligou.
+  private static var seen = Set<String>()
+
+  private static let queue = DispatchQueue(label: "evergreen.pin.screenshot", qos: .utility)
+
+  static func setEnabled(_ enabled: Bool, emit: @escaping ([String: Any]) -> Void) {
+    self.emit = emit
+
+    guard enabled else {
+      timer?.invalidate()
+      timer = nil
+      return
+    }
+    guard timer == nil else { return }
+
+    since = Date()
+    seen.removeAll()
+    folder = nil
+    folderStamp = nil
+
+    let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { _ in
+      tick()
+    }
+    timer.tolerance = 0.3
+    self.timer = timer
+    tick()
+  }
+
+  private static func tick() {
+    let current = screenshotFolder()
+    let stamp = try? current.resourceValues(forKeys: [.contentModificationDateKey])
+      .contentModificationDate
+
+    // A pasta trocada no app Captura de Tela conta como mudança: a próxima
+    // volta lista a nova.
+    guard current != folder || stamp != folderStamp else { return }
+    folder = current
+    folderStamp = stamp
+
+    scan(current)
+  }
+
+  private static func scan(_ folder: URL) {
+    // A primeira listagem da Mesa é o que faz o macOS pedir a permissão da
+    // pasta. Negada, a listagem falha e nada acontece — o print continua
+    // podendo entrar pelo `⌃`, pela área de transferência.
+    guard let urls = try? FileManager.default.contentsOfDirectory(
+      at: folder,
+      includingPropertiesForKeys: [.creationDateKey, .isRegularFileKey],
+      options: [.skipsHiddenFiles])
+    else { return }
+
+    for url in urls where !seen.contains(url.path) {
+      guard let values = try? url.resourceValues(forKeys: [.creationDateKey, .isRegularFileKey]),
+            values.isRegularFile == true,
+            let created = values.creationDate, created >= since,
+            let type = UTType(filenameExtension: url.pathExtension),
+            type.conforms(to: .image),
+            isScreenCapture(url)
+      else { continue }
+
+      seen.insert(url.path)
+      let pending = PinImageCapture.Pending(
+        fileURL: url, data: nil, ext: url.pathExtension.lowercased(), source: nil)
+
+      queue.async {
+        let payload = PinImageCapture.process(pending)
+        DispatchQueue.main.async {
+          guard let payload = payload else {
+            // Ainda sendo escrito, ou sem permissão de leitura: a próxima
+            // mudança da pasta tenta de novo.
+            seen.remove(url.path)
+            return
+          }
+          guard timer != nil else { return }
+          emit?(payload)
+        }
+      }
+    }
+  }
+
+  private static func isScreenCapture(_ url: URL) -> Bool {
+    url.withUnsafeFileSystemRepresentation { path in
+      guard let path = path else { return false }
+      return getxattr(path, screenCaptureAttribute, nil, 0, 0, 0) >= 0
+    }
+  }
+
+  /// Onde o app Captura de Tela grava — a Mesa, se ninguém escolheu outra.
+  private static func screenshotFolder() -> URL {
+    let domain = "com.apple.screencapture" as CFString
+    CFPreferencesAppSynchronize(domain)
+
+    if let location = CFPreferencesCopyAppValue("location" as CFString, domain) as? String,
+       !location.isEmpty {
+      let expanded = (location as NSString).expandingTildeInPath
+      var isDirectory: ObjCBool = false
+      if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDirectory),
+         isDirectory.boolValue {
+        return URL(fileURLWithPath: expanded, isDirectory: true)
+      }
+    }
+
+    return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+      ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
   }
 }
 

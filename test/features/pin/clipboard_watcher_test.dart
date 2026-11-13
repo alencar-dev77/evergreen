@@ -91,6 +91,16 @@ void main() {
     expect(nativeCalls.last.arguments, 'conteúdo recopiado');
   });
 
+  test('watchScreenshots manda ao nativo se a vigia dos prints liga', () async {
+    await watcher.watchScreenshots(enabled: true);
+    await watcher.watchScreenshots(enabled: false);
+
+    expect(nativeCalls.map((call) => (call.method, call.arguments)), [
+      ('watchScreenshots', true),
+      ('watchScreenshots', false),
+    ]);
+  });
+
   test('stop desliga a captura', () async {
     await watcher.start();
     await watcher.stop();

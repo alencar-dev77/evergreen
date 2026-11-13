@@ -15,6 +15,7 @@ class PinSettingsRepository {
   static const _historyLimitKey = 'pin.history_limit';
   static const _autoPasteKey = 'pin.auto_paste';
   static const _ignoredTypesKey = 'pin.ignored_types';
+  static const _captureScreenshotsKey = 'pin.capture_screenshots';
 
   PinSettings load() {
     const defaults = PinSettings();
@@ -23,6 +24,8 @@ class PinSettingsRepository {
       historyLimit: _prefs.getInt(_historyLimitKey) ?? defaults.historyLimit,
       autoPaste: _prefs.getBool(_autoPasteKey) ?? defaults.autoPaste,
       ignoredTypes: _readIgnored(),
+      captureScreenshots:
+          _prefs.getBool(_captureScreenshotsKey) ?? defaults.captureScreenshots,
     );
   }
 
@@ -54,6 +57,7 @@ class PinSettingsRepository {
     await Future.wait([
       _prefs.setInt(_historyLimitKey, settings.historyLimit),
       _prefs.setBool(_autoPasteKey, settings.autoPaste),
+      _prefs.setBool(_captureScreenshotsKey, settings.captureScreenshots),
       _prefs.setStringList(_ignoredTypesKey, [
         for (final type in settings.ignoredTypes) type.name,
       ]),

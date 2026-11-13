@@ -69,6 +69,8 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     _watchSubscription ??= _watcher.onCopy.listen(_onClipboardChanged);
     _imageSubscription ??= _watcher.onImage.listen(_onImageCopied);
     _watcher.start();
+    _isWatching = true;
+    unawaited(applyScreenshotSetting());
 
     // Antes da primeira carga: o filtro por tipo mostra o que o classificador
     // enxerga, e um histórico classificado por uma versão anterior apareceria
@@ -96,7 +98,23 @@ class PinOverlayViewModel extends Notifier<PinOverlayState> {
     _watchSubscription = null;
     await _imageSubscription?.cancel();
     _imageSubscription = null;
+    _isWatching = false;
+    await _watcher.watchScreenshots(enabled: false);
     await _watcher.stop();
+  }
+
+  /// A captura está ligada — o Pin não foi desligado.
+  bool _isWatching = false;
+
+  /// Liga ou desliga a vigia dos prints conforme a preferência.
+  ///
+  /// Chamada ao ligar a captura e a cada mudança das preferências: o
+  /// interruptor mora no Hub, que é outro engine, e só esta janela vigia. Com o
+  /// Pin desligado a vigia fica desligada, seja qual for a preferência — o
+  /// módulo desligado não registra nada.
+  Future<void> applyScreenshotSetting() async {
+    final enabled = _isWatching && _settings.load().captureScreenshots;
+    await _watcher.watchScreenshots(enabled: enabled);
   }
 
   /// Recarrega o histórico do banco.

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:evergreen/app/providers.dart';
@@ -254,8 +255,15 @@ void main() {
     late ProviderContainer container;
     late List<MethodCall> nativeCalls;
 
-    Future<ProviderContainer> start({List<String> ignored = const []}) async {
-      SharedPreferences.setMockInitialValues({'pin.ignored_types': ignored});
+    Future<ProviderContainer> start({
+      List<String> ignored = const [],
+      bool screenshots = false,
+      PinImageStore? imageStore,
+    }) async {
+      SharedPreferences.setMockInitialValues({
+        'pin.ignored_types': ignored,
+        'pin.capture_screenshots': screenshots,
+      });
       final preferences = await SharedPreferences.getInstance();
 
       container = ProviderContainer(
@@ -264,7 +272,7 @@ void main() {
           clipboardRepositoryProvider.overrideWithValue(
             SqliteClipboardRepository(db),
           ),
-          pinImageStoreProvider.overrideWithValue(store),
+          pinImageStoreProvider.overrideWithValue(imageStore ?? store),
         ],
       );
       addTearDown(container.dispose);
@@ -320,6 +328,58 @@ void main() {
       expect(state.results.single.title, 'captura.png');
       expect(store.list(), ['abc123.png']);
       expect(state.availableTypes, contains(ClipboardItemType.image));
+    });
+
+    test('a vigia dos prints segue a preferência e para com o Pin', () async {
+      List<Object?> screenshotCalls() => [
+        for (final call in nativeCalls)
+          if (call.method == 'watchScreenshots') call.arguments,
+      ];
+
+      await start(screenshots: true);
+      expect(screenshotCalls(), [true]);
+
+      await container.read(pinOverlayViewModelProvider.notifier).stopWatching();
+      expect(screenshotCalls(), [true, false]);
+
+      // Desligado, a preferência sozinha não religa a vigia.
+      await container
+          .read(pinOverlayViewModelProvider.notifier)
+          .applyScreenshotSetting();
+      expect(screenshotCalls(), [true, false, false]);
+    });
+
+    test('sem a preferência, a vigia dos prints fica desligada', () async {
+      await start();
+
+      expect(
+        nativeCalls
+            .where((call) => call.method == 'watchScreenshots')
+            .map((call) => call.arguments),
+        [false],
+      );
+    });
+
+    test('o print apagado depois continua no Pin', () async {
+      final temp = Directory.systemTemp.createTempSync('pin_print');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final original = File('${temp.path}/Captura de Tela.png')
+        ..writeAsBytesSync(onePixelPng);
+      final local = LocalPinImageStore(Directory('${temp.path}/Imagens'));
+
+      await start(screenshots: true, imageStore: local);
+      await copyImageInAnotherApp(
+        captured(name: 'Captura de Tela.png', path: original.path),
+      );
+      original.deleteSync();
+
+      final item = container.read(pinOverlayViewModelProvider).results.single;
+      expect(item.title, 'Captura de Tela.png');
+      expect(
+        container.read(pinOverlayViewModelProvider.notifier).canCopy(item),
+        isTrue,
+      );
+      expect(File(local.pathOf('abc123.png')).readAsBytesSync(), onePixelPng);
     });
 
     test('com Imagens desligado, nada é registrado — nem o arquivo', () async {

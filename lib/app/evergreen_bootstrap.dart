@@ -352,8 +352,12 @@ class EvergreenBootstrap {
   /// memória — e quem captura a área de transferência é esta janela. Sem
   /// reler, desligar um tipo só valia no lançamento seguinte: a tela mostrava
   /// o tipo desligado e o Pin continuava guardando o que ele copiava.
-  Future<void> _applyPinSettings() =>
-      _container.read(pinSettingsRepositoryProvider).reload();
+  Future<void> _applyPinSettings() async {
+    await _container.read(pinSettingsRepositoryProvider).reload();
+    await _container
+        .read(pinOverlayViewModelProvider.notifier)
+        .applyScreenshotSetting();
+  }
 
   /// O que cada atalho faz. Registrado uma vez e guardado pelo serviço: um
   /// [GlobalShortcutService.resume] depois de uma gravação precisa registrar
