@@ -33,6 +33,15 @@
 	     falou sem precisar de modelo de reconhecimento de voz. -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>O Echo usa o microfone para gravar a sua fala nas reuniões. O áudio fica só nesta máquina e é apagado em até 14 dias, a não ser que você guarde a reunião. Nada é enviado para a internet.</string>
+	<!-- O Pin guarda os prints salvos em arquivo, quando a pessoa liga
+	     "Guardar prints". A pasta deles é a Mesa por padrão, e o app Captura
+	     de Tela pode mandá-los para Documentos ou Transferências. -->
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>O Pin guarda uma cópia de cada print que você tira, quando "Guardar prints" está ligado. Só os prints são lidos, e nada sai desta máquina.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>O Pin guarda uma cópia de cada print que você tira, quando "Guardar prints" está ligado. Só os prints são lidos, e nada sai desta máquina.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>O Pin guarda uma cópia de cada print que você tira, quando "Guardar prints" está ligado. Só os prints são lidos, e nada sai desta máquina.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

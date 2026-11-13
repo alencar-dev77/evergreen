@@ -40,6 +40,12 @@ class PinSettingsViewModel extends Notifier<PinSettings> {
     await _update(state.copyWith(autoPaste: value));
   }
 
+  /// Liga ou desliga a captura dos prints salvos em arquivo. Ligar é o que
+  /// faz o macOS pedir acesso à pasta deles — a vigia começa na janela 0,
+  /// avisada pela ponte do [_update].
+  Future<void> setCaptureScreenshots(bool value) =>
+      _update(state.copyWith(captureScreenshots: value));
+
   Future<void> setHistoryLimit(int value) =>
       _update(state.copyWith(historyLimit: value));
 
