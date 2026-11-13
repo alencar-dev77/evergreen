@@ -85,6 +85,8 @@ enum NestDragMonitor {
 
   /// Onde a barra de menus começa, de baixo — a base do recorte.
   private static var menuBarBottom: CGFloat = .greatestFiniteMagnitude
+  private static var notchMidX: CGFloat = 0
+  private static var notchHalfWidth: CGFloat = 0
 
   /// Desde quando o cursor está parado dentro do recorte, com arquivo na mão,
   /// e onde ele parou.
@@ -150,6 +152,12 @@ enum NestDragMonitor {
   /// menus não tem destino de arquivo nenhum para confundir.
   private static let notchSlack: CGFloat = 120
 
+  /// A folga de cada lado em que a barra de menus dispara **sem espera**. A
+  /// mais estreita das duas: com 120, ícones da barra de status que aceitam
+  /// arquivo (Dropover, Yoink) cairiam no disparo instantâneo nas telas de
+  /// 14". Fora dela, ainda dentro de [notchSlack], vale a espera de parado.
+  private static let notchInstantSlack: CGFloat = 60
+
   // MARK: - Ligar e desligar
 
   static func setShakeEnabled(_ enabled: Bool) {
@@ -211,6 +219,8 @@ enum NestDragMonitor {
     let notch = isNotchEnabled ? NotchGeometry.current() : nil
     notchZone = zone(around: notch)
     menuBarBottom = notch?.rect.minY ?? .greatestFiniteMagnitude
+    notchMidX = notch?.rect.midX ?? 0
+    notchHalfWidth = (notch?.rect.width ?? 0) / 2
     notchEdgeIsWall = notch.map(edgeIsWall) ?? false
 
     sampler = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { _ in
@@ -285,7 +295,8 @@ enum NestDragMonitor {
     // deixa a prateleira ganhar a corrida de quem vem rápido. Ao lado do
     // recorte a barra não tem destino de arquivo, então não há o que
     // confundir. Com outra tela acima, a barra é caminho, e vale a espera.
-    if notchEdgeIsWall, point.y >= menuBarBottom {
+    if notchEdgeIsWall, point.y >= menuBarBottom,
+       abs(point.x - notchMidX) <= notchHalfWidth + notchInstantSlack {
       fireNotch()
       return
     }

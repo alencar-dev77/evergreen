@@ -56,7 +56,11 @@ Os números, ajustados na mão:
   que encosta na borda de cima abre o **Mission Control**, e o macOS ganhava a
   corrida. Depois disso passou a disparar no pixel do topo, e quem vinha rápido
   ainda passava do ponto (#173); agora é a barra inteira, o último trecho antes
-  da borda. Ao lado do furo a barra não tem menu nem destino a confundir.
+  da borda — na largura do recorte mais 60 pt de cada lado, onde a barra não
+  tem menu nem destino a confundir. Entre 60 e 120 pt, onde ícones da barra
+  de status que aceitam arquivo podem chegar numa tela de 14", vale a espera.
+  O preço: arrastar um arquivo até o topo, no centro, para usar o Mission
+  Control deixou de funcionar.
 - **A zona desce 96 pt abaixo da barra de menus** (eram 48, e era preciso chegar
   quase no recorte — #173), com 150 ms de cursor
   **parado** (6 pt de tremor). Quem mira o recorte chega por baixo dele, e a
