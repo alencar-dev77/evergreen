@@ -233,6 +233,35 @@ void main() {
     expect(repository.loadAll().single.slot, 9);
   });
 
+  testWidgets('arrastar em curva leva o cartão, e não a janela', (
+    tester,
+  ) async {
+    repository.create(slot: 1, content: 'nota 1', createdAt: clock);
+    final container = await pumpPanel(tester);
+
+    final from = tester.getCenter(find.text('nota 1'));
+    final to = tester.getCenter(
+      find.ancestor(of: find.text('2'), matching: find.byType(LeafEmptySlot)),
+    );
+
+    // Vai e volta: o caminho passa da régua antes de a distância em linha
+    // reta passar.
+    final gesture = await tester.startGesture(
+      from,
+      kind: PointerDeviceKind.mouse,
+    );
+    for (final step in const [Offset(8, 0), Offset(-8, 0), Offset(8, 0)]) {
+      await gesture.moveBy(step);
+    }
+    await tester.pump();
+    await gesture.moveTo(to);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(stateOf(container).noteAt(2)?.content, 'nota 1');
+  });
+
   testWidgets('um clique com a mão tremendo abre o cartão, e não o arrasta', (
     tester,
   ) async {

@@ -308,8 +308,8 @@ class LeafViewModel extends Notifier<LeafState> {
         createdAt: _now(),
       );
       // A oferta de desfazer sobrevive a isto: o cartão devolvido volta para a
-      // vaga dele e empurra os outros para baixo, e escrever uma anotação nova
-      // não é motivo para perder a que se apagou por engano. Quem encerra a
+      // vaga dele, ou para a primeira livre se esta nova a ocupou, e escrever
+      // uma anotação nova não é motivo para perder a que se apagou por engano. Quem encerra a
       // oferta é a parede cheia — ver [LeafState.canUndoDelete].
       state = state.copyWith(
         notes: _sorted([...state.notes, created]),
@@ -502,7 +502,6 @@ class LeafViewModel extends Notifier<LeafState> {
   /// seleção passar direto pelo que a pessoa estava procurando.
   void moveSelection({int columns = 0, int rows = 0}) {
     final last = state.lastSelectableSlot;
-    if (last == 0) return;
 
     final current = state.selectedSlot ?? 1;
     final index = current - 1;
@@ -513,8 +512,6 @@ class LeafViewModel extends Notifier<LeafState> {
     final nextColumn = (column + columns).clamp(0, LeafNote.columns - 1);
     final nextRow = (row + rows).clamp(0, lastRow);
 
-    // A última linha pode estar pela metade: descer para uma coluna que ainda
-    // não existe encosta no último cartão dela, em vez de não fazer nada.
     final slot = (nextRow * LeafNote.columns + nextColumn + 1).clamp(1, last);
 
     state = state.copyWith(selectedSlot: slot);

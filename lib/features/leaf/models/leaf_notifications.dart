@@ -3,9 +3,9 @@ import 'leaf_note.dart';
 
 /// O lembrete de um cartão, como notificação do macOS.
 ///
-/// O id carrega o id da anotação, e não a vaga: a vaga muda quando um cartão
-/// de cima é arrancado, e o lembrete precisa continuar apontando para o mesmo
-/// recado.
+/// O id carrega o id da anotação, e não a vaga: a vaga muda quando o cartão é
+/// arrastado (ou levado com `⌘⌥` + seta), e o lembrete precisa continuar
+/// apontando para o mesmo recado.
 abstract final class LeafNotifications {
   static const _prefix = 'leaf.';
   static const snooze = 'leaf.snooze';

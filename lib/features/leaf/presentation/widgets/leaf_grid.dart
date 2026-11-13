@@ -120,13 +120,33 @@ class LeafGrid extends StatelessWidget {
   ///
   /// Só enquanto a parede está sendo olhada: com um cartão em edição ou no
   /// seletor de lembrete, nada se move (ver `LeafViewModel.moveNote`).
+  ///
+  /// O alvo existe sempre, e só recusa enquanto nada pode se mover: trocar a
+  /// árvore da vaga a cada edição remontaria as nove e perderia o hover.
+  ///
+  /// O que viaja no arraste é o **id** da anotação, e não a vaga: a vaga de
+  /// origem é perguntada ao estado na hora de soltar, e um `⌘Z` no meio do
+  /// arraste não faz o cartão errado mudar de lugar.
   Widget _cell(int slot) {
     final cell = _content(slot);
-    if (state.isEditing || state.isReminding) return cell;
+    final canMove = !state.isEditing && !state.isReminding;
+
+    int? fromOf(int id) {
+      for (final note in state.notes) {
+        if (note.id == id) return note.slot;
+      }
+      return null;
+    }
 
     return DragTarget<int>(
-      onWillAcceptWithDetails: (details) => details.data != slot,
-      onAcceptWithDetails: (details) => onMove(details.data, slot),
+      onWillAcceptWithDetails: (details) {
+        final from = fromOf(details.data);
+        return canMove && from != null && from != slot;
+      },
+      onAcceptWithDetails: (details) {
+        final from = fromOf(details.data);
+        if (from != null) onMove(from, slot);
+      },
       builder: (context, candidates, _) {
         if (candidates.isEmpty) return cell;
 
@@ -177,12 +197,9 @@ class LeafGrid extends StatelessWidget {
         now: now,
       );
 
-      if (state.isEditing || state.isReminding) {
-        return card(isSelected: state.selectedSlot == slot);
-      }
-
       return _CardDraggable(
-        slot: slot,
+        noteId: note.id,
+        enabled: !state.isEditing && !state.isReminding,
         // Quem é arrastado é o cartão inteiro, levantado — o mesmo
         // "selecionado" da parede, que é elevação.
         feedback: card(isSelected: true),
@@ -212,13 +229,23 @@ class LeafGrid extends StatelessWidget {
 /// arraste só começa onde o clique termina (`kTouchSlop`), a mesma régua do
 /// arrasto da janela na `EgOverlayShell`; e, como o cartão está mais fundo na
 /// árvore, ele recebe o movimento primeiro e ganha do arrasto da janela.
+///
+/// A régua mede o **caminho percorrido**, como o `PanGestureRecognizer` da
+/// janela, e não a distância em linha reta: medindo diferente, um arraste em
+/// curva passava da régua da janela antes da do cartão, e a janela saía do
+/// lugar no lugar do cartão.
 class _CardDraggable extends Draggable<int> {
   const _CardDraggable({
-    required int slot,
+    required int noteId,
+    required bool enabled,
     required super.feedback,
     required super.childWhenDragging,
     required super.child,
-  }) : super(data: slot, rootOverlay: true);
+  }) : super(
+         data: noteId,
+         rootOverlay: true,
+         maxSimultaneousDrags: enabled ? null : 0,
+       );
 
   @override
   MultiDragGestureRecognizer createRecognizer(
@@ -240,10 +267,16 @@ class _SlopDragRecognizer extends MultiDragGestureRecognizer {
 class _SlopPointerState extends MultiDragPointerState {
   _SlopPointerState(super.initialPosition, super.kind, super.gestureSettings);
 
+  Offset _lastDelta = Offset.zero;
+  double _traveled = 0;
+
   @override
   void checkForResolutionAfterMove() {
-    final moved = pendingDelta?.distance ?? 0;
-    if (moved > (gestureSettings?.touchSlop ?? kTouchSlop)) {
+    final delta = pendingDelta ?? Offset.zero;
+    _traveled += (delta - _lastDelta).distance;
+    _lastDelta = delta;
+
+    if (_traveled > (gestureSettings?.touchSlop ?? kTouchSlop)) {
       resolve(GestureDisposition.accepted);
     }
   }
