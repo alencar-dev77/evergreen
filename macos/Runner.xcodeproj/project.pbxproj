@@ -36,6 +36,7 @@
 		A1E0C50012B4E0A100EC4009 /* AppLocationGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C50012B4E0A100EC400A /* AppLocationGuard.swift */; };
 		A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */; };
 		A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */; };
+		A1E0C60012B4E0A100EC4031 /* KeyboardLockChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C60012B4E0A100EC4032 /* KeyboardLockChannel.swift */; };
 		A1E0C40012B4E0A100EC4101 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = A1E0C40012B4E0A100EC4102 /* FluidAudio */; };
 		A1E0C40012B4E0A100EC4201 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1E0C40012B4E0A100EC4202 /* Sparkle */; };
 		A1E0C40012B4E0A100EC4204 /* UpdaterChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E0C40012B4E0A100EC4205 /* UpdaterChannel.swift */; };
@@ -100,6 +101,7 @@
 		A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoPlayerChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4205 /* UpdaterChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterChannel.swift; sourceTree = "<group>"; };
 		A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchIsland.swift; sourceTree = "<group>"; };
+		A1E0C60012B4E0A100EC4032 /* KeyboardLockChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLockChannel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -194,6 +196,7 @@
 				A1E0C40012B4E0A100EC4004 /* NestChannel.swift */,
 				A1E0C40012B4E0A100EC4008 /* NestDragMonitor.swift */,
 				A1E0C40012B4E0A100EC4012 /* NotchIsland.swift */,
+				A1E0C60012B4E0A100EC4032 /* KeyboardLockChannel.swift */,
 				A1E0C40012B4E0A100EC400A /* NotificationChannel.swift */,
 				A1E0C50012B4E0A100EC400A /* AppLocationGuard.swift */,
 				A1E0C40012B4E0A100EC400C /* EchoPlayerChannel.swift */,
@@ -387,6 +390,7 @@
 				A1E0C40012B4E0A100EC4003 /* NestChannel.swift in Sources */,
 				A1E0C40012B4E0A100EC4007 /* NestDragMonitor.swift in Sources */,
 				A1E0C40012B4E0A100EC4011 /* NotchIsland.swift in Sources */,
+				A1E0C60012B4E0A100EC4031 /* KeyboardLockChannel.swift in Sources */,
 				A1E0C40012B4E0A100EC4009 /* NotificationChannel.swift in Sources */,
 				A1E0C50012B4E0A100EC4009 /* AppLocationGuard.swift in Sources */,
 				A1E0C40012B4E0A100EC400B /* EchoPlayerChannel.swift in Sources */,

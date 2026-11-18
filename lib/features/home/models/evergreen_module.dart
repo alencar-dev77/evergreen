@@ -47,7 +47,8 @@ enum EvergreenModule {
     tagline: 'Mantém a tela acesa',
     description:
         'Impede o Mac de apagar a tela e dormir pelo tempo que você '
-        'escolher, sem mexer nas configurações de energia.',
+        'escolher, sem mexer nas configurações de energia. Também bloqueia o '
+        'teclado por alguns minutos.',
     icon: EgIconData.sun,
     status: ModuleStatus.available,
     shortcutSlot: GlobalShortcutSlot.awake,

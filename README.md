@@ -116,7 +116,7 @@ notarização) está em
 | **Pin** | Histórico da área de transferência (texto e imagem), com busca, apelidos e itens fixados | `⌘⇧C` |
 | **Focus** | Ciclos de foco e pausa, com o registro do que foi feito em cada sessão | `⌘⇧F` |
 | **Leaf** | Parede de até nove anotações curtas, todas à vista de uma vez | `⌘⇧D` |
-| **Awake** | Impede o Mac de dormir pelo prazo escolhido — a tela, ou só o sistema | `⌘⇧X` |
+| **Awake** | Impede o Mac de dormir pelo prazo escolhido — a tela, ou só o sistema — e bloqueia o teclado por alguns minutos | `⌘⇧X` |
 | **Echo** | Grava a reunião, separa as vozes, transcreve e resume — tudo local | `⌘⇧E` |
 | **Nest** | Junta arquivos de várias pastas numa prateleira e manda todos para a mesma | `⌘⇧R` |
 | **Track** | Responde "o que eu fiz hoje" a partir do que os outros gravaram | — (só no Hub) |
@@ -273,7 +273,7 @@ Configurações → Aplicativo → **Diagnóstico**:
 
 | Permissão | Para quê | Sem ela |
 |---|---|---|
-| **Acessibilidade** | O auto-colar do Pin (desligado por padrão) | O auto-colar só copia |
+| **Acessibilidade** | O auto-colar do Pin (desligado por padrão) e o bloqueio de teclado do Awake | O auto-colar só copia; o teclado não é bloqueado |
 | **Microfone** e **Gravação de tela** | O Echo captura as duas faixas de áudio | O Echo não grava |
 
 Ficam em Ajustes → Privacidade e Segurança.

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/awake_duration.dart';
 import '../models/awake_mode.dart';
 import '../models/awake_settings.dart';
+import '../models/keyboard_lock_duration.dart';
 
 /// Persistência das preferências do Awake.
 ///
@@ -15,12 +16,16 @@ class AwakeSettingsRepository {
 
   static const _defaultDurationKey = 'awake.default_duration';
   static const _modeKey = 'awake.mode';
+  static const _keyboardLockKey = 'awake.keyboard_lock_duration';
 
   AwakeSettings load() => AwakeSettings(
     defaultDuration: AwakeDuration.fromName(
       _prefs.getString(_defaultDurationKey),
     ),
     mode: AwakeMode.fromName(_prefs.getString(_modeKey)),
+    keyboardLockDuration: KeyboardLockDuration.fromName(
+      _prefs.getString(_keyboardLockKey),
+    ),
   );
 
   /// Relê o plist nativo antes de responder — a preferência é editada no Hub,
@@ -31,6 +36,7 @@ class AwakeSettingsRepository {
     await Future.wait([
       _prefs.setString(_defaultDurationKey, settings.defaultDuration.name),
       _prefs.setString(_modeKey, settings.mode.name),
+      _prefs.setString(_keyboardLockKey, settings.keyboardLockDuration.name),
     ]);
   }
 }

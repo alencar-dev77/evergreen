@@ -5,6 +5,7 @@ import '../../data/awake_settings_repository.dart';
 import '../../models/awake_duration.dart';
 import '../../models/awake_mode.dart';
 import '../../models/awake_settings.dart';
+import '../../models/keyboard_lock_duration.dart';
 
 final awakeSettingsViewModelProvider =
     NotifierProvider<AwakeSettingsViewModel, AwakeSettings>(
@@ -31,6 +32,11 @@ class AwakeSettingsViewModel extends Notifier<AwakeSettings> {
 
   Future<void> setMode(AwakeMode value) async {
     state = state.copyWith(mode: value);
+    await _repository.save(state);
+  }
+
+  Future<void> setKeyboardLockDuration(KeyboardLockDuration value) async {
+    state = state.copyWith(keyboardLockDuration: value);
     await _repository.save(state);
   }
 }

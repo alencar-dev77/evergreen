@@ -48,9 +48,9 @@ traz a dele para lá. Os PDFs da licença e da política saem do
 
 **O escopo fechou na V1: o Evergreen são os sete módulos acima.** Daqui em
 diante entra correção, ajuste do que existe e o que o sistema exigir — não
-módulo novo. A única ideia que ainda pode entrar é **bloquear o teclado para
-limpar** ([bloquear-teclado-para-limpar.md](docs/Ideis%20projeto/bloquear-teclado-para-limpar.md)),
-pequena e perto do Awake. As propostas de módulo que existiam — Snap, captura
+módulo novo. A última ideia que ainda podia entrar, **bloquear o teclado**
+([bloquear-teclado-para-limpar.md](docs/Ideis%20projeto/bloquear-teclado-para-limpar.md)),
+entrou como parte do Awake — não é um oitavo módulo. As propostas de módulo que existiam — Snap, captura
 de tela ([snap-captura-de-tela.md](docs/Ideis%20projeto/snap-captura-de-tela.md)),
 Frame, imagem local ([frame-imagem-local.md](docs/Ideis%20projeto/frame-imagem-local.md)),
 e esconder ícones da barra de menus
@@ -167,6 +167,17 @@ lista de módulos sonhados) está em
   dois mecanismos vivos para "não deixar dormir" seria pior que escrever os dois
   no mesmo lugar. Ver
   [docs/Ideis projeto/awake-trava-nativa.md](docs/Ideis%20projeto/awake-trava-nativa.md).
+- **`CGEventTap`** (nativo, canal `keyboard_lock`, `KeyboardLockChannel.swift`,
+  só na janela 0) — o bloqueio de teclado do Awake. Devolve `nil` para tecla,
+  modificadora e tecla de sistema enquanto vale, e **não lê o que foi
+  digitado**. Pede a Acessibilidade, e não funciona com a entrada segura
+  ligada (`IsSecureEventInputEnabled`): nos dois casos o painel diz por quê, em
+  vez de prometer um bloqueio que não acontece. **A saída nunca depende do
+  teclado**: o prazo (1, 5 ou 10 min, ou "Sempre", escolhido só no Hub), o
+  "Desbloquear", o clique fora do painel e o item do menu da barra. E o
+  bloqueio **é o painel**: fechar o painel do Awake, trocar de painel ou
+  desligar o módulo devolvem o teclado — teclado bloqueado sem nada na tela
+  pareceria um Mac travado. Não grava nada; o Track não o vê.
 - **`ScreenCaptureKit` + `Speech` + `FoundationModels`** (nativo, macOS 26) — o
   Echo. Captura de áudio em duas faixas, transcrição e resumo local, sem
   equivalente em Flutter puro; o porquê de cada um está em
