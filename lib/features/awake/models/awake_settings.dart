@@ -1,11 +1,13 @@
 import 'awake_duration.dart';
 import 'awake_mode.dart';
+import 'keyboard_lock_duration.dart';
 
 /// Preferências do módulo Awake.
 class AwakeSettings {
   const AwakeSettings({
     this.defaultDuration = AwakeDuration.hour1,
     this.mode = AwakeMode.screen,
+    this.keyboardLockDuration = KeyboardLockDuration.minute1,
   });
 
   /// Duração que vem escolhida quando o painel abre.
@@ -21,9 +23,19 @@ class AwakeSettings {
   /// linha a mais nele seria uma decisão que ninguém pediu na hora de ligar.
   final AwakeMode mode;
 
-  AwakeSettings copyWith({AwakeDuration? defaultDuration, AwakeMode? mode}) =>
-      AwakeSettings(
-        defaultDuration: defaultDuration ?? this.defaultDuration,
-        mode: mode ?? this.mode,
-      );
+  /// Por quanto tempo o teclado fica bloqueado ao bloquear.
+  ///
+  /// Só aqui, e não no painel: o painel bloqueado não tem teclado para trocar
+  /// de opção, e na hora de bloquear ninguém quer decidir um número.
+  final KeyboardLockDuration keyboardLockDuration;
+
+  AwakeSettings copyWith({
+    AwakeDuration? defaultDuration,
+    AwakeMode? mode,
+    KeyboardLockDuration? keyboardLockDuration,
+  }) => AwakeSettings(
+    defaultDuration: defaultDuration ?? this.defaultDuration,
+    mode: mode ?? this.mode,
+    keyboardLockDuration: keyboardLockDuration ?? this.keyboardLockDuration,
+  );
 }

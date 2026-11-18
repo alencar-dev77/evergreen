@@ -1,6 +1,7 @@
 import 'package:evergreen/app/providers.dart';
 import 'package:evergreen/core/design/app_theme.dart';
 import 'package:evergreen/core/window/overlay_window.dart';
+import 'package:evergreen/features/awake/data/keyboard_lock_service.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
 import 'package:evergreen/features/awake/presentation/views/awake_overlay_view.dart';
@@ -10,14 +11,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'fake_keyboard_lock_service.dart';
 import 'fake_sleep_assertion_service.dart';
 
 void main() {
   late FakeSleepAssertionService sleep;
   late FakeAwakeSessionRepository sessions;
   late SharedPreferences preferences;
+  late FakeKeyboardLockService keyboard;
 
   setUp(() async {
+    keyboard = FakeKeyboardLockService();
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
     sleep = FakeSleepAssertionService();
@@ -29,6 +33,7 @@ void main() {
       ProviderScope(
         overrides: [
           sleepAssertionServiceProvider.overrideWithValue(sleep),
+          keyboardLockServiceProvider.overrideWithValue(keyboard),
           awakeSessionRepositoryProvider.overrideWithValue(sessions),
           sharedPreferencesProvider.overrideWithValue(preferences),
           clockProvider.overrideWithValue(() => tester.binding.clock.now()),
@@ -117,5 +122,38 @@ void main() {
       AwakeDuration.indefinite,
     );
     expect(find.text('∞'), findsOneWidget);
+  });
+
+  testWidgets('T bloqueia o teclado e o painel vira o bloqueio', (
+    tester,
+  ) async {
+    await pumpPanel(tester);
+    expect(find.text('Bloquear o teclado por 1 min'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+    await tester.pump();
+
+    expect(keyboard.isLocked, isTrue);
+    expect(find.text('TECLADO BLOQUEADO'), findsOneWidget);
+    expect(find.text('01:00'), findsOneWidget);
+    // O seletor do Awake sai: o prazo do bloqueio é preferência.
+    expect(find.text('30 min'), findsNothing);
+
+    await tester.tap(find.text('Desbloquear'));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(keyboard.isLocked, isFalse);
+    expect(find.text('DESLIGADO'), findsOneWidget);
+  });
+
+  testWidgets('recusado, a linha diz por que não bloqueou', (tester) async {
+    keyboard.refusal = KeyboardLockRefusal.secureInput;
+    await pumpPanel(tester);
+
+    await tester.tap(find.text('Bloquear o teclado por 1 min'));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(keyboard.isLocked, isFalse);
+    expect(find.textContaining('campo de senha'), findsOneWidget);
   });
 }

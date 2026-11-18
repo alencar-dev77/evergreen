@@ -25,6 +25,7 @@ void main() {
         MenuBarAction.openFocus,
         MenuBarAction.openLeaf,
         MenuBarAction.openAwake,
+        MenuBarAction.lockKeyboard,
         MenuBarAction.openEcho,
         MenuBarAction.openNest,
         MenuBarAction.openHub,
@@ -97,6 +98,40 @@ void main() {
     final actions = [for (final entry in content.entries()) entry.action];
     expect(actions, contains(MenuBarAction.uninstall));
     expect(actions, contains(MenuBarAction.quit));
+  });
+
+  test(
+    'o bloqueio de teclado vem logo abaixo do Awake, e vira desbloquear',
+    () {
+      final content = MenuBarContent();
+      final entries = content.entries();
+      final awake = entries.indexWhere(
+        (entry) => entry.action == MenuBarAction.openAwake,
+      );
+
+      expect(
+        entries[awake + 1],
+        const MenuBarEntry.item(
+          'Bloquear o teclado',
+          action: MenuBarAction.lockKeyboard,
+        ),
+      );
+
+      content.keyboardLocked = true;
+      expect(labels(content), contains('Desbloquear o teclado'));
+      expect(labels(content), isNot(contains('Bloquear o teclado')));
+    },
+  );
+
+  test('sem o Awake, o bloqueio de teclado também sai do menu', () {
+    final content = MenuBarContent()..modules = [MenuBarAction.openPin];
+
+    expect(
+      content.entries().where(
+        (entry) => entry.action == MenuBarAction.lockKeyboard,
+      ),
+      isEmpty,
+    );
   });
 
   test('com o Awake ligado, o item diz quanto falta', () {

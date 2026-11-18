@@ -46,7 +46,7 @@ class EgHintBar extends StatelessWidget {
   final EgHint? trailing;
 
   /// A altura da barra.
-  static const _height = 34.0;
+  static const height = 34.0;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +63,7 @@ class EgHintBar extends StatelessWidget {
     // translúcido escurece o que já está atrás, que é o que uma faixa de
     // rodapé faz num material de verdade.
     return Container(
-      height: _height,
+      height: height,
       padding: EdgeInsets.symmetric(horizontal: context.eg.shapes.rowPaddingH),
       decoration: BoxDecoration(
         color: const Color(0x2E000000),

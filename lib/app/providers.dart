@@ -18,6 +18,7 @@ import '../core/window/overlay_panel.dart';
 import '../core/window/window_kind.dart';
 import '../features/awake/data/awake_session_repository.dart';
 import '../features/awake/data/awake_settings_repository.dart';
+import '../features/awake/data/keyboard_lock_service.dart';
 import '../features/awake/data/sleep_assertion_service.dart';
 import '../features/echo/data/echo_audio_store.dart';
 import '../features/echo/data/echo_channel.dart';
@@ -477,6 +478,14 @@ final trackWeekNotifierProvider = Provider<TrackWeekNotifier>(
 /// verificar o cronômetro do Awake sem tocar no IOKit.
 final sleepAssertionServiceProvider = Provider<SleepAssertionService>(
   (ref) => NativeSleepAssertionService(),
+);
+
+/// O bloqueio de teclado do Awake.
+///
+/// Provider pelo mesmo motivo da trava: o teste o troca para verificar o prazo
+/// do bloqueio sem engolir o teclado de quem roda a suíte.
+final keyboardLockServiceProvider = Provider<KeyboardLockService>(
+  (ref) => NativeKeyboardLockService(),
 );
 
 final awakeSessionRepositoryProvider = Provider<AwakeSessionRepository>(

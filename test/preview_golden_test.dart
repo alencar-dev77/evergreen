@@ -15,6 +15,7 @@ import 'package:evergreen/core/design/eg_tokens.dart';
 import 'package:evergreen/features/awake/models/awake_duration.dart';
 import 'package:evergreen/features/awake/presentation/viewmodels/awake_view_model.dart';
 import 'package:evergreen/features/awake/presentation/views/awake_overlay_view.dart';
+import 'package:evergreen/features/awake/presentation/viewmodels/keyboard_lock_view_model.dart';
 import 'package:evergreen/features/echo/data/echo_repository.dart';
 import 'package:evergreen/features/echo/models/meeting.dart';
 import 'package:evergreen/features/echo/models/meeting_segment.dart';
@@ -53,6 +54,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
+import 'features/awake/fake_keyboard_lock_service.dart';
 import 'features/awake/fake_sleep_assertion_service.dart';
 import 'features/echo/fake_echo_channel.dart';
 import 'features/focus/fake_focus_session_repository.dart';
@@ -482,6 +484,11 @@ void main() {
           // linha, e o banco do aplicativo não existe sob `flutter test`.
           awakeSessionRepositoryProvider.overrideWithValue(
             FakeAwakeSessionRepository(),
+          ),
+          // E o bloqueio de teclado: o de verdade engoliria o teclado da
+          // máquina que roda a suíte.
+          keyboardLockServiceProvider.overrideWithValue(
+            FakeKeyboardLockService(),
           ),
           leafRepositoryProvider.overrideWithValue(notes),
           notificationServiceProvider.overrideWithValue(
@@ -1006,6 +1013,31 @@ void main() {
       find.byType(NestOverlayView),
       matchesGoldenFile('goldens/nest_overlay_empty.png'),
     );
+  });
+
+  testWidgets('painel do Awake — teclado bloqueado', (tester) async {
+    await pump(
+      tester,
+      const AwakeOverlayView(),
+      const Size(1120, 700),
+      fakeClock: true,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AwakeOverlayView)),
+    );
+    final keyboard = container.read(keyboardLockViewModelProvider.notifier);
+    await keyboard.lock();
+    await tester.pump(const Duration(seconds: 18));
+    await tester.pump(AppDurations.instant);
+
+    await expectLater(
+      find.byType(AwakeOverlayView),
+      matchesGoldenFile('goldens/awake_overlay_keyboard_locked.png'),
+    );
+
+    // O golden não pode deixar o ticker vivo atrás de si.
+    await keyboard.unlock();
   });
 
   testWidgets('Hub — Nest', (tester) async {

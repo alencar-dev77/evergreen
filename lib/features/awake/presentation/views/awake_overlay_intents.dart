@@ -13,6 +13,13 @@ class AwakeCycleDurationIntent extends Intent {
   final int delta;
 }
 
+/// Bloqueia o teclado pelo prazo das preferências.
+///
+/// Só bloqueia: desbloquear pelo teclado é justamente o que não existe.
+class AwakeLockKeyboardIntent extends Intent {
+  const AwakeLockKeyboardIntent();
+}
+
 /// Fecha o painel. A trava continua como estava.
 class AwakeCloseIntent extends Intent {
   const AwakeCloseIntent();
@@ -39,6 +46,7 @@ abstract final class AwakeOverlayIntents {
     SingleActivator(LogicalKeyboardKey.escape): AwakeCloseIntent(),
     SingleActivator(LogicalKeyboardKey.arrowLeft): AwakeCycleDurationIntent(-1),
     SingleActivator(LogicalKeyboardKey.arrowRight): AwakeCycleDurationIntent(1),
+    SingleActivator(LogicalKeyboardKey.keyT): AwakeLockKeyboardIntent(),
     SingleActivator(LogicalKeyboardKey.comma, meta: true):
         AwakeOpenSettingsIntent(),
   };
@@ -48,6 +56,7 @@ abstract final class AwakeOverlayIntents {
     required Future<void> Function(int delta) onCycleDuration,
     required Future<void> Function() onClose,
     required Future<void> Function() onOpenSettings,
+    required Future<void> Function() onLockKeyboard,
   }) {
     return <Type, Action<Intent>>{
       AwakeToggleIntent: CallbackAction<AwakeToggleIntent>(
@@ -61,6 +70,9 @@ abstract final class AwakeOverlayIntents {
       ),
       AwakeOpenSettingsIntent: CallbackAction<AwakeOpenSettingsIntent>(
         onInvoke: (_) => onOpenSettings(),
+      ),
+      AwakeLockKeyboardIntent: CallbackAction<AwakeLockKeyboardIntent>(
+        onInvoke: (_) => onLockKeyboard(),
       ),
     };
   }

@@ -151,6 +151,9 @@ class MainFlutterWindow: NSPanel {
     // quem atende o clique são os serviços que vivem nela.
     if isOverlay {
       NotificationChannel.register(with: controller.engine.binaryMessenger)
+      // O bloqueio de teclado do Awake é do processo, e quem decide quando ele
+      // acaba (o prazo, o painel, o menu) mora na janela 0.
+      KeyboardLockChannel.register(with: controller.engine.binaryMessenger)
       // E é com ela que o atualizador nasce: a consulta agendada roda mesmo
       // que o Hub nunca seja aberto.
       UpdaterChannel.start()
