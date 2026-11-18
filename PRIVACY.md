@@ -1,6 +1,6 @@
 # Política de privacidade
 
-Última atualização: 13 de novembro de 2026.
+Última atualização: 18 de novembro de 2026.
 
 O Evergreen é um aplicativo para macOS que roda inteiro no seu Mac. Ele não tem
 conta, servidor, sincronização, anúncio nem telemetria. **Quem o desenvolve não
@@ -90,7 +90,7 @@ instalação nem telemetria própria.
 
 | Permissão | Para quê |
 |---|---|
-| **Acessibilidade** | O colar automático do Pin, que vem desligado. Sem ela, o item só é copiado |
+| **Acessibilidade** | O colar automático do Pin, que vem desligado. Sem ela, o item só é copiado. E o bloqueio de teclado do Awake: enquanto ele vale, o Evergreen descarta toda tecla antes de ela chegar a qualquer app — sem ler nem guardar o que foi digitado |
 | **Mesa** (ou a pasta onde os prints são salvos) | O "Guardar prints" do Pin, que vem desligado. O Pin olha a pasta, mas só copia os arquivos que o macOS marca como print, tirados depois de ligar |
 | **Microfone** | O Echo grava a sua voz na reunião |
 | **Gravação de Tela** | O Echo grava o som do computador (o outro lado da reunião). Ele não grava imagem da tela |

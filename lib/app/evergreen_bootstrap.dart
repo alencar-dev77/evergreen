@@ -22,6 +22,8 @@ import '../core/window/overlay_window.dart';
 import '../features/awake/models/awake_notifications.dart';
 import '../features/awake/presentation/viewmodels/awake_state.dart';
 import '../features/awake/presentation/viewmodels/awake_view_model.dart';
+import '../features/awake/presentation/viewmodels/keyboard_lock_state.dart';
+import '../features/awake/presentation/viewmodels/keyboard_lock_view_model.dart';
 import '../core/local_model/local_model_gate.dart';
 import '../features/echo/data/echo_summary_runner.dart';
 import '../features/echo/presentation/viewmodels/echo_recorder_state.dart';
@@ -194,6 +196,7 @@ class EvergreenBootstrap {
     // nela, inclusive para limpá-lo.
     _watchFocusSession();
     _watchAwake();
+    _watchKeyboardLock();
     _watchEcho();
     _watchNotch();
     _watchUpdates();
@@ -444,6 +447,7 @@ class EvergreenBootstrap {
         _container.read(focusTimerViewModelProvider.notifier).stop();
       case EvergreenModule.awake:
         await _container.read(awakeViewModelProvider.notifier).turnOff();
+        await _container.read(keyboardLockViewModelProvider.notifier).unlock();
       case EvergreenModule.echo:
         await _container
             .read(echoRecorderViewModelProvider.notifier)
@@ -603,6 +607,48 @@ class EvergreenBootstrap {
 
       unawaited(MenuBarService.instance.setAwakeDetail(next.menuBarDetail));
     }, fireImmediately: true);
+  }
+
+  /// Mantém o item do bloqueio de teclado, no menu da barra, em dia — e
+  /// devolve o teclado sempre que a janela flutuante some.
+  ///
+  /// A visibilidade, e não cada caminho que esconde o painel: o clique fora,
+  /// o atalho funcionando como interruptor, o item "Awake" do menu, o Hub
+  /// abrindo. Qualquer `hide` presente ou futuro cai aqui, e teclado bloqueado
+  /// sem o painel na tela pareceria um Mac travado.
+  void _watchKeyboardLock() {
+    OverlayWindow.instance.visible.addListener(() {
+      if (OverlayWindow.instance.visible.value) return;
+      unawaited(
+        _container.read(keyboardLockViewModelProvider.notifier).unlock(),
+      );
+    });
+
+    _container.listen<KeyboardLockState>(keyboardLockViewModelProvider, (
+      previous,
+      next,
+    ) {
+      if (previous?.isLocked == next.isLocked) return;
+
+      unawaited(MenuBarService.instance.setKeyboardLocked(next.isLocked));
+    }, fireImmediately: true);
+  }
+
+  /// O item do menu da barra: bloqueia e põe o painel do Awake na tela, ou
+  /// desbloqueia.
+  ///
+  /// O painel vem junto do bloqueio — e vem mesmo quando o bloqueio é
+  /// recusado, porque é ele que diz por quê. Teclado bloqueado sem nada na
+  /// tela pareceria um Mac travado.
+  Future<void> _toggleKeyboardLock() async {
+    final keyboard = _container.read(keyboardLockViewModelProvider.notifier);
+    if (_container.read(keyboardLockViewModelProvider).isLocked) {
+      await keyboard.unlock();
+      return;
+    }
+
+    await _showOverlay(OverlayPanel.awake);
+    await keyboard.lock();
   }
 
   /// Põe a prateleira na tela quando arquivos chegam com ela fechada.
@@ -1124,6 +1170,12 @@ class EvergreenBootstrap {
     bool atNotch = false,
     bool keyboard = true,
   }) async {
+    // O bloqueio de teclado só existe com o painel do Awake na tela: trocar
+    // de painel (pelo menu da barra, por uma notificação) devolve o teclado.
+    if (panel != OverlayPanel.awake) {
+      await _container.read(keyboardLockViewModelProvider.notifier).unlock();
+    }
+
     // Lido antes do [_prepare], que troca o painel; a visibilidade, depois
     // dele, porque ele vai ao disco e o painel pode ter fechado no meio — e
     // aí o caminho é o [OverlayWindow.show], que reabre a janela inteira.
@@ -1183,6 +1235,9 @@ class EvergreenBootstrap {
         await _container.read(leafViewModelProvider.notifier).prepareForOpen();
       case OverlayPanel.awake:
         await _container.read(awakeViewModelProvider.notifier).prepareForOpen();
+        await _container
+            .read(keyboardLockViewModelProvider.notifier)
+            .prepareForOpen();
       case OverlayPanel.echo:
         await _container
             .read(echoRecorderViewModelProvider.notifier)
@@ -1204,6 +1259,10 @@ class EvergreenBootstrap {
         toggleOverlay(OverlayPanel.leaf);
       case MenuBarAction.openAwake:
         toggleOverlay(OverlayPanel.awake);
+      case MenuBarAction.lockKeyboard:
+        if (_modules.isEnabled(EvergreenModule.awake)) {
+          _queue(_toggleKeyboardLock);
+        }
       case MenuBarAction.openEcho:
         toggleOverlay(OverlayPanel.echo);
       case MenuBarAction.openNest:
@@ -1322,6 +1381,7 @@ class EvergreenBootstrap {
     // A trava seria solta pelo sistema de qualquer forma quando o processo
     // morresse — mas o tempo em que ela valeu é do dia, e o Track o perderia.
     await _container.read(awakeViewModelProvider.notifier).turnOff();
+    await _container.read(keyboardLockViewModelProvider.notifier).unlock();
   }
 
   Future<void> _quit() async {

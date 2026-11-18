@@ -15,6 +15,11 @@ enum MenuBarAction {
   openFocus('Focus', GlobalShortcutSlot.focus),
   openLeaf('Leaf', GlobalShortcutSlot.leaf),
   openAwake('Awake', GlobalShortcutSlot.awake),
+
+  /// Bloqueia ou desbloqueia o teclado. Mora logo abaixo do Awake, e só
+  /// aparece com ele: é a única porta do bloqueio que não precisa do teclado
+  /// para desbloquear.
+  lockKeyboard('Bloquear o teclado', null),
   openEcho('Echo', GlobalShortcutSlot.echo),
   openNest('Nest', GlobalShortcutSlot.nest),
   openHub('Preferências', GlobalShortcutSlot.hub),
@@ -36,7 +41,11 @@ enum MenuBarAction {
 
   /// Abre um módulo — e por isso entra e sai do menu com ele.
   bool get isModule =>
-      this != update && this != openHub && this != uninstall && this != quit;
+      this != update &&
+      this != lockKeyboard &&
+      this != openHub &&
+      this != uninstall &&
+      this != quit;
 
   /// Como o item se apresenta no menu, dada a combinação em vigor.
   ///
@@ -110,6 +119,10 @@ class MenuBarContent {
   /// Há quanto tempo o Echo está gravando, quando está.
   String? echoLabel;
 
+  /// O teclado está bloqueado agora — o item abaixo do Awake vira
+  /// "Desbloquear teclado".
+  bool keyboardLocked = false;
+
   /// O módulo cujo relógio a ilha do notch está mostrando —
   /// [MenuBarAction.openEcho] ou [MenuBarAction.openFocus] —, ou `null` sem
   /// ilha na tela.
@@ -174,7 +187,14 @@ class MenuBarContent {
       ),
       const MenuBarEntry.separator(),
     ],
-    for (final action in modules) _entryFor(action),
+    for (final action in modules) ...[
+      _entryFor(action),
+      if (action == MenuBarAction.openAwake)
+        MenuBarEntry.item(
+          keyboardLocked ? 'Desbloquear o teclado' : 'Bloquear o teclado',
+          action: MenuBarAction.lockKeyboard,
+        ),
+    ],
     _entryFor(MenuBarAction.openHub),
     const MenuBarEntry.separator(),
     // As reticências avisam que o clique ainda pergunta: ele abre o Hub na
@@ -326,6 +346,16 @@ class MenuBarService {
     _content.awakeDetail = detail;
 
     _applyTitle();
+    _menu?.show(_content.entries());
+  }
+
+  /// Troca o item do bloqueio de teclado entre "Bloquear" e "Desbloquear".
+  ///
+  /// Renomeia o item no lugar, como o minuto do Awake: o menu pode estar aberto.
+  Future<void> setKeyboardLocked(bool locked) async {
+    if (_content.keyboardLocked == locked) return;
+    _content.keyboardLocked = locked;
+
     _menu?.show(_content.entries());
   }
 
